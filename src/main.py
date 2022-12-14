@@ -21,8 +21,8 @@ stations = []
 for i in range(10):
     stations.append(
         Station(
-            position=get_random_position(width, height),
             shape=get_random_station_shape(),
+            position=get_random_position(width, height),
         )
     )
 

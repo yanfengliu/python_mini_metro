@@ -1,5 +1,6 @@
 import colorsys
 import random
+import uuid
 
 import numpy as np
 
@@ -27,8 +28,16 @@ def get_random_shape(shape_type_list, size):
     elif shape_type == ShapeType.CIRCLE:
         return Circle(color=color, radius=size)
 
+station_shape_list = [ShapeType.RECT, ShapeType.CIRCLE]
 
 def get_random_station_shape():
-    station_shape_list = [ShapeType.RECT, ShapeType.CIRCLE]
     station_size = 10
     return get_random_shape(station_shape_list, station_size)
+
+def get_random_passenger_shape():
+    passenger_size = 5
+    return get_random_shape(station_shape_list, passenger_size)
+
+
+def get_uuid():
+    return uuid.uuid4().hex
