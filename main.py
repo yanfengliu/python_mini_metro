@@ -4,7 +4,7 @@ import pygame
 
 from shapes.rect import Rect
 from station import Station
-from utils import get_random_position, get_random_shape
+from utils import get_random_position, get_random_station_shape
 
 pygame.init()
 
@@ -22,7 +22,7 @@ for i in range(10):
     stations.append(
         Station(
             position=get_random_position(width, height),
-            shape=get_random_shape(),
+            shape=get_random_station_shape(),
         )
     )
 
