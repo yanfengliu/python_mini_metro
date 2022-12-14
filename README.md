@@ -6,3 +6,6 @@ This repo uses `pygame` to implement Mini Metro, a fun 2D strategic game where y
 
 # How to run
 * To play the game manually, run `src/python main.py`
+
+# Testing
+`python -m unittest -v`
