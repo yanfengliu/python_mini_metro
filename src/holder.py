@@ -34,3 +34,9 @@ class Holder(ABC):
                 raise RuntimeError(f"{holder} has no room for {passenger}.")
         else:
             raise LookupError(f"{passenger} is not in {self}.")
+
+    def remove_passenger(self, passenger):
+        if passenger in self.passengers:
+            self.passengers.remove(passenger)
+        else:
+            raise LookupError(f"{passenger} is not in {self}.")
