@@ -1,6 +1,7 @@
+import pygame
+
 from shapes.shape import Shape
 from shapes.types import ShapeType
-import pygame
 
 
 class Rect(Shape):

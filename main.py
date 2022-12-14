@@ -1,7 +1,9 @@
 import sys
+
 import pygame
-from station import Station
+
 from shapes.rect import Rect
+from station import Station
 
 pygame.init()
 
