@@ -4,6 +4,7 @@ import pygame
 
 from shapes.rect import Rect
 from station import Station
+from utils import get_random_position, get_random_shape
 
 pygame.init()
 
@@ -16,6 +17,15 @@ flags = pygame.SCALED
 screen = pygame.display.set_mode(size, flags, vsync=1)
 clock = pygame.time.Clock()
 
+stations = []
+for i in range(10):
+    stations.append(
+        Station(
+            position=get_random_position(width, height),
+            shape=get_random_shape(),
+        )
+    )
+
 while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -23,13 +33,7 @@ while True:
 
     clock.tick(framerate)
 
-    screen.fill(255, 255, 255)
-    stations = [
-        Station(
-            position={"left": 50, "top": 100},
-            shape=Rect(color=(0, 0, 0), width=20, height=20),
-        )
-    ]
+    screen.fill((255, 255, 255))
     for station in stations:
         station.draw(screen)
 
