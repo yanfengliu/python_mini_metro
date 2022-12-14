@@ -4,13 +4,10 @@ import unittest
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
-from station import Station
 from passenger import Passenger
-from utils import (
-    get_random_position,
-    get_random_station_shape,
-    get_random_passenger_shape,
-)
+from station import Station
+from utils import (get_random_passenger_shape, get_random_position,
+                   get_random_station_shape)
 
 
 class TestStation(unittest.TestCase):
