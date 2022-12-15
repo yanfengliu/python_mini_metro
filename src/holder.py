@@ -1,42 +1,24 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
+from typing import List
+
+import pygame
+
+from passenger import Passenger
+from shapes.shape import Shape
+from type import Point
 
 
 class Holder(ABC):
-    def __init__(self, shape) -> None:
+    def __init__(self, shape: Shape, position: Point, capacity: int, id: str) -> None:
         self.shape = shape
-        self.passengers = []
-        self.capacity = 0
-        self.id = "Base holder, which should NOT be instantiated."
+        self.position = position
+        self.capacity = capacity
+        self.id = id
 
     def __repr__(self) -> str:
         return self.id
 
-    @abstractmethod
-    def draw(self, surface):
-        pass
-
-    def has_room(self, requested_num=1):
-        return self.capacity - len(self.passengers) >= requested_num
-
-    def add_passenger(self, passenger):
-        if self.has_room():
-            self.passengers.append(passenger)
-            passenger.set_holder(self)
-        else:
-            raise RuntimeError(f"{self} has no room for {passenger}.")
-
-    def move_passenger(self, passenger, holder):
-        if passenger in self.passengers:
-            if holder.has_room():
-                self.passengers.remove(passenger)
-                holder.add_passenger(passenger)
-            else:
-                raise RuntimeError(f"{holder} has no room for {passenger}.")
-        else:
-            raise LookupError(f"{passenger} is not in {self}.")
-
-    def remove_passenger(self, passenger):
-        if passenger in self.passengers:
-            self.passengers.remove(passenger)
-        else:
-            raise LookupError(f"{passenger} is not in {self}.")
+    def draw(self, surface: pygame.Surface):
+        self.shape.draw(surface, self.position)
