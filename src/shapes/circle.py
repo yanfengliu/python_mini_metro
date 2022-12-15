@@ -7,7 +7,7 @@ from type import Color, Point
 
 class Circle(Shape):
     def __init__(self, color: Color, radius: int) -> None:
-        self.type = ShapeType.CIRCLE
+        super().__init__(ShapeType.CIRCLE)
         self.color = color
         self.radius = radius
 

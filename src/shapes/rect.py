@@ -7,7 +7,7 @@ from type import Color, Point
 
 class Rect(Shape):
     def __init__(self, color: Color, width: int, height: int) -> None:
-        self.type = ShapeType.RECT
+        super().__init__(ShapeType.RECT)
         self.color = color
         self.width = width
         self.height = height

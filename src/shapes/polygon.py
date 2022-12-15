@@ -9,7 +9,7 @@ from type import Color, Point
 
 class Polygon(Shape):
     def __init__(self, color: Color, points: List[Point]) -> None:
-        self.type = ShapeType.POLYGON
+        super().__init__(ShapeType.POLYGON)
         self.color = color
         self.points = points
 

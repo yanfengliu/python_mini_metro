@@ -9,7 +9,7 @@ class Line(Shape):
     def __init__(
         self, color: Color, start: Point, end: Point, width: int
     ) -> None:
-        self.type = ShapeType.CIRCLE
+        super().__init__(ShapeType.LINE)
         self.color = color
         self.start = start
         self.end = end
