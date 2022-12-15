@@ -13,7 +13,7 @@ class Polygon(Shape):
         self.color = color
         self.points = points
 
-    def draw(self, surface, position):
+    def draw(self, surface: pygame.Surface, position: Point):
         points = self.points
         for i in range(len(points)):
             points[i][0] += position[0]
