@@ -1,6 +1,6 @@
 from config import metro_capacity, metro_color, metro_size
-from holder import Holder
 from geometry.rect import Rect
+from holder import Holder
 from type import Point
 from utils import get_uuid
 

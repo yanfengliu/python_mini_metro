@@ -1,6 +1,6 @@
 from config import station_capacity
-from holder import Holder
 from geometry.shape import Shape
+from holder import Holder
 from type import Point
 from utils import get_uuid
 
