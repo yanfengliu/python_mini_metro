@@ -1,15 +1,10 @@
 import pygame
 
-from shapes.shape import Shape
-from shapes.type import ShapeType
 from type import Color, Point
 
 
-class Line(Shape):
-    def __init__(
-        self, color: Color, start: Point, end: Point, width: int
-    ) -> None:
-        super().__init__(ShapeType.LINE)
+class Line:
+    def __init__(self, color: Color, start: Point, end: Point, width: int) -> None:
         self.color = color
         self.start = start
         self.end = end
