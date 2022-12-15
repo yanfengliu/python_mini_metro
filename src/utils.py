@@ -8,8 +8,9 @@ import numpy as np
 from config import passenger_size, station_size
 from geometry.circle import Circle
 from geometry.rect import Rect
+from geometry.shape import Shape
 from geometry.type import ShapeType, station_shape_list
-from type import Point
+from type import Color, Point
 
 
 def get_random_position(width: int, height: int) -> Point:
@@ -19,11 +20,11 @@ def get_random_position(width: int, height: int) -> Point:
     }
 
 
-def get_random_color():
-    return 255 * np.asarray(colorsys.hsv_to_rgb(np.random.rand(), 1.0, 1.0))
+def get_random_color() -> Color:
+    return tuple(255 * np.asarray(colorsys.hsv_to_rgb(np.random.rand(), 1.0, 1.0)))
 
 
-def get_random_shape(shape_type_list: List[ShapeType], size: int):
+def get_random_shape(shape_type_list: List[ShapeType], size: int) -> Shape:
     color = get_random_color()
     shape_type = random.choice(shape_type_list)
     if shape_type == ShapeType.RECT:
@@ -35,13 +36,13 @@ def get_random_shape(shape_type_list: List[ShapeType], size: int):
 station_shape_list = [ShapeType.RECT, ShapeType.CIRCLE]
 
 
-def get_random_station_shape():
+def get_random_station_shape() -> Shape:
     return get_random_shape(station_shape_list, station_size)
 
 
-def get_random_passenger_shape():
+def get_random_passenger_shape() -> Shape:
     return get_random_shape(station_shape_list, passenger_size)
 
 
-def get_uuid():
+def get_uuid() -> str:
     return uuid.uuid4().hex
