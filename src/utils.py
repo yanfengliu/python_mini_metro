@@ -6,9 +6,9 @@ from typing import List
 import numpy as np
 
 from config import passenger_size, station_size
-from shapes.circle import Circle
-from shapes.rect import Rect
-from shapes.type import ShapeType, station_shape_list
+from geometry.circle import Circle
+from geometry.rect import Rect
+from geometry.type import ShapeType, station_shape_list
 from type import Point
 
 

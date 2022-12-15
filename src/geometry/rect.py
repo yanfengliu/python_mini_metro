@@ -1,7 +1,7 @@
 import pygame
 
-from shapes.shape import Shape
-from shapes.type import ShapeType
+from geometry.shape import Shape
+from geometry.type import ShapeType
 from type import Color, Point
 
 

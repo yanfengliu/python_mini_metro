@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 import pygame
 
-from shapes.type import ShapeType
+from geometry.type import ShapeType
 from type import Point
 
 

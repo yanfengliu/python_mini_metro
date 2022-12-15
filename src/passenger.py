@@ -1,6 +1,6 @@
 import pygame
 
-from shapes.shape import Shape
+from geometry.shape import Shape
 from utils import get_uuid
 
 

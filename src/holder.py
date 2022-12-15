@@ -4,7 +4,7 @@ from abc import ABC
 
 import pygame
 
-from shapes.shape import Shape
+from geometry.shape import Shape
 from type import Point
 
 

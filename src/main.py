@@ -3,7 +3,7 @@ from typing import List
 
 import pygame
 
-from shapes.rect import Rect
+from geometry.rect import Rect
 from station import Station
 from utils import get_random_position, get_random_station_shape
 
