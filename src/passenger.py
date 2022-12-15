@@ -1,7 +1,5 @@
 import pygame
 
-from holder import Holder
-from metro import Metro
 from shapes.shape import Shape
 from utils import get_uuid
 

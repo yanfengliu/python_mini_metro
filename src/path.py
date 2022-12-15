@@ -1,7 +1,3 @@
-from typing import List
-
-from metro import Metro
-from station import Station
 from utils import get_uuid
 
 

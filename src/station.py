@@ -1,10 +1,5 @@
-from typing import List
-
-from pygame import Surface
-
 from config import station_capacity
 from holder import Holder
-from path import Path
 from shapes.shape import Shape
 from type import Point
 from utils import get_uuid

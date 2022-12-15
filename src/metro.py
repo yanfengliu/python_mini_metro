@@ -1,10 +1,6 @@
-from pygame import Surface
-
 from config import metro_capacity, metro_color, metro_size
 from holder import Holder
-from path import Path
 from shapes.rect import Rect
-from station import Station
 from type import Point
 from utils import get_uuid
 
