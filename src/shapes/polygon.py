@@ -1,11 +1,14 @@
+from typing import List
+
 import pygame
 
 from shapes.shape import Shape
-from shapes.types import ShapeType
+from shapes.type import ShapeType
+from type import Color, Point
 
 
 class Polygon(Shape):
-    def __init__(self, color, points) -> None:
+    def __init__(self, color: Color, points: List[Point]) -> None:
         self.type = ShapeType.POLYGON
         self.color = color
         self.points = points

@@ -1,4 +1,5 @@
 import sys
+from typing import List
 
 import pygame
 
@@ -17,7 +18,7 @@ flags = pygame.SCALED
 screen = pygame.display.set_mode(size, flags, vsync=1)
 clock = pygame.time.Clock()
 
-stations = []
+stations: List[Station] = []
 for i in range(10):
     stations.append(
         Station(

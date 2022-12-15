@@ -1,16 +1,19 @@
 import pygame
 
 from shapes.shape import Shape
-from shapes.types import ShapeType
+from shapes.type import ShapeType
+from type import Color, Point
 
 
 class Line(Shape):
-    def __init__(self, color, start, end, width) -> None:
+    def __init__(
+        self, color: Color, start: Point, end: Point, width: int
+    ) -> None:
         self.type = ShapeType.CIRCLE
         self.color = color
         self.start = start
         self.end = end
         self.width = width
 
-    def draw(self, surface):
+    def draw(self, surface: pygame.Surface):
         return pygame.draw.line(surface, self.color, self.start, self.end, self.width)
