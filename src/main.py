@@ -3,19 +3,17 @@ from typing import List
 
 import pygame
 
-from geometry.rect import Rect
+from config import framerate, screen_height, screen_width
 from station import Station
 from utils import get_random_position, get_random_station_shape
 
 pygame.init()
 
 # settings
-size = width, height = 640, 480
-framerate = 60
 flags = pygame.SCALED
 
 # game constants initialization
-screen = pygame.display.set_mode(size, flags, vsync=1)
+screen = pygame.display.set_mode((screen_width, screen_height), flags, vsync=1)
 clock = pygame.time.Clock()
 
 stations: List[Station] = []
@@ -23,7 +21,7 @@ for i in range(10):
     stations.append(
         Station(
             shape=get_random_station_shape(),
-            position=get_random_position(width, height),
+            position=get_random_position(screen_width, screen_height),
         )
     )
 

@@ -1,12 +1,12 @@
 import pygame
 
 from geometry.shape import Shape
-from utils import get_uuid
+from utils import uuid
 
 
 class Passenger:
     def __init__(self, destination_shape: Shape) -> None:
-        self.id = f"P-{get_uuid()}"
+        self.id = f"P-{uuid.uuid4()}"
         self.destination_shape = destination_shape
 
     def __repr__(self) -> str:

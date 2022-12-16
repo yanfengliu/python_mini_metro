@@ -5,13 +5,11 @@ from abc import ABC
 import pygame
 
 from geometry.shape import Shape
-from type import Point
 
 
 class Holder(ABC):
-    def __init__(self, shape: Shape, position: Point, capacity: int, id: str) -> None:
+    def __init__(self, shape: Shape, capacity: int, id: str) -> None:
         self.shape = shape
-        self.position = position
         self.capacity = capacity
         self.id = id
 
