@@ -1,7 +1,8 @@
+import uuid
+
 import pygame
 
 from geometry.shape import Shape
-import uuid
 
 
 class Passenger:
