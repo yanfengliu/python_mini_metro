@@ -4,7 +4,7 @@ from typing import List, Tuple
 
 import numpy as np
 
-from config import passenger_size, station_size
+from config import passenger_size, station_color, station_size
 from geometry.circle import Circle
 from geometry.point import Point
 from geometry.rect import Rect
@@ -25,8 +25,9 @@ def get_random_color() -> Color:
     return tuple(255 * np.asarray(colorsys.hsv_to_rgb(np.random.rand(), 1.0, 1.0)))
 
 
-def get_random_shape(shape_type_list: List[ShapeType], size: int) -> Shape:
-    color = get_random_color()
+def get_random_shape(
+    shape_type_list: List[ShapeType], color: Color, size: int
+) -> Shape:
     shape_type = random.choice(shape_type_list)
     if shape_type == ShapeType.RECT:
         return Rect(color=color, width=2 * size, height=2 * size)
@@ -38,11 +39,11 @@ station_shape_list = [ShapeType.RECT, ShapeType.CIRCLE]
 
 
 def get_random_station_shape() -> Shape:
-    return get_random_shape(station_shape_list, station_size)
+    return get_random_shape(station_shape_list, station_color, station_size)
 
 
 def get_random_passenger_shape() -> Shape:
-    return get_random_shape(station_shape_list, passenger_size)
+    return get_random_shape(station_shape_list, get_random_color(), passenger_size)
 
 
 def tuple_to_point(tuple: Tuple[int, int]) -> Point:

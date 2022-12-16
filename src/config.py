@@ -9,6 +9,7 @@ screen_height = 480
 num_stations = 5
 station_size = 10
 station_capacity = 12
+station_color = (0, 0, 0)
 
 # passenger
 passenger_size = 5
