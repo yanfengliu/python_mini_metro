@@ -16,7 +16,7 @@ class Polygon(Shape):
     def draw(self, surface: pygame.Surface, position: Point):
         points = self.points
         for i in range(len(points)):
-            points[i][0] += position[0]
-            points[i][1] += position[1]
+            points[i]["left"] += position["left"]
+            points[i]["top"] += position["top"]
 
-        return pygame.draw.circle(surface, self.color, points)
+        return pygame.draw.polygon(surface, self.color, points)

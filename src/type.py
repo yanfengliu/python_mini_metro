@@ -5,5 +5,4 @@ class Point(TypedDict):
     left: int
     top: int
 
-
 Color = Tuple[int, int, int]
