@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Tuple
+
 
 class Point:
     def __init__(self, left: int, top: int) -> None:
@@ -11,3 +13,6 @@ class Point:
 
     def __eq__(self, other: Point) -> bool:
         return self.left == other.left and self.top == other.top
+
+    def to_tuple(self) -> Tuple[int, int]:
+        return (self.left, self.top)

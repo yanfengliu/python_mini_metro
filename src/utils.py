@@ -1,6 +1,6 @@
 import colorsys
 import random
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 
@@ -30,7 +30,7 @@ def get_random_shape(shape_type_list: List[ShapeType], size: int) -> Shape:
     shape_type = random.choice(shape_type_list)
     if shape_type == ShapeType.RECT:
         return Rect(color=color, width=2 * size, height=2 * size)
-    elif shape_type == ShapeType.CIRCLE:
+    else:
         return Circle(color=color, radius=size)
 
 
@@ -43,3 +43,7 @@ def get_random_station_shape() -> Shape:
 
 def get_random_passenger_shape() -> Shape:
     return get_random_shape(station_shape_list, passenger_size)
+
+
+def tuple_to_point(tuple: Tuple[int, int]) -> Point:
+    return Point(left=tuple[0], top=tuple[1])

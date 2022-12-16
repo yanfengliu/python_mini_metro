@@ -12,4 +12,6 @@ class Line:
         self.width = width
 
     def draw(self, surface: pygame.surface.Surface):
-        return pygame.draw.line(surface, self.color, self.start, self.end, self.width)
+        return pygame.draw.line(
+            surface, self.color, self.start.to_tuple(), self.end.to_tuple(), self.width
+        )

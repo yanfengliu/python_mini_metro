@@ -18,7 +18,7 @@ from utils import get_random_color, get_random_position
 class TestGeometry(unittest.TestCase):
     def setUp(self):
         self.width, self.height = 640, 480
-        self.screen = create_autospec(pygame.Surface)
+        self.screen = create_autospec(pygame.surface.Surface)
         self.position = get_random_position(self.width, self.height)
         self.color = get_random_color()
         self.points = [Point(-1, -1), Point(0, 2), Point(2, -1)]

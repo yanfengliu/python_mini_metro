@@ -11,6 +11,7 @@ class Holder(ABC):
         self.shape = shape
         self.capacity = capacity
         self.id = id
+        self.position = Point(0, 0)
 
     def __repr__(self) -> str:
         return self.id
