@@ -9,5 +9,3 @@ class Mediator(Singleton):
         self.metros = get_metros(num_metros)
         self.passenger_rate = passenger_gen_rate
         self.num_path = num_path
-
-    def 
