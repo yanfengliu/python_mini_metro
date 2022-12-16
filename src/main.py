@@ -3,6 +3,7 @@ import sys
 import pygame
 
 from config import framerate, screen_height, screen_width
+from event import EventType, MouseEvent
 from mediator import Mediator
 
 pygame.init()
@@ -22,9 +23,14 @@ while True:
         if event.type == pygame.QUIT:
             raise SystemExit
         elif event.type == pygame.MOUSEBUTTONDOWN:
-            print("Mouse button down")
+            mouse_position = pygame.mouse.get_pos()
+            mediator.react(MouseEvent(EventType.MOUSE_DOWN, mouse_position))
         elif event.type == pygame.MOUSEBUTTONUP:
-            print("Mouse button up")
+            mouse_position = pygame.mouse.get_pos()
+            mediator.react(MouseEvent(EventType.MOUSE_UP, mouse_position))
+        elif event.type == pygame.MOUSEMOTION:
+            mouse_position = pygame.mouse.get_pos()
+            mediator.react(MouseEvent(EventType.MOUSE_MOTION, mouse_position))
 
     clock.tick(framerate)
     screen.fill((255, 255, 255))

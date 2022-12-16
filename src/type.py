@@ -1,8 +1,3 @@
-from typing import Tuple, TypedDict
-
-
-class Point(TypedDict):
-    left: int
-    top: int
+from typing import Tuple
 
 Color = Tuple[int, int, int]

@@ -1,6 +1,7 @@
 import pygame
 
-from type import Color, Point
+from geometry.point import Point
+from type import Color
 
 
 class Line:

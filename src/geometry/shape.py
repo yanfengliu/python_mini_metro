@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 
 import pygame
 
+from geometry.point import Point
 from geometry.type import ShapeType
-from type import Point
 
 
 class Shape(ABC):
@@ -12,4 +12,8 @@ class Shape(ABC):
 
     @abstractmethod
     def draw(self, surface: pygame.Surface, position: Point):
+        self.position = position
+
+    @abstractmethod
+    def contains(self, point: Point) -> bool:
         pass

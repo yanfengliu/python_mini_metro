@@ -1,8 +1,9 @@
 import pygame
 
+from geometry.point import Point
 from geometry.shape import Shape
 from geometry.type import ShapeType
-from type import Color, Point
+from type import Color
 
 
 class Rect(Shape):
@@ -13,9 +14,15 @@ class Rect(Shape):
         self.height = height
 
     def draw(self, surface: pygame.Surface, position: Point):
-        left = position["left"]
-        top = position["top"]
+        super().draw(surface, position)
+        left = position.left
+        top = position.top
         width = self.width
         height = self.height
         rect = pygame.Rect(left, top, width, height)
         return pygame.draw.rect(surface, self.color, rect)
+
+    def contains(self, point: Point) -> bool:
+        return (
+            self.position.left < point.left < (self.position.left + self.width)
+        ) and (self.position.top < point.top < self.position.top + self.height)

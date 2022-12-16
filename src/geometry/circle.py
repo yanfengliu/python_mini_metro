@@ -1,8 +1,9 @@
 import pygame
 
+from geometry.point import Point
 from geometry.shape import Shape
 from geometry.type import ShapeType
-from type import Color, Point
+from type import Color
 
 
 class Circle(Shape):
@@ -12,6 +13,12 @@ class Circle(Shape):
         self.radius = radius
 
     def draw(self, surface: pygame.Surface, position: Point):
-        center = (position["left"], position["top"])
+        super().draw(surface, position)
+        center = (position.left, position.top)
         radius = self.radius
         return pygame.draw.circle(surface, self.color, center, radius)
+
+    def contains(self, point: Point) -> bool:
+        return (point.left - self.position.left) ** 2 + (
+            point.top - self.position.top
+        ) ** 2 <= self.radius**2

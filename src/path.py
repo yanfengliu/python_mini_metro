@@ -1,4 +1,4 @@
-from utils import uuid
+import uuid
 
 
 class Path:
