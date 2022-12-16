@@ -11,5 +11,5 @@ class Line:
         self.end = end
         self.width = width
 
-    def draw(self, surface: pygame.Surface):
+    def draw(self, surface: pygame.surface.Surface):
         return pygame.draw.line(surface, self.color, self.start, self.end, self.width)

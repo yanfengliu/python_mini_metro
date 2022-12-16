@@ -11,7 +11,7 @@ class Shape(ABC):
         self.type = type
 
     @abstractmethod
-    def draw(self, surface: pygame.Surface, position: Point):
+    def draw(self, surface: pygame.surface.Surface, position: Point):
         self.position = position
 
     @abstractmethod

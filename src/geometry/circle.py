@@ -12,7 +12,7 @@ class Circle(Shape):
         self.color = color
         self.radius = radius
 
-    def draw(self, surface: pygame.Surface, position: Point):
+    def draw(self, surface: pygame.surface.Surface, position: Point):
         super().draw(surface, position)
         center = (position.left, position.top)
         radius = self.radius

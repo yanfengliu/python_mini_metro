@@ -13,7 +13,7 @@ class Rect(Shape):
         self.width = width
         self.height = height
 
-    def draw(self, surface: pygame.Surface, position: Point):
+    def draw(self, surface: pygame.surface.Surface, position: Point):
         super().draw(surface, position)
         left = position.left
         top = position.top
