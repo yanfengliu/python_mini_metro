@@ -1,8 +1,8 @@
 from typing import List
 
 from config import screen_height, screen_width
-from metro import Metro
-from station import Station
+from entity.metro import Metro
+from entity.station import Station
 from utils import get_random_position, get_random_station_shape
 
 

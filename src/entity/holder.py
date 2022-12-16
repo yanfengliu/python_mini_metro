@@ -15,7 +15,7 @@ class Holder(ABC):
     def __repr__(self) -> str:
         return self.id
 
-    def draw(self, surface: pygame.Surface):
+    def draw(self, surface: pygame.surface.Surface):
         self.shape.draw(surface, self.position)
 
     def contains(self, point: Point):

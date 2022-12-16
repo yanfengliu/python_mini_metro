@@ -13,5 +13,5 @@ class Passenger:
     def __repr__(self) -> str:
         return self.id
 
-    def draw(self, surface: pygame.Surface):
+    def draw(self, surface: pygame.surface.Surface):
         self.destination_shape.draw(surface, self.position)
