@@ -13,8 +13,14 @@ from singleton import Singleton
 
 class Mediator(Singleton):
     def __init__(self) -> None:
+        # configs
+        self.passenger_rate = passenger_gen_rate
+        self.num_path = num_path
+        self.num_metro = num_metros
+        self.num_stations = num_stations
+
         # entities
-        self.stations = get_random_stations(num_stations)
+        self.stations = get_random_stations(self.num_stations)
         self.metros: List[Metro] = []
         self.paths: List[Path] = []
         self.passengers: List[Passenger] = []
@@ -23,11 +29,6 @@ class Mediator(Singleton):
         self.is_mouse_down = False
         self.is_creating_path = False
         self.path_being_created: Path | None = None
-
-        # configs
-        self.passenger_rate = passenger_gen_rate
-        self.num_path = num_path
-        self.num_metro = num_metros
 
     def react(self, event: Event):
         if isinstance(event, MouseEvent):
