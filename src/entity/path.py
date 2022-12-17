@@ -3,6 +3,7 @@ from typing import List
 
 import pygame
 
+from config import path_width
 from entity.station import Station
 from geometry.point import Point
 from utils import get_random_color
@@ -26,12 +27,12 @@ class Path:
         for i in range(len(self.stations) - 1):
             start = self.stations[i].position.to_tuple()
             end = self.stations[i + 1].position.to_tuple()
-            pygame.draw.line(surface, self.color, start, end)
+            pygame.draw.line(surface, self.color, start, end, width=path_width)
 
         if self.temp_point:
             start = self.stations[-1].position.to_tuple()
             end = self.temp_point.to_tuple()
-            pygame.draw.line(surface, self.color, start, end)
+            pygame.draw.line(surface, self.color, start, end, width=path_width)
 
     def add_temporary_point(self, temp_point: Point) -> None:
         self.temp_point = temp_point

@@ -23,3 +23,4 @@ metro_capacity = 6
 
 # path
 num_path = 3
+path_width = 10
