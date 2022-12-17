@@ -20,20 +20,6 @@ pygame.transform.rotate(screen, 30)
 mediator = Mediator()
 
 while True:
-    # react to user interaction
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            raise SystemExit
-        elif event.type == pygame.MOUSEBUTTONDOWN:
-            mouse_position = tuple_to_point(pygame.mouse.get_pos())
-            mediator.react(MouseEvent(EventType.MOUSE_DOWN, mouse_position))
-        elif event.type == pygame.MOUSEBUTTONUP:
-            mouse_position = tuple_to_point(pygame.mouse.get_pos())
-            mediator.react(MouseEvent(EventType.MOUSE_UP, mouse_position))
-        elif event.type == pygame.MOUSEMOTION:
-            mouse_position = tuple_to_point(pygame.mouse.get_pos())
-            mediator.react(MouseEvent(EventType.MOUSE_MOTION, mouse_position))
-
     dt_ms = clock.tick(framerate)
     mediator.increment_time(dt_ms)
 
@@ -47,5 +33,19 @@ while True:
         metro.draw(screen)
     for passenger in mediator.passengers:
         passenger.draw(screen)
+
+    # react to user interaction
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            raise SystemExit
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            mouse_position = tuple_to_point(pygame.mouse.get_pos())
+            mediator.react(MouseEvent(EventType.MOUSE_DOWN, mouse_position))
+        elif event.type == pygame.MOUSEBUTTONUP:
+            mouse_position = tuple_to_point(pygame.mouse.get_pos())
+            mediator.react(MouseEvent(EventType.MOUSE_UP, mouse_position))
+        elif event.type == pygame.MOUSEMOTION:
+            mouse_position = tuple_to_point(pygame.mouse.get_pos())
+            mediator.react(MouseEvent(EventType.MOUSE_MOTION, mouse_position))
 
     pygame.display.flip()
