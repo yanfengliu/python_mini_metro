@@ -1,4 +1,4 @@
-import uuid
+from uuid import uuid4
 
 from config import metro_capacity, metro_color, metro_size, metro_speed
 from entity.holder import Holder
@@ -12,7 +12,7 @@ class Metro(Holder):
         super().__init__(
             shape=metro_shape,
             capacity=metro_capacity,
-            id=f"M-{uuid.uuid4()}",
+            id=f"Metro-{uuid4()}",
         )
         self.is_in_station = True
         self.is_waiting = True

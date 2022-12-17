@@ -1,5 +1,5 @@
-import uuid
 from typing import List
+from uuid import uuid4
 
 import pygame
 
@@ -14,7 +14,7 @@ from utils import get_random_color
 
 class Path:
     def __init__(self) -> None:
-        self.id = f"P-{uuid.uuid4()}"
+        self.id = f"Path-{uuid4()}"
         self.color = get_random_color()
         self.stations: List[Station] = []
         self.metros: List[Metro] = []

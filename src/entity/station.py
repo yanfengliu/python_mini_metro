@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import uuid
+from uuid import uuid4
 
 import pygame
 
@@ -15,7 +15,7 @@ class Station(Holder):
         super().__init__(
             shape=shape,
             capacity=station_capacity,
-            id=f"S-{uuid.uuid4()}",
+            id=f"Station-{uuid4()}",
         )
         self.position = position
 

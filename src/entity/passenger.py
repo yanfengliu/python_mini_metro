@@ -1,4 +1,4 @@
-import uuid
+from uuid import uuid4
 
 import pygame
 
@@ -8,7 +8,7 @@ from geometry.shape import Shape
 
 class Passenger:
     def __init__(self, destination_shape: Shape) -> None:
-        self.id = f"P-{uuid.uuid4()}"
+        self.id = f"Passenger-{uuid4()}"
         self.position = Point(0, 0)
         self.destination_shape = destination_shape
 
