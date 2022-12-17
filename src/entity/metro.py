@@ -1,8 +1,7 @@
 import uuid
 
-from holder import Holder
-
 from config import metro_capacity, metro_color, metro_size
+from entity.holder import Holder
 from geometry.rect import Rect
 
 
