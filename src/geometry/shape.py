@@ -17,3 +17,6 @@ class Shape(ABC):
     @abstractmethod
     def contains(self, point: Point) -> bool:
         pass
+
+    def rotate(self, degree):
+        pass

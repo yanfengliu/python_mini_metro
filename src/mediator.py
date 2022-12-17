@@ -104,3 +104,8 @@ class Mediator(Singleton):
             self.finish_path_creation()
         else:
             self.abort_path_creation()
+
+    def increment_time(self, dt_ms: int):
+        for path in self.paths:
+            for metro in path.metros:
+                path.move_metro(metro, dt_ms)

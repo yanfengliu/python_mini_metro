@@ -7,7 +7,6 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 import pygame
 
-from entity.get_entity import get_random_station, get_random_stations
 from entity.path import Path
 from event import EventType, MouseEvent
 from geometry.point import Point

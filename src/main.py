@@ -15,6 +15,7 @@ flags = pygame.SCALED
 # game constants initialization
 screen = pygame.display.set_mode((screen_width, screen_height), flags, vsync=1)
 clock = pygame.time.Clock()
+pygame.transform.rotate(screen, 30)
 
 mediator = Mediator()
 
@@ -33,7 +34,8 @@ while True:
             mouse_position = tuple_to_point(pygame.mouse.get_pos())
             mediator.react(MouseEvent(EventType.MOUSE_MOTION, mouse_position))
 
-    clock.tick(framerate)
+    dt_ms = clock.tick(framerate)
+    mediator.increment_time(dt_ms)
 
     # rendering
     screen.fill((255, 255, 255))
