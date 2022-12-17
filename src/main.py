@@ -34,9 +34,9 @@ while True:
             mediator.react(MouseEvent(EventType.MOUSE_MOTION, mouse_position))
 
     clock.tick(framerate)
-    screen.fill((255, 255, 255))
 
     # rendering
+    screen.fill((255, 255, 255))
     for station in mediator.stations:
         station.draw(screen)
     for path in mediator.paths:

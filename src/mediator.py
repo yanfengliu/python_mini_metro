@@ -1,7 +1,7 @@
-from typing import Dict, List
+from typing import List
 
 from config import num_metros, num_path, num_stations, passenger_gen_rate
-from entity.get_entity import get_metros, get_random_stations
+from entity.get_entity import get_random_stations
 from entity.metro import Metro
 from entity.passenger import Passenger
 from entity.path import Path
@@ -15,7 +15,7 @@ class Mediator(Singleton):
     def __init__(self) -> None:
         # entities
         self.stations = get_random_stations(num_stations)
-        self.metros = get_metros(num_metros)
+        self.metros: List[Metro] = []
         self.paths: List[Path] = []
         self.passengers: List[Passenger] = []
 
@@ -27,9 +27,7 @@ class Mediator(Singleton):
         # configs
         self.passenger_rate = passenger_gen_rate
         self.num_path = num_path
-
-        # relationships
-        self.path_to_metros: Dict[Path, List[Metro]] = {}
+        self.num_metro = num_metros
 
     def react(self, event: Event):
         if isinstance(event, MouseEvent):
@@ -70,6 +68,7 @@ class Mediator(Singleton):
             self.is_creating_path = True
             path = Path()
             path.add_station(station)
+            path.is_being_created = True
             self.path_being_created = path
             self.paths.append(path)
 
@@ -82,7 +81,12 @@ class Mediator(Singleton):
     def finish_path_creation(self):
         assert self.path_being_created is not None
         self.is_creating_path = False
+        self.path_being_created.is_being_created = False
         self.path_being_created.temp_point = None
+        if len(self.metros) < self.num_metro:
+            metro = Metro()
+            self.path_being_created.add_metro(metro)
+            self.metros.append(metro)
         self.path_being_created = None
 
     def end_path_on_station(self, station: Station):
