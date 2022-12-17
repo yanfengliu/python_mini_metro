@@ -39,7 +39,7 @@ class TestPath(unittest.TestCase):
         path = Path()
         pygame.draw.line = MagicMock()
         path.add_station(get_random_station())
-        path.add_temporary_point(Point(1, 1))
+        path.set_temporary_point(Point(1, 1))
         path.draw(self.screen)
         self.assertEqual(pygame.draw.line.call_count, 1)
 

@@ -20,7 +20,7 @@ num_metros = 4
 metro_size = 30
 metro_color = (128, 128, 128)
 metro_capacity = 6
-metro_speed = 100 / 1000  # pixels / ms
+metro_speed = 150 / 1000  # pixels / ms
 
 # path
 num_path = 3

@@ -41,6 +41,15 @@ class Path:
                     width=path_width,
                 )
             )
+        if self.is_looped:
+            self.lines.append(
+                Line(
+                    color=self.color,
+                    start=self.stations[-1].position,
+                    end=self.stations[0].position,
+                    width=path_width,
+                )
+            )
 
     def draw(self, surface: pygame.surface.Surface) -> None:
         for line in self.lines:
@@ -55,8 +64,19 @@ class Path:
             )
             temp_line.draw(surface)
 
-    def add_temporary_point(self, temp_point: Point) -> None:
+    def set_temporary_point(self, temp_point: Point) -> None:
         self.temp_point = temp_point
+
+    def remove_temporary_point(self) -> None:
+        self.temp_point = None
+
+    def set_loop(self) -> None:
+        self.is_looped = True
+        self.update_lines()
+
+    def remove_loop(self) -> None:
+        self.is_looped = False
+        self.update_lines()
 
     def add_metro(self, metro: Metro) -> None:
         metro.position = self.stations[0].position
@@ -77,23 +97,28 @@ class Path:
                 direct.left * metro.speed * dt_ms, direct.top * metro.speed * dt_ms
             )
         else:
-            if metro.is_forward:
-                if metro.current_line_idx + 1 <= len(self.lines) - 1:
-                    metro.current_line_idx += 1
+            if len(self.lines) == 1:
+                metro.is_forward = not metro.is_forward
+            elif metro.current_line_idx == len(self.lines) - 1:
+                if self.is_looped:
+                    metro.current_line_idx = 0
                 else:
-                    if self.is_looped:
-                        metro.current_line_idx = 0
+                    if metro.is_forward:
+                        metro.is_forward = False
                     else:
                         metro.current_line_idx -= 1
-                        metro.is_forward = not metro.is_forward
-                metro.current_line = self.lines[metro.current_line_idx]
-            else:
-                if metro.current_line_idx - 1 >= 0:
-                    metro.current_line_idx -= 1
+            elif metro.current_line_idx == 0:
+                if metro.is_forward:
+                    metro.current_line_idx += 1
                 else:
                     if self.is_looped:
                         metro.current_line_idx = len(self.lines) - 1
                     else:
-                        metro.current_line_idx += 1
-                        metro.is_forward = not metro.is_forward
-                metro.current_line = self.lines[metro.current_line_idx]
+                        metro.is_forward = True
+            else:
+                if self.is_looped:
+                    metro.current_line_idx += 1
+                else:
+                    metro.current_line_idx -= 1
+
+            metro.current_line = self.lines[metro.current_line_idx]
