@@ -61,7 +61,7 @@ class TestGeometry(unittest.TestCase):
         self.assertEqual(rect.height, height)
 
     def init_rect(self):
-        return Rect(self.color, 2, 3)
+        return Rect(self.color, 10, 20)
 
     def test_rect_draw(self):
         rect = self.init_rect()

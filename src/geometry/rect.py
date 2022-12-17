@@ -19,10 +19,18 @@ class Rect(Shape):
         top = position.top
         width = self.width
         height = self.height
-        rect = pygame.Rect(left, top, width, height)
+        rect = pygame.Rect(
+            int(left - width * 0.5), int(top - height * 0.5), width, height
+        )
         pygame.draw.rect(surface, self.color, rect)
 
     def contains(self, point: Point) -> bool:
         return (
-            self.position.left < point.left < (self.position.left + self.width)
-        ) and (self.position.top < point.top < self.position.top + self.height)
+            int(self.position.left - self.width * 0.5)
+            < point.left
+            < int(self.position.left + self.width * 0.5)
+        ) and (
+            int(self.position.top - self.height * 0.5)
+            < point.top
+            < int(self.position.top + self.height * 0.5)
+        )

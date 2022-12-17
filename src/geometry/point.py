@@ -8,6 +8,9 @@ class Point:
         self.left = left
         self.top = top
 
+    def __repr__(self) -> str:
+        return f"Point(left = {self.left}, top = {self.top})"
+
     def __add__(self, other: Point):
         return Point(self.left + other.left, self.top + other.top)
 

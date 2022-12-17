@@ -21,6 +21,3 @@ class Station(Holder):
 
     def __eq__(self, other: Station) -> bool:
         return self.id == other.id
-
-    def draw(self, surface: pygame.surface.Surface):
-        self.shape.draw(surface, self.position)
