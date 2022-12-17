@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from config import metro_capacity, metro_color, metro_size, metro_speed
+from config import metro_capacity, metro_color, metro_size, metro_speed_per_ms
 from entity.holder import Holder
 from geometry.line import Line
 from geometry.rect import Rect
@@ -18,5 +18,5 @@ class Metro(Holder):
         self.is_waiting = True
         self.current_line: Line | None = None
         self.current_line_idx = 0
-        self.speed = metro_speed
+        self.speed = metro_speed_per_ms
         self.is_forward = True

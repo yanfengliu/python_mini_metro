@@ -8,7 +8,7 @@ from entity.metro import Metro
 from entity.station import Station
 from geometry.line import Line
 from geometry.point import Point
-from geometry.utils import direction, dist
+from geometry.utils import direction, distance
 from utils import get_random_color
 
 
@@ -90,9 +90,9 @@ class Path:
         else:
             destination = metro.current_line.start
 
-        distance = dist(metro.position, destination)
+        dist = distance(metro.position, destination)
         direct = direction(metro.position, destination)
-        if distance >= (metro.speed * dt_ms):
+        if dist >= (metro.speed * dt_ms):
             metro.position += Point(
                 direct.left * metro.speed * dt_ms, direct.top * metro.speed * dt_ms
             )
