@@ -116,7 +116,7 @@ class Path:
                     else:
                         metro.is_forward = True
             else:
-                if self.is_looped:
+                if metro.is_forward:
                     metro.current_line_idx += 1
                 else:
                     metro.current_line_idx -= 1
