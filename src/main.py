@@ -22,15 +22,8 @@ mediator = Mediator()
 while True:
     dt_ms = clock.tick(framerate)
     mediator.increment_time(dt_ms)
-
-    # rendering
     screen.fill((255, 255, 255))
-    for station in mediator.stations:
-        station.draw(screen)
-    for path in mediator.paths:
-        path.draw(screen)
-    for metro in mediator.metros:
-        metro.draw(screen)
+    mediator.render(screen)
 
     # react to user interaction
     for event in pygame.event.get():

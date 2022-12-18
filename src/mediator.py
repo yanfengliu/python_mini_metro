@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pprint
 import random
 from typing import Dict, List
 
@@ -13,20 +14,26 @@ from config import (
     passenger_size,
     passenger_spawning_interval_step,
     passenger_spawning_start_step,
+    station_color,
+    station_size,
 )
 from entity.get_entity import get_random_stations
 from entity.metro import Metro
 from entity.passenger import Passenger
 from entity.path import Path
 from entity.station import Station
-from event import KeyboardEvent, KeyboardEventType, MouseEvent, MouseEventType
+from event import Event, KeyboardEvent, KeyboardEventType, MouseEvent, MouseEventType
+from geometry.circle import Circle
 from geometry.point import Point
+from geometry.rect import Rect
 from geometry.type import ShapeType
+from graph.graph_algo import bfs, build_station_nodes_dict
 from singleton import Singleton
 from travel_plan import TravelPlan
-from utils import get_shape_from_type
+from utils import get_random_color, get_shape_from_type
 
 TravelPlans = Dict[Passenger, TravelPlan]
+pp = pprint.PrettyPrinter(indent=4)
 
 
 class Mediator(Singleton):
@@ -39,7 +46,39 @@ class Mediator(Singleton):
         self.num_stations = num_stations
 
         # entities
-        self.stations = get_random_stations(self.num_stations)
+        # self.stations = get_random_stations(self.num_stations)
+        self.stations = [
+            Station(
+                Rect(
+                    color=station_color,
+                    width=2 * station_size,
+                    height=2 * station_size,
+                ),
+                Point(100, 100),
+            ),
+            Station(
+                Circle(
+                    color=station_color,
+                    radius=station_size,
+                ),
+                Point(100, 200),
+            ),
+            Station(
+                Rect(
+                    color=station_color,
+                    width=2 * station_size,
+                    height=2 * station_size,
+                ),
+                Point(200, 200),
+            ),
+            Station(
+                Circle(
+                    color=station_color,
+                    radius=station_size,
+                ),
+                Point(200, 100),
+            ),
+        ]
         self.metros: List[Metro] = []
         self.paths: List[Path] = []
         self.passengers: List[Passenger] = []
@@ -51,6 +90,16 @@ class Mediator(Singleton):
         self.is_mouse_down = False
         self.is_creating_path = False
         self.path_being_created: Path | None = None
+        self.travel_plans: TravelPlans = {}
+        self.is_paused = False
+
+    def render(self, screen: pygame.surface.Surface) -> None:
+        for station in self.stations:
+            station.draw(screen)
+        for path in self.paths:
+            path.draw(screen)
+        for metro in self.metros:
+            metro.draw(screen)
 
     def react(self, event: pygame.event.Event):
         if isinstance(event, MouseEvent):
@@ -156,6 +205,12 @@ class Mediator(Singleton):
                 station_shape_types.append(station.shape.type)
         return station_shape_types
 
+    def is_passenger_spawn_time(self) -> bool:
+        return (
+            self.steps == self.passenger_spawning_step
+            or self.steps_since_last_spawn == self.passenger_spawning_interval_step
+        )
+
     def spawn_passengers(self):
         for station in self.stations:
             station_types = self.get_station_shape_types()
@@ -164,11 +219,13 @@ class Mediator(Singleton):
             ]
             destination_shape_type = random.choice(other_station_shape_types)
             destination_shape = get_shape_from_type(
-                destination_shape_type, passenger_color, passenger_size
+                destination_shape_type, get_random_color(), passenger_size
             )
             passenger = Passenger(destination_shape)
             if station.has_room():
                 station.add_passenger(passenger)
+                self.passengers.append(passenger)
+        self.steps_since_last_spawn = 0
 
     def increment_time(self, dt_ms: int) -> None:
         if self.is_paused:
@@ -177,14 +234,83 @@ class Mediator(Singleton):
         self.time_ms += dt_ms
         self.steps += 1
         self.steps_since_last_spawn += 1
+        # print(self.steps)
 
+        # move metros
         for path in self.paths:
             for metro in path.metros:
                 path.move_metro(metro, dt_ms)
 
-        if (
-            self.steps == self.passenger_spawning_step
-            or self.steps_since_last_spawn == self.passenger_spawning_interval_step
-        ):
+        # spawn passengers
+        if self.is_passenger_spawn_time():
             self.spawn_passengers()
-            self.steps_since_last_spawn = 0
+
+        self.find_travel_plan_for_passengers()
+        self.move_passengers()
+
+    def move_passengers(self) -> None:
+        # pp.pprint(self.travel_plans)
+        for metro in self.metros:
+            if metro.current_station:
+                for passenger in metro.passengers:
+                    assert self.travel_plans[passenger]
+                    if (
+                        self.travel_plans[passenger].get_off_station
+                        and self.travel_plans[passenger].get_off_station
+                        == metro.current_station
+                        and metro.current_station.has_room()
+                    ):
+                        metro.move_passenger(passenger, metro.current_station)
+                        self.travel_plans[passenger] = TravelPlan(None, None)
+                for passenger in metro.current_station.passengers:
+                    if (
+                        self.travel_plans[passenger].get_on_path
+                        and self.travel_plans[passenger].get_on_path.id == metro.path_id  # type: ignore
+                        and metro.has_room()
+                    ):
+                        metro.current_station.move_passenger(passenger, metro)
+
+    def get_stations_for_shape_type(self, shape_type: ShapeType):
+        stations: List[Station] = []
+        for station in self.stations:
+            if station.shape.type == shape_type:
+                stations.append(station)
+
+        return stations
+
+    def find_shared_path(self, station_a: Station, station_b: Station) -> Path | None:
+        for path in self.paths:
+            stations = path.stations
+            if (station_a in stations) and (station_b in stations):
+                return path
+        return None
+
+    def find_travel_plan_for_passengers(self) -> None:
+        station_nodes_dict = build_station_nodes_dict(self.stations, self.paths)
+        for station in self.stations:
+            for passenger in station.passengers:
+                next_station = None
+                possible_dst_stations = self.get_stations_for_shape_type(
+                    passenger.destination_shape.type
+                )
+                for possible_dst_station in possible_dst_stations:
+                    start = station_nodes_dict[station]
+                    end = station_nodes_dict[possible_dst_station]
+                    node_path = bfs(start, end)
+                    if len(node_path) == 1:
+                        # passenger arrived at destination
+                        station.remove_passenger(passenger)
+                        self.passengers.remove(passenger)
+                        passenger.is_at_destination = True
+                    elif len(node_path) > 1:
+                        next_station = node_path[1].station
+                        break
+                if next_station:
+                    next_path = self.find_shared_path(station, next_station)
+                    assert next_path is not None
+                    self.travel_plans[passenger] = TravelPlan(next_path, next_station)
+                else:
+                    if passenger.is_at_destination:
+                        del self.travel_plans[passenger]
+                    else:
+                        self.travel_plans[passenger] = TravelPlan(None, None)

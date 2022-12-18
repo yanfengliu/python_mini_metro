@@ -1,8 +1,9 @@
+from __future__ import annotations
+
 from abc import ABC
 from typing import List
-from uuid import uuid4
 
-import pygame
+import pygame  # type: ignore
 
 from config import passenger_display_buffer, passenger_size
 from entity.passenger import Passenger
@@ -59,3 +60,12 @@ class Holder(ABC):
     def add_passenger(self, passenger: Passenger) -> None:
         assert self.has_room()
         self.passengers.append(passenger)
+
+    def remove_passenger(self, passenger: Passenger) -> None:
+        assert passenger in self.passengers
+        self.passengers.remove(passenger)
+
+    def move_passenger(self, passenger: Passenger, holder: Holder) -> None:
+        assert holder.has_room()
+        holder.add_passenger(passenger)
+        self.remove_passenger(passenger)

@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, create_autospec, patch
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
-import pygame
+import pygame  # type: ignore
 
 from config import framerate, metro_speed_per_ms
 from entity.get_entity import get_random_station, get_random_stations
@@ -54,8 +54,8 @@ class TestPath(unittest.TestCase):
         path.draw(self.screen)
         metro = Metro()
         path.add_metro(metro)
-        self.assertEqual(metro.current_line, path.lines[0])
-        self.assertEqual(metro.current_line_idx, 0)
+        self.assertEqual(metro.current_segment, path.segments[0])
+        self.assertEqual(metro.current_segment_idx, 0)
         self.assertTrue(metro.is_forward)
 
     def test_metro_moves_from_beginning_to_end(self):

@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from uuid import uuid4
-
-import pygame
+import pygame  # type: ignore
+from shortuuid import uuid  # type: ignore
 
 from geometry.point import Point
 from type import Color
@@ -10,7 +9,7 @@ from type import Color
 
 class Line:
     def __init__(self, color: Color, start: Point, end: Point, width: int) -> None:
-        self.id = f"Line-{uuid4()}"
+        self.id = f"Line-{uuid()}"
         self.color = color
         self.start = start
         self.end = end

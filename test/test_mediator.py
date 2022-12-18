@@ -5,10 +5,10 @@ from unittest.mock import MagicMock, create_autospec
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
-import pygame
+import pygame  # type: ignore
 
 from entity.path import Path
-from event import EventType, MouseEvent
+from event import MouseEvent, MouseEventType
 from geometry.point import Point
 from mediator import Mediator
 from utils import get_random_color, get_random_position
@@ -31,7 +31,7 @@ class TestMediator(unittest.TestCase):
     def test_react_mouse_down(self):
         for station in self.mediator.stations:
             station.draw(self.screen)
-        self.mediator.react(MouseEvent(EventType.MOUSE_DOWN, Point(-1, -1)))
+        self.mediator.react(MouseEvent(MouseEventType.MOUSE_DOWN, Point(-1, -1)))
         self.assertTrue(self.mediator.is_mouse_down)
 
     def test_get_containing_entity(self):
@@ -45,30 +45,33 @@ class TestMediator(unittest.TestCase):
         self.mediator.start_path_on_station = MagicMock()
         self.mediator.react(
             MouseEvent(
-                EventType.MOUSE_DOWN, self.mediator.stations[3].position + Point(1, 1)
+                MouseEventType.MOUSE_DOWN,
+                self.mediator.stations[3].position + Point(1, 1),
             )
         )
         self.mediator.start_path_on_station.assert_called_once()
 
     def test_react_mouse_up(self):
-        self.mediator.react(MouseEvent(EventType.MOUSE_UP, Point(-1, -1)))
+        self.mediator.react(MouseEvent(MouseEventType.MOUSE_UP, Point(-1, -1)))
         self.assertFalse(self.mediator.is_mouse_down)
 
     def test_mouse_down_and_up_at_the_same_point_does_not_create_path(self):
-        self.mediator.react(MouseEvent(EventType.MOUSE_DOWN, Point(-1, -1)))
-        self.mediator.react(MouseEvent(EventType.MOUSE_UP, Point(-1, -1)))
+        self.mediator.react(MouseEvent(MouseEventType.MOUSE_DOWN, Point(-1, -1)))
+        self.mediator.react(MouseEvent(MouseEventType.MOUSE_UP, Point(-1, -1)))
         self.assertEqual(len(self.mediator.paths), 0)
 
     def test_mouse_dragged_between_stations_creates_path(self):
         self.mediator.react(
             MouseEvent(
-                EventType.MOUSE_DOWN, self.mediator.stations[0].position + Point(1, 1)
+                MouseEventType.MOUSE_DOWN,
+                self.mediator.stations[0].position + Point(1, 1),
             )
         )
-        self.mediator.react(MouseEvent(EventType.MOUSE_MOTION, Point(2, 2)))
+        self.mediator.react(MouseEvent(MouseEventType.MOUSE_MOTION, Point(2, 2)))
         self.mediator.react(
             MouseEvent(
-                EventType.MOUSE_UP, self.mediator.stations[1].position + Point(1, 1)
+                MouseEventType.MOUSE_UP,
+                self.mediator.stations[1].position + Point(1, 1),
             )
         )
         self.assertEqual(len(self.mediator.paths), 1)
@@ -78,9 +81,9 @@ class TestMediator(unittest.TestCase):
         )
 
     def test_mouse_dragged_between_non_station_points_does_not_create_path(self):
-        self.mediator.react(MouseEvent(EventType.MOUSE_DOWN, Point(0, 0)))
-        self.mediator.react(MouseEvent(EventType.MOUSE_MOTION, Point(2, 2)))
-        self.mediator.react(MouseEvent(EventType.MOUSE_UP, Point(0, 1)))
+        self.mediator.react(MouseEvent(MouseEventType.MOUSE_DOWN, Point(0, 0)))
+        self.mediator.react(MouseEvent(MouseEventType.MOUSE_MOTION, Point(2, 2)))
+        self.mediator.react(MouseEvent(MouseEventType.MOUSE_UP, Point(0, 1)))
         self.assertEqual(len(self.mediator.paths), 0)
 
     def test_mouse_dragged_between_station_and_non_station_points_does_not_create_path(
@@ -88,38 +91,39 @@ class TestMediator(unittest.TestCase):
     ):
         self.mediator.react(
             MouseEvent(
-                EventType.MOUSE_DOWN, self.mediator.stations[0].position + Point(1, 1)
+                MouseEventType.MOUSE_DOWN,
+                self.mediator.stations[0].position + Point(1, 1),
             )
         )
-        self.mediator.react(MouseEvent(EventType.MOUSE_MOTION, Point(2, 2)))
-        self.mediator.react(MouseEvent(EventType.MOUSE_UP, Point(0, 1)))
+        self.mediator.react(MouseEvent(MouseEventType.MOUSE_MOTION, Point(2, 2)))
+        self.mediator.react(MouseEvent(MouseEventType.MOUSE_UP, Point(0, 1)))
         self.assertEqual(len(self.mediator.paths), 0)
 
     def test_mouse_dragged_between_3_stations_creates_looped_path(self):
         self.mediator.react(
-            MouseEvent(EventType.MOUSE_DOWN, self.mediator.stations[0].position)
+            MouseEvent(MouseEventType.MOUSE_DOWN, self.mediator.stations[0].position)
         )
         self.mediator.react(
-            MouseEvent(EventType.MOUSE_MOTION, self.mediator.stations[1].position)
+            MouseEvent(MouseEventType.MOUSE_MOTION, self.mediator.stations[1].position)
         )
         self.mediator.react(
-            MouseEvent(EventType.MOUSE_MOTION, self.mediator.stations[2].position)
+            MouseEvent(MouseEventType.MOUSE_MOTION, self.mediator.stations[2].position)
         )
         self.mediator.react(
-            MouseEvent(EventType.MOUSE_UP, self.mediator.stations[0].position)
+            MouseEvent(MouseEventType.MOUSE_UP, self.mediator.stations[0].position)
         )
         self.assertEqual(len(self.mediator.paths), 1)
         self.assertTrue(self.mediator.paths[0].is_looped)
 
     def test_path_between_2_stations_is_not_looped(self):
         self.mediator.react(
-            MouseEvent(EventType.MOUSE_DOWN, self.mediator.stations[0].position)
+            MouseEvent(MouseEventType.MOUSE_DOWN, self.mediator.stations[0].position)
         )
         self.mediator.react(
-            MouseEvent(EventType.MOUSE_MOTION, self.mediator.stations[1].position)
+            MouseEvent(MouseEventType.MOUSE_MOTION, self.mediator.stations[1].position)
         )
         self.mediator.react(
-            MouseEvent(EventType.MOUSE_UP, self.mediator.stations[1].position)
+            MouseEvent(MouseEventType.MOUSE_UP, self.mediator.stations[1].position)
         )
         self.assertEqual(len(self.mediator.paths), 1)
         self.assertFalse(self.mediator.paths[0].is_looped)
@@ -128,13 +132,13 @@ class TestMediator(unittest.TestCase):
         self,
     ):
         self.mediator.react(
-            MouseEvent(EventType.MOUSE_DOWN, self.mediator.stations[0].position)
+            MouseEvent(MouseEventType.MOUSE_DOWN, self.mediator.stations[0].position)
         )
         self.mediator.react(
-            MouseEvent(EventType.MOUSE_MOTION, self.mediator.stations[1].position)
+            MouseEvent(MouseEventType.MOUSE_MOTION, self.mediator.stations[1].position)
         )
         self.mediator.react(
-            MouseEvent(EventType.MOUSE_UP, self.mediator.stations[2].position)
+            MouseEvent(MouseEventType.MOUSE_UP, self.mediator.stations[2].position)
         )
         self.assertEqual(len(self.mediator.paths), 1)
         self.assertFalse(self.mediator.paths[0].is_looped)

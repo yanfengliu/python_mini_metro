@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, create_autospec
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
-import pygame
+import pygame  # type: ignore
 
 from geometry.circle import Circle
 from geometry.line import Line

@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from uuid import uuid4
-
-import pygame
+import pygame  # type: ignore
+from shortuuid import uuid  # type: ignore
 
 from config import station_capacity, station_passengers_per_row, station_size
 from entity.holder import Holder
@@ -15,7 +14,7 @@ class Station(Holder):
         super().__init__(
             shape=shape,
             capacity=station_capacity,
-            id=f"Station-{uuid4()}",
+            id=f"Station-{uuid()}",
         )
         self.size = station_size
         self.position = position
@@ -23,3 +22,6 @@ class Station(Holder):
 
     def __eq__(self, other: Station) -> bool:
         return self.id == other.id
+
+    def __hash__(self):
+        return hash(self.id)

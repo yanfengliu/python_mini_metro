@@ -1,6 +1,5 @@
-from uuid import uuid4
-
-import pygame
+import pygame  # type: ignore
+from shortuuid import uuid  # type: ignore
 
 from geometry.point import Point
 from geometry.shape import Shape
@@ -11,7 +10,7 @@ from type import Color
 class Rect(Shape):
     def __init__(self, color: Color, width: int, height: int) -> None:
         super().__init__(ShapeType.RECT)
-        self.id = f"Rect-{uuid4()}"
+        self.id = f"Rect-{uuid()}"
         self.color = color
         self.width = width
         self.height = height

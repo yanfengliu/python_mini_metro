@@ -1,6 +1,5 @@
-from uuid import uuid4
-
-import pygame
+import pygame  # type: ignore
+from shortuuid import uuid  # type: ignore
 
 from geometry.point import Point
 from geometry.shape import Shape
@@ -11,7 +10,7 @@ from type import Color
 class Circle(Shape):
     def __init__(self, color: Color, radius: int) -> None:
         super().__init__(ShapeType.CIRCLE)
-        self.id = f"Circle-{uuid4()}"
+        self.id = f"Circle-{uuid()}"
         self.color = color
         self.radius = radius
 

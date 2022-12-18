@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from uuid import uuid4
 
-import pygame
+import pygame  # type: ignore
+from shortuuid import uuid  # type: ignore
 
 from geometry.point import Point
 from geometry.type import ShapeType
@@ -12,7 +12,7 @@ from geometry.type import ShapeType
 class Shape(ABC):
     def __init__(self, type: ShapeType):
         self.type = type
-        self.id = f"Shape-{uuid4()}"
+        self.id = f"Shape-{uuid()}"
 
     def __eq__(self, other: Shape) -> bool:
         return self.id == other.id
