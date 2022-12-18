@@ -31,8 +31,6 @@ while True:
         path.draw(screen)
     for metro in mediator.metros:
         metro.draw(screen)
-    for passenger in mediator.passengers:
-        passenger.draw(screen)
 
     # react to user interaction
     for event in pygame.event.get():

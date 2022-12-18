@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pygame
 
-from config import station_capacity
+from config import station_capacity, station_passengers_per_row, station_size
 from entity.holder import Holder
 from geometry.point import Point
 from geometry.shape import Shape
@@ -17,7 +17,9 @@ class Station(Holder):
             capacity=station_capacity,
             id=f"Station-{uuid4()}",
         )
+        self.size = station_size
         self.position = position
+        self.passengers_per_row = station_passengers_per_row
 
     def __eq__(self, other: Station) -> bool:
         return self.id == other.id

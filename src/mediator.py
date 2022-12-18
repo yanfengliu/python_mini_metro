@@ -1,6 +1,15 @@
+import random
 from typing import List
 
-from config import num_metros, num_path, num_stations, passenger_gen_rate
+from config import (
+    num_metros,
+    num_path,
+    num_stations,
+    passenger_color,
+    passenger_size,
+    passenger_spawning_interval_step,
+    passenger_spawning_start_step,
+)
 from entity.get_entity import get_random_stations
 from entity.metro import Metro
 from entity.passenger import Passenger
@@ -8,13 +17,16 @@ from entity.path import Path
 from entity.station import Station
 from event import Event, EventType, MouseEvent
 from geometry.point import Point
+from geometry.type import ShapeType
 from singleton import Singleton
+from utils import get_shape_from_type, within_time_window
 
 
 class Mediator(Singleton):
     def __init__(self) -> None:
         # configs
-        self.passenger_rate = passenger_gen_rate
+        self.passenger_spawning_step = passenger_spawning_start_step
+        self.passenger_spawning_interval_step = passenger_spawning_interval_step
         self.num_path = num_path
         self.num_metro = num_metros
         self.num_stations = num_stations
@@ -26,6 +38,9 @@ class Mediator(Singleton):
         self.passengers: List[Passenger] = []
 
         # status
+        self.time_ms = 0
+        self.steps = 0
+        self.steps_since_last_spawn = self.passenger_spawning_interval_step + 1
         self.is_mouse_down = False
         self.is_creating_path = False
         self.path_being_created: Path | None = None
@@ -123,7 +138,39 @@ class Mediator(Singleton):
         else:
             self.abort_path_creation()
 
+    def get_station_shape_types(self):
+        station_shape_types: List[ShapeType] = []
+        for station in self.stations:
+            if station.shape.type not in station_shape_types:
+                station_shape_types.append(station.shape.type)
+        return station_shape_types
+
+    def spawn_passengers(self):
+        for station in self.stations:
+            station_types = self.get_station_shape_types()
+            other_station_shape_types = [
+                x for x in station_types if x != station.shape.type
+            ]
+            destination_shape_type = random.choice(other_station_shape_types)
+            destination_shape = get_shape_from_type(
+                destination_shape_type, passenger_color, passenger_size
+            )
+            passenger = Passenger(destination_shape)
+            if station.has_room():
+                station.add_passenger(passenger)
+
     def increment_time(self, dt_ms: int) -> None:
+        self.time_ms += dt_ms
+        self.steps += 1
+        self.steps_since_last_spawn += 1
+
         for path in self.paths:
             for metro in path.metros:
                 path.move_metro(metro, dt_ms)
+
+        if (
+            self.steps == self.passenger_spawning_step
+            or self.steps_since_last_spawn == self.passenger_spawning_interval_step
+        ):
+            self.spawn_passengers()
+            self.steps_since_last_spawn = 0

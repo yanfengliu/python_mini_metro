@@ -4,12 +4,12 @@ from typing import List, Tuple
 
 import numpy as np
 
-from config import passenger_size, station_color, station_size
+from config import passenger_size, station_color, station_shape_type_list, station_size
 from geometry.circle import Circle
 from geometry.point import Point
 from geometry.rect import Rect
 from geometry.shape import Shape
-from geometry.type import ShapeType, station_shape_list
+from geometry.type import ShapeType
 from type import Color
 
 
@@ -29,22 +29,27 @@ def get_random_shape(
     shape_type_list: List[ShapeType], color: Color, size: int
 ) -> Shape:
     shape_type = random.choice(shape_type_list)
-    if shape_type == ShapeType.RECT:
+    return get_shape_from_type(shape_type, color, size)
+
+
+def get_random_station_shape() -> Shape:
+    return get_random_shape(station_shape_type_list, station_color, station_size)
+
+
+def get_random_passenger_shape() -> Shape:
+    return get_random_shape(station_shape_type_list, get_random_color(), passenger_size)
+
+
+def tuple_to_point(tuple: Tuple[int, int]) -> Point:
+    return Point(left=tuple[0], top=tuple[1])
+
+
+def get_shape_from_type(type: ShapeType, color: Color, size: int) -> Shape:
+    if type == ShapeType.RECT:
         return Rect(color=color, width=2 * size, height=2 * size)
     else:
         return Circle(color=color, radius=size)
 
 
-station_shape_list = [ShapeType.RECT, ShapeType.CIRCLE]
-
-
-def get_random_station_shape() -> Shape:
-    return get_random_shape(station_shape_list, station_color, station_size)
-
-
-def get_random_passenger_shape() -> Shape:
-    return get_random_shape(station_shape_list, get_random_color(), passenger_size)
-
-
-def tuple_to_point(tuple: Tuple[int, int]) -> Point:
-    return Point(left=tuple[0], top=tuple[1])
+def within_time_window(game_time_ms: int, time_mark_ms: int, window_ms: int):
+    return window_ms <= game_time_ms - time_mark_ms < (2 * window_ms)
