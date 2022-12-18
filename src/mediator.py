@@ -1,5 +1,9 @@
+from __future__ import annotations
+
 import random
-from typing import List
+from typing import Dict, List
+
+import pygame  # type: ignore
 
 from config import (
     num_metros,
@@ -15,11 +19,14 @@ from entity.metro import Metro
 from entity.passenger import Passenger
 from entity.path import Path
 from entity.station import Station
-from event import Event, EventType, MouseEvent
+from event import KeyboardEvent, KeyboardEventType, MouseEvent, MouseEventType
 from geometry.point import Point
 from geometry.type import ShapeType
 from singleton import Singleton
-from utils import get_shape_from_type, within_time_window
+from travel_plan import TravelPlan
+from utils import get_shape_from_type
+
+TravelPlans = Dict[Passenger, TravelPlan]
 
 
 class Mediator(Singleton):
@@ -45,15 +52,15 @@ class Mediator(Singleton):
         self.is_creating_path = False
         self.path_being_created: Path | None = None
 
-    def react(self, event: Event):
+    def react(self, event: pygame.event.Event):
         if isinstance(event, MouseEvent):
             entity = self.get_containing_entity(event.position)
-            if event.event_type == EventType.MOUSE_DOWN:
+            if event.event_type == MouseEventType.MOUSE_DOWN:
                 self.is_mouse_down = True
                 if entity and isinstance(entity, Station):
                     self.start_path_on_station(entity)
 
-            elif event.event_type == EventType.MOUSE_UP:
+            elif event.event_type == MouseEventType.MOUSE_UP:
                 self.is_mouse_down = False
                 if self.is_creating_path:
                     assert self.path_being_created is not None
@@ -62,7 +69,7 @@ class Mediator(Singleton):
                     else:
                         self.abort_path_creation()
 
-            elif event.event_type == EventType.MOUSE_MOTION:
+            elif event.event_type == MouseEventType.MOUSE_MOTION:
                 if (
                     self.is_mouse_down
                     and self.is_creating_path
@@ -72,6 +79,10 @@ class Mediator(Singleton):
                         self.add_station_to_path(entity)
                     else:
                         self.path_being_created.set_temporary_point(event.position)
+        elif isinstance(event, KeyboardEvent):
+            if event.event_type == KeyboardEventType.KEY_UP:
+                if event.key == pygame.K_SPACE:
+                    self.is_paused = not self.is_paused
 
     def get_containing_entity(self, position: Point):
         for station in self.stations:
@@ -160,6 +171,9 @@ class Mediator(Singleton):
                 station.add_passenger(passenger)
 
     def increment_time(self, dt_ms: int) -> None:
+        if self.is_paused:
+            return
+
         self.time_ms += dt_ms
         self.steps += 1
         self.steps_since_last_spawn += 1

@@ -1,9 +1,9 @@
 import sys
 
-import pygame
+import pygame  # type: ignore
 
 from config import framerate, screen_height, screen_width
-from event import EventType, MouseEvent
+from event import KeyboardEvent, KeyboardEventType, MouseEvent, MouseEventType
 from mediator import Mediator
 from utils import tuple_to_point
 
@@ -38,12 +38,14 @@ while True:
             raise SystemExit
         elif event.type == pygame.MOUSEBUTTONDOWN:
             mouse_position = tuple_to_point(pygame.mouse.get_pos())
-            mediator.react(MouseEvent(EventType.MOUSE_DOWN, mouse_position))
+            mediator.react(MouseEvent(MouseEventType.MOUSE_DOWN, mouse_position))
         elif event.type == pygame.MOUSEBUTTONUP:
             mouse_position = tuple_to_point(pygame.mouse.get_pos())
-            mediator.react(MouseEvent(EventType.MOUSE_UP, mouse_position))
+            mediator.react(MouseEvent(MouseEventType.MOUSE_UP, mouse_position))
         elif event.type == pygame.MOUSEMOTION:
             mouse_position = tuple_to_point(pygame.mouse.get_pos())
-            mediator.react(MouseEvent(EventType.MOUSE_MOTION, mouse_position))
+            mediator.react(MouseEvent(MouseEventType.MOUSE_MOTION, mouse_position))
+        elif event.type == pygame.KEYUP:
+            mediator.react(KeyboardEvent(KeyboardEventType.KEY_UP, event.key))
 
     pygame.display.flip()
