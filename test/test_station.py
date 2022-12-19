@@ -15,6 +15,7 @@ class TestStation(unittest.TestCase):
 
     def test_init(self):
         station = Station(self.shape, self.position)
+
         self.assertEqual(station.shape, self.shape)
         self.assertEqual(station.position, self.position)
 

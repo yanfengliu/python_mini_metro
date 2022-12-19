@@ -7,17 +7,19 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 import pygame  # type: ignore
 
+from config import screen_height, screen_width
 from geometry.circle import Circle
 from geometry.line import Line
 from geometry.point import Point
 from geometry.polygon import Polygon
 from geometry.rect import Rect
+from geometry.triangle import Triangle
 from utils import get_random_color, get_random_position
 
 
 class TestGeometry(unittest.TestCase):
     def setUp(self):
-        self.width, self.height = 640, 480
+        self.width, self.height = screen_width, screen_height
         self.screen = create_autospec(pygame.surface.Surface)
         self.position = get_random_position(self.width, self.height)
         self.color = get_random_color()
@@ -29,6 +31,7 @@ class TestGeometry(unittest.TestCase):
     def test_circle_init(self):
         radius = 1
         circle = Circle(self.color, radius)
+
         self.assertSequenceEqual(circle.color, self.color)
         self.assertEqual(circle.radius, radius)
 
@@ -45,6 +48,7 @@ class TestGeometry(unittest.TestCase):
         circle = self.init_circle()
         pygame.draw.circle = MagicMock()
         circle.draw(self.screen, self.position)
+
         self.assertTrue(
             circle.contains(self.position + Point(circle.radius - 1, circle.radius - 1))
         )
@@ -56,6 +60,7 @@ class TestGeometry(unittest.TestCase):
         width = 2
         height = 3
         rect = Rect(self.color, width, height)
+
         self.assertSequenceEqual(rect.color, self.color)
         self.assertEqual(rect.width, width)
         self.assertEqual(rect.height, height)
@@ -67,17 +72,20 @@ class TestGeometry(unittest.TestCase):
         rect = self.init_rect()
         pygame.draw.rect = MagicMock()
         rect.draw(self.screen, self.position)
+
         pygame.draw.rect.assert_called_once()
 
     def test_rect_contains_point(self):
         rect = self.init_rect()
         pygame.draw.rect = MagicMock()
         rect.draw(self.screen, self.position)
+
         self.assertTrue(rect.contains(rect.position + Point(1, 1)))
         self.assertFalse(rect.contains(rect.position + Point(rect.width, rect.height)))
 
     def test_polygon_init(self):
         polygon = Polygon(self.color, self.points)
+
         self.assertSequenceEqual(polygon.color, self.color)
         self.assertSequenceEqual(polygon.points, self.points)
 
@@ -88,12 +96,14 @@ class TestGeometry(unittest.TestCase):
         polygon = self.init_polygon()
         pygame.draw.polygon = MagicMock()
         polygon.draw(self.screen, self.position)
+
         pygame.draw.polygon.assert_called_once()
 
     def test_polygon_contains_point(self):
         polygon = self.init_polygon()
         pygame.draw.polygon = MagicMock()
         polygon.draw(self.screen, self.position)
+
         self.assertTrue(polygon.contains(self.position))
         self.assertFalse(
             polygon.contains(self.position + Point(self.width, self.height))
@@ -101,6 +111,7 @@ class TestGeometry(unittest.TestCase):
 
     def test_line_init(self):
         line = Line(self.color, self.start, self.end, self.linewidth)
+
         self.assertSequenceEqual(line.color, self.color)
         self.assertEqual(line.start, self.start)
         self.assertEqual(line.end, self.end)
@@ -113,7 +124,25 @@ class TestGeometry(unittest.TestCase):
         line = self.init_line()
         pygame.draw.line = MagicMock()
         line.draw(self.screen)
+
         pygame.draw.line.assert_called_once()
+
+    def test_triangle_init(self):
+        size = 10
+        triangle = Triangle(self.color, size)
+
+        self.assertSequenceEqual(triangle.color, self.color)
+        self.assertEqual(triangle.size, size)
+
+    def init_triangle(self):
+        return Triangle(self.color, 10)
+
+    def test_triangle_draw(self):
+        triangle = self.init_triangle()
+        pygame.draw.polygon = MagicMock()
+        triangle.draw(self.screen, self.position)
+
+        pygame.draw.polygon.assert_called_once()
 
 
 if __name__ == "__main__":

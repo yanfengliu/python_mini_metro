@@ -13,7 +13,7 @@ class Passenger:
         self.is_at_destination = False
 
     def __repr__(self) -> str:
-        return self.id
+        return f"{self.id}-{self.destination_shape.type}"
 
     def __hash__(self) -> int:
         return hash(self.id)

@@ -28,6 +28,7 @@ class TestPath(unittest.TestCase):
         path = Path()
         station = get_random_station()
         path.add_station(station)
+
         self.assertIn(station, path.stations)
 
     def test_draw(self):
@@ -37,6 +38,7 @@ class TestPath(unittest.TestCase):
         for station in stations:
             path.add_station(station)
         path.draw(self.screen)
+
         self.assertEqual(pygame.draw.line.call_count, 4)
 
     def test_draw_temporary_point(self):
@@ -45,6 +47,7 @@ class TestPath(unittest.TestCase):
         path.add_station(get_random_station())
         path.set_temporary_point(Point(1, 1))
         path.draw(self.screen)
+
         self.assertEqual(pygame.draw.line.call_count, 1)
 
     def test_metro_starts_at_beginning_of_first_line(self):
@@ -54,6 +57,7 @@ class TestPath(unittest.TestCase):
         path.draw(self.screen)
         metro = Metro()
         path.add_metro(metro)
+
         self.assertEqual(metro.current_segment, path.segments[0])
         self.assertEqual(metro.current_segment_idx, 0)
         self.assertTrue(metro.is_forward)
@@ -71,6 +75,7 @@ class TestPath(unittest.TestCase):
         dt_ms = ceil(1000 / framerate)
         for _ in range(framerate):
             path.move_metro(metro, dt_ms)
+
         self.assertTrue(path.stations[1].contains(metro.position))
 
     def test_metro_turns_around_when_it_reaches_the_end(self):
@@ -86,6 +91,7 @@ class TestPath(unittest.TestCase):
         dt_ms = ceil(1000 / framerate)
         for _ in range(framerate + 1):
             path.move_metro(metro, dt_ms)
+
         self.assertFalse(metro.is_forward)
 
     def test_metro_loops_around_the_path(self):
@@ -107,6 +113,7 @@ class TestPath(unittest.TestCase):
         for station_idx in [1, 2, 3, 0, 1]:
             for _ in range(framerate):
                 path.move_metro(metro, dt_ms)
+
             self.assertTrue(path.stations[station_idx].contains(metro.position))
 
 

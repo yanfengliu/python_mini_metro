@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Tuple
-
 
 class Point:
     def __init__(self, left: int | float, top: int | float) -> None:

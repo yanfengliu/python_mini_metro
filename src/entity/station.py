@@ -14,7 +14,7 @@ class Station(Holder):
         super().__init__(
             shape=shape,
             capacity=station_capacity,
-            id=f"Station-{uuid()}",
+            id=f"Station-{uuid()}-{shape.type}",
         )
         self.size = station_size
         self.position = position

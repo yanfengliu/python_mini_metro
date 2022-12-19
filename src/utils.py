@@ -9,6 +9,7 @@ from geometry.circle import Circle
 from geometry.point import Point
 from geometry.rect import Rect
 from geometry.shape import Shape
+from geometry.triangle import Triangle
 from geometry.type import ShapeType
 from type import Color
 
@@ -47,8 +48,10 @@ def tuple_to_point(tuple: Tuple[int, int]) -> Point:
 def get_shape_from_type(type: ShapeType, color: Color, size: int) -> Shape:
     if type == ShapeType.RECT:
         return Rect(color=color, width=2 * size, height=2 * size)
-    else:
+    elif type == ShapeType.CIRCLE:
         return Circle(color=color, radius=size)
+    else:
+        return Triangle(color=color, size=size)
 
 
 def within_time_window(game_time_ms: int, time_mark_ms: int, window_ms: int):

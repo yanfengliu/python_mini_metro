@@ -12,7 +12,7 @@ num_stations = 10
 station_size = 30
 station_capacity = 12
 station_color = (0, 0, 0)
-station_shape_type_list = [ShapeType.RECT, ShapeType.CIRCLE]
+station_shape_type_list = [ShapeType.RECT, ShapeType.CIRCLE, ShapeType.TRIANGLE]
 station_passengers_per_row = 4
 
 # passenger

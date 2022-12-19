@@ -1,4 +1,4 @@
-from typing import List, TypedDict
+from typing import List
 
 from entity.path import Path
 from entity.station import Station
@@ -15,6 +15,8 @@ def build_station_nodes_dict(stations: List[Station], paths: List[Path]):
         station_nodes.append(node)
         station_nodes_dict[station] = node
     for path in paths:
+        if path.is_being_created:
+            continue
         connection = []
         for station in path.stations:
             connection.append(station_nodes_dict[station])

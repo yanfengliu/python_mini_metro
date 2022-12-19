@@ -26,9 +26,9 @@ from event import Event, KeyboardEvent, KeyboardEventType, MouseEvent, MouseEven
 from geometry.circle import Circle
 from geometry.point import Point
 from geometry.rect import Rect
+from geometry.triangle import Triangle
 from geometry.type import ShapeType
 from graph.graph_algo import bfs, build_station_nodes_dict
-from singleton import Singleton
 from travel_plan import TravelPlan
 from utils import get_random_color, get_shape_from_type
 
@@ -36,7 +36,7 @@ TravelPlans = Dict[Passenger, TravelPlan]
 pp = pprint.PrettyPrinter(indent=4)
 
 
-class Mediator(Singleton):
+class Mediator:
     def __init__(self) -> None:
         # configs
         self.passenger_spawning_step = passenger_spawning_start_step
@@ -46,39 +46,39 @@ class Mediator(Singleton):
         self.num_stations = num_stations
 
         # entities
-        # self.stations = get_random_stations(self.num_stations)
-        self.stations = [
-            Station(
-                Rect(
-                    color=station_color,
-                    width=2 * station_size,
-                    height=2 * station_size,
-                ),
-                Point(100, 100),
-            ),
-            Station(
-                Circle(
-                    color=station_color,
-                    radius=station_size,
-                ),
-                Point(100, 200),
-            ),
-            Station(
-                Rect(
-                    color=station_color,
-                    width=2 * station_size,
-                    height=2 * station_size,
-                ),
-                Point(200, 200),
-            ),
-            Station(
-                Circle(
-                    color=station_color,
-                    radius=station_size,
-                ),
-                Point(200, 100),
-            ),
-        ]
+        self.stations = get_random_stations(self.num_stations)
+        # self.stations = [
+        #     Station(
+        #         Rect(
+        #             color=station_color,
+        #             width=2 * station_size,
+        #             height=2 * station_size,
+        #         ),
+        #         Point(100, 100),
+        #     ),
+        #     Station(
+        #         Circle(
+        #             color=station_color,
+        #             radius=station_size,
+        #         ),
+        #         Point(100, 500),
+        #     ),
+        #     Station(
+        #         Rect(
+        #             color=station_color,
+        #             width=2 * station_size,
+        #             height=2 * station_size,
+        #         ),
+        #         Point(500, 500),
+        #     ),
+        #     Station(
+        #         Triangle(
+        #             color=station_color,
+        #             size=station_size,
+        #         ),
+        #         Point(500, 100),
+        #     ),
+        # ]
         self.metros: List[Metro] = []
         self.paths: List[Path] = []
         self.passengers: List[Passenger] = []
@@ -225,7 +225,6 @@ class Mediator(Singleton):
             if station.has_room():
                 station.add_passenger(passenger)
                 self.passengers.append(passenger)
-        self.steps_since_last_spawn = 0
 
     def increment_time(self, dt_ms: int) -> None:
         if self.is_paused:
@@ -234,7 +233,7 @@ class Mediator(Singleton):
         self.time_ms += dt_ms
         self.steps += 1
         self.steps_since_last_spawn += 1
-        # print(self.steps)
+        print(self.time_ms)
 
         # move metros
         for path in self.paths:
@@ -244,16 +243,25 @@ class Mediator(Singleton):
         # spawn passengers
         if self.is_passenger_spawn_time():
             self.spawn_passengers()
+            self.steps_since_last_spawn = 0
 
         self.find_travel_plan_for_passengers()
         self.move_passengers()
 
     def move_passengers(self) -> None:
-        # pp.pprint(self.travel_plans)
+        pp.pprint(self.travel_plans)
         for metro in self.metros:
             if metro.current_station:
                 for passenger in metro.passengers:
                     assert self.travel_plans[passenger]
+                    # print(
+                    #     f"{passenger}\n"
+                    #     f"{self.travel_plans[passenger].get_off_station}\n"
+                    #     f"{metro.current_station}\n"
+                    #     f"{self.travel_plans[passenger].get_off_station == metro.current_station}\n"
+                    #     f"{metro.current_station.has_room()}\n"
+                    #     f"==============="
+                    # )
                     if (
                         self.travel_plans[passenger].get_off_station
                         and self.travel_plans[passenger].get_off_station

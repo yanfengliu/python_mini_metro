@@ -20,15 +20,13 @@ class Polygon(Shape):
 
     def draw(self, surface: pygame.surface.Surface, position: Point) -> None:
         super().draw(surface, position)
-        points = self.points
         tuples = []
-        for i in range(len(points)):
-            points[i] += position
-            tuples.append(points[i].to_tuple())
+        for i in range(len(self.points)):
+            tuples.append((self.points[i] + self.position).to_tuple())
         pygame.draw.polygon(surface, self.color, tuples)
 
     def contains(self, point: Point) -> bool:
         shapely_point = ShapelyPoint(point.left, point.top)
-        tuples = [x.to_tuple() for x in self.points]
+        tuples = [(x + self.position).to_tuple() for x in self.points]
         polygon = ShapelyPolygon(tuples)
         return polygon.contains(shapely_point)
