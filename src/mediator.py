@@ -46,7 +46,39 @@ class Mediator:
         self.num_stations = num_stations
 
         # entities
-        self.stations = get_random_stations(self.num_stations)
+        # self.stations = get_random_stations(self.num_stations)
+        self.stations = [
+            Station(
+                Rect(
+                    color=station_color,
+                    width=2 * station_size,
+                    height=2 * station_size,
+                ),
+                Point(100, 100),
+            ),
+            Station(
+                Circle(
+                    color=station_color,
+                    radius=station_size,
+                ),
+                Point(100, 500),
+            ),
+            Station(
+                Rect(
+                    color=station_color,
+                    width=2 * station_size,
+                    height=2 * station_size,
+                ),
+                Point(500, 500),
+            ),
+            Station(
+                Triangle(
+                    color=station_color,
+                    size=station_size,
+                ),
+                Point(500, 100),
+            ),
+        ]
         self.metros: List[Metro] = []
         self.paths: List[Path] = []
         self.passengers: List[Passenger] = []
@@ -203,7 +235,6 @@ class Mediator:
         self.time_ms += dt_ms
         self.steps += 1
         self.steps_since_last_spawn += 1
-        print(self.steps)
 
         # move metros
         for path in self.paths:
@@ -218,34 +249,47 @@ class Mediator:
         self.move_passengers()
 
     def move_passengers(self) -> None:
+        self.find_travel_plan_for_passengers()
         for metro in self.metros:
             if metro.current_station:
+                passengers_to_remove = []
+                passengers_from_metro_to_station = []
+                passengers_from_station_to_metro = []
+
+                # queue
                 for passenger in metro.passengers:
-                    assert self.travel_plans[passenger]
                     if (
                         metro.current_station.shape.type
                         == passenger.destination_shape.type
                     ):
-                        passenger.is_at_destination = True
-                        metro.remove_passenger(passenger)
-                        self.passengers.remove(passenger)
-                        del self.travel_plans[passenger]
+                        passengers_to_remove.append(passenger)
                     elif (
                         self.travel_plans[passenger].get_off_station
-                        and self.travel_plans[passenger].get_off_station
                         == metro.current_station
-                        and metro.current_station.has_room()
                     ):
-                        metro.move_passenger(passenger, metro.current_station)
-                        self.travel_plans[passenger] = TravelPlan(None, None)
+                        passengers_from_metro_to_station.append(passenger)
                 for passenger in metro.current_station.passengers:
                     if (
                         self.travel_plans[passenger].get_on_path
                         and self.travel_plans[passenger].get_on_path.id == metro.path_id  # type: ignore
-                        and metro.has_room()
                     ):
+                        passengers_from_station_to_metro.append(passenger)
+
+                # process
+                for passenger in passengers_to_remove:
+                    passenger.is_at_destination = True
+                    metro.remove_passenger(passenger)
+                    self.passengers.remove(passenger)
+                    del self.travel_plans[passenger]
+
+                for passenger in passengers_from_metro_to_station:
+                    if metro.current_station.has_room():
+                        metro.move_passenger(passenger, metro.current_station)
+                        self.travel_plans[passenger] = TravelPlan(None, None)
+
+                for passenger in passengers_from_station_to_metro:
+                    if metro.has_room():
                         metro.current_station.move_passenger(passenger, metro)
-                self.find_travel_plan_for_passengers()
 
     def get_stations_for_shape_type(self, shape_type: ShapeType):
         stations: List[Station] = []
