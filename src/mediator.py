@@ -194,8 +194,6 @@ class Mediator:
                 station.add_passenger(passenger)
                 self.passengers.append(passenger)
 
-        self.find_travel_plan_for_passengers()
-
     def increment_time(self, dt_ms: int) -> None:
         if self.is_paused:
             return
@@ -215,10 +213,10 @@ class Mediator:
             self.spawn_passengers()
             self.steps_since_last_spawn = 0
 
+        self.find_travel_plan_for_passengers()
         self.move_passengers()
 
     def move_passengers(self) -> None:
-        self.find_travel_plan_for_passengers()
         for metro in self.metros:
             if metro.current_station:
                 passengers_to_remove = []
@@ -233,14 +231,14 @@ class Mediator:
                     ):
                         passengers_to_remove.append(passenger)
                     elif (
-                        self.travel_plans[passenger].get_off_station
+                        self.travel_plans[passenger].next_station
                         == metro.current_station
                     ):
                         passengers_from_metro_to_station.append(passenger)
                 for passenger in metro.current_station.passengers:
                     if (
-                        self.travel_plans[passenger].get_on_path
-                        and self.travel_plans[passenger].get_on_path.id == metro.path_id  # type: ignore
+                        self.travel_plans[passenger].next_path
+                        and self.travel_plans[passenger].next_path.id == metro.path_id  # type: ignore
                     ):
                         passengers_from_station_to_metro.append(passenger)
 
@@ -254,7 +252,9 @@ class Mediator:
                 for passenger in passengers_from_metro_to_station:
                     if metro.current_station.has_room():
                         metro.move_passenger(passenger, metro.current_station)
-                        self.travel_plans[passenger] = TravelPlan(None, None)
+                        self.find_next_path_for_passenger_at_station(
+                            passenger, metro.current_station
+                        )
 
                 for passenger in passengers_from_station_to_metro:
                     if metro.has_room():
@@ -278,18 +278,27 @@ class Mediator:
     def passenger_has_travel_plan(self, passenger: Passenger) -> bool:
         return (
             passenger in self.travel_plans
-            and self.travel_plans[passenger].get_on_path is not None
+            and self.travel_plans[passenger].next_path is not None
         )
+
+    def find_next_path_for_passenger_at_station(
+        self, passenger: Passenger, station: Station
+    ):
+        next_station = self.travel_plans[passenger].get_next_station()
+        assert next_station is not None
+        next_path = self.find_shared_path(station, next_station)
+        assert next_path is not None
+        self.travel_plans[passenger].next_path = next_path
 
     def find_travel_plan_for_passengers(self) -> None:
         station_nodes_dict = build_station_nodes_dict(self.stations, self.paths)
         for station in self.stations:
             for passenger in station.passengers:
                 if not self.passenger_has_travel_plan(passenger):
-                    next_station = None
                     possible_dst_stations = self.get_stations_for_shape_type(
                         passenger.destination_shape.type
                     )
+                    should_set_null_path = True
                     for possible_dst_station in possible_dst_stations:
                         start = station_nodes_dict[station]
                         end = station_nodes_dict[possible_dst_station]
@@ -299,17 +308,15 @@ class Mediator:
                             station.remove_passenger(passenger)
                             self.passengers.remove(passenger)
                             passenger.is_at_destination = True
-                        elif len(node_path) > 1:
-                            next_station = node_path[1].station
-                            break
-                    if next_station:
-                        next_path = self.find_shared_path(station, next_station)
-                        assert next_path is not None
-                        self.travel_plans[passenger] = TravelPlan(
-                            next_path, next_station
-                        )
-                    else:
-                        if passenger.is_at_destination:
                             del self.travel_plans[passenger]
-                        else:
-                            self.travel_plans[passenger] = TravelPlan(None, None)
+                            should_set_null_path = False
+                            break
+                        elif len(node_path) > 1:
+                            self.travel_plans[passenger] = TravelPlan(node_path[1:])
+                            self.find_next_path_for_passenger_at_station(
+                                passenger, station
+                            )
+                            should_set_null_path = False
+                            break
+                    if should_set_null_path:
+                        self.travel_plans[passenger] = TravelPlan([])

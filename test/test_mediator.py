@@ -263,8 +263,8 @@ class TestMediator(unittest.TestCase):
         for passenger in self.mediator.passengers:
             self.assertIn(passenger, self.mediator.travel_plans)
             self.assertIsNotNone(self.mediator.travel_plans[passenger])
-            self.assertIsNotNone(self.mediator.travel_plans[passenger].get_on_path)
-            self.assertIsNotNone(self.mediator.travel_plans[passenger].get_off_station)
+            self.assertIsNotNone(self.mediator.travel_plans[passenger].next_path)
+            self.assertIsNotNone(self.mediator.travel_plans[passenger].next_station)
 
     def test_passengers_at_isolated_stations_have_no_way_to_destination(self):
         # Run the game until first wave of passengers spawn, then 1 more frame
@@ -274,8 +274,8 @@ class TestMediator(unittest.TestCase):
         for passenger in self.mediator.passengers:
             self.assertIn(passenger, self.mediator.travel_plans)
             self.assertIsNotNone(self.mediator.travel_plans[passenger])
-            self.assertIsNone(self.mediator.travel_plans[passenger].get_on_path)
-            self.assertIsNone(self.mediator.travel_plans[passenger].get_off_station)
+            self.assertIsNone(self.mediator.travel_plans[passenger].next_path)
+            self.assertIsNone(self.mediator.travel_plans[passenger].next_station)
 
     def test_get_station_for_shape_type(self):
         self.mediator.stations = [
