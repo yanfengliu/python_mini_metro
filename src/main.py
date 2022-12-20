@@ -1,8 +1,6 @@
-import sys
-
 import pygame  # type: ignore
 
-from config import framerate, screen_height, screen_width
+from config import framerate, screen_color, screen_height, screen_width
 from event import KeyboardEvent, KeyboardEventType, MouseEvent, MouseEventType
 from mediator import Mediator
 from utils import tuple_to_point
@@ -22,7 +20,7 @@ mediator = Mediator()
 while True:
     dt_ms = clock.tick(framerate)
     mediator.increment_time(dt_ms)
-    screen.fill((255, 255, 255))
+    screen.fill(screen_color)
     mediator.render(screen)
 
     # react to user interaction

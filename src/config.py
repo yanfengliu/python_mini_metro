@@ -6,6 +6,7 @@ framerate = 60
 # screen
 screen_width = 1920
 screen_height = 1080
+screen_color = (255, 255, 255)
 
 # station
 num_stations = 10
@@ -19,7 +20,7 @@ station_passengers_per_row = 4
 passenger_size = 5
 passenger_color = (128, 128, 128)
 passenger_spawning_start_step = 1
-passenger_spawning_interval_step = 5 * framerate
+passenger_spawning_interval_step = 10 * framerate
 passenger_display_buffer = 3 * passenger_size
 
 # metro

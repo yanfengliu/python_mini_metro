@@ -46,39 +46,7 @@ class Mediator:
         self.num_stations = num_stations
 
         # entities
-        # self.stations = get_random_stations(self.num_stations)
-        self.stations = [
-            Station(
-                Rect(
-                    color=station_color,
-                    width=2 * station_size,
-                    height=2 * station_size,
-                ),
-                Point(100, 100),
-            ),
-            Station(
-                Circle(
-                    color=station_color,
-                    radius=station_size,
-                ),
-                Point(100, 500),
-            ),
-            Station(
-                Rect(
-                    color=station_color,
-                    width=2 * station_size,
-                    height=2 * station_size,
-                ),
-                Point(500, 500),
-            ),
-            Station(
-                Triangle(
-                    color=station_color,
-                    size=station_size,
-                ),
-                Point(500, 100),
-            ),
-        ]
+        self.stations = get_random_stations(self.num_stations)
         self.metros: List[Metro] = []
         self.paths: List[Path] = []
         self.passengers: List[Passenger] = []
@@ -232,6 +200,7 @@ class Mediator:
         if self.is_paused:
             return
 
+        # record time
         self.time_ms += dt_ms
         self.steps += 1
         self.steps_since_last_spawn += 1
@@ -306,32 +275,41 @@ class Mediator:
                 return path
         return None
 
+    def passenger_has_travel_plan(self, passenger: Passenger) -> bool:
+        return (
+            passenger in self.travel_plans
+            and self.travel_plans[passenger].get_on_path is not None
+        )
+
     def find_travel_plan_for_passengers(self) -> None:
         station_nodes_dict = build_station_nodes_dict(self.stations, self.paths)
         for station in self.stations:
             for passenger in station.passengers:
-                next_station = None
-                possible_dst_stations = self.get_stations_for_shape_type(
-                    passenger.destination_shape.type
-                )
-                for possible_dst_station in possible_dst_stations:
-                    start = station_nodes_dict[station]
-                    end = station_nodes_dict[possible_dst_station]
-                    node_path = bfs(start, end)
-                    if len(node_path) == 1:
-                        # passenger arrived at destination
-                        station.remove_passenger(passenger)
-                        self.passengers.remove(passenger)
-                        passenger.is_at_destination = True
-                    elif len(node_path) > 1:
-                        next_station = node_path[1].station
-                        break
-                if next_station:
-                    next_path = self.find_shared_path(station, next_station)
-                    assert next_path is not None
-                    self.travel_plans[passenger] = TravelPlan(next_path, next_station)
-                else:
-                    if passenger.is_at_destination:
-                        del self.travel_plans[passenger]
+                if not self.passenger_has_travel_plan(passenger):
+                    next_station = None
+                    possible_dst_stations = self.get_stations_for_shape_type(
+                        passenger.destination_shape.type
+                    )
+                    for possible_dst_station in possible_dst_stations:
+                        start = station_nodes_dict[station]
+                        end = station_nodes_dict[possible_dst_station]
+                        node_path = bfs(start, end)
+                        if len(node_path) == 1:
+                            # passenger arrived at destination
+                            station.remove_passenger(passenger)
+                            self.passengers.remove(passenger)
+                            passenger.is_at_destination = True
+                        elif len(node_path) > 1:
+                            next_station = node_path[1].station
+                            break
+                    if next_station:
+                        next_path = self.find_shared_path(station, next_station)
+                        assert next_path is not None
+                        self.travel_plans[passenger] = TravelPlan(
+                            next_path, next_station
+                        )
                     else:
-                        self.travel_plans[passenger] = TravelPlan(None, None)
+                        if passenger.is_at_destination:
+                            del self.travel_plans[passenger]
+                        else:
+                            self.travel_plans[passenger] = TravelPlan(None, None)
