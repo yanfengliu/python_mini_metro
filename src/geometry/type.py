@@ -6,3 +6,4 @@ class ShapeType(enum.Enum):
     CIRCLE = "2"
     POLYGON = "3"
     TRIANGLE = "4"
+    CROSS = "5"

@@ -6,6 +6,7 @@ import numpy as np
 
 from config import passenger_size, station_color, station_shape_type_list, station_size
 from geometry.circle import Circle
+from geometry.cross import Cross
 from geometry.point import Point
 from geometry.rect import Rect
 from geometry.shape import Shape
@@ -50,8 +51,10 @@ def get_shape_from_type(type: ShapeType, color: Color, size: int) -> Shape:
         return Rect(color=color, width=2 * size, height=2 * size)
     elif type == ShapeType.CIRCLE:
         return Circle(color=color, radius=size)
-    else:
+    elif type == ShapeType.TRIANGLE:
         return Triangle(color=color, size=size)
+    else:
+        return Cross(color=color, size=size)
 
 
 def within_time_window(game_time_ms: int, time_mark_ms: int, window_ms: int):
