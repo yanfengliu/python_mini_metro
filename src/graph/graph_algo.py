@@ -1,4 +1,4 @@
-from typing import List
+from typing import Dict, List
 
 from entity.path import Path
 from entity.station import Station
@@ -8,7 +8,7 @@ from graph.node import Node
 def build_station_nodes_dict(stations: List[Station], paths: List[Path]):
     station_nodes: List[Node] = []
     connections: List[List[Node]] = []
-    station_nodes_dict = {}
+    station_nodes_dict: Dict[Station, Node] = {}
 
     for station in stations:
         node = Node(station)
@@ -19,10 +19,10 @@ def build_station_nodes_dict(stations: List[Station], paths: List[Path]):
             continue
         connection = []
         for station in path.stations:
+            station_nodes_dict[station].paths.add(path)
             connection.append(station_nodes_dict[station])
         connections.append(connection)
 
-    # TODO: optimize travel planning for loop
     while len(station_nodes) > 0:
         root = station_nodes[0]
         for connection in connections:

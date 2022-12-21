@@ -29,6 +29,7 @@ from geometry.rect import Rect
 from geometry.triangle import Triangle
 from geometry.type import ShapeType
 from graph.graph_algo import bfs, build_station_nodes_dict
+from graph.node import Node
 from travel_plan import TravelPlan
 from utils import get_random_color, get_shape_from_type
 
@@ -290,6 +291,30 @@ class Mediator:
         assert next_path is not None
         self.travel_plans[passenger].next_path = next_path
 
+    def skip_stations_on_same_path(self, node_path: List[Node]):
+        assert len(node_path) >= 2
+        if len(node_path) == 2:
+            return node_path
+        else:
+            nodes_to_remove = []
+            i = 0
+            j = 1
+            path_set_list = [x.paths for x in node_path]
+            path_set_list.append(set())
+            while j <= len(path_set_list) - 1:
+                set_a = path_set_list[i]
+                set_b = path_set_list[j]
+                if set_a & set_b:
+                    j += 1
+                else:
+                    for k in range(i + 1, j - 1):
+                        nodes_to_remove.append(node_path[k])
+                    i = j - 1
+                    j += 1
+            for node in nodes_to_remove:
+                node_path.remove(node)
+        return node_path
+
     def find_travel_plan_for_passengers(self) -> None:
         station_nodes_dict = build_station_nodes_dict(self.stations, self.paths)
         for station in self.stations:
@@ -312,6 +337,7 @@ class Mediator:
                             should_set_null_path = False
                             break
                         elif len(node_path) > 1:
+                            node_path = self.skip_stations_on_same_path(node_path)
                             self.travel_plans[passenger] = TravelPlan(node_path[1:])
                             self.find_next_path_for_passenger_at_station(
                                 passenger, station
