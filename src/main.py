@@ -1,7 +1,9 @@
 import pygame  # type: ignore
 
 from config import framerate, screen_color, screen_height, screen_width
-from event import KeyboardEvent, KeyboardEventType, MouseEvent, MouseEventType
+from event.keyboard import KeyboardEvent
+from event.mouse import MouseEvent
+from event.type import KeyboardEventType, MouseEventType
 from mediator import Mediator
 from utils import tuple_to_point
 

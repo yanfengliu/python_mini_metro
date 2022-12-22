@@ -22,11 +22,11 @@ from entity.metro import Metro
 from entity.passenger import Passenger
 from entity.path import Path
 from entity.station import Station
-from event import Event, KeyboardEvent, KeyboardEventType, MouseEvent, MouseEventType
-from geometry.circle import Circle
+from event.event import Event
+from event.keyboard import KeyboardEvent
+from event.mouse import MouseEvent
+from event.type import KeyboardEventType, MouseEventType
 from geometry.point import Point
-from geometry.rect import Rect
-from geometry.triangle import Triangle
 from geometry.type import ShapeType
 from graph.graph_algo import bfs, build_station_nodes_dict
 from graph.node import Node
@@ -63,14 +63,14 @@ class Mediator:
         self.is_paused = False
 
     def render(self, screen: pygame.surface.Surface) -> None:
-        for station in self.stations:
-            station.draw(screen)
         for path in self.paths:
             path.draw(screen)
+        for station in self.stations:
+            station.draw(screen)
         for metro in self.metros:
             metro.draw(screen)
 
-    def react(self, event: pygame.event.Event):
+    def react(self, event: Event):
         if isinstance(event, MouseEvent):
             entity = self.get_containing_entity(event.position)
             if event.event_type == MouseEventType.MOUSE_DOWN:

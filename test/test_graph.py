@@ -13,20 +13,11 @@ from math import ceil
 
 import pygame  # type: ignore
 
-from config import (
-    framerate,
-    passenger_spawning_interval_step,
-    passenger_spawning_start_step,
-    screen_height,
-    screen_width,
-    station_color,
-    station_size,
-)
-from entity.path import Path
+from config import screen_height, screen_width, station_color, station_size
 from entity.station import Station
-from event import KeyboardEvent, KeyboardEventType, MouseEvent, MouseEventType
+from event.mouse import MouseEvent
+from event.type import MouseEventType
 from geometry.circle import Circle
-from geometry.point import Point
 from geometry.rect import Rect
 from graph.graph_algo import bfs, build_station_nodes_dict
 from graph.node import Node

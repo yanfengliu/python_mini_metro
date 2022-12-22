@@ -4,6 +4,9 @@ import unittest
 from unittest.mock import MagicMock, create_autospec
 
 from entity.get_entity import get_random_stations
+from event.keyboard import KeyboardEvent
+from event.mouse import MouseEvent
+from event.type import KeyboardEventType, MouseEventType
 from geometry.triangle import Triangle
 from geometry.type import ShapeType
 
@@ -22,13 +25,10 @@ from config import (
     station_color,
     station_size,
 )
-from entity.path import Path
 from entity.station import Station
-from event import KeyboardEvent, KeyboardEventType, MouseEvent, MouseEventType
 from geometry.circle import Circle
 from geometry.point import Point
 from geometry.rect import Rect
-from graph.node import Node
 from mediator import Mediator
 from utils import get_random_color, get_random_position
 
