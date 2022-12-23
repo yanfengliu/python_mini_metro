@@ -5,13 +5,15 @@ from unittest.mock import MagicMock, create_autospec
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
+import math
+from copy import deepcopy
+
 import pygame  # type: ignore
 
 from config import screen_height, screen_width
 from geometry.circle import Circle
 from geometry.line import Line
 from geometry.point import Point
-from geometry.polygon import Polygon
 from geometry.rect import Rect
 from geometry.triangle import Triangle
 from utils import get_random_color, get_random_position
@@ -70,44 +72,29 @@ class TestGeometry(unittest.TestCase):
 
     def test_rect_draw(self):
         rect = self.init_rect()
-        pygame.draw.rect = MagicMock()
+        pygame.draw.polygon = MagicMock()
         rect.draw(self.screen, self.position)
 
-        pygame.draw.rect.assert_called_once()
+        pygame.draw.polygon.assert_called_once()
 
     def test_rect_contains_point(self):
         rect = self.init_rect()
-        pygame.draw.rect = MagicMock()
+        pygame.draw.polygon = MagicMock()
         rect.draw(self.screen, self.position)
 
         self.assertTrue(rect.contains(rect.position + Point(1, 1)))
         self.assertFalse(rect.contains(rect.position + Point(rect.width, rect.height)))
 
-    def test_polygon_init(self):
-        polygon = Polygon(self.color, self.points)
-
-        self.assertSequenceEqual(polygon.color, self.color)
-        self.assertSequenceEqual(polygon.points, self.points)
-
-    def init_polygon(self):
-        return Polygon(self.color, self.points)
-
-    def test_polygon_draw(self):
-        polygon = self.init_polygon()
+    def test_rect_rotate(self):
+        rect = self.init_rect()
         pygame.draw.polygon = MagicMock()
-        polygon.draw(self.screen, self.position)
-
-        pygame.draw.polygon.assert_called_once()
-
-    def test_polygon_contains_point(self):
-        polygon = self.init_polygon()
-        pygame.draw.polygon = MagicMock()
-        polygon.draw(self.screen, self.position)
-
-        self.assertTrue(polygon.contains(self.position))
-        self.assertFalse(
-            polygon.contains(self.position + Point(self.width, self.height))
-        )
+        rect.draw(self.screen, self.position)
+        rect_points = deepcopy(rect.points)
+        rect.rotate(180)
+        for point in rect.points:
+            self.assertIn(point, rect_points)
+        rect.rotate(180)
+        self.assertSequenceEqual(rect.points, rect_points)
 
     def test_line_init(self):
         line = Line(self.color, self.start, self.end, self.linewidth)

@@ -1,3 +1,4 @@
+import math
 from typing import List
 
 import pygame  # type: ignore
@@ -12,10 +13,11 @@ from type import Color
 
 
 class Polygon(Shape):
-    def __init__(self, color: Color, points: List[Point]) -> None:
-        super().__init__(ShapeType.POLYGON)
+    def __init__(
+        self, shape_type: ShapeType, color: Color, points: List[Point]
+    ) -> None:
+        super().__init__(shape_type, color)
         self.id = f"Polygon-{uuid()}"
-        self.color = color
         self.points = points
 
     def draw(self, surface: pygame.surface.Surface, position: Point) -> None:
@@ -30,3 +32,16 @@ class Polygon(Shape):
         tuples = [(x + self.position).to_tuple() for x in self.points]
         polygon = ShapelyPolygon(tuples)
         return polygon.contains(shapely_point)
+
+    def rotate(self, degree: float) -> None:
+        radians = math.radians(degree)
+        s = math.sin(radians)
+        c = math.cos(radians)
+
+        for i in range(len(self.points)):
+            x = self.points[i].left
+            y = self.points[i].top
+            self.points[i] = Point(
+                round(c * x - s * y),
+                round(s * x + c * y),
+            )

@@ -9,9 +9,8 @@ from type import Color
 
 class Circle(Shape):
     def __init__(self, color: Color, radius: int) -> None:
-        super().__init__(ShapeType.CIRCLE)
+        super().__init__(ShapeType.CIRCLE, color)
         self.id = f"Circle-{uuid()}"
-        self.color = color
         self.radius = radius
 
     def draw(self, surface: pygame.surface.Surface, position: Point):

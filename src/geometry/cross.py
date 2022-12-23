@@ -7,7 +7,7 @@ from type import Color
 class Cross(Polygon):
     def __init__(self, color: Color, size: int) -> None:
         self.size = size
-        side = int(2 * size / 3)
+        side = round(2 * size / 3)
         points = [
             Point(side, 0),
             Point(2 * side, 0),
@@ -24,5 +24,4 @@ class Cross(Polygon):
         ]
         for i in range(len(points)):
             points[i] += Point(-size, -size)
-        super().__init__(color, points)
-        self.type = ShapeType.CROSS
+        super().__init__(ShapeType.CROSS, color, points)

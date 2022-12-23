@@ -7,11 +7,13 @@ from shortuuid import uuid  # type: ignore
 
 from geometry.point import Point
 from geometry.type import ShapeType
+from type import Color
 
 
 class Shape(ABC):
-    def __init__(self, type: ShapeType):
+    def __init__(self, type: ShapeType, color: Color):
         self.type = type
+        self.color = color
         self.id = f"Shape-{uuid()}"
 
     def __eq__(self, other: Shape) -> bool:

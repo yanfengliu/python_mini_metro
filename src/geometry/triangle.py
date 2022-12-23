@@ -9,9 +9,8 @@ class Triangle(Polygon):
         # Equilateral triangle
         self.size = size
         points = [
-            Point(-size, int(-0.866 * size)),
-            Point(size, int(-0.866 * size)),
-            Point(0, int(0.866 * size)),
+            Point(-size, round(-0.866 * size)),
+            Point(size, round(-0.866 * size)),
+            Point(0, round(0.866 * size)),
         ]
-        super().__init__(color, points)
-        self.type = ShapeType.TRIANGLE
+        super().__init__(ShapeType.TRIANGLE, color, points)

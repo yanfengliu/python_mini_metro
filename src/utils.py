@@ -18,8 +18,12 @@ from type import Color
 def get_random_position(width: int, height: int) -> Point:
     padding_ratio = 0.1
     return Point(
-        left=int(width * (padding_ratio + np.random.rand() * (1 - padding_ratio * 2))),
-        top=int(height * (padding_ratio + np.random.rand() * (1 - padding_ratio * 2))),
+        left=round(
+            width * (padding_ratio + np.random.rand() * (1 - padding_ratio * 2))
+        ),
+        top=round(
+            height * (padding_ratio + np.random.rand() * (1 - padding_ratio * 2))
+        ),
     )
 
 
