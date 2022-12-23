@@ -96,6 +96,17 @@ class TestGeometry(unittest.TestCase):
         rect.rotate(180)
         self.assertSequenceEqual(rect.points, rect_points)
 
+    def test_rect_set_degrees(self):
+        rect = self.init_rect()
+        pygame.draw.polygon = MagicMock()
+        rect.draw(self.screen, self.position)
+        rect_points = deepcopy(rect.points)
+        rect.set_degrees(180)
+        for point in rect.points:
+            self.assertIn(point, rect_points)
+        rect.set_degrees(360)
+        self.assertSequenceEqual(rect.points, rect_points)
+
     def test_line_init(self):
         line = Line(self.color, self.start, self.end, self.linewidth)
 

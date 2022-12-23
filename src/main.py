@@ -16,7 +16,6 @@ flags = pygame.SCALED
 # game constants initialization
 screen = pygame.display.set_mode((screen_width, screen_height), flags, vsync=1)
 clock = pygame.time.Clock()
-pygame.transform.rotate(screen, 30)
 
 mediator = Mediator()
 

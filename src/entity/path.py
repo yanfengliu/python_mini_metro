@@ -1,3 +1,4 @@
+import math
 from typing import List
 
 import pygame  # type: ignore
@@ -84,6 +85,9 @@ class Path:
 
         dist = distance(metro.position, dst_station.position)
         direct = direction(metro.position, dst_station.position)
+        radians = math.atan2(direct.top, direct.left)
+        degrees = math.degrees(radians)
+        metro.shape.set_degrees(degrees)
         if dist > (metro.speed * dt_ms):
             metro.current_station = None
             metro.position += Point(

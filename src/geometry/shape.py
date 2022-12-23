@@ -27,5 +27,8 @@ class Shape(ABC):
     def contains(self, point: Point) -> bool:
         pass
 
-    def rotate(self, degree):
+    def rotate(self, degree_diff: float) -> None:
+        pass
+
+    def set_degrees(self, degree: float) -> None:
         pass

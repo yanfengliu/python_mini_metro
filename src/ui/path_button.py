@@ -33,7 +33,7 @@ class PathButton(Button):
 
     def assign_path(self, path: Path) -> None:
         self.cross = Cross((0, 0, 0), path_button_cross_size)
-        self.cross.rotate(45)
+        self.cross.set_degrees(45)
         self.path = path
         self.shape.color = path.color
 
