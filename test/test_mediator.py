@@ -40,8 +40,7 @@ class TestMediator(unittest.TestCase):
         self.position = get_random_position(self.width, self.height)
         self.color = get_random_color()
         self.mediator = Mediator()
-        for station in self.mediator.stations:
-            station.draw(self.screen)
+        self.mediator.render(self.screen)
 
     def connect_stations(self, station_idx):
         self.mediator.react(

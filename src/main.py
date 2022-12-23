@@ -32,7 +32,6 @@ while True:
             raise SystemExit
         else:
             event = convert_pygame_event(pygame_event)
-            assert event is not None
             mediator.react(event)
 
     pygame.display.flip()

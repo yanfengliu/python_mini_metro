@@ -39,3 +39,13 @@ metro_passengers_per_row = 3
 # path
 num_path = 3
 path_width = 10
+
+# button
+button_color = (180, 180, 180)
+button_size = 30
+
+# path button
+path_button_buffer = 20
+path_button_dist_to_bottom = 50
+path_button_start_left = 300
+path_button_cross_size = 25

@@ -31,6 +31,8 @@ from geometry.type import ShapeType
 from graph.graph_algo import bfs, build_station_nodes_dict
 from graph.node import Node
 from travel_plan import TravelPlan
+from ui.button import Button
+from ui.path_button import PathButton, get_path_buttons
 from utils import get_random_color, get_shape_from_type
 
 TravelPlans = Dict[Passenger, TravelPlan]
@@ -45,6 +47,11 @@ class Mediator:
         self.num_path = num_path
         self.num_metro = num_metros
         self.num_stations = num_stations
+
+        # UI
+        self.path_buttons = get_path_buttons(self.num_path)
+        self.path_to_button: Dict[Path, PathButton] = {}
+        self.buttons = [*self.path_buttons]
 
         # entities
         self.stations = get_random_stations(self.num_stations)
@@ -62,6 +69,16 @@ class Mediator:
         self.travel_plans: TravelPlans = {}
         self.is_paused = False
 
+    def assign_paths_to_buttons(self):
+        for path_button in self.path_buttons:
+            path_button.remove_path()
+
+        for i in range(min(len(self.paths), len(self.path_buttons))):
+            path = self.paths[i]
+            button = self.path_buttons[i]
+            button.assign_path(path)
+            self.path_to_button[path] = button
+
     def render(self, screen: pygame.surface.Surface) -> None:
         for path in self.paths:
             path.draw(screen)
@@ -69,43 +86,73 @@ class Mediator:
             station.draw(screen)
         for metro in self.metros:
             metro.draw(screen)
+        for button in self.buttons:
+            button.draw(screen)
 
-    def react(self, event: Event):
-        if isinstance(event, MouseEvent):
-            entity = self.get_containing_entity(event.position)
-            if event.event_type == MouseEventType.MOUSE_DOWN:
-                self.is_mouse_down = True
-                if entity and isinstance(entity, Station):
+    def react_mouse_event(self, event: MouseEvent):
+        entity = self.get_containing_entity(event.position)
+
+        if event.event_type == MouseEventType.MOUSE_DOWN:
+            self.is_mouse_down = True
+            if entity:
+                if isinstance(entity, Station):
                     self.start_path_on_station(entity)
 
-            elif event.event_type == MouseEventType.MOUSE_UP:
-                self.is_mouse_down = False
-                if self.is_creating_path:
-                    assert self.path_being_created is not None
-                    if entity and isinstance(entity, Station):
-                        self.end_path_on_station(entity)
-                    else:
-                        self.abort_path_creation()
+        elif event.event_type == MouseEventType.MOUSE_UP:
+            self.is_mouse_down = False
+            if self.is_creating_path:
+                assert self.path_being_created is not None
+                if entity and isinstance(entity, Station):
+                    self.end_path_on_station(entity)
+                else:
+                    self.abort_path_creation()
+            else:
+                if entity and isinstance(entity, PathButton):
+                    if entity.path:
+                        self.remove_path(entity.path)
 
-            elif event.event_type == MouseEventType.MOUSE_MOTION:
-                if (
-                    self.is_mouse_down
-                    and self.is_creating_path
-                    and self.path_being_created
-                ):
+        elif event.event_type == MouseEventType.MOUSE_MOTION:
+            if self.is_mouse_down:
+                if self.is_creating_path and self.path_being_created:
                     if entity and isinstance(entity, Station):
                         self.add_station_to_path(entity)
                     else:
                         self.path_being_created.set_temporary_point(event.position)
+            else:
+                if entity and isinstance(entity, Button):
+                    entity.on_hover()
+                else:
+                    for button in self.buttons:
+                        button.on_exit()
+
+    def react_keyboard_event(self, event: KeyboardEvent):
+        if event.event_type == KeyboardEventType.KEY_UP:
+            if event.key == pygame.K_SPACE:
+                self.is_paused = not self.is_paused
+
+    def react(self, event: Event | None):
+        if isinstance(event, MouseEvent):
+            self.react_mouse_event(event)
         elif isinstance(event, KeyboardEvent):
-            if event.event_type == KeyboardEventType.KEY_UP:
-                if event.key == pygame.K_SPACE:
-                    self.is_paused = not self.is_paused
+            self.react_keyboard_event(event)
 
     def get_containing_entity(self, position: Point):
         for station in self.stations:
             if station.contains(position):
                 return station
+        for button in self.buttons:
+            if button.contains(position):
+                return button
+
+    def remove_path(self, path: Path):
+        self.path_to_button[path].remove_path()
+        for metro in path.metros:
+            for passenger in metro.passengers:
+                self.passengers.remove(passenger)
+            self.metros.remove(metro)
+        self.paths.remove(path)
+        self.assign_paths_to_buttons()
+        self.find_travel_plan_for_passengers()
 
     def start_path_on_station(self, station: Station) -> None:
         if len(self.paths) < self.num_path:
@@ -148,6 +195,7 @@ class Mediator:
             self.path_being_created.add_metro(metro)
             self.metros.append(metro)
         self.path_being_created = None
+        self.assign_paths_to_buttons()
 
     def end_path_on_station(self, station: Station) -> None:
         assert self.path_being_created is not None
