@@ -313,7 +313,7 @@ class TestMediator(unittest.TestCase):
         for station in self.mediator.stations:
             for passenger in station.passengers:
                 self.assertEqual(
-                    len(self.mediator.travel_plans[passenger].node_path), 0
+                    len(self.mediator.travel_plans[passenger].node_path), 1
                 )
 
 

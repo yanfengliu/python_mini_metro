@@ -283,7 +283,7 @@ class Mediator:
                     ):
                         passengers_to_remove.append(passenger)
                     elif (
-                        self.travel_plans[passenger].next_station
+                        self.travel_plans[passenger].get_next_station()
                         == metro.current_station
                     ):
                         passengers_from_metro_to_station.append(passenger)
@@ -304,6 +304,7 @@ class Mediator:
                 for passenger in passengers_from_metro_to_station:
                     if metro.current_station.has_room():
                         metro.move_passenger(passenger, metro.current_station)
+                        self.travel_plans[passenger].increment_next_station()
                         self.find_next_path_for_passenger_at_station(
                             passenger, metro.current_station
                         )
