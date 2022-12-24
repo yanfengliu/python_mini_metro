@@ -318,6 +318,7 @@ class Mediator:
         for station in self.stations:
             if station.shape.type == shape_type:
                 stations.append(station)
+        random.shuffle(stations)
 
         return stations
 
