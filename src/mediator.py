@@ -198,7 +198,11 @@ class Mediator:
 
     def end_path_on_station(self, station: Station) -> None:
         assert self.path_being_created is not None
-        if self.path_being_created.stations[-1] == station:
+        # current station de-dupe
+        if (
+            len(self.path_being_created.stations) > 1
+            and self.path_being_created.stations[-1] == station
+        ):
             self.finish_path_creation()
         # loop
         elif (
