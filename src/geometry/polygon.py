@@ -22,20 +22,10 @@ class Polygon(Shape):
         self.degrees: float = 0
 
     def draw(self, surface: pygame.surface.Surface, position: Point) -> None:
-        # rotate points
-        radians = math.radians(self.degrees)
-        s = math.sin(radians)
-        c = math.cos(radians)
-
         super().draw(surface, position)
         tuples = []
-        for i in range(len(self.points)):
-            x = self.points[i].left
-            y = self.points[i].top
-            rotated_point = Point(
-                round(c * x - s * y),
-                round(s * x + c * y),
-            )
+        for point in self.points:
+            rotated_point = point.rotate(self.degrees)
             tuples.append((rotated_point + self.position).to_tuple())
         pygame.draw.polygon(surface, self.color, tuples)
 

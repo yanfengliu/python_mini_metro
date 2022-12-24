@@ -37,8 +37,9 @@ metro_speed_per_ms = 150 / 1000  # pixels / ms
 metro_passengers_per_row = 3
 
 # path
-num_path = 3
+num_paths = 3
 path_width = 10
+path_order_shift = 10
 
 # button
 button_color = (180, 180, 180)

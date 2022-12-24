@@ -10,7 +10,7 @@ class Button(ABC):
     def __init__(self, shape: Shape) -> None:
         super().__init__()
         self.shape = shape
-        self.position = Point(0, 0)
+        self.position: Point
 
     def draw(self, surface: pygame.surface.Surface) -> None:
         self.shape.draw(surface, self.position)

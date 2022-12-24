@@ -8,14 +8,12 @@ import pygame  # type: ignore
 
 from config import (
     num_metros,
-    num_path,
+    num_paths,
     num_stations,
     passenger_color,
     passenger_size,
     passenger_spawning_interval_step,
     passenger_spawning_start_step,
-    station_color,
-    station_size,
 )
 from entity.get_entity import get_random_stations
 from entity.metro import Metro
@@ -44,12 +42,12 @@ class Mediator:
         # configs
         self.passenger_spawning_step = passenger_spawning_start_step
         self.passenger_spawning_interval_step = passenger_spawning_interval_step
-        self.num_path = num_path
-        self.num_metro = num_metros
+        self.num_paths = num_paths
+        self.num_metros = num_metros
         self.num_stations = num_stations
 
         # UI
-        self.path_buttons = get_path_buttons(self.num_path)
+        self.path_buttons = get_path_buttons(self.num_paths)
         self.path_to_button: Dict[Path, PathButton] = {}
         self.buttons = [*self.path_buttons]
 
@@ -80,10 +78,11 @@ class Mediator:
             self.path_to_button[path] = button
 
     def render(self, screen: pygame.surface.Surface) -> None:
-        for path in self.paths:
-            path.draw(screen)
         for station in self.stations:
             station.draw(screen)
+        for idx, path in enumerate(self.paths):
+            path_order = idx - round(self.num_paths / 2)
+            path.draw(screen, path_order)
         for metro in self.metros:
             metro.draw(screen)
         for button in self.buttons:
@@ -155,7 +154,7 @@ class Mediator:
         self.find_travel_plan_for_passengers()
 
     def start_path_on_station(self, station: Station) -> None:
-        if len(self.paths) < self.num_path:
+        if len(self.paths) < self.num_paths:
             self.is_creating_path = True
             path = Path()
             path.add_station(station)
@@ -190,7 +189,7 @@ class Mediator:
         self.is_creating_path = False
         self.path_being_created.is_being_created = False
         self.path_being_created.remove_temporary_point()
-        if len(self.metros) < self.num_metro:
+        if len(self.metros) < self.num_metros:
             metro = Metro()
             self.path_being_created.add_metro(metro)
             self.metros.append(metro)
@@ -236,7 +235,7 @@ class Mediator:
             ]
             destination_shape_type = random.choice(other_station_shape_types)
             destination_shape = get_shape_from_type(
-                destination_shape_type, get_random_color(), passenger_size
+                destination_shape_type, passenger_color, passenger_size
             )
             passenger = Passenger(destination_shape)
             if station.has_room():
@@ -336,7 +335,6 @@ class Mediator:
         next_station = self.travel_plans[passenger].get_next_station()
         assert next_station is not None
         next_path = self.find_shared_path(station, next_station)
-        assert next_path is not None
         self.travel_plans[passenger].next_path = next_path
 
     def skip_stations_on_same_path(self, node_path: List[Node]):

@@ -37,16 +37,16 @@ class TestPath(unittest.TestCase):
         pygame.draw.line = MagicMock()
         for station in stations:
             path.add_station(station)
-        path.draw(self.screen)
+        path.draw(self.screen, 0)
 
-        self.assertEqual(pygame.draw.line.call_count, 4)
+        self.assertEqual(pygame.draw.line.call_count, 4 + 3)
 
     def test_draw_temporary_point(self):
         path = Path()
         pygame.draw.line = MagicMock()
         path.add_station(get_random_station())
         path.set_temporary_point(Point(1, 1))
-        path.draw(self.screen)
+        path.draw(self.screen, 0)
 
         self.assertEqual(pygame.draw.line.call_count, 1)
 
@@ -54,7 +54,7 @@ class TestPath(unittest.TestCase):
         path = Path()
         path.add_station(get_random_station())
         path.add_station(get_random_station())
-        path.draw(self.screen)
+        path.draw(self.screen, 0)
         metro = Metro()
         path.add_metro(metro)
 
@@ -67,7 +67,7 @@ class TestPath(unittest.TestCase):
         path.add_station(Station(get_random_station_shape(), Point(0, 0)))
         dist_in_one_sec = 1000 * metro_speed_per_ms
         path.add_station(Station(get_random_station_shape(), Point(dist_in_one_sec, 0)))
-        path.draw(self.screen)
+        path.draw(self.screen, 0)
         for station in path.stations:
             station.draw(self.screen)
         metro = Metro()
@@ -83,7 +83,7 @@ class TestPath(unittest.TestCase):
         path.add_station(Station(get_random_station_shape(), Point(0, 0)))
         dist_in_one_sec = 1000 * metro_speed_per_ms
         path.add_station(Station(get_random_station_shape(), Point(dist_in_one_sec, 0)))
-        path.draw(self.screen)
+        path.draw(self.screen, 0)
         for station in path.stations:
             station.draw(self.screen)
         metro = Metro()
@@ -104,7 +104,7 @@ class TestPath(unittest.TestCase):
         )
         path.add_station(Station(get_random_station_shape(), Point(0, dist_in_one_sec)))
         path.set_loop()
-        path.draw(self.screen)
+        path.draw(self.screen, 0)
         for station in path.stations:
             station.draw(self.screen)
         metro = Metro()

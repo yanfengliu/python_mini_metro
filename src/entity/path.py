@@ -6,7 +6,9 @@ from shortuuid import uuid  # type: ignore
 
 from config import path_width
 from entity.metro import Metro
+from entity.padding_segment import PaddingSegment
 from entity.path_segment import PathSegment
+from entity.segment import Segment
 from entity.station import Station
 from geometry.line import Line
 from geometry.point import Point
@@ -23,7 +25,10 @@ class Path:
         self.is_looped = False
         self.is_being_created = False
         self.temp_point: Point | None = None
-        self.segments: List[PathSegment] = []
+        self.segments: List[Segment] = []
+        self.path_segments: List[PathSegment] = []
+        self.padding_segments: List[PaddingSegment] = []
+        self.path_order = 0
 
     def __repr__(self) -> str:
         return self.id
@@ -34,16 +39,49 @@ class Path:
 
     def update_segments(self) -> None:
         self.segments = []
+        self.path_segments = []
+        self.padding_segments = []
+
         for i in range(len(self.stations) - 1):
-            self.segments.append(
-                PathSegment(self.color, self.stations[i], self.stations[i + 1])
-            )
-        if self.is_looped:
-            self.segments.append(
-                PathSegment(self.color, self.stations[-1], self.stations[0])
+            self.path_segments.append(
+                PathSegment(
+                    self.color, self.stations[i], self.stations[i + 1], self.path_order
+                )
             )
 
-    def draw(self, surface: pygame.surface.Surface) -> None:
+        if self.is_looped:
+            self.path_segments.append(
+                PathSegment(
+                    self.color, self.stations[-1], self.stations[0], self.path_order
+                )
+            )
+
+        for i in range(len(self.path_segments) - 1):
+            padding_segment = PaddingSegment(
+                self.color,
+                self.path_segments[i].segment_end,
+                self.path_segments[i + 1].segment_start,
+            )
+            self.padding_segments.append(padding_segment)
+            self.segments.append(self.path_segments[i])
+            self.segments.append(padding_segment)
+
+        if self.path_segments:
+            self.segments.append(self.path_segments[-1])
+
+        if self.is_looped:
+            padding_segment = PaddingSegment(
+                self.color,
+                self.path_segments[-1].segment_end,
+                self.path_segments[0].segment_start,
+            )
+            self.padding_segments.append(padding_segment)
+            self.segments.append(padding_segment)
+
+    def draw(self, surface: pygame.surface.Surface, path_order: int) -> None:
+        self.path_order = path_order
+        self.update_segments()
+
         for segment in self.segments:
             segment.draw(surface)
 
@@ -72,8 +110,8 @@ class Path:
 
     def add_metro(self, metro: Metro) -> None:
         metro.shape.color = self.color
-        metro.position = self.stations[0].position
         metro.current_segment = self.segments[metro.current_segment_idx]
+        metro.position = metro.current_segment.segment_start
         metro.path_id = self.id
         self.metros.append(metro)
 
@@ -81,19 +119,24 @@ class Path:
         assert metro.current_segment is not None
         if metro.is_forward:
             dst_station = metro.current_segment.end_station
+            dst_position = metro.current_segment.segment_end
         else:
             dst_station = metro.current_segment.start_station
+            dst_position = metro.current_segment.segment_start
 
-        dist = distance(metro.position, dst_station.position)
-        direct = direction(metro.position, dst_station.position)
+        start_point = metro.position
+        end_point = dst_position
+        dist = distance(start_point, end_point)
+        direct = direction(start_point, end_point)
         radians = math.atan2(direct.top, direct.left)
         degrees = math.degrees(radians)
         metro.shape.set_degrees(degrees)
-        if dist > (metro.speed * dt_ms):
+        travel_dist_in_dt = metro.speed * dt_ms
+        # metro is not at one end of segment
+        if dist > travel_dist_in_dt:
             metro.current_station = None
-            metro.position += Point(
-                direct.left * metro.speed * dt_ms, direct.top * metro.speed * dt_ms
-            )
+            metro.position += direct * travel_dist_in_dt
+        # metro is at one end of segment
         else:
             metro.current_station = dst_station
             if len(self.segments) == 1:

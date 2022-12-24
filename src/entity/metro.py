@@ -9,7 +9,7 @@ from config import (
     metro_speed_per_ms,
 )
 from entity.holder import Holder
-from entity.path_segment import PathSegment
+from entity.segment import Segment
 from entity.station import Station
 from geometry.rect import Rect
 
@@ -24,7 +24,7 @@ class Metro(Holder):
             id=f"Metro-{uuid()}",
         )
         self.current_station: Station | None = None
-        self.current_segment: PathSegment | None = None
+        self.current_segment: Segment | None = None
         self.current_segment_idx = 0
         self.path_id = ""
         self.speed = metro_speed_per_ms

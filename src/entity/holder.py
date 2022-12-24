@@ -16,10 +16,10 @@ class Holder(ABC):
         self.shape = shape
         self.capacity = capacity
         self.id = id
-        self.position = Point(0, 0)
+        self.position: Point
         self.passengers: List[Passenger] = []
-        self.passengers_per_row = 1
-        self.size = 1
+        self.passengers_per_row: int
+        self.size: int
 
     def __repr__(self) -> str:
         return self.id
