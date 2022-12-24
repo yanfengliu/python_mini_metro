@@ -71,6 +71,7 @@ class Path:
         self.update_segments()
 
     def add_metro(self, metro: Metro) -> None:
+        metro.shape.color = self.color
         metro.position = self.stations[0].position
         metro.current_segment = self.segments[metro.current_segment_idx]
         metro.path_id = self.id
