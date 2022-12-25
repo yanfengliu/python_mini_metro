@@ -14,6 +14,8 @@ from config import (
     passenger_size,
     passenger_spawning_interval_step,
     passenger_spawning_start_step,
+    score_display_coords,
+    score_font_size,
 )
 from entity.get_entity import get_random_stations
 from entity.metro import Metro
@@ -40,6 +42,8 @@ pp = pprint.PrettyPrinter(indent=4)
 
 class Mediator:
     def __init__(self) -> None:
+        pygame.font.init()
+
         # configs
         self.passenger_spawning_step = passenger_spawning_start_step
         self.passenger_spawning_interval_step = passenger_spawning_interval_step
@@ -51,6 +55,7 @@ class Mediator:
         self.path_buttons = get_path_buttons(self.num_paths)
         self.path_to_button: Dict[Path, PathButton] = {}
         self.buttons = [*self.path_buttons]
+        self.font = pygame.font.SysFont("arial", score_font_size)
 
         # entities
         self.stations = get_random_stations(self.num_stations)
@@ -72,6 +77,7 @@ class Mediator:
         self.path_being_created: Path | None = None
         self.travel_plans: TravelPlans = {}
         self.is_paused = False
+        self.score = 0
 
     def assign_paths_to_buttons(self):
         for path_button in self.path_buttons:
@@ -94,6 +100,8 @@ class Mediator:
             metro.draw(screen)
         for button in self.buttons:
             button.draw(screen)
+        text_surface = self.font.render(f"Score: {self.score}", True, (0, 0, 0))
+        screen.blit(text_surface, score_display_coords)
 
     def react_mouse_event(self, event: MouseEvent):
         entity = self.get_containing_entity(event.position)
@@ -320,6 +328,7 @@ class Mediator:
                     metro.remove_passenger(passenger)
                     self.passengers.remove(passenger)
                     del self.travel_plans[passenger]
+                    self.score += 1
 
                 for passenger in passengers_from_metro_to_station:
                     if metro.current_station.has_room():
