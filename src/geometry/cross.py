@@ -5,22 +5,27 @@ from type import Color
 
 
 class Cross(Polygon):
-    def __init__(self, color: Color, size: int) -> None:
+    def __init__(self, color: Color, size: int, width: int = 0) -> None:
         self.size = size
-        side = round(2 * size / 3)
+        if width == 0:
+            self.width = round(2 * size / 3)
+        else:
+            self.width = width
+        W = self.width
+        L = round(0.5 * (2 * size - W))
         points = [
-            Point(side, 0),
-            Point(2 * side, 0),
-            Point(2 * side, side),
-            Point(3 * side, side),
-            Point(3 * side, 2 * side),
-            Point(2 * side, 2 * side),
-            Point(2 * side, 3 * side),
-            Point(side, 3 * side),
-            Point(side, 2 * side),
-            Point(0, 2 * side),
-            Point(0, side),
-            Point(side, side),
+            Point(L, 0),
+            Point(L + W, 0),
+            Point(L + W, L),
+            Point(2 * L + W, L),
+            Point(2 * L + W, L + W),
+            Point(L + W, L + W),
+            Point(L + W, 2 * L + W),
+            Point(L, 2 * L + W),
+            Point(L, L + W),
+            Point(0, L + W),
+            Point(0, L),
+            Point(L, L),
         ]
         for i in range(len(points)):
             points[i] += Point(-size, -size)

@@ -45,8 +45,10 @@ path_order_shift = 10
 button_color = (180, 180, 180)
 button_size = 30
 
+
 # path button
 path_button_buffer = 20
 path_button_dist_to_bottom = 50
 path_button_start_left = 300
 path_button_cross_size = 25
+path_button_cross_width = 5

@@ -85,11 +85,11 @@ class Mediator:
             self.path_to_button[path] = button
 
     def render(self, screen: pygame.surface.Surface) -> None:
-        for station in self.stations:
-            station.draw(screen)
         for idx, path in enumerate(self.paths):
             path_order = idx - round(self.num_paths / 2)
             path.draw(screen, path_order)
+        for station in self.stations:
+            station.draw(screen)
         for metro in self.metros:
             metro.draw(screen)
         for button in self.buttons:

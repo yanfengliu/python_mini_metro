@@ -7,6 +7,7 @@ from config import (
     button_size,
     path_button_buffer,
     path_button_cross_size,
+    path_button_cross_width,
     path_button_dist_to_bottom,
     path_button_start_left,
 )
@@ -32,7 +33,7 @@ class PathButton(Button):
         self.shape.color = button_color
 
     def assign_path(self, path: Path) -> None:
-        self.cross = Cross((0, 0, 0), path_button_cross_size)
+        self.cross = Cross((0, 0, 0), path_button_cross_size, path_button_cross_width)
         self.cross.set_degrees(45)
         self.path = path
         self.shape.color = path.color
