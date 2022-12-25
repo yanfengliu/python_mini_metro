@@ -29,9 +29,10 @@ from geometry.type import ShapeType
 from graph.graph_algo import bfs, build_station_nodes_dict
 from graph.node import Node
 from travel_plan import TravelPlan
+from type import Color
 from ui.button import Button
 from ui.path_button import PathButton, get_path_buttons
-from utils import get_random_color, get_shape_from_type
+from utils import get_shape_from_type, hue_to_rgb
 
 TravelPlans = Dict[Passenger, TravelPlan]
 pp = pprint.PrettyPrinter(indent=4)
@@ -56,6 +57,11 @@ class Mediator:
         self.metros: List[Metro] = []
         self.paths: List[Path] = []
         self.passengers: List[Passenger] = []
+        self.path_colors: Dict[Color, bool] = {}
+        for i in range(num_paths):
+            color = hue_to_rgb(i / (num_paths + 1))
+            self.path_colors[color] = False  # not taken
+        self.path_to_color: Dict[Path, Color] = {}
 
         # status
         self.time_ms = 0
@@ -149,6 +155,7 @@ class Mediator:
             for passenger in metro.passengers:
                 self.passengers.remove(passenger)
             self.metros.remove(metro)
+        self.release_color_for_path(path)
         self.paths.remove(path)
         self.assign_paths_to_buttons()
         self.find_travel_plan_for_passengers()
@@ -156,7 +163,14 @@ class Mediator:
     def start_path_on_station(self, station: Station) -> None:
         if len(self.paths) < self.num_paths:
             self.is_creating_path = True
-            path = Path()
+            assigned_color = (0, 0, 0)
+            for path_color, taken in self.path_colors.items():
+                if not taken:
+                    assigned_color = path_color
+                    self.path_colors[path_color] = True
+                    break
+            path = Path(assigned_color)
+            self.path_to_color[path] = assigned_color
             path.add_station(station)
             path.is_being_created = True
             self.path_being_created = path
@@ -181,8 +195,13 @@ class Mediator:
     def abort_path_creation(self) -> None:
         assert self.path_being_created is not None
         self.is_creating_path = False
+        self.release_color_for_path(self.path_being_created)
         self.paths.remove(self.path_being_created)
         self.path_being_created = None
+
+    def release_color_for_path(self, path: Path) -> None:
+        self.path_colors[path.color] = False
+        del self.path_to_color[path]
 
     def finish_path_creation(self) -> None:
         assert self.path_being_created is not None

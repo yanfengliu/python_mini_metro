@@ -25,14 +25,14 @@ class TestPath(unittest.TestCase):
         self.color = get_random_color()
 
     def test_init(self):
-        path = Path()
+        path = Path(get_random_color())
         station = get_random_station()
         path.add_station(station)
 
         self.assertIn(station, path.stations)
 
     def test_draw(self):
-        path = Path()
+        path = Path(get_random_color())
         stations = get_random_stations(5)
         pygame.draw.line = MagicMock()
         for station in stations:
@@ -42,7 +42,7 @@ class TestPath(unittest.TestCase):
         self.assertEqual(pygame.draw.line.call_count, 4 + 3)
 
     def test_draw_temporary_point(self):
-        path = Path()
+        path = Path(get_random_color())
         pygame.draw.line = MagicMock()
         path.add_station(get_random_station())
         path.set_temporary_point(Point(1, 1))
@@ -51,7 +51,7 @@ class TestPath(unittest.TestCase):
         self.assertEqual(pygame.draw.line.call_count, 1)
 
     def test_metro_starts_at_beginning_of_first_line(self):
-        path = Path()
+        path = Path(get_random_color())
         path.add_station(get_random_station())
         path.add_station(get_random_station())
         path.draw(self.screen, 0)
@@ -63,7 +63,7 @@ class TestPath(unittest.TestCase):
         self.assertTrue(metro.is_forward)
 
     def test_metro_moves_from_beginning_to_end(self):
-        path = Path()
+        path = Path(get_random_color())
         path.add_station(Station(get_random_station_shape(), Point(0, 0)))
         dist_in_one_sec = 1000 * metro_speed_per_ms
         path.add_station(Station(get_random_station_shape(), Point(dist_in_one_sec, 0)))
@@ -79,7 +79,7 @@ class TestPath(unittest.TestCase):
         self.assertTrue(path.stations[1].contains(metro.position))
 
     def test_metro_turns_around_when_it_reaches_the_end(self):
-        path = Path()
+        path = Path(get_random_color())
         path.add_station(Station(get_random_station_shape(), Point(0, 0)))
         dist_in_one_sec = 1000 * metro_speed_per_ms
         path.add_station(Station(get_random_station_shape(), Point(dist_in_one_sec, 0)))
@@ -95,7 +95,7 @@ class TestPath(unittest.TestCase):
         self.assertFalse(metro.is_forward)
 
     def test_metro_loops_around_the_path(self):
-        path = Path()
+        path = Path(get_random_color())
         path.add_station(Station(get_random_station_shape(), Point(0, 0)))
         dist_in_one_sec = 1000 * metro_speed_per_ms
         path.add_station(Station(get_random_station_shape(), Point(dist_in_one_sec, 0)))

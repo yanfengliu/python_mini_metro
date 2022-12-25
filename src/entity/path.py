@@ -13,13 +13,13 @@ from entity.station import Station
 from geometry.line import Line
 from geometry.point import Point
 from geometry.utils import direction, distance
-from utils import get_random_color
+from type import Color
 
 
 class Path:
-    def __init__(self) -> None:
+    def __init__(self, color: Color) -> None:
         self.id = f"Path-{uuid()}"
-        self.color = get_random_color()
+        self.color = color
         self.stations: List[Station] = []
         self.metros: List[Metro] = []
         self.is_looped = False
