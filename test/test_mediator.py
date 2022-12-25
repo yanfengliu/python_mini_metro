@@ -316,6 +316,48 @@ class TestMediator(unittest.TestCase):
                     len(self.mediator.travel_plans[passenger].node_path), 1
                 )
 
+    def test_path_buttons_get_assigned_upon_path_creation(self):
+        self.mediator.stations = get_random_stations(5)
+        for station in self.mediator.stations:
+            station.draw(self.screen)
+        self.connect_stations([0, 1])
+        self.assertEqual(len(self.mediator.path_to_button.items()), 1)
+        self.assertIn(self.mediator.paths[0], self.mediator.path_to_button)
+        self.connect_stations([2, 3])
+        self.assertEqual(len(self.mediator.path_to_button.items()), 2)
+        self.assertIn(self.mediator.paths[0], self.mediator.path_to_button)
+        self.assertIn(self.mediator.paths[1], self.mediator.path_to_button)
+        self.connect_stations([1, 3])
+        self.assertEqual(len(self.mediator.path_to_button.items()), 3)
+        self.assertIn(self.mediator.paths[0], self.mediator.path_to_button)
+        self.assertIn(self.mediator.paths[1], self.mediator.path_to_button)
+        self.assertIn(self.mediator.paths[2], self.mediator.path_to_button)
+
+    def test_path_button_removes_path_on_click(self):
+        self.mediator.stations = get_random_stations(5)
+        for station in self.mediator.stations:
+            station.draw(self.screen)
+        self.connect_stations([0, 1])
+        self.mediator.react(
+            MouseEvent(MouseEventType.MOUSE_UP, self.mediator.path_buttons[0].position)
+        )
+        self.assertEqual(len(self.mediator.paths), 0)
+        self.assertEqual(len(self.mediator.path_to_button.items()), 0)
+
+    def test_more_paths_can_be_created_after_removing_paths(self):
+        self.mediator.stations = get_random_stations(5)
+        for station in self.mediator.stations:
+            station.draw(self.screen)
+        self.connect_stations([0, 1])
+        self.connect_stations([2, 3])
+        self.connect_stations([1, 4])
+        self.mediator.react(
+            MouseEvent(MouseEventType.MOUSE_UP, self.mediator.path_buttons[0].position)
+        )
+        self.assertEqual(len(self.mediator.paths), 2)
+        self.connect_stations([1, 3])
+        self.assertEqual(len(self.mediator.paths), 3)
+
 
 if __name__ == "__main__":
     unittest.main()

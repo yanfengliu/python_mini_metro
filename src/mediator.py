@@ -77,6 +77,7 @@ class Mediator:
         for path_button in self.path_buttons:
             path_button.remove_path()
 
+        self.path_to_button = {}
         for i in range(min(len(self.paths), len(self.path_buttons))):
             path = self.paths[i]
             button = self.path_buttons[i]
