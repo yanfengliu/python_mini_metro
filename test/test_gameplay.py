@@ -5,6 +5,8 @@ from unittest.mock import MagicMock, create_autospec
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
+from copy import deepcopy
+
 import pygame  # type: ignore
 
 from config import screen_height, screen_width
@@ -179,3 +181,34 @@ class TestMediator(unittest.TestCase):
         self.assertEqual(len(self.mediator.paths), 2)
         self.connect_stations([1, 3])
         self.assertEqual(len(self.mediator.paths), 3)
+
+    def test_assigned_path_buttons_bubble_to_left(self):
+        self.mediator.stations = get_random_stations(5)
+        for station in self.mediator.stations:
+            station.draw(self.screen)
+        self.connect_stations([0, 1])
+        self.connect_stations([2, 3])
+        self.connect_stations([1, 4])
+        self.mediator.react(
+            MouseEvent(MouseEventType.MOUSE_UP, self.mediator.path_buttons[0].position)
+        )
+        self.assertEqual(len(self.mediator.paths), 2)
+        self.mediator.react(
+            MouseEvent(MouseEventType.MOUSE_UP, self.mediator.path_buttons[0].position)
+        )
+        self.assertEqual(len(self.mediator.paths), 1)
+        self.mediator.react(
+            MouseEvent(MouseEventType.MOUSE_UP, self.mediator.path_buttons[0].position)
+        )
+        self.assertEqual(len(self.mediator.paths), 0)
+
+    def test_unassigned_path_buttons_do_nothing_on_click(self):
+        self.assertEqual(len(self.mediator.paths), 0)
+        self.mediator.react(
+            MouseEvent(MouseEventType.MOUSE_UP, self.mediator.path_buttons[0].position)
+        )
+        self.assertEqual(len(self.mediator.paths), 0)
+        self.mediator.react(
+            MouseEvent(MouseEventType.MOUSE_UP, self.mediator.path_buttons[0].position)
+        )
+        self.assertEqual(len(self.mediator.paths), 0)
