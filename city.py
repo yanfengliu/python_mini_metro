@@ -1,6 +1,5 @@
-import math
 import random
-from typing import Optional, Tuple
+from typing import Tuple
 
 import pygame
 
@@ -8,55 +7,42 @@ from station import Station
 
 
 class City:
-    def __init__(self, max_stations: int = 20):
+    def __init__(self, width: int, height: int, station_radius: int):
+        self.width = width
+        self.height = height
+        self.station_radius = station_radius
+        self.min_station_distance = 100
         self.stations = []
-        self.max_stations = max_stations
         self.generate_station()
-        self.station_timer = 0
-        self.station_generation_interval = (
-            3000  # Time in milliseconds between station generations
-        )
 
-    def update(self, dt: int) -> None:
-        """Update the city, generating new stations based on the timer.
-
-        :param dt: Time passed since the last frame in milliseconds.
-        """
-        if len(self.stations) < self.max_stations:
-            self.station_timer += dt
-            if self.station_timer >= self.station_generation_interval:
-                self.generate_station()
-                self.station_timer = 0
-
-    def render(self, screen: pygame.Surface) -> None:
-        """Render the city, drawing all stations on the screen.
-
-        :param screen: The Pygame surface to draw on.
-        """
+    def station_at_position(self, pos: Tuple[int, int]) -> Station:
         for station in self.stations:
-            station.render(screen)
-
-    def generate_station(self) -> None:
-        """Generate a new station in the city."""
-        position = (random.randint(50, 750), random.randint(50, 550))
-        station_type = random.choice(Station.TYPES)
-        new_station = Station(position, station_type)
-        self.stations.append(new_station)
-
-    def station_at_position(
-        self, pos: Tuple[int, int], radius: int = 15
-    ) -> Optional[Station]:
-        """Return the station at the given position, if any.
-
-        :param pos: A tuple representing the position (x, y) to check for a station.
-        :param radius: The radius around the position to search for a station.
-        :return: The station at the given position, if any. None if no station is found.
-        """
-        for station in self.stations:
-            distance = math.sqrt(
-                (station.position[0] - pos[0]) ** 2
-                + (station.position[1] - pos[1]) ** 2
-            )
-            if distance <= radius:
+            if station.contains(pos):
                 return station
         return None
+
+    def generate_station(self) -> None:
+        valid_position = False
+        position = None
+
+        while not valid_position:
+            position = (
+                random.randint(self.station_radius, self.width - self.station_radius),
+                random.randint(self.station_radius, self.height - self.station_radius),
+            )
+            valid_position = True
+            for station in self.stations:
+                distance = (
+                    (position[0] - station.position[0]) ** 2
+                    + (position[1] - station.position[1]) ** 2
+                ) ** 0.5
+                if distance < self.min_station_distance:
+                    valid_position = False
+                    break
+
+        new_station = Station(position, self.station_radius)
+        self.stations.append(new_station)
+
+    def render(self, screen: pygame.Surface) -> None:
+        for station in self.stations:
+            station.render(screen)

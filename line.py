@@ -1,6 +1,8 @@
 import random
 from typing import List
 
+import pygame
+
 from station import Station
 
 
@@ -15,8 +17,5 @@ class Line:
         )
 
     def add_station(self, station: Station) -> None:
-        """Add a station to the line.
-
-        :param station: The Station object to be added.
-        """
-        self.stations.append(station)
+        if station not in self.stations:
+            self.stations.append(station)
