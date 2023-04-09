@@ -7,7 +7,10 @@ This repo uses `pygame` to implement Mini Metro, a fun 2D strategic game where y
 `pip install -r requirements.txt`
 
 # How to run
-* To play the game manually, run `python src/main.py`
+## To play the game manually
+* If you are running for the first time, install the requirements using `pip install -r requirements.txt`
+* Activate the virtual environment by running `source myenv/bin/activate`
+* Run `python src/main.py`
 
 # Testing
 `python -m unittest -v`
