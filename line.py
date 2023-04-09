@@ -1,23 +1,16 @@
+from typing import List
+
+from station import Station
+
+
 class Line:
-    def __init__(self, name):
+    def __init__(self, name: str):
         self.name = name
         self.stations = []
 
-    def add_station(self, station):
-        if station not in self.stations:
-            self.stations.append(station)
-            return True
-        return False
+    def add_station(self, station: Station) -> None:
+        """Add a station to the line.
 
-    def remove_station(self, station):
-        if station in self.stations:
-            self.stations.remove(station)
-            return True
-        return False
-
-    def next_station(self, current_station):
-        if current_station in self.stations:
-            index = self.stations.index(current_station)
-            if index < len(self.stations) - 1:
-                return self.stations[index + 1]
-        return None
+        :param station: The Station object to be added.
+        """
+        self.stations.append(station)

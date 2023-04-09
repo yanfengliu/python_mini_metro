@@ -1,3 +1,5 @@
+from typing import Optional
+
 import pygame
 
 from city import City
@@ -6,7 +8,7 @@ from train import Train
 
 
 class Game:
-    def __init__(self, screen_width, screen_height):
+    def __init__(self, screen_width: int, screen_height: int):
         pygame.init()
         self.screen = pygame.display.set_mode((screen_width, screen_height))
         pygame.display.set_caption("Mini Metro")
@@ -23,84 +25,76 @@ class Game:
         pygame.font.init()
         self.font = pygame.font.Font(None, 24)
 
-    def run(self):
+    def run(self) -> None:
+        """Run the game loop."""
         while self.running:
-            self.handle_input()
-            self.update()
+            dt = self.clock.tick(60)  # Delta time since last frame in milliseconds
+            self.handle_events()
+            if not self.paused:
+                self.update(dt)
             self.render()
-            self.clock.tick(60)
+
         pygame.quit()
 
-    def handle_input(self):
+    def handle_events(self) -> None:
+        """Handle user input events."""
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_p:
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    self.running = False
+                elif event.key == pygame.K_p:
                     self.paused = not self.paused
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                pos = pygame.mouse.get_pos()
-                clicked_station = self.city.station_at_position(pos)
-
+            elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Left mouse button
+                    pos = pygame.mouse.get_pos()
+                    clicked_station = self.city.station_at_position(pos)
                     if clicked_station:
-                        if self.current_line is None:
-                            self.current_line = Line(
-                                "Line {}".format(len(self.lines) + 1)
-                            )
-                            self.current_line.add_station(clicked_station)
-                        elif (
-                            self.current_line.next_station(clicked_station) is not None
-                        ):
+                        if not self.current_line:
+                            self.current_line = Line("Line " + str(len(self.lines) + 1))
                             self.current_line.add_station(clicked_station)
                             self.lines.append(self.current_line)
-                            train = Train(self, self.current_line)
-                            self.trains.append(train)
-                            self.current_line = None
                         else:
-                            self.current_line.add_station(clicked_station)
-                elif event.button == 3:  # Right mouse button
-                    if clicked_station:
-                        for line in self.lines:
-                            if line.remove_station(clicked_station):
-                                break
+                            if clicked_station in self.current_line.stations:
+                                self.current_line = None
+                            else:
+                                self.current_line.add_station(clicked_station)
+            elif event.type == pygame.MOUSEMOTION:
+                if self.current_line:
+                    pos = pygame.mouse.get_pos()
+                    clicked_station = self.city.station_at_position(pos)
+                    if (
+                        clicked_station
+                        and clicked_station not in self.current_line.stations
+                    ):
+                        self.current_line.add_station(clicked_station)
+            elif event.type == pygame.MOUSEBUTTONUP:
+                if event.button == 1:  # Left mouse button
+                    self.current_line = None
 
-    def update(self):
-        if self.paused:
-            return
-        self.city.update()
+    def update(self, dt: int) -> None:
+        """Update the game state.
+
+        :param dt: Time passed since the last frame in milliseconds.
+        """
+        self.city.update(dt)
         for train in self.trains:
             train.update()
 
-    def render(self):
+    def render(self) -> None:
+        """Render the game."""
         self.screen.fill((255, 255, 255))
         self.city.render(self.screen)
         for train in self.trains:
             train.render(self.screen)
-
-        # Draw user interface background
-        pygame.draw.rect(
-            self.screen,
-            (200, 200, 200),
-            pygame.Rect(0, self.screen_height - 50, self.screen_width, 50),
-        )
-
-        # Draw line information
-        for i, line in enumerate(self.lines):
-            line_text = "Line {}: {} stations".format(i + 1, len(line.stations))
-            text_surface = self.font.render(line_text, True, (0, 0, 0))
-            self.screen.blit(text_surface, (10 + i * 150, self.screen_height - 40))
-
-        # Draw score
-        score_text = "Score: {}".format(self.score)
-        score_surface = self.font.render(score_text, True, (0, 0, 0))
-        self.screen.blit(
-            score_surface, (self.screen_width - 150, self.screen_height - 40)
-        )
-
+        if self.current_line:
+            for i in range(len(self.current_line.stations) - 1):
+                pygame.draw.line(
+                    self.screen,
+                    (0, 0, 0),
+                    self.current_line.stations[i].position,
+                    self.current_line.stations[i + 1].position,
+                    3,
+                )
         pygame.display.flip()
-
-
-if __name__ == "__main__":
-    game = Game(800, 600)
-    game.run()
