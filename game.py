@@ -71,6 +71,9 @@ class Game:
                         self.current_line.add_station(clicked_station)
             elif event.type == pygame.MOUSEBUTTONUP:
                 if event.button == 1:  # Left mouse button
+                    if self.current_line:
+                        new_train = Train(self.current_line)
+                        self.trains.append(new_train)
                     self.current_line = None
 
     def update(self, dt: int) -> None:
@@ -83,18 +86,20 @@ class Game:
             train.update()
 
     def render(self) -> None:
-        """Render the game."""
+        """Render the game on the screen."""
         self.screen.fill((255, 255, 255))
+
+        # Render lines
+        for line in self.lines:
+            line_color = line.color
+            for i in range(len(line.stations) - 1):
+                start = line.stations[i].position
+                end = line.stations[i + 1].position
+                pygame.draw.line(self.screen, line_color, start, end, 4)
+
         self.city.render(self.screen)
+
         for train in self.trains:
             train.render(self.screen)
-        if self.current_line:
-            for i in range(len(self.current_line.stations) - 1):
-                pygame.draw.line(
-                    self.screen,
-                    (0, 0, 0),
-                    self.current_line.stations[i].position,
-                    self.current_line.stations[i + 1].position,
-                    3,
-                )
+
         pygame.display.flip()
