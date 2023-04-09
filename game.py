@@ -19,6 +19,11 @@ class Game:
         pygame.time.set_timer(
             self.new_station_event, 5000
         )  # Set timer to trigger every 5 seconds (5000 milliseconds)
+        # Inside the Game class constructor
+        self.new_passenger_event = pygame.USEREVENT + 2
+        pygame.time.set_timer(
+            self.new_passenger_event, 1000
+        )  # Set timer to trigger every 1 second (1000 milliseconds)
 
     def handle_input(self):
         for event in pygame.event.get():
@@ -33,6 +38,11 @@ class Game:
                         new_station.station_type,
                         new_station.position,
                     )
+
+            if event.type == self.new_passenger_event:
+                new_passenger = self.city.generate_passenger()
+                if new_passenger:
+                    print("New passenger created:", new_passenger.destination_type)
 
             # Handle other input events here (e.g., mouse clicks, keyboard input, etc.)
 

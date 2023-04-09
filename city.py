@@ -1,5 +1,6 @@
 import random
 
+from passenger import Passenger
 from station import Station
 
 
@@ -21,6 +22,15 @@ class City:
                 self.stations.append(station)
                 return station
 
+        return None
+
+    def generate_passenger(self):
+        if len(self.stations) > 0:
+            station = random.choice(self.stations)
+            passenger = Passenger(self.station_types)
+            added = station.add_passenger(passenger)
+            if added:
+                return passenger
         return None
 
     def generate_station_position(self):

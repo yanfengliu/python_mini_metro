@@ -19,3 +19,10 @@ class Station:
             self.passengers.remove(passenger)
             return True
         return False
+
+    def count_passengers_for_destination(self, destination_type):
+        return sum(
+            1
+            for passenger in self.passengers
+            if passenger.destination_type == destination_type
+        )
