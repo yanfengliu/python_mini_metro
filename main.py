@@ -1,46 +1,20 @@
 import pygame
 
+from game import Game
 
-class Game:
-    def __init__(self, screen_width, screen_height):
-        pygame.init()
-        self.screen_width = screen_width
-        self.screen_height = screen_height
-        self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
-        pygame.display.set_caption("Mini Metro")
-        self.clock = pygame.time.Clock()
 
-        # Initialize other game components here (e.g., City, Lines, etc.)
-        # self.city = City(...)
-        # self.lines = [...]
+def main():
+    game = Game(800, 600)
+    game.running = True
 
-    def handle_input(self):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.running = False
+    while game.running:
+        game.handle_input()
+        game.update()
+        game.render()
+        game.clock.tick(60)
 
-            # Handle other input events here (e.g., mouse clicks, keyboard input, etc.)
-
-    def update(self):
-        # Update game state here (e.g., move trains, generate new passengers, etc.)
-        pass
-
-    def render(self):
-        # Draw game components here (e.g., city map, stations, lines, trains, etc.)
-        self.screen.fill((255, 255, 255))  # Fill the screen with white background
-        pygame.display.flip()
-
-    def run(self):
-        self.running = True
-        while self.running:
-            self.handle_input()
-            self.update()
-            self.render()
-            self.clock.tick(60)
-
-        pygame.quit()
+    pygame.quit()
 
 
 if __name__ == "__main__":
-    game = Game(800, 600)
-    game.run()
+    main()
