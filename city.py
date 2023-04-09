@@ -1,3 +1,4 @@
+import math
 import random
 
 from passenger import Passenger
@@ -50,3 +51,20 @@ class City:
                 return False
 
         return True
+
+    def station_at_position(self, pos, radius=15):
+        """
+        Return the station at the given position, if any.
+
+        :param pos: A tuple representing the position (x, y) to check for a station.
+        :param radius: The radius around the position to search for a station.
+        :return: The station at the given position, if any. None if no station is found.
+        """
+        for station in self.stations:
+            distance = math.sqrt(
+                (station.position[0] - pos[0]) ** 2
+                + (station.position[1] - pos[1]) ** 2
+            )
+            if distance <= radius:
+                return station
+        return None

@@ -8,6 +8,10 @@ from train import Train
 class Game:
     def __init__(self, screen_width, screen_height):
         pygame.init()
+        pygame.font.init()
+        self.font = pygame.font.Font(
+            None, 24
+        )  # You can replace None with a font file path if you want to use a custom font.
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
@@ -33,8 +37,11 @@ class Game:
         # Create a sample line and train (You can replace this with a more sophisticated logic later)
         line = Line("Line 1")
         self.lines.append(line)
-        train = Train(line)
+        train = Train(self, line)
         self.trains.append(train)
+
+        self.current_line = None
+        self.score = 0
 
     def handle_input(self):
         for event in pygame.event.get():
@@ -65,6 +72,22 @@ class Game:
                     )
                     if len(self.lines[0].stations) < self.city.max_stations:
                         self.lines[0].add_station(new_station)
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                pos = pygame.mouse.get_pos()
+                clicked_station = self.city.station_at_position(pos)
+
+                if clicked_station:
+                    if self.current_line is None:
+                        self.current_line = Line("Line {}".format(len(self.lines) + 1))
+                        self.current_line.add_station(clicked_station)
+                    elif self.current_line.next_station(clicked_station) is not None:
+                        self.current_line.add_station(clicked_station)
+                        self.lines.append(self.current_line)
+                        train = Train(self, self.current_line)
+                        self.trains.append(train)
+                        self.current_line = None
+                    else:
+                        self.current_line.add_station(clicked_station)
 
             # Handle other input events here (e.g., mouse clicks, keyboard input, etc.)
 
@@ -112,5 +135,25 @@ class Game:
                     (255, 0, 0),
                     pygame.Rect(pos[0] - 5, pos[1] - 5, 10, 10),
                 )
+
+        # Draw user interface background
+        pygame.draw.rect(
+            self.screen,
+            (200, 200, 200),
+            pygame.Rect(0, self.screen_height - 50, self.screen_width, 50),
+        )
+
+        # Draw line information
+        for i, line in enumerate(self.lines):
+            line_text = "Line {}: {} stations".format(i + 1, len(line.stations))
+            text_surface = self.font.render(line_text, True, (0, 0, 0))
+            self.screen.blit(text_surface, (10 + i * 150, self.screen_height - 40))
+
+        # Draw score
+        score_text = "Score: {}".format(self.score)
+        score_surface = self.font.render(score_text, True, (0, 0, 0))
+        self.screen.blit(
+            score_surface, (self.screen_width - 150, self.screen_height - 40)
+        )
 
         pygame.display.flip()

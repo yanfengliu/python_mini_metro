@@ -1,5 +1,6 @@
 class Train:
-    def __init__(self, line, capacity=6):
+    def __init__(self, game, line, capacity=6):
+        self.game = game
         self.line = line
         self.capacity = capacity
         self.passengers = []

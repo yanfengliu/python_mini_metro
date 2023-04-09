@@ -44,3 +44,9 @@ Here's a plan to implement each component:
 1. Implement the logic for managing passengers in the Passenger class.
 1. Implement the logic for handling upgrades and game progression in the Game class.
 1. Add graphical representation and user interface for the game.
+
+At this point, you have a basic implementation of the Mini Metro game with stations, lines, trains, and passengers. Next, let's improve the game experience by adding the following features:
+
+1. Add the ability for the player to create and manage lines using mouse input.
+1. Create a user interface to display information about lines and trains.
+1. Implement a scoring system to evaluate the player's performance.
