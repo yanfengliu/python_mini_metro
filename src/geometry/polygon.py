@@ -1,7 +1,7 @@
 import math
 from typing import List
 
-import pygame  # type: ignore
+import pygame
 from shapely.geometry import Point as ShapelyPoint
 from shapely.geometry.polygon import Polygon as ShapelyPolygon
 from shortuuid import uuid  # type: ignore

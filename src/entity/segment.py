@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC
 
-import pygame  # type: ignore
+import pygame
 from shortuuid import uuid  # type: ignore
 
 from config import screen_height, screen_width

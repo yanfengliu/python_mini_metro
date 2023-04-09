@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-import pygame  # type: ignore
+import pygame
 from shortuuid import uuid  # type: ignore
 
 from geometry.point import Point

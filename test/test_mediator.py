@@ -1,7 +1,7 @@
 import os
 import sys
 import unittest
-from unittest.mock import MagicMock, create_autospec, patch
+from unittest.mock import MagicMock, create_autospec
 
 from entity.get_entity import get_random_stations
 from event.mouse import MouseEvent
@@ -13,7 +13,7 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 from math import ceil
 
-import pygame  # type: ignore
+import pygame
 
 from config import (
     framerate,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 
-import pygame  # type: ignore
+import pygame
 from shortuuid import uuid  # type: ignore
 
 from config import path_order_shift, path_width

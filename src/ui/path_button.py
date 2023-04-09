@@ -1,6 +1,6 @@
 from typing import List
 
-import pygame  # type: ignore
+import pygame
 
 from config import (
     button_color,

@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC
 from typing import List
 
-import pygame  # type: ignore
+import pygame
 
 from config import passenger_display_buffer, passenger_size
 from entity.passenger import Passenger

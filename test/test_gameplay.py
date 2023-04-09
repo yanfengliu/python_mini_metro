@@ -5,9 +5,7 @@ from unittest.mock import MagicMock, create_autospec
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
-from copy import deepcopy
-
-import pygame  # type: ignore
+import pygame
 
 from config import screen_height, screen_width
 from entity.get_entity import get_random_stations

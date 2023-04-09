@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, create_autospec, patch
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
-import pygame  # type: ignore
+import pygame
 
 from config import framerate, metro_speed_per_ms
 from entity.get_entity import get_random_station, get_random_stations

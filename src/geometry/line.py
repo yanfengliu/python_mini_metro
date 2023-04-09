@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import pygame  # type: ignore
+import pygame
 from shortuuid import uuid  # type: ignore
 
 from geometry.point import Point

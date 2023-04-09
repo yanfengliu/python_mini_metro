@@ -1,4 +1,4 @@
-import pygame  # type: ignore
+import pygame
 from shortuuid import uuid  # type: ignore
 
 from config import path_width

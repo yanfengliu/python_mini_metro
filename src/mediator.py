@@ -4,7 +4,7 @@ import pprint
 import random
 from typing import Dict, List
 
-import pygame  # type: ignore
+import pygame
 
 from config import (
     num_metros,

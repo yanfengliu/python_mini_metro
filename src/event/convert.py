@@ -1,4 +1,4 @@
-import pygame  # type: ignore
+import pygame
 
 from event.event import Event
 from event.keyboard import KeyboardEvent
