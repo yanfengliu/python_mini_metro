@@ -9,13 +9,15 @@ class Line:
             return True
         return False
 
-    def next_station(self, current_station, reverse=False):
+    def remove_station(self, station):
+        if station in self.stations:
+            self.stations.remove(station)
+            return True
+        return False
+
+    def next_station(self, current_station):
         if current_station in self.stations:
             index = self.stations.index(current_station)
-            if reverse:
-                return self.stations[index - 1] if index > 0 else None
-            else:
-                return (
-                    self.stations[index + 1] if index < len(self.stations) - 1 else None
-                )
+            if index < len(self.stations) - 1:
+                return self.stations[index + 1]
         return None

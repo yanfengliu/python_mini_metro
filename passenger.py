@@ -2,20 +2,13 @@ import random
 
 
 class Passenger:
-    def __init__(self, destination_types):
-        self.destination_type = random.choice(destination_types)
-        self.current_station = None
-        self.on_train = False
+    def __init__(self, origin, destination):
+        self.origin = origin
+        self.destination = destination
+        self.generate_destination()
 
-    def board_train(self):
-        if not self.on_train:
-            self.on_train = True
-            return True
-        return False
-
-    def leave_train(self, station):
-        if self.on_train and station.station_type == self.destination_type:
-            self.on_train = False
-            self.current_station = station
-            return True
-        return False
+    def generate_destination(self):
+        destination_candidates = [
+            station for station in self.origin.city.stations if station != self.origin
+        ]
+        self.destination = random.choice(destination_candidates)

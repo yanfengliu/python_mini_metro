@@ -1,35 +1,30 @@
+import pygame
+
+
 class Train:
-    def __init__(self, game, line, capacity=6):
+    def __init__(self, game, line):
         self.game = game
         self.line = line
-        self.capacity = capacity
-        self.passengers = []
-        self.current_station = None
-        self.reverse = False
+        self.current_station = line.stations[0]
+        self.speed = 2
 
-    def move(self):
-        next_station = self.line.next_station(
-            self.current_station, reverse=self.reverse
-        )
-        if next_station is not None:
-            self.current_station = next_station
-            self.drop_off_passengers()
-            self.pick_up_passengers()
+    def update(self):
+        next_station = self.line.next_station(self.current_station)
+        if next_station:
+            direction = (
+                next_station.position[0] - self.current_station.position[0],
+                next_station.position[1] - self.current_station.position[1],
+            )
+            distance = (direction[0] ** 2 + direction[1] ** 2) ** 0.5
+            unit_direction = (direction[0] / distance, direction[1] / distance)
 
-    def pick_up_passengers(self):
-        available_space = self.capacity - len(self.passengers)
-        if available_space > 0:
-            for passenger in self.current_station.passengers[:]:
-                if passenger.destination_type != self.current_station.station_type:
-                    if passenger.board_train():
-                        self.passengers.append(passenger)
-                        self.current_station.remove_passenger(passenger)
-                        available_space -= 1
-                        if available_space == 0:
-                            break
+            self.current_station.position = (
+                self.current_station.position[0] + unit_direction[0] * self.speed,
+                self.current_station.position[1] + unit_direction[1] * self.speed,
+            )
 
-    def drop_off_passengers(self):
-        for passenger in self.passengers[:]:
-            if passenger.destination_type == self.current_station.station_type:
-                if passenger.leave_train(self.current_station):
-                    self.passengers.remove(passenger)
+            if self.game.city.station_at_position(next_station.position, radius=15):
+                self.current_station = next_station
+
+    def render(self, screen):
+        pygame.draw.circle(screen, (0, 255, 0), self.current_station.position, 7)
