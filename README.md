@@ -22,4 +22,7 @@ This repo uses `pygame` to implement Mini Metro, a fun 2D strategic game where y
 - RL based : 林敬珣
 
 # TODO
-- 弄好api
+- [] 建立api
+- [] 複現 + 改進 (SA + other algo
+- [] 測試 GA based methods
+- [] 測試 RL based methods
