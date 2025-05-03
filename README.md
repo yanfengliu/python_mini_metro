@@ -14,3 +14,12 @@ This repo uses `pygame` to implement Mini Metro, a fun 2D strategic game where y
 
 # Testing
 `python -m unittest -v`
+
+# 分工
+- simulator : 蕭登鴻
+- 複現 + 改進 (SA + other algo
+- GA based : 蕭登鴻
+- RL based : 林敬珣
+
+# TODO
+- 弄好api
