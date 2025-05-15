@@ -31,7 +31,7 @@ class PathSegment(Segment):
         start_point = start_station.position
         end_point = end_station.position
         direct = direction(start_point, end_point)
-        buffer_vector = direct * path_order_shift
+        buffer_vector = direct * path_width
         buffer_vector = buffer_vector.rotate(90)
 
         self.segment_start = start_station.position + buffer_vector * self.path_order

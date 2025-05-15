@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import pygame
+import random
 from shortuuid import uuid  # type: ignore
 
-from config import station_capacity, station_passengers_per_row, station_size
+from config import station_capacity, station_passengers_per_row, station_size, passenger_spawning_interval_step
 from entity.holder import Holder
 from geometry.point import Point
 from geometry.shape import Shape
@@ -20,8 +21,21 @@ class Station(Holder):
         self.position = position
         self.passengers_per_row = station_passengers_per_row
 
+        self.steps = 0
+        self.next_passenger_spawn_time = self.get_poisson_time()
+
     def __eq__(self, other: Station) -> bool:
         return self.id == other.id
 
     def __hash__(self):
         return hash(self.id)
+    
+    def get_poisson_time(self) -> int:
+        return int(random.expovariate(1 / passenger_spawning_interval_step))
+
+    def need_spawn_passenger(self) -> bool:
+        if self.steps >= self.next_passenger_spawn_time:
+            self.next_passenger_spawn_time += self.get_poisson_time()
+            return True
+
+        return False

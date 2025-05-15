@@ -7,9 +7,10 @@ from typing import Dict, List
 import pygame
 
 from config import (
+    gamespeed,
     num_metros,
     num_paths,
-    num_stations,
+    num_stations_max,
     passenger_color,
     passenger_size,
     passenger_spawning_interval_step,
@@ -49,7 +50,7 @@ class Mediator:
         self.passenger_spawning_interval_step = passenger_spawning_interval_step
         self.num_paths = num_paths
         self.num_metros = num_metros
-        self.num_stations = num_stations
+        self.num_stations = num_stations_max
 
         # UI
         self.path_buttons = get_path_buttons(self.num_paths)
@@ -59,6 +60,7 @@ class Mediator:
 
         # entities
         self.stations = get_random_stations(self.num_stations)
+        # self.stations = List[Station] = []  # TODO: generate station during time
         self.metros: List[Metro] = []
         self.paths: List[Path] = []
         self.passengers: List[Passenger] = []
@@ -71,13 +73,22 @@ class Mediator:
         # status
         self.time_ms = 0
         self.steps = 0
-        self.steps_since_last_spawn = self.passenger_spawning_interval_step + 1
+
+        self.steps_since_last_station_spawn = 0
+
         self.is_mouse_down = False
         self.is_creating_path = False
         self.path_being_created: Path | None = None
         self.travel_plans: TravelPlans = {}
         self.is_paused = False
         self.score = 0
+
+        # TABLES
+        self.OTHER_STATION_SHAPE_TYPES = {}
+        for shape_type in self.get_station_shape_types():
+            self.OTHER_STATION_SHAPE_TYPES[shape_type] = [
+                x for x in self.get_station_shape_types() if x != shape_type
+            ]
 
     def assign_paths_to_buttons(self):
         for path_button in self.path_buttons:
@@ -252,20 +263,14 @@ class Mediator:
             if station.shape.type not in station_shape_types:
                 station_shape_types.append(station.shape.type)
         return station_shape_types
-
-    def is_passenger_spawn_time(self) -> bool:
-        return (
-            self.steps == self.passenger_spawning_step
-            or self.steps_since_last_spawn == self.passenger_spawning_interval_step
-        )
-
-    def spawn_passengers(self):
+    
+    def try_spawn_passengers(self) -> None:
         for station in self.stations:
-            station_types = self.get_station_shape_types()
-            other_station_shape_types = [
-                x for x in station_types if x != station.shape.type
-            ]
-            destination_shape_type = random.choice(other_station_shape_types)
+            station.steps += gamespeed
+            if not station.need_spawn_passenger():
+                continue
+
+            destination_shape_type = random.choice(self.OTHER_STATION_SHAPE_TYPES[station.shape.type])
             destination_shape = get_shape_from_type(
                 destination_shape_type, passenger_color, passenger_size
             )
@@ -280,8 +285,7 @@ class Mediator:
 
         # record time
         self.time_ms += dt_ms
-        self.steps += 1
-        self.steps_since_last_spawn += 1
+        self.steps += gamespeed
 
         # move metros
         for path in self.paths:
@@ -289,9 +293,8 @@ class Mediator:
                 path.move_metro(metro, dt_ms)
 
         # spawn passengers
-        if self.is_passenger_spawn_time():
-            self.spawn_passengers()
-            self.steps_since_last_spawn = 0
+        # now spawn passengers independently by every station obeying poisson process
+        self.try_spawn_passengers()
 
         self.find_travel_plan_for_passengers()
         self.move_passengers()
