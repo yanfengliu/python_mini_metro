@@ -7,7 +7,6 @@ from typing import Dict, List
 import pygame
 
 from config import (
-    gamespeed,
     num_metros,
     num_paths,
     num_stations_max,
@@ -17,8 +16,11 @@ from config import (
     passenger_spawning_start_step,
     score_display_coords,
     score_font_size,
+    gamespeed,
+    station_spawning_interval_step,
+    min_dist_between_stations
 )
-from entity.get_entity import get_random_stations
+from entity.get_entity import get_random_stations, get_random_station
 from entity.metro import Metro
 from entity.passenger import Passenger
 from entity.path import Path
@@ -29,6 +31,7 @@ from event.mouse import MouseEvent
 from event.type import KeyboardEventType, MouseEventType
 from geometry.point import Point
 from geometry.type import ShapeType
+from geometry.utils import distance
 from graph.graph_algo import bfs, build_station_nodes_dict
 from graph.node import Node
 from travel_plan import TravelPlan
@@ -50,7 +53,7 @@ class Mediator:
         self.passenger_spawning_interval_step = passenger_spawning_interval_step
         self.num_paths = num_paths
         self.num_metros = num_metros
-        self.num_stations = num_stations_max
+        self.num_stations_max = num_stations_max
 
         # UI
         self.path_buttons = get_path_buttons(self.num_paths)
@@ -59,8 +62,8 @@ class Mediator:
         self.font = pygame.font.SysFont("arial", score_font_size)
 
         # entities
-        self.stations = get_random_stations(self.num_stations)
-        # self.stations = List[Station] = []  # TODO: generate station during time
+        # self.stations = get_random_stations(self.num_stations)
+        self.stations: List[Station] = []  # TODO: generate station during time
         self.metros: List[Metro] = []
         self.paths: List[Path] = []
         self.passengers: List[Passenger] = []
@@ -74,7 +77,7 @@ class Mediator:
         self.time_ms = 0
         self.steps = 0
 
-        self.steps_since_last_station_spawn = 0
+        self.next_station_spawn_timestep = 0
 
         self.is_mouse_down = False
         self.is_creating_path = False
@@ -84,10 +87,24 @@ class Mediator:
         self.score = 0
 
         # TABLES
+        # for managing reasonable passenger generation
+        self.existing_station_shape_types = set()
         self.OTHER_STATION_SHAPE_TYPES = {}
-        for shape_type in self.get_station_shape_types():
+        self.init_existing_station_shape_types()
+        self.update_OTHER_STATION_SHAPE_TYPES()
+
+        # ...
+
+    def init_existing_station_shape_types(self):
+        for station in self.stations:
+            self.existing_station_shape_types.add(station.shape.type)
+
+    def update_OTHER_STATION_SHAPE_TYPES(self):
+        existing_shape_types = list(self.existing_station_shape_types)
+
+        for shape_type in existing_shape_types:
             self.OTHER_STATION_SHAPE_TYPES[shape_type] = [
-                x for x in self.get_station_shape_types() if x != shape_type
+                x for x in existing_shape_types if x != shape_type
             ]
 
     def assign_paths_to_buttons(self):
@@ -269,6 +286,10 @@ class Mediator:
             station.steps += gamespeed
             if not station.need_spawn_passenger():
                 continue
+            
+            # failed to spawn passenger if no other station shape type
+            if len(self.existing_station_shape_types) == 1:
+                continue
 
             destination_shape_type = random.choice(self.OTHER_STATION_SHAPE_TYPES[station.shape.type])
             destination_shape = get_shape_from_type(
@@ -279,7 +300,35 @@ class Mediator:
                 station.add_passenger(passenger)
                 self.passengers.append(passenger)
 
+    def try_spawn_station(self) -> int:
+        if len(self.stations) >= self.num_stations_max:
+            return
+        
+        if self.steps < self.next_station_spawn_timestep:
+            return
+        
+        # if the new station is too close to existing stations, regenerate
+        new_station = None
+        while True:
+            new_station = get_random_station()
+            too_close = False
+            for station in self.stations:
+                if distance(new_station.position, station.position) < min_dist_between_stations:
+                    too_close = True
+                    break
+            if not too_close:
+                break
+
+        self.stations.append(new_station)
+        self.existing_station_shape_types.add(new_station.shape.type)
+        self.update_OTHER_STATION_SHAPE_TYPES()
+
+        self.next_station_spawn_timestep += station_spawning_interval_step
+
+
     def increment_time(self, dt_ms: int) -> None:
+        self.try_spawn_station()
+
         if self.is_paused:
             return
 

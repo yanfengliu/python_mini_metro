@@ -11,6 +11,8 @@ screen_color = (255, 255, 255)
 
 # station
 num_stations_max = 10
+station_spawning_interval_step = 60 * framerate # 60 secs?
+min_dist_between_stations = 200
 station_size = 10
 station_capacity = 12
 station_color = (0, 0, 0)
@@ -45,20 +47,19 @@ path_order_shift = 5
 
 # button
 button_color = (180, 180, 180)
-button_size = 30
+button_size = 20
 
 # path button
 path_button_buffer = 20
 path_button_dist_to_bottom = 50
-# path_button_start_left = 500
 
 # calculate path_button_start_left if split buttons evenly
 path_button_start_left = (
-    (screen_width - (num_paths * path_button_buffer) - (num_paths * path_button_buffer))
+    (screen_width - (num_paths * path_button_buffer) - (num_paths * button_size))
     / 2
 )
 
-path_button_cross_size = 25
+path_button_cross_size = 20
 path_button_cross_width = 5
 
 # text
