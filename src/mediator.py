@@ -308,16 +308,12 @@ class Mediator:
             return
         
         # if the new station is too close to existing stations, regenerate
-        new_station = None
-        while True:
+        new_station = get_random_station()
+        while not all(
+            distance(new_station.position, station.position) >= min_dist_between_stations
+            for station in self.stations
+        ):
             new_station = get_random_station()
-            too_close = False
-            for station in self.stations:
-                if distance(new_station.position, station.position) < min_dist_between_stations:
-                    too_close = True
-                    break
-            if not too_close:
-                break
 
         self.stations.append(new_station)
         self.existing_station_shape_types.add(new_station.shape.type)
