@@ -1,7 +1,7 @@
 from geometry.type import ShapeType
 
 # game
-gamespeed = 1
+gamespeed = 5
 framerate = 60
 
 # screen
@@ -23,7 +23,7 @@ station_shape_type_list = [
     ShapeType.CROSS,
 ]
 station_passengers_per_row = 4
-station_full_timeout = 20 # in seconds
+station_full_timeout = 50 # in seconds
 
 # passenger
 passenger_size = 3

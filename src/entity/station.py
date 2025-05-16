@@ -69,7 +69,7 @@ class Station(Holder):
                 points = [self.position.to_tuple()]
                 radius = self.size * (1.5 + timeout_ratio)
                 deg = 0
-                while deg <= timeout_ratio * 2 * pi:
+                while deg <= max(timeout_ratio * 2 * pi, 0.05):
                     points.append((self.position.left + radius * cos(deg), self.position.top + radius * sin(deg)))
                     deg += 0.01
                 pygame.draw.polygon(surface, (150, 150, 150), points)

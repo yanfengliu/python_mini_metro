@@ -138,6 +138,7 @@ class Path:
             metro.position += direct * travel_dist_in_dt
         # metro is at one end of segment
         else:
+            metro.position = end_point
             metro.current_station = dst_station
             if len(self.segments) == 1:
                 metro.is_forward = not metro.is_forward
