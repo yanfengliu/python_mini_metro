@@ -1,6 +1,6 @@
 import pygame
 
-from config import framerate, screen_color, screen_height, screen_width
+from config import framerate, gamespeed, screen_color, screen_height, screen_width
 from event.convert import convert_pygame_event
 from mediator import Mediator
 
@@ -17,7 +17,7 @@ clock = pygame.time.Clock()
 mediator = Mediator()
 
 while True:
-    dt_ms = clock.tick(framerate)
+    dt_ms = clock.tick(framerate) * gamespeed
     mediator.increment_time(dt_ms)
     screen.fill(screen_color)
     mediator.render(screen)

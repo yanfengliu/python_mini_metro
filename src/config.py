@@ -1,16 +1,19 @@
 from geometry.type import ShapeType
 
 # game
+gamespeed = 20
 framerate = 60
 
 # screen
-screen_width = 1920
-screen_height = 1080
+screen_width = 1080
+screen_height = 720
 screen_color = (255, 255, 255)
 
 # station
-num_stations = 10
-station_size = 30
+num_stations_max = 10
+station_spawning_interval_step = 60 * framerate # 60 secs?
+min_dist_between_stations = 200
+station_size = 10
 station_capacity = 12
 station_color = (0, 0, 0)
 station_shape_type_list = [
@@ -22,34 +25,41 @@ station_shape_type_list = [
 station_passengers_per_row = 4
 
 # passenger
-passenger_size = 5
+passenger_size = 3
 passenger_color = (128, 128, 128)
 passenger_spawning_start_step = 1
 passenger_spawning_interval_step = 10 * framerate
 passenger_display_buffer = 3 * passenger_size
 
 # metro
-num_metros = 4
-metro_size = 30
+num_metros = num_stations_max
+metro_size = 10
 metro_color = (200, 200, 200)
 metro_capacity = 6
 metro_speed_per_ms = 150 / 1000  # pixels / ms
 metro_passengers_per_row = 3
 
 # path
-num_paths = 3
-path_width = 10
-path_order_shift = 10
+toggle_split_lane = False
+num_paths = 7
+path_width = 5
+path_order_shift = 5
 
 # button
 button_color = (180, 180, 180)
-button_size = 30
+button_size = 20
 
 # path button
 path_button_buffer = 20
 path_button_dist_to_bottom = 50
-path_button_start_left = 500
-path_button_cross_size = 25
+
+# calculate path_button_start_left if split buttons evenly
+path_button_start_left = (
+    (screen_width - (num_paths * path_button_buffer) - (num_paths * button_size))
+    / 2
+)
+
+path_button_cross_size = 20
 path_button_cross_width = 5
 
 # text
