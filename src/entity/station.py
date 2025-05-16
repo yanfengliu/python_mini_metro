@@ -27,6 +27,13 @@ class Station(Holder):
         self.station_full_duration = 0
         self.station_full_timeout = station_full_timeout * 1000 # in ms
     
+    def reset_progress(self) -> None:
+        self.steps = 0
+        self.passengers = []
+        self.next_passenger_spawn_time = self.get_poisson_time()
+        self.station_full_duration = 0
+        self.station_full_timeout = station_full_timeout * 1000 # in ms
+    
     def check_timeout(self, time_ms: int) -> bool:
         if len(self.passengers) < self.capacity:
             self.station_full_duration = 0

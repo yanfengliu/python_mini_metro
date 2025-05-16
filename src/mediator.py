@@ -3,6 +3,8 @@ from __future__ import annotations
 from ast import Tuple
 import pprint
 import random
+import time
+from turtle import reset
 from typing import Dict, List
 
 import pygame
@@ -49,6 +51,15 @@ class Mediator:
     def __init__(self, gen_stations_first=False) -> None:
         pygame.font.init()
 
+        self.seed = time.time()
+        self.gen_stations_first = gen_stations_first
+
+        self.reset_progress()
+
+    def reset_progress(self) -> None:
+        # rng
+        random.seed(self.seed)
+
         # configs
         self.passenger_spawning_step = passenger_spawning_start_step
         self.passenger_spawning_interval_step = passenger_spawning_interval_step
@@ -62,8 +73,14 @@ class Mediator:
         self.buttons = [*self.path_buttons]
         self.font = pygame.font.SysFont("arial", score_font_size)
 
+        # stations
+        if hasattr(self, 'stations'):
+            for station in self.stations:
+                station.reset_progress()
+        else:
+            self.stations: List[Station] = get_random_stations(num_stations_max) if self.gen_stations_first else []
+
         # entities
-        self.stations: List[Station] = get_random_stations(num_stations_max) if gen_stations_first else []
         self.metros: List[Metro] = []
         self.paths: List[Path] = []
         self.passengers: List[Passenger] = []
@@ -96,6 +113,7 @@ class Mediator:
         # ...
     
     def initialize_paths(self, *paths: Tuple[List[int], bool]):
+        self.reset_progress()
         assert len(paths) + len(self.paths) <= num_paths
         for path, is_loop in paths:
             assert len(path) > 1
