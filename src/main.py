@@ -1,6 +1,6 @@
 import pygame
 
-from config import framerate, gamespeed, screen_color, screen_height, screen_width
+from config import framerate, gamespeed, screen_color, screen_height, screen_width, num_stations_max
 from event.convert import convert_pygame_event
 from mediator import Mediator
 
@@ -14,9 +14,10 @@ flags = pygame.SCALED
 screen = pygame.display.set_mode((screen_width, screen_height), flags, vsync=1)
 clock = pygame.time.Clock()
 
-mediator = Mediator()
+mediator = Mediator(gen_stations_first=True)
 
 game_over = False
+p = False
 while not game_over:
     dt_ms = clock.tick(framerate) * gamespeed
     game_over = mediator.increment_time(dt_ms)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from ast import Tuple
 import pprint
 import random
 from typing import Dict, List
@@ -45,7 +46,7 @@ pp = pprint.PrettyPrinter(indent=4)
 
 
 class Mediator:
-    def __init__(self) -> None:
+    def __init__(self, gen_stations_first=False) -> None:
         pygame.font.init()
 
         # configs
@@ -62,8 +63,7 @@ class Mediator:
         self.font = pygame.font.SysFont("arial", score_font_size)
 
         # entities
-        # self.stations = get_random_stations(self.num_stations)
-        self.stations: List[Station] = []  # TODO: generate station during time
+        self.stations: List[Station] = get_random_stations(num_stations_max) if gen_stations_first else []
         self.metros: List[Metro] = []
         self.paths: List[Path] = []
         self.passengers: List[Passenger] = []
@@ -94,6 +94,16 @@ class Mediator:
         self.update_OTHER_STATION_SHAPE_TYPES()
 
         # ...
+    
+    def initialize_paths(self, *paths: Tuple[List[int], bool]):
+        assert len(paths) + len(self.paths) <= num_paths
+        for path, is_loop in paths:
+            assert len(path) > 1
+            self.start_path_on_station(self.stations[path[0]])
+            for station in path[1:]:
+                self.add_station_to_path(self.stations[station])
+            self.path_being_created.is_looped = is_loop
+            self.finish_path_creation()
 
     def init_existing_station_shape_types(self):
         for station in self.stations:
