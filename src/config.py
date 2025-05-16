@@ -23,12 +23,13 @@ station_shape_type_list = [
     ShapeType.CROSS,
 ]
 station_passengers_per_row = 4
+station_full_timeout = 20
 
 # passenger
 passenger_size = 3
 passenger_color = (128, 128, 128)
-passenger_spawning_start_step = 1
-passenger_spawning_interval_step = 10 * framerate
+passenger_spawning_start_step = 5
+passenger_spawning_interval_step = 1 * framerate
 passenger_display_buffer = 3 * passenger_size
 
 # metro

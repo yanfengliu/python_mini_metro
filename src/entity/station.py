@@ -1,10 +1,11 @@
 from __future__ import annotations
+from math import cos, pi, sin
 
 import pygame
 import random
 from shortuuid import uuid  # type: ignore
 
-from config import station_capacity, station_passengers_per_row, station_size, passenger_spawning_interval_step
+from config import station_capacity, station_passengers_per_row, station_size, passenger_spawning_interval_step, station_full_timeout
 from entity.holder import Holder
 from geometry.point import Point
 from geometry.shape import Shape
@@ -23,6 +24,20 @@ class Station(Holder):
 
         self.steps = 0
         self.next_passenger_spawn_time = self.get_poisson_time()
+        self.station_full_duration = 0
+        self.station_full_timeout = station_full_timeout * 1000 # in ms
+    
+    def check_timeout(self, time_ms: int) -> bool:
+        if len(self.passengers) < self.capacity:
+            self.station_full_duration = 0
+            return False
+        self.station_full_duration += time_ms
+        if self.station_full_duration > self.station_full_timeout:
+            return True
+        return False
+    
+    def is_full(self):
+        return len(self.passengers) == self.capacity
 
     def __eq__(self, other: Station) -> bool:
         return self.id == other.id
@@ -39,3 +54,16 @@ class Station(Holder):
             return True
 
         return False
+
+    def draw(self, surface):
+        if self.is_full():
+            timeout_ratio = self.station_full_duration / self.station_full_timeout
+            if timeout_ratio > 0:
+                points = [self.position.to_tuple()]
+                radius = self.size * (1.5 + timeout_ratio)
+                deg = 0
+                while deg <= timeout_ratio * 2 * pi:
+                    points.append((self.position.left + radius * cos(deg), self.position.top + radius * sin(deg)))
+                    deg += 0.01
+                pygame.draw.polygon(surface, (150, 150, 150), points)
+        return super().draw(surface)

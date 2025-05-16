@@ -16,9 +16,10 @@ clock = pygame.time.Clock()
 
 mediator = Mediator()
 
-while True:
+game_over = False
+while not game_over:
     dt_ms = clock.tick(framerate) * gamespeed
-    mediator.increment_time(dt_ms)
+    game_over = mediator.increment_time(dt_ms)
     screen.fill(screen_color)
     mediator.render(screen)
 
@@ -31,3 +32,5 @@ while True:
             mediator.react(event)
 
     pygame.display.flip()
+
+print('Game Over, Score = ', mediator.score)

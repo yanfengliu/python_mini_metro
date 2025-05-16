@@ -335,7 +335,7 @@ class Mediator:
         self.next_station_spawn_timestep += station_spawning_interval_step
 
 
-    def increment_time(self, dt_ms: int) -> None:
+    def increment_time(self, dt_ms: int) -> bool:
         self.try_spawn_station()
 
         if self.is_paused:
@@ -349,6 +349,10 @@ class Mediator:
         for path in self.paths:
             for metro in path.metros:
                 path.move_metro(metro, dt_ms)
+        
+        for station in self.stations:
+            if station.check_timeout(dt_ms):
+                return True
 
         # spawn passengers
         # now spawn passengers independently by every station obeying poisson process
@@ -356,6 +360,8 @@ class Mediator:
 
         self.find_travel_plan_for_passengers()
         self.move_passengers()
+        
+        return False
 
     def move_passengers(self) -> None:
         for metro in self.metros:
