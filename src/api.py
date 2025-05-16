@@ -36,8 +36,8 @@ class StaticStationGame:
             Each path has the format ([0, 1, ...], is_looped) as path: station1 -> station2 -> ... -> back to start if looped.<br/>
             Returns the final score.<br/><br/>
             Example:<br/>
-            game = StationDeterminedGame()<br/>
-            game.run(([0, 1, 2, 3, 4], True))
+            >>> game = StationDeterminedGame()
+            >>> game.run(([0, 1, 2, 3, 4], True))
         """
         self.mediator.reset_progress()
         self.mediator.initialize_paths(*paths)
@@ -83,12 +83,14 @@ class ProgressiveStationGame:
 
     def run(self) -> Generator[None, List[Tuple[List[int], bool]], int]:
         """
-            Runs the game with the given initial paths.<br/>
-            Each path has the format ([0, 1, ...], is_looped) as path: station1 -> station2 -> ... -> back to start if looped.<br/>
-            Returns the final score.<br/><br/>
+            Runs the game with no path at start. However, if new station is spawned it will yield and wait for new paths sent by the user.<br/>
+            If the game ends, it will return the final score.<br/><br/>
             Example:<br/>
-            game = ProgressiveStationGame()<br/>
-            game.run(([0, 1, 2, 3, 4], True))
+            >>> game = ProgressiveStationGame()
+            >>> simulation = game.run()
+            >>> next(simulation)
+            >>> while True:
+            ...     simulation.send([([0, 1, 2, 3, 4], True), ...])
         """
         self.mediator.reset_progress()
         game_over = False
