@@ -43,7 +43,7 @@ class StaticStationGame:
         self.mediator.initialize_paths(*paths)
         game_over = False
         while not game_over:
-            dt_ms = self.clock.tick(framerate) * self.gamespeed
+            dt_ms = self.clock.tick(framerate)
             game_over = self.mediator.increment_time(dt_ms) == MeditatorState.ENDED
             if self.visuals:
                 self.screen.fill(screen_color)
@@ -95,7 +95,7 @@ class ProgressiveStationGame:
         self.mediator.reset_progress()
         game_over = False
         while not game_over:
-            dt_ms = self.clock.tick(framerate) * self.gamespeed
+            dt_ms = self.clock.tick(framerate)
             state = self.mediator.increment_time(dt_ms)
             if state == MeditatorState.NEW_STATION:
                 paths = yield
@@ -112,18 +112,3 @@ class ProgressiveStationGame:
                 if pygame_event.type == pygame.QUIT:
                     raise SystemExit
         return self.mediator.score
-
-game = ProgressiveStationGame(gamespeed=50, visuals=True)
-simulation = game.run()
-next(simulation)
-while True:
-    try:
-        paths = []
-        while input('Add path? (y/n): ') == 'y':
-            path = [int(a) for a in input('Path: ').split()]
-            looped = input('Looped? (y/n): ') == 'y'
-            paths.append((path, looped))
-        simulation.send(paths)
-    except StopIteration as result:
-        print('Final score:', result.value)
-        break

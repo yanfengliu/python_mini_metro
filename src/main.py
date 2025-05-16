@@ -20,7 +20,7 @@ mediator = Mediator(gen_stations_first=False)
 game_over = False
 p = False
 while not game_over:
-    dt_ms = clock.tick(framerate) * gamespeed
+    dt_ms = clock.tick(framerate)
     game_over = mediator.increment_time(dt_ms) == MeditatorState.ENDED
     screen.fill(screen_color)
     draw_waves(screen, mediator.time_ms)
