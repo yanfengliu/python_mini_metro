@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from ast import Tuple
+from enum import Enum
 import pprint
 import random
 import time
@@ -46,11 +47,17 @@ from utils import get_shape_from_type, hue_to_rgb
 TravelPlans = Dict[Passenger, TravelPlan]
 pp = pprint.PrettyPrinter(indent=4)
 
+class MeditatorState(Enum):
+    ENDED=0,
+    PAUSED=1,
+    RUNNING=2,
+    NEW_STATION=3
 
 class Mediator:
-    def __init__(self, gen_stations_first=False) -> None:
+    def __init__(self, gamespeed: int = gamespeed, gen_stations_first=False) -> None:
         pygame.font.init()
 
+        self.gamespeed = gamespeed
         self.seed = time.time()
         self.gen_stations_first = gen_stations_first
 
@@ -115,18 +122,11 @@ class Mediator:
 
         self.init_existing_station_shape_types()
         self.update_OTHER_STATION_SHAPE_TYPES()
-
-    
-    def try_spawn_stations(self):
-        self.stations = []
-        for i in range(self.num_stations_max):
-            self.try_spawn_station()
     
     def initialize_paths(self, *paths: Tuple[List[int], bool]):
-        self.reset_progress()
-        assert len(paths) + len(self.paths) <= num_paths
+        self.paths: List[Path] = []
+        self.metros: List[Metro] = []
         for path, is_loop in paths:
-            assert len(path) > 1
             self.start_path_on_station(self.stations[path[0]])
             for station in path[1:]:
                 self.add_station_to_path(self.stations[station])
@@ -334,7 +334,7 @@ class Mediator:
     
     def try_spawn_passengers(self) -> None:
         for station in self.stations:
-            station.steps += gamespeed
+            station.steps += self.gamespeed
             if not station.need_spawn_passenger():
                 continue
             
@@ -351,12 +351,12 @@ class Mediator:
                 station.add_passenger(passenger)
                 self.passengers.append(passenger)
 
-    def try_spawn_station(self) -> int:
+    def try_spawn_station(self) -> bool:
         if len(self.stations) >= self.num_stations_max:
-            return
+            return False
         
         if self.steps < self.next_station_spawn_timestep:
-            return
+            return False
         
         # if the new station is too close to existing stations, regenerate
         new_station = get_random_station()
@@ -371,17 +371,21 @@ class Mediator:
         self.update_OTHER_STATION_SHAPE_TYPES()
 
         self.next_station_spawn_timestep += station_spawning_interval_step
+        return True
 
-
-    def increment_time(self, dt_ms: int) -> bool:
-        self.try_spawn_station()
+    def increment_time(self, dt_ms: int) -> MeditatorState:
+        state = MeditatorState.RUNNING
+        if self.try_spawn_station():
+            state = MeditatorState.NEW_STATION
 
         if self.is_paused:
-            return
+            return MeditatorState.PAUSED
+        
+        dt_ms *= self.gamespeed
 
         # record time
         self.time_ms += dt_ms
-        self.steps += gamespeed
+        self.steps += self.gamespeed
 
         # move metros
         for path in self.paths:
@@ -390,7 +394,7 @@ class Mediator:
         
         for station in self.stations:
             if station.check_timeout(dt_ms):
-                return True
+                return MeditatorState.ENDED
 
         # spawn passengers
         # now spawn passengers independently by every station obeying poisson process
@@ -399,7 +403,7 @@ class Mediator:
         self.find_travel_plan_for_passengers()
         self.move_passengers()
         
-        return False
+        return state
 
     def move_passengers(self) -> None:
         for metro in self.metros:
