@@ -356,52 +356,67 @@ class Mediator:
 
         self.find_travel_plan_for_passengers()
         self.move_passengers()
+        self.check_station_patience()
+
+    def check_station_patience(self) -> None:
+        try:
+            for station in self.stations:
+                station.update_passenger_wait_time()
+        except Exception as e:
+            print(e)
+            print(f"Highscore: {self.score}")
+            raise SystemExit
 
     def move_passengers(self) -> None:
         for metro in self.metros:
-            if metro.current_station:
-                passengers_to_remove = []
-                passengers_from_metro_to_station = []
-                passengers_from_station_to_metro = []
+            if not metro.current_station:
+                continue
 
-                # queue
-                for passenger in metro.passengers:
-                    if (
-                        metro.current_station.shape.type
-                        == passenger.destination_shape.type
-                    ):
-                        passengers_to_remove.append(passenger)
-                    elif (
-                        self.travel_plans[passenger].get_next_station()
-                        == metro.current_station
-                    ):
-                        passengers_from_metro_to_station.append(passenger)
-                for passenger in metro.current_station.passengers:
-                    if (
-                        self.travel_plans[passenger].next_path
-                        and self.travel_plans[passenger].next_path.id == metro.path_id  # type: ignore
-                    ):
-                        passengers_from_station_to_metro.append(passenger)
+            passengers_to_remove = []
+            passengers_from_metro_to_station = []
+            passengers_from_station_to_metro = []
 
-                # process
-                for passenger in passengers_to_remove:
-                    passenger.is_at_destination = True
-                    metro.remove_passenger(passenger)
-                    self.passengers.remove(passenger)
-                    del self.travel_plans[passenger]
-                    self.score += 1
+            # queue
+            for passenger in metro.passengers:
+                if (
+                    metro.current_station.shape.type
+                    == passenger.destination_shape.type
+                ):
+                    passengers_to_remove.append(passenger)
+                elif (
+                    self.travel_plans[passenger].get_next_station()
+                    == metro.current_station
+                ):
+                    passengers_from_metro_to_station.append(passenger)
+            for passenger in metro.current_station.passengers:
+                if (
+                    self.travel_plans[passenger].next_path
+                    and self.travel_plans[passenger].next_path.id == metro.path_id  # type: ignore
+                ):
+                    passengers_from_station_to_metro.append(passenger)
 
-                for passenger in passengers_from_metro_to_station:
-                    if metro.current_station.has_room():
-                        metro.move_passenger(passenger, metro.current_station)
-                        self.travel_plans[passenger].increment_next_station()
-                        self.find_next_path_for_passenger_at_station(
-                            passenger, metro.current_station
-                        )
+            # process
+            for passenger in passengers_to_remove:
+                passenger.is_at_destination = True
+                metro.remove_passenger(passenger)
+                self.passengers.remove(passenger)
+                del self.travel_plans[passenger]
+                self.score += 1
 
-                for passenger in passengers_from_station_to_metro:
-                    if metro.has_room():
-                        metro.current_station.move_passenger(passenger, metro)
+            for passenger in passengers_from_metro_to_station:
+                if metro.current_station.has_room():
+                    metro.move_passenger(passenger, metro.current_station)
+                    self.travel_plans[passenger].increment_next_station()
+                    self.find_next_path_for_passenger_at_station(
+                        passenger, metro.current_station
+                    )
+
+                    passenger.wait_timesteps = 0 # reset wait time
+
+            for passenger in passengers_from_station_to_metro:
+                if metro.has_room():
+                    metro.current_station.move_passenger(passenger, metro)
+                    passenger.wait_timesteps = 0
 
     def get_stations_for_shape_type(self, shape_type: ShapeType):
         stations: List[Station] = []
