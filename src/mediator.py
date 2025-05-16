@@ -197,32 +197,43 @@ class Mediator:
         self.assign_paths_to_buttons()
         self.find_travel_plan_for_passengers()
 
+    def get_unused_color(self) -> Color:
+        assigned_color = (0, 0, 0)
+        for path_color, taken in self.path_colors.items():
+            if not taken:
+                assigned_color = path_color
+                self.path_colors[path_color] = True
+                break
+        return assigned_color
+
     def start_path_on_station(self, station: Station) -> None:
-        if len(self.paths) < self.num_paths:
-            self.is_creating_path = True
-            assigned_color = (0, 0, 0)
-            for path_color, taken in self.path_colors.items():
-                if not taken:
-                    assigned_color = path_color
-                    self.path_colors[path_color] = True
-                    break
-            path = Path(assigned_color)
-            self.path_to_color[path] = assigned_color
-            path.add_station(station)
-            path.is_being_created = True
-            self.path_being_created = path
-            self.paths.append(path)
+        if len(self.paths) >= self.num_paths:
+            print("No more lanes available!")
+            return
+
+        self.is_creating_path = True
+
+        assigned_color = self.get_unused_color()
+        path = Path(assigned_color)
+        self.path_to_color[path] = assigned_color
+
+        path.add_station(station)
+        path.is_being_created = True
+        self.path_being_created = path
+        self.paths.append(path)
 
     def add_station_to_path(self, station: Station) -> None:
         assert self.path_being_created is not None
         if self.path_being_created.stations[-1] == station:
             return
+        
         # loop
         if (
             len(self.path_being_created.stations) > 1
             and self.path_being_created.stations[0] == station
         ):
             self.path_being_created.set_loop()
+        
         # non-loop
         elif self.path_being_created.stations[0] != station:
             if self.path_being_created.is_looped:
@@ -245,10 +256,12 @@ class Mediator:
         self.is_creating_path = False
         self.path_being_created.is_being_created = False
         self.path_being_created.remove_temporary_point()
+
         if len(self.metros) < self.num_metros:
             metro = Metro()
             self.path_being_created.add_metro(metro)
             self.metros.append(metro)
+        
         self.path_being_created = None
         self.assign_paths_to_buttons()
 

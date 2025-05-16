@@ -1,7 +1,7 @@
 from geometry.type import ShapeType
 
 # game
-gamespeed = 100
+gamespeed = 20
 framerate = 60
 
 # screen
@@ -32,7 +32,7 @@ passenger_spawning_interval_step = 10 * framerate
 passenger_display_buffer = 3 * passenger_size
 
 # metro
-num_metros = 4
+num_metros = num_stations_max
 metro_size = 10
 metro_color = (200, 200, 200)
 metro_capacity = 6
