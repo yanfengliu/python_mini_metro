@@ -1,8 +1,9 @@
 import pygame
 
-from config import framerate, gamespeed, screen_color, screen_height, screen_width, num_stations_max
+from config import framerate, gamespeed, screen_color, screen_height, screen_width
 from event.convert import convert_pygame_event
 from mediator import Mediator
+from visuals.background import draw_waves
 
 # init
 pygame.init()
@@ -22,6 +23,7 @@ while not game_over:
     dt_ms = clock.tick(framerate) * gamespeed
     game_over = mediator.increment_time(dt_ms)
     screen.fill(screen_color)
+    draw_waves(screen, mediator.time_ms)
     mediator.render(screen)
 
     # react to user interaction

@@ -23,7 +23,7 @@ from config import (
     station_spawning_interval_step,
     min_dist_between_stations
 )
-from entity.get_entity import get_random_stations, get_random_station
+from entity.get_entity import get_random_stations, get_random_station, try_spawn_random_stations
 from entity.metro import Metro
 from entity.passenger import Passenger
 from entity.path import Path
@@ -74,11 +74,15 @@ class Mediator:
         self.font = pygame.font.SysFont("arial", score_font_size)
 
         # stations
-        if hasattr(self, 'stations'):
+        if not hasattr(self, 'stations'):
+            self.stations: List[Station]
+            if self.gen_stations_first:
+                self.stations = try_spawn_random_stations(self.num_stations_max, min_dist_between_stations)
+            else:
+                self.stations = []
+        else:
             for station in self.stations:
                 station.reset_progress()
-        else:
-            self.stations: List[Station] = get_random_stations(num_stations_max) if self.gen_stations_first else []
 
         # entities
         self.metros: List[Metro] = []
@@ -103,14 +107,20 @@ class Mediator:
         self.is_paused = False
         self.score = 0
 
+
         # TABLES
         # for managing reasonable passenger generation
         self.existing_station_shape_types = set()
         self.OTHER_STATION_SHAPE_TYPES = {}
+
         self.init_existing_station_shape_types()
         self.update_OTHER_STATION_SHAPE_TYPES()
 
-        # ...
+    
+    def try_spawn_stations(self):
+        self.stations = []
+        for i in range(self.num_stations_max):
+            self.try_spawn_station()
     
     def initialize_paths(self, *paths: Tuple[List[int], bool]):
         self.reset_progress()
