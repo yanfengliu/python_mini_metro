@@ -87,7 +87,7 @@ class ProgressiveStationGame:
             Each path has the format ([0, 1, ...], is_looped) as path: station1 -> station2 -> ... -> back to start if looped.<br/>
             Returns the final score.<br/><br/>
             Example:<br/>
-            game = StationDeterminedGame()<br/>
+            game = ProgressiveStationGame()<br/>
             game.run(([0, 1, 2, 3, 4], True))
         """
         self.mediator.reset_progress()
@@ -111,14 +111,17 @@ class ProgressiveStationGame:
                     raise SystemExit
         return self.mediator.score
 
-game = ProgressiveStationGame(gamespeed=10, visuals=True)
+game = ProgressiveStationGame(gamespeed=50, visuals=True)
 simulation = game.run()
 next(simulation)
 while True:
-    paths = []
-    while input('Add path? (y/n): ') == 'y':
-        path = [int(a) for a in input('Path: ').split()]
-        looped = input('Looped? (y/n): ') == 'y'
-        paths.append((path, looped))
-    print('Thanks!')
-    simulation.send(paths)
+    try:
+        paths = []
+        while input('Add path? (y/n): ') == 'y':
+            path = [int(a) for a in input('Path: ').split()]
+            looped = input('Looped? (y/n): ') == 'y'
+            paths.append((path, looped))
+        simulation.send(paths)
+    except StopIteration as result:
+        print('Final score:', result.value)
+        break
