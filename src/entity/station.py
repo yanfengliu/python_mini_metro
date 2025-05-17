@@ -71,7 +71,7 @@ class Station(Holder):
         if self.is_full():
             if self.timeout_ratio > 0:
                 points = [self.position.to_tuple()]
-                radius = self.size * (1.5 + self.timeout_ratio)
+                radius = self.size * (1.5 + self.timeout_ratio * 1.5)
                 deg = 0
                 while deg <= max(self.timeout_ratio * 2 * pi, 0.05):
                     points.append((self.position.left + radius * cos(deg), self.position.top + radius * sin(deg)))

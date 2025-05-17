@@ -81,8 +81,7 @@ class Path:
 
     def draw(self, surface: pygame.surface.Surface, path_order: int, cancelled: bool = False) -> None:
         self.path_order = path_order
-        self.update_segments()
-
+        
         for segment in self.segments:
             segment.draw(surface, cancelled=cancelled)
 

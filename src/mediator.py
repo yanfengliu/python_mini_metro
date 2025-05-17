@@ -424,6 +424,9 @@ class Mediator:
         self.find_travel_plan_for_passengers()
         self.move_passengers()
         
+        for path in self.paths:
+            path.update_segments()
+        
         return state
 
     def move_passengers(self) -> None:
