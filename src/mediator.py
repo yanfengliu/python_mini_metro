@@ -19,7 +19,6 @@ from config import (
     passenger_spawning_start_step,
     score_display_coords,
     score_font_size,
-    gamespeed,
     station_spawning_interval_step,
     min_dist_between_stations
 )
@@ -53,7 +52,7 @@ class MeditatorState(Enum):
     NEW_STATION=3
 
 class Mediator:
-    def __init__(self, gamespeed: int = gamespeed, gen_stations_first=False) -> None:
+    def __init__(self, gamespeed: int = 1, gen_stations_first=False) -> None:
         pygame.font.init()
 
         self.gamespeed = gamespeed

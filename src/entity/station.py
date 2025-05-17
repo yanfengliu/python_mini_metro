@@ -24,22 +24,23 @@ class Station(Holder):
 
         self.steps = 0
         self.next_passenger_spawn_time = self.get_poisson_time()
-        self.station_full_duration = 0
-        self.station_full_timeout = station_full_timeout * 1000 # in ms
+        self.full_duration = 0
+        self.full_timeout = station_full_timeout * 1000 # in ms
     
     def reset_progress(self) -> None:
         self.steps = 0
         self.passengers = []
         self.next_passenger_spawn_time = self.get_poisson_time()
-        self.station_full_duration = 0
-        self.station_full_timeout = station_full_timeout * 1000 # in ms
+        self.full_duration = 0
+
+        # self.full_timeout = station_full_timeout * 1000 # in ms // wont be altered, no need to reset
     
     def check_timeout(self, time_ms: int) -> bool:
         if len(self.passengers) < self.capacity:
-            self.station_full_duration = 0
+            self.full_duration = 0
             return False
-        self.station_full_duration += time_ms
-        if self.station_full_duration > self.station_full_timeout:
+        self.full_duration += time_ms
+        if self.full_duration > self.full_timeout:
             return True
         return False
     
@@ -61,15 +62,18 @@ class Station(Holder):
             return True
 
         return False
+    
+    @property
+    def timeout_ratio(self) -> float:
+        return self.full_duration / self.full_timeout
 
     def draw(self, surface):
         if self.is_full():
-            timeout_ratio = self.station_full_duration / self.station_full_timeout
-            if timeout_ratio > 0:
+            if self.timeout_ratio > 0:
                 points = [self.position.to_tuple()]
-                radius = self.size * (1.5 + timeout_ratio)
+                radius = self.size * (1.5 + self.timeout_ratio)
                 deg = 0
-                while deg <= max(timeout_ratio * 2 * pi, 0.05):
+                while deg <= max(self.timeout_ratio * 2 * pi, 0.05):
                     points.append((self.position.left + radius * cos(deg), self.position.top + radius * sin(deg)))
                     deg += 0.01
                 pygame.draw.polygon(surface, (150, 150, 150), points)

@@ -1,7 +1,6 @@
 from geometry.type import ShapeType
 
 # game
-gamespeed = 5
 framerate = 60
 
 # screen
