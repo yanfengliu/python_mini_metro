@@ -131,6 +131,9 @@ class Mediator:
                 self.add_station_to_path(self.stations[station])
             self.path_being_created.is_looped = is_loop
             self.finish_path_creation()
+            
+        for path in self.paths:
+            path.update_segments()
 
     def init_existing_station_shape_types(self):
         for station in self.stations:
@@ -423,9 +426,6 @@ class Mediator:
 
         self.find_travel_plan_for_passengers()
         self.move_passengers()
-        
-        for path in self.paths:
-            path.update_segments()
         
         return state
 
