@@ -14,6 +14,7 @@ from geometry.line import Line
 from geometry.point import Point
 from geometry.utils import direction, distance
 from type import Color
+from utils import brighten_color
 
 
 class Path:
@@ -78,16 +79,16 @@ class Path:
             self.padding_segments.append(padding_segment)
             self.segments.append(padding_segment)
 
-    def draw(self, surface: pygame.surface.Surface, path_order: int) -> None:
+    def draw(self, surface: pygame.surface.Surface, path_order: int, cancelled: bool = False) -> None:
         self.path_order = path_order
         self.update_segments()
 
         for segment in self.segments:
-            segment.draw(surface)
+            segment.draw(surface, cancelled=cancelled)
 
         if self.temp_point:
             temp_line = Line(
-                color=self.color,
+                color=brighten_color(self.color, 0.5 if cancelled else 0),
                 start=self.stations[-1].position,
                 end=self.temp_point,
                 width=path_width,

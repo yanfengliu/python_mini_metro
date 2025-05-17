@@ -15,7 +15,7 @@ flags = pygame.SCALED
 screen = pygame.display.set_mode((screen_width, screen_height), flags, vsync=1)
 clock = pygame.time.Clock()
 
-mediator = Mediator(gen_stations_first=False)
+mediator = Mediator(gen_stations_first=True)
 
 game_over = False
 p = False

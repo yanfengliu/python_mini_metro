@@ -12,6 +12,7 @@ from entity.holder import Holder
 from entity.segment import Segment
 from entity.station import Station
 from geometry.rect import Rect
+from utils import brighten_color
 
 
 class Metro(Holder):
@@ -23,6 +24,7 @@ class Metro(Holder):
             capacity=metro_capacity,
             id=f"Metro-{uuid()}",
         )
+        self.cancelled = False
         self.current_station: Station | None = None
         self.current_segment: Segment | None = None
         self.current_segment_idx = 0
@@ -30,3 +32,10 @@ class Metro(Holder):
         self.speed = metro_speed_per_ms
         self.is_forward = True
         self.passengers_per_row = metro_passengers_per_row
+    
+    def cancel(self) -> None:
+        self.cancelled = True
+        self.shape.color = brighten_color(self.shape.color, 0.5)
+
+    def __eq__(self, value):
+        return self.id == value.id

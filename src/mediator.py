@@ -93,6 +93,7 @@ class Mediator:
         # entities
         self.metros: List[Metro] = []
         self.paths: List[Path] = []
+        self.cancelled_paths: List[Path] = []
         self.passengers: List[Passenger] = []
         self.path_colors: Dict[Color, bool] = {}
         for i in range(num_paths):
@@ -156,6 +157,9 @@ class Mediator:
             self.path_to_button[path] = button
 
     def render(self, screen: pygame.surface.Surface) -> None:
+        for idx, path in enumerate(self.cancelled_paths):
+            path_order = idx - round(self.num_paths / 2)
+            path.draw(screen, path_order, cancelled=True)
         for idx, path in enumerate(self.paths):
             path_order = idx - round(self.num_paths / 2)
             path.draw(screen, path_order)
@@ -188,7 +192,7 @@ class Mediator:
             else:
                 if entity and isinstance(entity, PathButton):
                     if entity.path:
-                        self.remove_path(entity.path)
+                        self.cancel_path(entity.path)
 
         elif event.event_type == MouseEventType.MOUSE_MOTION:
             if self.is_mouse_down:
@@ -224,15 +228,24 @@ class Mediator:
                 return button
 
     def remove_path(self, path: Path):
-        self.path_to_button[path].remove_path()
         for metro in path.metros:
             for passenger in metro.passengers:
                 self.passengers.remove(passenger)
             self.metros.remove(metro)
+    
+    def cancel_path(self, path: Path):
+        self.path_to_button[path].remove_path()
         self.release_color_for_path(path)
         self.paths.remove(path)
         self.assign_paths_to_buttons()
         self.find_travel_plan_for_passengers()
+        if any([len(metro.passengers) > 0 for metro in path.metros]):
+            self.cancelled_paths.append(path)
+            for metro in path.metros:
+                metro.cancel()
+            print(f'{path.id} cancelled.')
+        else:
+            self.remove_path(path)
 
     def get_unused_color(self) -> Color:
         assigned_color = (0, 0, 0)
@@ -391,6 +404,16 @@ class Mediator:
             for metro in path.metros:
                 path.move_metro(metro, dt_ms)
         
+        for path in self.cancelled_paths:
+            can_remove = True
+            for metro in path.metros:
+                if len(metro.passengers) > 0:
+                    can_remove = False
+                    path.move_metro(metro, dt_ms)
+            if can_remove:
+                self.remove_path(path)
+                self.cancelled_paths.remove(path)
+        
         for station in self.stations:
             if station.check_timeout(dt_ms):
                 return MeditatorState.ENDED
@@ -423,12 +446,13 @@ class Mediator:
                         == metro.current_station
                     ):
                         passengers_from_metro_to_station.append(passenger)
-                for passenger in metro.current_station.passengers:
-                    if (
-                        self.travel_plans[passenger].next_path
-                        and self.travel_plans[passenger].next_path.id == metro.path_id  # type: ignore
-                    ):
-                        passengers_from_station_to_metro.append(passenger)
+                if not metro.cancelled:
+                    for passenger in metro.current_station.passengers:
+                        if (
+                            self.travel_plans[passenger].next_path
+                            and self.travel_plans[passenger].next_path.id == metro.path_id  # type: ignore
+                        ):
+                            passengers_from_station_to_metro.append(passenger)
 
                 # process
                 for passenger in passengers_to_remove:
