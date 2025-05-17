@@ -62,15 +62,20 @@ class ProgressiveStationGame:
        Call StationDeterminedGame::run() to start the game with same stations and given paths,
        however it yields when new station spawns.
     """
-    def __init__(self, gamespeed: int = 250, visuals: bool = False):
+    def __init__(self, gamespeed: int = 250, yield_interval_ms: int = 100, yield_when_station_spawned: bool = True, visuals: bool = False):
         """
             Initialize the game simulator.<br/>
             If visuals is true, it will display full game simulation on the screen with some speed costs.
         """
         self.mediator = Mediator(gamespeed, gen_stations_first=False)
-        self.gamespeed = gamespeed
         self.clock = pygame.time.Clock()
+        
+        self.gamespeed = gamespeed
+        self.yield_interval_ms = yield_interval_ms
+        self.yield_when_station_spawned = yield_when_station_spawned
         self.visuals = visuals
+
+        self.time_acc_ms = 0
 
         if visuals:
             pygame.init()
@@ -97,9 +102,13 @@ class ProgressiveStationGame:
         while not game_over:
             dt_ms = self.clock.tick(framerate)
             state = self.mediator.increment_time(dt_ms)
-            if state == MeditatorState.NEW_STATION:
+
+            self.time_acc_ms += dt_ms
+            if self.yield_when_station_spawned and state == MeditatorState.NEW_STATION or self.time_acc_ms >= self.yield_interval_ms:
                 paths = yield
                 self.mediator.initialize_paths(*paths)
+                self.time_acc_ms = 0
+            
             if state == MeditatorState.ENDED:
                 game_over = True
             if self.visuals:
