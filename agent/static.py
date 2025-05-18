@@ -1,6 +1,19 @@
-from api import StaticStationGame
+# handling path
+import os
+import sys
 
-from timer import Timer
+sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
+
+# start of code
+
+from api import StaticStationGame
+from timer_util import Timer
+
+"""
+Example:
+    A static AI agent that creates 3 paths that go through certain stations in order.
+        (does not update the paths)
+"""
 
 timer = Timer()
 game = StaticStationGame(gamespeed=50, visuals=True)
