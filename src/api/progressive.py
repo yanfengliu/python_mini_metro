@@ -69,5 +69,11 @@ class ProgressiveStationGame(GameAPI):
     def initialize_paths(self, *args, **kwargs):
         self.mediator.initialize_paths(*args, **kwargs)
 
+    def delete_path(self, path_index: int):
+        self.mediator.cancel_path(self.mediator.paths[path_index])
+
+    def create_path(self, path_config: Tuple[List[int], bool]):
+        self.mediator.add_path(path_config)
+
     def recreate_path(self, *args, **kwargs):
         self.mediator.recreate_path(*args, **kwargs)
