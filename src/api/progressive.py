@@ -45,9 +45,9 @@ class ProgressiveStationGame(GameAPI):
             state = self.mediator.increment_time(dt_ms)
 
             self.time_acc_ms += dt_ms
-            if self.yield_when_station_spawned and state == MeditatorState.NEW_STATION or self.time_acc_ms >= self.yield_interval_ms:
-                paths = yield
-                self.mediator.initialize_paths(*paths)
+            if (self.yield_when_station_spawned and state == MeditatorState.NEW_STATION) \
+                or self.time_acc_ms >= self.yield_interval_ms:
+                yield
                 self.time_acc_ms = 0
             
             if state == MeditatorState.ENDED:
@@ -64,3 +64,10 @@ class ProgressiveStationGame(GameAPI):
                         raise SystemExit
         
         return self.mediator.score
+    
+    # dummy interfaces
+    def initialize_paths(self, *args, **kwargs):
+        self.mediator.initialize_paths(*args, **kwargs)
+
+    def recreate_path(self, *args, **kwargs):
+        self.mediator.recreate_path(*args, **kwargs)

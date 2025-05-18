@@ -122,18 +122,33 @@ class Mediator:
         self.init_existing_station_shape_types()
         self.update_OTHER_STATION_SHAPE_TYPES()
     
-    def initialize_paths(self, *paths: Tuple[List[int], bool]):
+    # for STATIC API ONLY!
+    # for PROGRESSIVE API, use recreate()
+    def initialize_paths(self, *paths_config: Tuple[List[int], bool]):
         self.paths: List[Path] = []
         self.metros: List[Metro] = []
-        for path, is_loop in paths:
-            self.start_path_on_station(self.stations[path[0]])
-            for station in path[1:]:
-                self.add_station_to_path(self.stations[station])
-            self.path_being_created.is_looped = is_loop
-            self.finish_path_creation()
-            
-        for path in self.paths:
-            path.update_segments()
+
+        for config in paths_config:
+            self.create_path(config)
+
+    # for PROGRESSIVE API ONLY!
+    # for STATIC API, use initialize_paths()
+    def recreate_path(self, path_index: int, path_config: Tuple[List[int], bool]):
+        self.cancel_path(self.paths[path_index])
+        self.create_path(path_config)
+
+    def create_path(self, path_config: Tuple[List[int], bool]):
+        stations, is_loop = path_config
+        
+        self.start_path_on_station(self.stations[stations[0]])
+        for station in stations[1:]:
+            self.add_station_to_path(self.stations[station])
+        
+        self.path_being_created.is_looped = is_loop
+        self.finish_path_creation()
+        
+        # newly created path resides at the end of the list
+        self.paths[-1].update_segments()
 
     def init_existing_station_shape_types(self):
         for station in self.stations:
