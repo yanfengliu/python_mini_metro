@@ -79,16 +79,15 @@ class Mediator:
         self.font = pygame.font.SysFont("arial", score_font_size)
 
         # stations
-        if not hasattr(self, 'stations'):
-            self.stations: List[Station]
-            if self.gen_stations_first:
-                self.stations = try_spawn_random_stations(self.num_stations_max, min_dist_between_stations)
+        if self.gen_stations_first:
+            if hasattr(self, 'stations'):
+                for station in self.stations:
+                    station.reset_progress()
             else:
-                self.stations = []
+                self.stations = try_spawn_random_stations(self.num_stations_max, min_dist_between_stations)
         else:
-            for station in self.stations:
-                station.reset_progress()
-
+            self.stations = []
+            
         # entities
         self.metros: List[Metro] = []
         self.paths: List[Path] = []
@@ -370,7 +369,7 @@ class Mediator:
             # failed to spawn passenger if no other station shape type
             if len(self.existing_station_shape_types) == 1:
                 continue
-
+            
             destination_shape_type = random.choice(self.OTHER_STATION_SHAPE_TYPES[station.shape.type])
             destination_shape = get_shape_from_type(
                 destination_shape_type, passenger_color, passenger_size
