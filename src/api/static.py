@@ -14,7 +14,7 @@ class StaticStationGame(GameAPI):
        A game simulator. When instantiating the simulator all stations are generated randomly.<br/>
        Call StationDeterminedGame::run() to start the game with same stations and given paths.
     """
-    def __init__(self, gamespeed: int = None, visuals: bool = False):
+    def __init__(self, gamespeed: int = 1, visuals: bool = False):
         """
             Initialize the game simulator.<br/>
             If visuals is true, it will display full game simulation on the screen with some speed costs.
@@ -35,7 +35,7 @@ class StaticStationGame(GameAPI):
 
         game_over = False
         while not game_over:
-            dt_ms = 1000 / framerate
+            dt_ms = 1000 // framerate
             new_game_state = self.mediator.increment_time(dt_ms)
             game_over = (new_game_state == MeditatorState.ENDED)
 
