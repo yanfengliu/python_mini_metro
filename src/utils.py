@@ -4,7 +4,16 @@ from typing import List, Tuple
 
 import numpy as np
 
-from config import passenger_size, station_color, station_shape_type_list, station_size
+from config import (
+    passenger_size,
+    station_color,
+    station_shape_type_list,
+    station_size,
+    station_grid_size,
+    station_padding,
+    screen_width,
+    screen_height
+)
 from geometry.circle import Circle
 from geometry.cross import Cross
 from geometry.point import Point
@@ -26,6 +35,26 @@ def get_random_position(width: int, height: int) -> Point:
         ),
     )
 
+padding = station_padding
+grid_nx, grid_ny = station_grid_size
+total_grid_num = grid_nx * grid_ny
+grid_dx = int((screen_width - 2*padding) / grid_nx)
+grid_dy = int((screen_height - 2*padding) / grid_ny)
+
+def get_grid_pos(seq: int) -> Point:
+    nx = seq // grid_ny
+    ny = seq % grid_ny
+
+    return Point(
+        padding + nx * grid_dx,
+        padding + ny * grid_dy
+    )
+
+
+def get_random_grid_seqs(used: List[bool], num: int = 1) -> List[int]:
+    choices = [i for i in range(total_grid_num) if i not in used]
+    return random.sample(choices, num)
+
 
 def get_random_color() -> Color:
     return hue_to_rgb(np.random.rand())
@@ -41,6 +70,8 @@ def get_random_shape(
     shape_type = random.choice(shape_type_list)
     return get_shape_from_type(shape_type, color, size)
 
+def get_certain_shape(shapetype: ShapeType):
+    return get_shape_from_type(shapetype, station_color, station_size)
 
 def get_random_station_shape() -> Shape:
     return get_random_shape(station_shape_type_list, station_color, station_size)

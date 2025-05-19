@@ -9,9 +9,10 @@ screen_height = 720
 screen_color = (117, 182, 255)
 
 # station
-num_stations_max = 10
+num_stations_max = 20
+station_grid_size = (14, 10)
 station_spawning_interval_step = 60 * framerate # 60 secs?
-min_dist_between_stations = 100
+station_padding = 100
 station_size = 10
 station_capacity = 12
 station_color = (0, 20, 50)

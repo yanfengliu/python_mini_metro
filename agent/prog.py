@@ -12,7 +12,7 @@ from api import ProgressiveStationGame
 gamespeed = 100
 in_game_break_time = (999999999999999999999/gamespeed) * 1000 # stop periodic yielding
 
-game = ProgressiveStationGame(gamespeed=gamespeed, yield_interval_ms=in_game_break_time, visuals=True)
+game = ProgressiveStationGame(gamespeed=gamespeed, yield_interval_ms=in_game_break_time, visuals=False)
 
 simulation = game.run()
 
