@@ -53,7 +53,7 @@ def get_grid_pos(seq: int) -> Point:
 
 def get_random_grid_seqs(used: List[bool], num: int = 1) -> List[int]:
     choices = [i for i in range(total_grid_num) if i not in used]
-    return random.choices(choices, k=num)
+    return random.sample(choices, num)
 
 
 def get_random_color() -> Color:
