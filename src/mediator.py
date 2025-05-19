@@ -396,6 +396,7 @@ class Mediator:
             self.stations.append(new_station)
             self.existing_station_shape_types.add(new_station.shape.type)
         
+        self.used_stations_list.extend(new_stations_seq)
         self.update_OTHER_STATION_SHAPE_TYPES()
 
         self.next_station_spawn_timestep += station_spawning_interval_step
