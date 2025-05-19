@@ -5,7 +5,7 @@ from enum import Enum
 import pprint
 import random
 import time
-from typing import Dict, List
+from typing import Dict, List, Set
 
 import pygame
 
@@ -20,9 +20,8 @@ from config import (
     score_display_coords,
     score_font_size,
     station_spawning_interval_step,
-    min_dist_between_stations
 )
-from entity.get_entity import get_random_stations, get_random_station, try_spawn_random_stations
+from entity.get_entity import get_station_at_grid
 from entity.metro import Metro
 from entity.passenger import Passenger
 from entity.path import Path
@@ -40,7 +39,7 @@ from travel_plan import TravelPlan
 from type import Color
 from ui.button import Button
 from ui.path_button import PathButton, get_path_buttons
-from utils import get_shape_from_type, hue_to_rgb
+from utils import get_shape_from_type, hue_to_rgb, get_random_grid_seqs
 
 TravelPlans = Dict[Passenger, TravelPlan]
 pp = pprint.PrettyPrinter(indent=4)
@@ -78,13 +77,32 @@ class Mediator:
         self.buttons = [*self.path_buttons]
         self.font = pygame.font.SysFont("arial", score_font_size)
 
+        # status
+        self.time_ms = 0
+        self.steps = 0
+
+        self.next_station_spawn_timestep = 0
+
+        self.is_mouse_down = False
+        self.is_creating_path = False
+        self.path_being_created: Path | None = None
+        self.travel_plans: TravelPlans = {}
+        self.is_paused = False
+        self.score = 0
+
         # stations
+        self.existing_station_shape_types: Set[ShapeType] = set()
+        self.OTHER_STATION_SHAPE_TYPES = {}
+
+        self.used_stations_list: List[int] = [] # stores used station num
+
         if self.gen_stations_first:
             if hasattr(self, 'stations'):
                 for station in self.stations:
                     station.reset_progress()
             else:
-                self.stations = try_spawn_random_stations(self.num_stations_max, min_dist_between_stations)
+                self.stations = []
+                self.try_spawn_stations(self.num_stations_max)
         else:
             self.stations = []
             
@@ -99,25 +117,9 @@ class Mediator:
             self.path_colors[color] = False  # not taken
         self.path_to_color: Dict[Path, Color] = {}
 
-        # status
-        self.time_ms = 0
-        self.steps = 0
-
-        self.next_station_spawn_timestep = 0
-
-        self.is_mouse_down = False
-        self.is_creating_path = False
-        self.path_being_created: Path | None = None
-        self.travel_plans: TravelPlans = {}
-        self.is_paused = False
-        self.score = 0
-
 
         # TABLES
         # for managing reasonable passenger generation
-        self.existing_station_shape_types = set()
-        self.OTHER_STATION_SHAPE_TYPES = {}
-
         self.init_existing_station_shape_types()
         self.update_OTHER_STATION_SHAPE_TYPES()
     
@@ -379,23 +381,21 @@ class Mediator:
                 station.add_passenger(passenger)
                 self.passengers.append(passenger)
 
-    def try_spawn_station(self) -> bool:
+    def try_spawn_stations(self, num: int = 1) -> bool:
         if len(self.stations) >= self.num_stations_max:
             return False
         
         if self.steps < self.next_station_spawn_timestep:
             return False
         
-        # if the new station is too close to existing stations, regenerate
-        new_station = get_random_station()
-        while not all(
-            distance(new_station.position, station.position) >= min_dist_between_stations
-            for station in self.stations
-        ):
-            new_station = get_random_station()
-
-        self.stations.append(new_station)
-        self.existing_station_shape_types.add(new_station.shape.type)
+        new_stations_seq = get_random_grid_seqs(self.used_stations_list, num)
+        for seq in new_stations_seq:
+            avail_shapes = [s for s in list(ShapeType) if s not in self.existing_station_shape_types]
+            new_station = get_station_at_grid(seq, need_new_shape=True, choose_from_types=avail_shapes)
+            
+            self.stations.append(new_station)
+            self.existing_station_shape_types.add(new_station.shape.type)
+        
         self.update_OTHER_STATION_SHAPE_TYPES()
 
         self.next_station_spawn_timestep += station_spawning_interval_step
@@ -403,7 +403,7 @@ class Mediator:
 
     def increment_time(self, dt_ms: int) -> MeditatorState:
         state = MeditatorState.RUNNING
-        if self.try_spawn_station():
+        if self.try_spawn_stations():
             state = MeditatorState.NEW_STATION
 
         if self.is_paused:
