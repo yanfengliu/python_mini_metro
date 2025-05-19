@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from ast import Tuple
+from enum import Enum
 import pprint
 import random
+import time
 from typing import Dict, List
 
 import pygame
@@ -16,11 +19,10 @@ from config import (
     passenger_spawning_start_step,
     score_display_coords,
     score_font_size,
-    gamespeed,
     station_spawning_interval_step,
     min_dist_between_stations
 )
-from entity.get_entity import get_random_stations, get_random_station
+from entity.get_entity import get_random_stations, get_random_station, try_spawn_random_stations
 from entity.metro import Metro
 from entity.passenger import Passenger
 from entity.path import Path
@@ -43,10 +45,25 @@ from utils import get_shape_from_type, hue_to_rgb
 TravelPlans = Dict[Passenger, TravelPlan]
 pp = pprint.PrettyPrinter(indent=4)
 
+class MeditatorState(Enum):
+    ENDED=0,
+    PAUSED=1,
+    RUNNING=2,
+    NEW_STATION=3
 
 class Mediator:
-    def __init__(self) -> None:
+    def __init__(self, gamespeed: int = 1, gen_stations_first=False) -> None:
         pygame.font.init()
+
+        self.gamespeed = gamespeed
+        self.seed = time.time()
+        self.gen_stations_first = gen_stations_first
+
+        self.reset_progress()
+
+    def reset_progress(self) -> None:
+        # rng
+        random.seed(self.seed)
 
         # configs
         self.passenger_spawning_step = passenger_spawning_start_step
@@ -61,11 +78,20 @@ class Mediator:
         self.buttons = [*self.path_buttons]
         self.font = pygame.font.SysFont("arial", score_font_size)
 
+        # stations
+        if self.gen_stations_first:
+            if hasattr(self, 'stations'):
+                for station in self.stations:
+                    station.reset_progress()
+            else:
+                self.stations = try_spawn_random_stations(self.num_stations_max, min_dist_between_stations)
+        else:
+            self.stations = []
+            
         # entities
-        # self.stations = get_random_stations(self.num_stations)
-        self.stations: List[Station] = []  # TODO: generate station during time
         self.metros: List[Metro] = []
         self.paths: List[Path] = []
+        self.cancelled_paths: List[Path] = []
         self.passengers: List[Passenger] = []
         self.path_colors: Dict[Color, bool] = {}
         for i in range(num_paths):
@@ -86,14 +112,42 @@ class Mediator:
         self.is_paused = False
         self.score = 0
 
+
         # TABLES
         # for managing reasonable passenger generation
         self.existing_station_shape_types = set()
         self.OTHER_STATION_SHAPE_TYPES = {}
+
         self.init_existing_station_shape_types()
         self.update_OTHER_STATION_SHAPE_TYPES()
+    
+    # for STATIC API ONLY!
+    # for PROGRESSIVE API, use recreate()
+    def initialize_paths(self, *paths_config: Tuple[List[int], bool]):
+        self.paths: List[Path] = []
+        self.metros: List[Metro] = []
 
-        # ...
+        for config in paths_config:
+            self.create_path(config)
+
+    # for PROGRESSIVE API ONLY!
+    # for STATIC API, use initialize_paths()
+    def recreate_path(self, path_index: int, path_config: Tuple[List[int], bool]):
+        self.cancel_path(self.paths[path_index])
+        self.create_path(path_config)
+
+    def create_path(self, path_config: Tuple[List[int], bool]):
+        stations, is_loop = path_config
+        
+        self.start_path_on_station(self.stations[stations[0]])
+        for station in stations[1:]:
+            self.add_station_to_path(self.stations[station])
+        
+        self.path_being_created.is_looped = is_loop
+        self.finish_path_creation()
+        
+        # newly created path resides at the end of the list
+        self.paths[-1].update_segments()
 
     def init_existing_station_shape_types(self):
         for station in self.stations:
@@ -119,6 +173,9 @@ class Mediator:
             self.path_to_button[path] = button
 
     def render(self, screen: pygame.surface.Surface) -> None:
+        for idx, path in enumerate(self.cancelled_paths):
+            path_order = idx - round(self.num_paths / 2)
+            path.draw(screen, path_order, cancelled=True)
         for idx, path in enumerate(self.paths):
             path_order = idx - round(self.num_paths / 2)
             path.draw(screen, path_order)
@@ -151,7 +208,7 @@ class Mediator:
             else:
                 if entity and isinstance(entity, PathButton):
                     if entity.path:
-                        self.remove_path(entity.path)
+                        self.cancel_path(entity.path)
 
         elif event.event_type == MouseEventType.MOUSE_MOTION:
             if self.is_mouse_down:
@@ -187,15 +244,24 @@ class Mediator:
                 return button
 
     def remove_path(self, path: Path):
-        self.path_to_button[path].remove_path()
         for metro in path.metros:
             for passenger in metro.passengers:
                 self.passengers.remove(passenger)
             self.metros.remove(metro)
+    
+    def cancel_path(self, path: Path):
+        self.path_to_button[path].remove_path()
         self.release_color_for_path(path)
         self.paths.remove(path)
         self.assign_paths_to_buttons()
         self.find_travel_plan_for_passengers()
+        if any([len(metro.passengers) > 0 for metro in path.metros]):
+            self.cancelled_paths.append(path)
+            for metro in path.metros:
+                metro.cancel()
+            print(f'{path.id} cancelled.')
+        else:
+            self.remove_path(path)
 
     def get_unused_color(self) -> Color:
         assigned_color = (0, 0, 0)
@@ -296,14 +362,14 @@ class Mediator:
     
     def try_spawn_passengers(self) -> None:
         for station in self.stations:
-            station.steps += gamespeed
+            station.steps += self.gamespeed
             if not station.need_spawn_passenger():
                 continue
             
             # failed to spawn passenger if no other station shape type
             if len(self.existing_station_shape_types) == 1:
                 continue
-
+            
             destination_shape_type = random.choice(self.OTHER_STATION_SHAPE_TYPES[station.shape.type])
             destination_shape = get_shape_from_type(
                 destination_shape_type, passenger_color, passenger_size
@@ -313,12 +379,12 @@ class Mediator:
                 station.add_passenger(passenger)
                 self.passengers.append(passenger)
 
-    def try_spawn_station(self) -> int:
+    def try_spawn_station(self) -> bool:
         if len(self.stations) >= self.num_stations_max:
-            return
+            return False
         
         if self.steps < self.next_station_spawn_timestep:
-            return
+            return False
         
         # if the new station is too close to existing stations, regenerate
         new_station = get_random_station()
@@ -333,22 +399,40 @@ class Mediator:
         self.update_OTHER_STATION_SHAPE_TYPES()
 
         self.next_station_spawn_timestep += station_spawning_interval_step
+        return True
 
-
-    def increment_time(self, dt_ms: int) -> None:
-        self.try_spawn_station()
+    def increment_time(self, dt_ms: int) -> MeditatorState:
+        state = MeditatorState.RUNNING
+        if self.try_spawn_station():
+            state = MeditatorState.NEW_STATION
 
         if self.is_paused:
-            return
+            return MeditatorState.PAUSED
+        
+        dt_ms *= self.gamespeed
 
         # record time
         self.time_ms += dt_ms
-        self.steps += gamespeed
+        self.steps += self.gamespeed
 
         # move metros
         for path in self.paths:
             for metro in path.metros:
                 path.move_metro(metro, dt_ms)
+        
+        for path in self.cancelled_paths:
+            can_remove = True
+            for metro in path.metros:
+                if len(metro.passengers) > 0:
+                    can_remove = False
+                    path.move_metro(metro, dt_ms)
+            if can_remove:
+                self.remove_path(path)
+                self.cancelled_paths.remove(path)
+        
+        for station in self.stations:
+            if station.check_timeout(dt_ms):
+                return MeditatorState.ENDED
 
         # spawn passengers
         # now spawn passengers independently by every station obeying poisson process
@@ -356,6 +440,8 @@ class Mediator:
 
         self.find_travel_plan_for_passengers()
         self.move_passengers()
+        
+        return state
 
     def move_passengers(self) -> None:
         for metro in self.metros:
@@ -376,12 +462,13 @@ class Mediator:
                         == metro.current_station
                     ):
                         passengers_from_metro_to_station.append(passenger)
-                for passenger in metro.current_station.passengers:
-                    if (
-                        self.travel_plans[passenger].next_path
-                        and self.travel_plans[passenger].next_path.id == metro.path_id  # type: ignore
-                    ):
-                        passengers_from_station_to_metro.append(passenger)
+                if not metro.cancelled:
+                    for passenger in metro.current_station.passengers:
+                        if (
+                            self.travel_plans[passenger].next_path
+                            and self.travel_plans[passenger].next_path.id == metro.path_id  # type: ignore
+                        ):
+                            passengers_from_station_to_metro.append(passenger)
 
                 # process
                 for passenger in passengers_to_remove:

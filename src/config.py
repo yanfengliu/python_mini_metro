@@ -1,21 +1,20 @@
 from geometry.type import ShapeType
 
 # game
-gamespeed = 20
 framerate = 60
 
 # screen
 screen_width = 1080
 screen_height = 720
-screen_color = (255, 255, 255)
+screen_color = (117, 182, 255)
 
 # station
 num_stations_max = 10
 station_spawning_interval_step = 60 * framerate # 60 secs?
-min_dist_between_stations = 200
+min_dist_between_stations = 100
 station_size = 10
 station_capacity = 12
-station_color = (0, 0, 0)
+station_color = (0, 20, 50)
 station_shape_type_list = [
     ShapeType.RECT,
     ShapeType.CIRCLE,
@@ -23,10 +22,11 @@ station_shape_type_list = [
     ShapeType.CROSS,
 ]
 station_passengers_per_row = 4
+station_full_timeout = 50 # in seconds
 
 # passenger
 passenger_size = 3
-passenger_color = (128, 128, 128)
+passenger_color = (0, 50, 120)
 passenger_spawning_start_step = 1
 passenger_spawning_interval_step = 10 * framerate
 passenger_display_buffer = 3 * passenger_size

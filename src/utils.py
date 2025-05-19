@@ -67,3 +67,9 @@ def get_shape_from_type(type: ShapeType, color: Color, size: int) -> Shape:
 
 def within_time_window(game_time_ms: int, time_mark_ms: int, window_ms: int):
     return window_ms <= game_time_ms - time_mark_ms < (2 * window_ms)
+
+def brighten_color(color: Tuple[int, int, int], factor: float) -> Tuple[int, int, int]:
+    return tuple([int(c + (255 - c) * factor) for c in color])
+
+def lerp(start: float, end: float, t: float) -> float:
+    return start + (end - start) * t

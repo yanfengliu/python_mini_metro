@@ -10,6 +10,7 @@ from entity.station import Station
 from geometry.line import Line
 from geometry.point import Point
 from type import Color
+from utils import brighten_color
 
 
 class Segment(ABC):
@@ -25,5 +26,6 @@ class Segment(ABC):
     def __eq__(self, other: Segment) -> bool:
         return self.id == other.id
 
-    def draw(self, surface: pygame.surface.Surface) -> None:
+    def draw(self, surface: pygame.surface.Surface, cancelled: bool = False) -> None:
+        self.line.color = brighten_color(self.color, 0.5 if cancelled else 0)
         self.line.draw(surface)
