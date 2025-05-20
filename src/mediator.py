@@ -3,6 +3,7 @@ from __future__ import annotations
 from ast import Tuple
 from enum import Enum
 import pprint
+from random import Random
 import random
 import time
 from typing import Dict, List, Set
@@ -62,7 +63,7 @@ class Mediator:
 
     def reset_progress(self) -> None:
         # rng
-        random.seed(self.seed)
+        self.rng = Random(int(self.seed))
 
         # configs
         self.passenger_spawning_step = passenger_spawning_start_step
@@ -99,12 +100,12 @@ class Mediator:
         if self.gen_stations_first:
             if hasattr(self, 'stations'):
                 for station in self.stations:
-                    station.reset_progress()
+                    station.reset_progress(self.rng)
             else:
-                self.stations = []
+                self.stations: List[Station] = []
                 self.try_spawn_stations(self.num_stations_max)
         else:
-            self.stations = []
+            self.stations: List[Station] = []
             
         # entities
         self.metros: List[Metro] = []
@@ -372,7 +373,7 @@ class Mediator:
             if len(self.existing_station_shape_types) == 1:
                 continue
             
-            destination_shape_type = random.choice(self.OTHER_STATION_SHAPE_TYPES[station.shape.type])
+            destination_shape_type = self.rng.choice(self.OTHER_STATION_SHAPE_TYPES[station.shape.type])
             destination_shape = get_shape_from_type(
                 destination_shape_type, passenger_color, passenger_size
             )
@@ -388,10 +389,10 @@ class Mediator:
         if self.steps < self.next_station_spawn_timestep:
             return False
         
-        new_stations_seq = get_random_grid_seqs(self.used_stations_list, num)
+        new_stations_seq = get_random_grid_seqs(self.used_stations_list, self.rng, num)
         for seq in new_stations_seq:
             avail_shapes = [s for s in list(ShapeType) if s not in self.existing_station_shape_types]
-            new_station = get_station_at_grid(seq, need_new_shape=True, choose_from_types=avail_shapes)
+            new_station = get_station_at_grid(seq, self.rng, need_new_shape=True, choose_from_types=avail_shapes)
             
             self.stations.append(new_station)
             self.existing_station_shape_types.add(new_station.shape.type)
@@ -496,7 +497,7 @@ class Mediator:
         for station in self.stations:
             if station.shape.type == shape_type:
                 stations.append(station)
-        random.shuffle(stations)
+        self.rng.shuffle(stations)
 
         return stations
 

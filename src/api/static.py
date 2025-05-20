@@ -48,5 +48,7 @@ class StaticStationGame(GameAPI):
                 for pygame_event in pygame.event.get():
                     if pygame_event.type == pygame.QUIT:
                         raise SystemExit
+                
+                sleep(1 / framerate)
         
         return self.mediator.score

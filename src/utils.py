@@ -1,5 +1,5 @@
 import colorsys
-import random
+from random import Random
 from typing import List, Tuple
 
 import numpy as np
@@ -24,14 +24,14 @@ from geometry.type import ShapeType
 from type import Color
 
 
-def get_random_position(width: int, height: int) -> Point:
+def get_random_position(width: int, height: int, rng: Random) -> Point:
     padding_ratio = 0.1
     return Point(
         left=round(
-            width * (padding_ratio + np.random.rand() * (1 - padding_ratio * 2))
+            width * (padding_ratio + rng.rand() * (1 - padding_ratio * 2))
         ),
         top=round(
-            height * (padding_ratio + np.random.rand() * (1 - padding_ratio * 2))
+            height * (padding_ratio + rng.rand() * (1 - padding_ratio * 2))
         ),
     )
 
@@ -51,13 +51,13 @@ def get_grid_pos(seq: int) -> Point:
     )
 
 
-def get_random_grid_seqs(used: List[bool], num: int = 1) -> List[int]:
+def get_random_grid_seqs(used: List[bool], rng: Random, num: int = 1) -> List[int]:
     choices = [i for i in range(total_grid_num) if i not in used]
-    return random.sample(choices, num)
+    return rng.sample(choices, num)
 
 
-def get_random_color() -> Color:
-    return hue_to_rgb(np.random.rand())
+def get_random_color(rng: Random) -> Color:
+    return hue_to_rgb(rng.random())
 
 
 def hue_to_rgb(hue: float) -> Color:
@@ -65,20 +65,20 @@ def hue_to_rgb(hue: float) -> Color:
 
 
 def get_random_shape(
-    shape_type_list: List[ShapeType], color: Color, size: int
+    shape_type_list: List[ShapeType], color: Color, size: int, rng: Random
 ) -> Shape:
-    shape_type = random.choice(shape_type_list)
+    shape_type = rng.choice(shape_type_list)
     return get_shape_from_type(shape_type, color, size)
 
 def get_certain_shape(shapetype: ShapeType):
     return get_shape_from_type(shapetype, station_color, station_size)
 
-def get_random_station_shape() -> Shape:
-    return get_random_shape(station_shape_type_list, station_color, station_size)
+def get_random_station_shape(rng: Random) -> Shape:
+    return get_random_shape(station_shape_type_list, station_color, station_size, rng)
 
 
-def get_random_passenger_shape() -> Shape:
-    return get_random_shape(station_shape_type_list, get_random_color(), passenger_size)
+def get_random_passenger_shape(rng: Random) -> Shape:
+    return get_random_shape(station_shape_type_list, get_random_color(rng), passenger_size, rng)
 
 
 def tuple_to_point(tuple: Tuple[int, int]) -> Point:
