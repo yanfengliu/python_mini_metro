@@ -78,6 +78,42 @@ class Path:
             self.padding_segments.append(padding_segment)
             self.segments.append(padding_segment)
 
+    def insert_station_on_segment(
+        self, new_station: Station, target_segment: PathSegment
+    ):
+        """
+        Inserts a new station onto an existing path segment (e.g., A-B becomes A-C-B).
+        This method handles updating station lists, segments, and metro positions.
+        """
+        try:
+            segment_index = self.path_segments.index(target_segment)
+        except ValueError:
+            print(f"Error: Segment {target_segment} not found in path {self.id}")
+            return
+
+        segments_list_index = segment_index * 2
+
+        for metro in self.metros:
+            if metro.current_segment_idx > segments_list_index:
+                metro.current_segment_idx += 2
+            elif metro.current_segment_idx == segments_list_index:
+                pass
+
+        if segment_index == len(self.path_segments) - 1 and self.is_looped:
+            self.stations.append(new_station)
+        else:
+            self.stations.insert(segment_index + 1, new_station)
+
+        self.update_segments()
+
+        for metro in self.metros:
+            if metro.current_segment_idx < len(self.segments):
+                metro.current_segment = self.segments[metro.current_segment_idx]
+            else:
+                metro.current_segment_idx = 0
+                metro.current_segment = self.segments[0]
+                metro.position = metro.current_segment.segment_start
+
     def draw(self, surface: pygame.surface.Surface, path_order: int) -> None:
         self.path_order = path_order
         self.update_segments()
