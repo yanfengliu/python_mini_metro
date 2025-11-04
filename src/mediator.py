@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import pprint
 import random
 from typing import Dict, List
@@ -16,6 +17,8 @@ from config import (
     passenger_spawning_start_step,
     score_display_coords,
     score_font_size,
+    station_max_passengers,
+    overcrowd_time_limit_ms
 )
 from entity.get_entity import get_random_stations
 from entity.metro import Metro
@@ -56,6 +59,7 @@ class Mediator:
         self.path_to_button: Dict[Path, PathButton] = {}
         self.buttons = [*self.path_buttons]
         self.font = pygame.font.SysFont("arial", score_font_size)
+        self.game_over_font = pygame.font.SysFont("arial", 72)
 
         # entities
         self.stations = get_random_stations(self.num_stations)
@@ -78,6 +82,8 @@ class Mediator:
         self.travel_plans: TravelPlans = {}
         self.is_paused = False
         self.score = 0
+        self.is_game_over = False
+        self.overcrowd_start_times: Dict[Station, int] = {}
 
     def assign_paths_to_buttons(self):
         for path_button in self.path_buttons:
@@ -102,6 +108,40 @@ class Mediator:
             button.draw(screen)
         text_surface = self.font.render(f"Score: {self.score}", True, (0, 0, 0))
         screen.blit(text_surface, score_display_coords)
+
+        for station, start_time in self.overcrowd_start_times.items():
+            duration = self.time_ms - start_time
+            progress_pct = min(duration / overcrowd_time_limit_ms, 1.0)
+
+            try:
+                radius = station.size + 5
+                center_point = station.position
+
+                rect = pygame.Rect(
+                    center_point.left - radius,
+                    center_point.top - radius,
+                    radius * 2,
+                    radius * 2,
+                )
+                
+                start_angle = math.pi / 2
+                end_angle = (math.pi / 2) + (2 * math.pi * progress_pct)
+                pygame.draw.arc(screen, (255, 0, 0), rect, start_angle, end_angle, 3)
+            except AttributeError:
+                pass
+
+        if self.is_game_over:
+            overlay = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 150))
+            screen.blit(overlay, (0, 0))
+            
+            text_surface = self.game_over_font.render(
+                "GAME OVER", True, (255, 0, 0)
+            )
+            text_rect = text_surface.get_rect(
+                center=(screen.get_width() / 2, screen.get_height() / 2)
+            )
+            screen.blit(text_surface, text_rect)
 
     def react_mouse_event(self, event: MouseEvent):
         entity = self.get_containing_entity(event.position)
@@ -275,13 +315,30 @@ class Mediator:
                 self.passengers.append(passenger)
 
     def increment_time(self, dt_ms: int) -> None:
-        if self.is_paused:
+        if self.is_paused or self.is_game_over:
             return
 
         # record time
         self.time_ms += dt_ms
         self.steps += 1
         self.steps_since_last_spawn += 1
+
+        stations_to_reset_timer = []
+        for station in self.stations:
+            if len(station.passengers) > station_max_passengers:
+                if station not in self.overcrowd_start_times:
+                    self.overcrowd_start_times[station] = self.time_ms
+                else:
+                    duration = self.time_ms - self.overcrowd_start_times[station]
+                    if duration >= overcrowd_time_limit_ms:
+                        self.is_game_over = True
+                        break
+            else:
+                if station in self.overcrowd_start_times:
+                    stations_to_reset_timer.append(station)
+
+        for station in stations_to_reset_timer:
+            del self.overcrowd_start_times[station]
 
         # move metros
         for path in self.paths:

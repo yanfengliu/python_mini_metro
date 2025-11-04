@@ -55,3 +55,6 @@ path_button_cross_width = 5
 # text
 score_font_size = 50
 score_display_coords = (20, 20)
+
+station_max_passengers = 6
+overcrowd_time_limit_ms = 20_000  # 20 seconds
