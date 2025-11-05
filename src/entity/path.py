@@ -79,40 +79,47 @@ class Path:
             self.segments.append(padding_segment)
 
     def insert_station_on_segment(
-        self, new_station: Station, target_segment: PathSegment
-    ):
+        self,
+        station_to_insert: Station,
+        existing_station_1: Station,
+        existing_station_2: Station,
+    ) -> bool:
         """
-        Inserts a new station onto an existing path segment (e.g., A-B becomes A-C-B).
-        This method handles updating station lists, segments, and metro positions.
+        Finds a segment between two existing stations and inserts a new station.
+        For example, turns a path ...-A-B-... into ...-A-C-B-...
+
+        Args:
+            station_to_insert: The new station object to add to the path.
+            existing_station_1: The first station of the existing segment.
+            existing_station_2: The second station of the existing segment.
+
+        Returns:
+            True if the segment was found and the station was inserted, False otherwise.
         """
-        try:
-            segment_index = self.path_segments.index(target_segment)
-        except ValueError:
-            print(f"Error: Segment {target_segment} not found in path {self.id}")
-            return
+        for i in range(len(self.stations) - 1):
+            station_a = self.stations[i]
+            station_b = self.stations[i + 1]
 
-        segments_list_index = segment_index * 2
+            if (station_a == existing_station_1 and station_b == existing_station_2) or \
+               (station_a == existing_station_2 and station_b == existing_station_1):
+                
+                insert_index = i + 1
+                self.stations.insert(insert_index, station_to_insert)
+                self.update_segments()
+                return True
 
-        for metro in self.metros:
-            if metro.current_segment_idx > segments_list_index:
-                metro.current_segment_idx += 2
-            elif metro.current_segment_idx == segments_list_index:
-                pass
+        if self.is_looped and len(self.stations) > 1:
+            station_a = self.stations[-1]
+            station_b = self.stations[0]
 
-        if segment_index == len(self.path_segments) - 1 and self.is_looped:
-            self.stations.append(new_station)
-        else:
-            self.stations.insert(segment_index + 1, new_station)
+            if (station_a == existing_station_1 and station_b == existing_station_2) or \
+               (station_a == existing_station_2 and station_b == existing_station_1):
+                
+                self.stations.append(station_to_insert)
+                self.update_segments()
+                return True
 
-        self.update_segments()
-
-        for metro in self.metros:
-            if metro.current_segment_idx < len(self.segments):
-                metro.current_segment = self.segments[metro.current_segment_idx]
-            else:
-                metro.current_segment_idx = 0
-                metro.current_segment = self.segments[0]
-                metro.position = metro.current_segment.segment_start
+        return False
 
     def draw(self, surface: pygame.surface.Surface, path_order: int) -> None:
         self.path_order = path_order

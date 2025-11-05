@@ -7,6 +7,7 @@ framerate = 60
 screen_width = 1920
 screen_height = 1080
 screen_color = (255, 255, 255)
+border_padding = 100
 
 # station
 num_stations = 10
@@ -20,6 +21,7 @@ station_shape_type_list = [
     ShapeType.CROSS,
 ]
 station_passengers_per_row = 4
+station_spawn_interval = 600
 
 # passenger
 passenger_size = 5

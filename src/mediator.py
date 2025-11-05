@@ -18,9 +18,10 @@ from config import (
     score_display_coords,
     score_font_size,
     station_max_passengers,
-    overcrowd_time_limit_ms
+    overcrowd_time_limit_ms,
+    station_spawn_interval
 )
-from entity.get_entity import get_random_stations
+from entity.get_entity import get_initial_stations, get_new_random_station
 from entity.metro import Metro
 from entity.passenger import Passenger
 from entity.path import Path
@@ -62,7 +63,7 @@ class Mediator:
         self.game_over_font = pygame.font.SysFont("arial", 72)
 
         # entities
-        self.stations = get_random_stations(self.num_stations)
+        self.stations = get_initial_stations()
         self.metros: List[Metro] = []
         self.paths: List[Path] = []
         self.passengers: List[Passenger] = []
@@ -83,6 +84,7 @@ class Mediator:
         self.is_paused = False
         self.score = 0
         self.is_game_over = False
+        self.steps_since_last_station_spawn = 0
         self.overcrowd_start_times: Dict[Station, int] = {}
 
     def assign_paths_to_buttons(self):
@@ -95,6 +97,10 @@ class Mediator:
             button = self.path_buttons[i]
             button.assign_path(path)
             self.path_to_button[path] = button
+
+    def spawn_new_station(self):
+        new_station = get_new_random_station()
+        self.stations.append(new_station)
 
     def render(self, screen: pygame.surface.Surface) -> None:
         for idx, path in enumerate(self.paths):
@@ -322,6 +328,7 @@ class Mediator:
         self.time_ms += dt_ms
         self.steps += 1
         self.steps_since_last_spawn += 1
+        self.steps_since_last_station_spawn += 1
 
         stations_to_reset_timer = []
         for station in self.stations:
@@ -349,6 +356,11 @@ class Mediator:
         if self.is_passenger_spawn_time():
             self.spawn_passengers()
             self.steps_since_last_spawn = 0
+
+        # spawn stations
+        if self.steps_since_last_station_spawn >= station_spawn_interval:
+            self.spawn_new_station()
+            self.steps_since_last_station_spawn = 0
 
         self.find_travel_plan_for_passengers()
         self.move_passengers()
