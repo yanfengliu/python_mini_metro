@@ -86,6 +86,9 @@ class Mediator:
         self.is_game_over = False
         self.steps_since_last_station_spawn = 0
         self.overcrowd_start_times: Dict[Station, int] = {}
+        self.is_extending_path = False
+        self.original_stations_before_extend: List[Station] = []
+        self.is_old_path_looped = False
 
     def assign_paths_to_buttons(self):
         for path_button in self.path_buttons:
@@ -156,7 +159,45 @@ class Mediator:
             self.is_mouse_down = True
             if entity:
                 if isinstance(entity, Station):
-                    self.start_path_on_station(entity)
+                    if self.is_creating_path:
+                        return
+
+                    path_to_extend = None
+                    is_extending_from_start = False
+
+                    for path in self.paths:
+                        if not path.stations:
+                            continue
+
+                        if path.stations[0] == entity:
+                            path_to_extend = path
+                            is_extending_from_start = True
+                            break
+                        elif path.stations[-1] == entity:
+                            if path.is_looped:
+                                continue
+                            path_to_extend = path
+                            is_extending_from_start = False
+                            break
+                    
+                    if path_to_extend:
+                        self.is_creating_path = True
+                        self.is_extending_path = True
+                        self.path_being_created = path_to_extend
+                        
+                        self.original_stations_before_extend = list(path_to_extend.stations)
+                        self.is_old_path_looped = path_to_extend.is_looped
+                        
+                        if is_extending_from_start:
+                            path_to_extend.stations.reverse()
+                        
+                        if path_to_extend.is_looped:
+                            path_to_extend.remove_loop()
+                            
+                        path_to_extend.is_being_created = True
+                        path_to_extend.remove_temporary_point()
+                    else:
+                        self.start_path_on_station(entity)
 
         elif event.event_type == MouseEventType.MOUSE_UP:
             self.is_mouse_down = False
@@ -235,23 +276,40 @@ class Mediator:
         assert self.path_being_created is not None
         if self.path_being_created.stations[-1] == station:
             return
-        # loop
+
         if (
             len(self.path_being_created.stations) > 1
             and self.path_being_created.stations[0] == station
         ):
             self.path_being_created.set_loop()
-        # non-loop
-        elif self.path_being_created.stations[0] != station:
-            if self.path_being_created.is_looped:
-                self.path_being_created.remove_loop()
-            self.path_being_created.add_station(station)
+            return
+
+        if station in self.path_being_created.stations:
+            return
+
+        # Any loop should be removed
+        if self.path_being_created.is_looped:
+            self.path_being_created.remove_loop()
+        self.path_being_created.add_station(station)
 
     def abort_path_creation(self) -> None:
         assert self.path_being_created is not None
         self.is_creating_path = False
-        self.release_color_for_path(self.path_being_created)
-        self.paths.remove(self.path_being_created)
+        if self.is_extending_path:
+            self.path_being_created.stations = self.original_stations_before_extend
+            if self.is_old_path_looped:
+                self.path_being_created.set_loop()
+            else:
+                self.path_being_created.remove_loop()
+            
+            self.path_being_created.is_being_created = False
+            self.path_being_created.remove_temporary_point()
+        else:
+            self.release_color_for_path(self.path_being_created)
+            self.paths.remove(self.path_being_created)
+        self.is_extending_path = False
+        self.original_stations_before_extend = []
+        self.is_old_path_looped = False
         self.path_being_created = None
 
     def release_color_for_path(self, path: Path) -> None:
@@ -260,10 +318,14 @@ class Mediator:
 
     def finish_path_creation(self) -> None:
         assert self.path_being_created is not None
+        was_new_path = not self.is_extending_path
         self.is_creating_path = False
+        self.is_extending_path = False
+        self.original_stations_before_extend = []
+        self.is_old_path_looped = False
         self.path_being_created.is_being_created = False
         self.path_being_created.remove_temporary_point()
-        if len(self.metros) < self.num_metros:
+        if was_new_path and len(self.metros) < self.num_metros:
             metro = Metro()
             self.path_being_created.add_metro(metro)
             self.metros.append(metro)
@@ -272,25 +334,24 @@ class Mediator:
 
     def end_path_on_station(self, station: Station) -> None:
         assert self.path_being_created is not None
-        # current station de-dupe
+        if self.path_being_created.stations[-1] == station:
+            if len(self.path_being_created.stations) > 1:
+                self.finish_path_creation()
+            else:
+                self.abort_path_creation()
+            return
         if (
-            len(self.path_being_created.stations) > 1
-            and self.path_being_created.stations[-1] == station
-        ):
-            self.finish_path_creation()
-        # loop
-        elif (
             len(self.path_being_created.stations) > 1
             and self.path_being_created.stations[0] == station
         ):
             self.path_being_created.set_loop()
             self.finish_path_creation()
-        # non-loop
-        elif self.path_being_created.stations[0] != station:
-            self.path_being_created.add_station(station)
-            self.finish_path_creation()
-        else:
+            return
+        if station in self.path_being_created.stations:
             self.abort_path_creation()
+            return
+        self.path_being_created.add_station(station)
+        self.finish_path_creation()
 
     def get_station_shape_types(self):
         station_shape_types: List[ShapeType] = []
