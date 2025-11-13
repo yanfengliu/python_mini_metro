@@ -85,7 +85,6 @@ class Mediator:
         self.score = 0
         self.is_game_over = False
         self.steps_since_last_station_spawn = 0
-        self.overcrowd_start_times: Dict[Station, int] = {}
         self.is_extending_path = False
         self.original_stations_before_extend: List[Station] = []
         self.is_old_path_looped = False
@@ -111,33 +110,26 @@ class Mediator:
             path.draw(screen, path_order)
         for station in self.stations:
             station.draw(screen)
-        for metro in self.metros:
-            metro.draw(screen)
-        for button in self.buttons:
-            button.draw(screen)
-        text_surface = self.font.render(f"Score: {self.score}", True, (0, 0, 0))
-        screen.blit(text_surface, score_display_coords)
-
-        for station, start_time in self.overcrowd_start_times.items():
-            duration = self.time_ms - start_time
-            progress_pct = min(duration / overcrowd_time_limit_ms, 1.0)
-
-            try:
+            if station.is_overcrowded:
+                duration = self.time_ms - station.overcrowd_start_time_ms
+                progress_pct = min(duration / overcrowd_time_limit_ms, 1.0)
                 radius = station.size + 5
                 center_point = station.position
-
                 rect = pygame.Rect(
                     center_point.left - radius,
                     center_point.top - radius,
                     radius * 2,
                     radius * 2,
                 )
-                
-                start_angle = math.pi / 2
-                end_angle = (math.pi / 2) + (2 * math.pi * progress_pct)
+                start_angle = -math.pi / 2
+                end_angle = start_angle + (2 * math.pi * progress_pct)
                 pygame.draw.arc(screen, (255, 0, 0), rect, start_angle, end_angle, 3)
-            except AttributeError:
-                pass
+        for metro in self.metros:
+            metro.draw(screen)
+        for button in self.buttons:
+            button.draw(screen)
+        text_surface = self.font.render(f"Score: {self.score}", True, (0, 0, 0))
+        screen.blit(text_surface, score_display_coords)
 
         if self.is_game_over:
             overlay = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
@@ -391,22 +383,20 @@ class Mediator:
         self.steps_since_last_spawn += 1
         self.steps_since_last_station_spawn += 1
 
-        stations_to_reset_timer = []
         for station in self.stations:
             if len(station.passengers) > station_max_passengers:
-                if station not in self.overcrowd_start_times:
-                    self.overcrowd_start_times[station] = self.time_ms
+                if not station.is_overcrowded:
+                    station.is_overcrowded = True
+                    station.overcrowd_start_time_ms = self.time_ms
                 else:
-                    duration = self.time_ms - self.overcrowd_start_times[station]
+                    duration = self.time_ms - station.overcrowd_start_time_ms
                     if duration >= overcrowd_time_limit_ms:
                         self.is_game_over = True
                         break
             else:
-                if station in self.overcrowd_start_times:
-                    stations_to_reset_timer.append(station)
-
-        for station in stations_to_reset_timer:
-            del self.overcrowd_start_times[station]
+                if station.is_overcrowded:
+                    station.is_overcrowded = False
+                    station.overcrowd_start_time_ms = 0
 
         # move metros
         for path in self.paths:

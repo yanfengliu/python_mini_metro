@@ -19,6 +19,8 @@ class Station(Holder):
         self.size = station_size
         self.position = position
         self.passengers_per_row = station_passengers_per_row
+        self.overcrowd_start_time = 0
+        self.is_overcrowded = False
 
     def __eq__(self, other: Station) -> bool:
         return self.id == other.id
