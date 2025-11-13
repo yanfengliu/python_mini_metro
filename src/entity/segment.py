@@ -6,7 +6,7 @@ import pygame
 from shortuuid import uuid  # type: ignore
 
 from config import screen_height, screen_width
-from entity.station import Station
+from entity.airport import airport
 from geometry.line import Line
 from geometry.point import Point
 from type import Color
@@ -16,8 +16,8 @@ class Segment(ABC):
     def __init__(self, color: Color) -> None:
         self.id = f"Segment-{uuid()}"
         self.color = color
-        self.start_station: Station | None = None
-        self.end_station: Station | None = None
+        self.start_airport: airport | None = None
+        self.end_airport: airport | None = None
         self.segment_start: Point
         self.segment_end: Point
         self.line: Line

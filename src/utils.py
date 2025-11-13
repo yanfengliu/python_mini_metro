@@ -4,7 +4,7 @@ from typing import List, Tuple
 
 import numpy as np
 
-from config import passenger_size, station_color, station_shape_type_list, station_size
+from config import passenger_size, airport_color, airport_shape_type_list, airport_size
 from geometry.circle import Circle
 from geometry.cross import Cross
 from geometry.point import Point
@@ -42,12 +42,12 @@ def get_random_shape(
     return get_shape_from_type(shape_type, color, size)
 
 
-def get_random_station_shape() -> Shape:
-    return get_random_shape(station_shape_type_list, station_color, station_size)
+def get_random_airport_shape() -> Shape:
+    return get_random_shape(airport_shape_type_list, airport_color, airport_size)
 
 
 def get_random_passenger_shape() -> Shape:
-    return get_random_shape(station_shape_type_list, get_random_color(), passenger_size)
+    return get_random_shape(airport_shape_type_list, get_random_color(), passenger_size)
 
 
 def tuple_to_point(tuple: Tuple[int, int]) -> Point:

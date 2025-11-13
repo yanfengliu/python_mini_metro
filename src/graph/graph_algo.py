@@ -1,30 +1,30 @@
 from typing import Dict, List
 
 from entity.path import Path
-from entity.station import Station
+from entity.airport import airport
 from graph.node import Node
 
 
-def build_station_nodes_dict(stations: List[Station], paths: List[Path]):
-    station_nodes: List[Node] = []
+def build_airport_nodes_dict(airports: List[airport], paths: List[Path]):
+    airport_nodes: List[Node] = []
     connections: List[List[Node]] = []
-    station_nodes_dict: Dict[Station, Node] = {}
+    airport_nodes_dict: Dict[airport, Node] = {}
 
-    for station in stations:
-        node = Node(station)
-        station_nodes.append(node)
-        station_nodes_dict[station] = node
+    for airport in airports:
+        node = Node(airport)
+        airport_nodes.append(node)
+        airport_nodes_dict[airport] = node
     for path in paths:
         if path.is_being_created:
             continue
         connection = []
-        for station in path.stations:
-            station_nodes_dict[station].paths.add(path)
-            connection.append(station_nodes_dict[station])
+        for airport in path.airports:
+            airport_nodes_dict[airport].paths.add(path)
+            connection.append(airport_nodes_dict[airport])
         connections.append(connection)
 
-    while len(station_nodes) > 0:
-        root = station_nodes[0]
+    while len(airport_nodes) > 0:
+        root = airport_nodes[0]
         for connection in connections:
             for idx in range(len(connection)):
                 node = connection[idx]
@@ -33,10 +33,10 @@ def build_station_nodes_dict(stations: List[Station], paths: List[Path]):
                         root.neighbors.add(connection[idx - 1])
                     if idx + 1 <= len(connection) - 1:
                         root.neighbors.add(connection[idx + 1])
-        station_nodes.remove(root)
-        station_nodes_dict[root.station] = root
+        airport_nodes.remove(root)
+        airport_nodes_dict[root.airport] = root
 
-    return station_nodes_dict
+    return airport_nodes_dict
 
 
 def bfs(start: Node, end: Node) -> List[Node]:

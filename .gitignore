@@ -3,4 +3,4 @@ myenv/
 venv/
 logs/
 .github
-ppo_metro_tensorboard/
+ppo_plane_tensorboard/

@@ -6,7 +6,7 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv
 from stable_baselines3.common.env_util import make_vec_env
 
-from mini_metro_env import MetroGameEnv
+from mini_plane_env import planeGameEnv
 
 def run_agent(model_folder):
     """
@@ -18,7 +18,7 @@ def run_agent(model_folder):
 
     if not os.path.exists(model_path):
         print(f"Warning: 'final_model.zip' not found. Searching for latest checkpoint...")
-        checkpoints = [f for f in os.listdir(model_folder) if f.startswith("metro_rl_model_") and f.endswith(".zip")]
+        checkpoints = [f for f in os.listdir(model_folder) if f.startswith("plane_rl_model_") and f.endswith(".zip")]
         if not checkpoints:
             print(f"Error: No model files found in {model_folder}. Aborting.")
             return
@@ -32,7 +32,7 @@ def run_agent(model_folder):
         return
 
     def create_eval_env():
-        env = MetroGameEnv(render_mode="human")
+        env = planeGameEnv(render_mode="human")
         env = gym.wrappers.TimeLimit(env, max_episode_steps=5000)
         return env
 
@@ -69,7 +69,7 @@ def run_agent(model_folder):
         env.close()
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run a trained Mini Metro PPO agent with UI.")
+    parser = argparse.ArgumentParser(description="Run a trained Mini plane PPO agent with UI.")
     parser.add_argument("model_folder", type=str, help="Path to the directory containing the saved model (.zip) and stats (vec_normalize.pkl).")
     
     args = parser.parse_args()
