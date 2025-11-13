@@ -154,6 +154,32 @@ class MetroGameEnv(gym.Env):
               2.0 for looped path.
             - `stations` (MAX_STATIONS_PER_PATH): List of station indices (-1
               for empty).
+
+        Final vector will look like this:
+        [
+        --- Station 0 (14 floats) ---
+        exists, is_connected, x_pos, y_pos, is_overcrowd, crowd_timer,
+        (type_shape_0, type_shape_1, type_shape_2, type_shape_3),  <-- 1-hot type
+        (pass_shape_0, pass_shape_1, pass_shape_2, pass_shape_3), <-- passenger counts
+
+        --- Station 1 (14 floats) ---
+        exists, is_connected, x_pos, y_pos, is_overcrowd, crowd_timer,
+        (0, 0, 1, 0),  <-- 1-hot (e.g., is a triangle)
+        (1.2, 0.5, 0.0, 3.1), <-- passenger counts (normalized)
+        
+        ... (repeated for all MAX_STATIONS) ...
+
+        --- Station 19 (14 floats) ---
+        (0, 0, 0, 0, 0, 0, (0,0,0,0), (0,0,0,0)), <-- all zeros if station doesn't exist
+
+        --- Path 0 (13 floats) ---
+        exists_or_loop_status, (idx_0, idx_1, idx_2, ..., idx_11),
+
+        --- Path 1 (13 floats) ---
+        exists_or_loop_status, (idx_0, idx_1, idx_2, ..., idx_11),
+
+        ... (repeated for all MAX_PATHS) ...
+        ]
         """
         # figure out which stations are connected
         stations_in_paths = set()
