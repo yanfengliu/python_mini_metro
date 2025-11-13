@@ -171,17 +171,34 @@ class Mediator:
                 return True
 
         if len(self.paths) < self.num_paths:
-            color = self._get_next_available_color()
-            if color:
-                new_path = Path(color)
-                self._assign_color_to_path(new_path, color)
-                new_path.add_station(station_a)
-                new_path.add_station(station_b)
-                self._add_metro_to_path(new_path)
-                self.paths.append(new_path)
-                return True
+            assigned_color = (0, 0, 0)
+            for path_color, taken in self.path_colors.items():
+                if not taken:
+                    assigned_color = path_color
+                    self.path_colors[path_color] = True
+                    break
+            new_path = Path(assigned_color)
+            self._assign_color_to_path(new_path, assigned_color)
+            new_path.add_station(station_a)
+            new_path.add_station(station_b)
+            self._add_metro_to_path(new_path)
+            self.paths.append(new_path)
+            return True
         
         return False
+    
+    def _assign_color_to_path(self, path: Path, color: Color):
+        """Assigns a color to a path and marks it as taken."""
+        path.color = color
+        self.path_colors[color] = True
+        self.path_to_color[path] = color
+
+    def _add_metro_to_path(self, path: Path):
+        """Adds a new metro to a path if the limit has not been reached."""
+        if len(self.metros) < self.num_metros:
+            metro = Metro()
+            path.add_metro(metro)
+            self.metros.append(metro)
 
     def insert_station_on_path(self, s_insert: Station, s1: Station, s2: Station) -> bool:
         if s_insert == s1 or s_insert == s2 or s1 == s2:
