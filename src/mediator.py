@@ -144,6 +144,54 @@ class Mediator:
             )
             screen.blit(text_surface, text_rect)
 
+    def create_or_extend_path(self, station_a: Station, station_b: Station) -> bool:
+        """Atomically creates a new path or extends an existing one."""
+        for path in self.paths:
+            if not path.stations or path.is_looped:
+                continue
+            
+            extend_from_end = path.stations[-1] == station_a
+            extend_from_start = path.stations[0] == station_a
+            
+            if extend_from_end or extend_from_start:
+                if station_b in path.stations:
+                    if (extend_from_end and path.stations[0] == station_b) or \
+                       (extend_from_start and path.stations[-1] == station_b):
+                        if len(path.stations) > 2:
+                            path.set_loop()
+                            return True
+                        else:
+                            return False
+                    return False
+                
+                if extend_from_start:
+                    path.stations.reverse()
+                
+                path.add_station(station_b)
+                return True
+
+        if len(self.paths) < self.num_paths:
+            color = self._get_next_available_color()
+            if color:
+                new_path = Path(color)
+                self._assign_color_to_path(new_path, color)
+                new_path.add_station(station_a)
+                new_path.add_station(station_b)
+                self._add_metro_to_path(new_path)
+                self.paths.append(new_path)
+                return True
+        
+        return False
+
+    def insert_station_on_path(self, s_insert: Station, s1: Station, s2: Station) -> bool:
+        if s_insert == s1 or s_insert == s2 or s1 == s2:
+            return False
+        
+        for path in self.paths:
+            if path.insert_station_on_segment(s_insert, s1, s2):
+                return True
+        return False
+
     def react_mouse_event(self, event: MouseEvent):
         entity = self.get_containing_entity(event.position)
 
@@ -305,8 +353,10 @@ class Mediator:
         self.path_being_created = None
 
     def release_color_for_path(self, path: Path) -> None:
-        self.path_colors[path.color] = False
-        del self.path_to_color[path]
+        if path in self.path_to_color:
+            color = self.path_to_color[path]
+            self.path_colors[color] = False
+            del self.path_to_color[path]
 
     def finish_path_creation(self) -> None:
         assert self.path_being_created is not None

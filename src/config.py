@@ -21,7 +21,7 @@ station_shape_type_list = [
     ShapeType.CROSS,
 ]
 station_passengers_per_row = 4
-station_spawn_interval = 600
+station_spawn_interval = 1250
 
 # passenger
 passenger_size = 5
