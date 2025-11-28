@@ -10,11 +10,14 @@ from stable_baselines3.common.vec_env import VecNormalize
 from pilot_planning_env import PlaneGameEnv
 
 
-LOG_DIR = f"logs/{int(time.time())}/"
-MODEL_DIR = f"models/PPO/{int(time.time())}/"
-TOTAL_TIMESTEPS = 15_000_000
+LOG_DIR = f"logs/256-128-128/"
+MODEL_DIR = f"models/PPO/256-128-128/"
+TOTAL_TIMESTEPS = 25_000_000
 SAVE_FREQ = 25_000
+
 TB_LOG_NAME = "PPO_plane_Run"
+net_arch_config = [256, 128, 128] 
+policy_kwargs = dict(net_arch=net_arch_config)
 
 def create_env():
     """Helper function to create and wrap the environment."""
@@ -61,7 +64,8 @@ def train_agent():
             tensorboard_log=LOG_DIR,
             device="cpu",
             n_steps=4096,
-            learning_rate=1e-4,
+            learning_rate=1e-5,
+            policy_kwargs=policy_kwargs,
             batch_size=64,
             gamma=0.99,
             gae_lambda=0.95,
