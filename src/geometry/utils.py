@@ -10,4 +10,7 @@ def distance(p1: Point, p2: Point) -> float:
 def direction(p1: Point, p2: Point) -> Point:
     diff = p2 - p1
     diff_magnitude = distance(p1, p2)
-    return Point(diff.left / diff_magnitude, diff.top / diff_magnitude)
+    if diff_magnitude == 0:
+        return  Point(0, 0)
+    else:
+        return Point(diff.left / diff_magnitude, diff.top / diff_magnitude)

@@ -1,2 +1,32 @@
 *.pyc
 myenv/
+venv/
+logs/
+.github
+ppo_plane_tensorboard/
+
+# Virtual environments
+venv/
+venv1/
+
+# Python cache and bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# VSCode / PyCharm / macOS files
+.vscode/
+.idea/
+.DS_Store
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Logs
+*.log

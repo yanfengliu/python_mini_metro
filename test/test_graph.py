@@ -3,19 +3,19 @@ import sys
 import unittest
 from unittest.mock import create_autospec
 
-from entity.get_entity import get_random_stations
+from entity.get_entity import get_random_airports
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 import pygame
 
-from config import screen_height, screen_width, station_color, station_size
-from entity.station import Station
+from config import screen_height, screen_width, airport_color, airport_size
+from entity.airport import airport
 from event.mouse import MouseEvent
 from event.type import MouseEventType
 from geometry.circle import Circle
 from geometry.rect import Rect
-from graph.graph_algo import bfs, build_station_nodes_dict
+from graph.graph_algo import bfs, build_airport_nodes_dict
 from graph.node import Node
 from mediator import Mediator
 from utils import get_random_color, get_random_position
@@ -28,114 +28,114 @@ class TestGraph(unittest.TestCase):
         self.position = get_random_position(self.width, self.height)
         self.color = get_random_color()
         self.mediator = Mediator()
-        for station in self.mediator.stations:
-            station.draw(self.screen)
+        for airport in self.mediator.airports:
+            airport.draw(self.screen)
 
-    def connect_stations(self, station_idx):
+    def connect_airports(self, airport_idx):
         self.mediator.react(
             MouseEvent(
                 MouseEventType.MOUSE_DOWN,
-                self.mediator.stations[station_idx[0]].position,
+                self.mediator.airports[airport_idx[0]].position,
             )
         )
-        for idx in station_idx[1:]:
+        for idx in airport_idx[1:]:
             self.mediator.react(
                 MouseEvent(
-                    MouseEventType.MOUSE_MOTION, self.mediator.stations[idx].position
+                    MouseEventType.MOUSE_MOTION, self.mediator.airports[idx].position
                 )
             )
         self.mediator.react(
             MouseEvent(
                 MouseEventType.MOUSE_UP,
-                self.mediator.stations[station_idx[-1]].position,
+                self.mediator.airports[airport_idx[-1]].position,
             )
         )
 
-    def test_build_station_nodes_dict(self):
-        self.mediator.stations = [
-            Station(
+    def test_build_airport_nodes_dict(self):
+        self.mediator.airports = [
+            airport(
                 Rect(
-                    color=station_color,
-                    width=2 * station_size,
-                    height=2 * station_size,
+                    color=airport_color,
+                    width=2 * airport_size,
+                    height=2 * airport_size,
                 ),
                 get_random_position(self.width, self.height),
             ),
-            Station(
+            airport(
                 Circle(
-                    color=station_color,
-                    radius=station_size,
+                    color=airport_color,
+                    radius=airport_size,
                 ),
                 get_random_position(self.width, self.height),
             ),
         ]
-        for station in self.mediator.stations:
-            station.draw(self.screen)
+        for airport in self.mediator.airports:
+            airport.draw(self.screen)
 
-        self.connect_stations([0, 1])
+        self.connect_airports([0, 1])
 
-        station_nodes_dict = build_station_nodes_dict(
-            self.mediator.stations, self.mediator.paths
+        airport_nodes_dict = build_airport_nodes_dict(
+            self.mediator.airports, self.mediator.paths
         )
-        self.assertCountEqual(list(station_nodes_dict.keys()), self.mediator.stations)
-        for station, node in station_nodes_dict.items():
-            self.assertEqual(node.station, station)
+        self.assertCountEqual(list(airport_nodes_dict.keys()), self.mediator.airports)
+        for airport, node in airport_nodes_dict.items():
+            self.assertEqual(node.airport, airport)
 
-    def test_bfs_two_stations(self):
-        self.mediator.stations = get_random_stations(2)
-        for station in self.mediator.stations:
-            station.draw(self.screen)
+    def test_bfs_two_airports(self):
+        self.mediator.airports = get_random_airports(2)
+        for airport in self.mediator.airports:
+            airport.draw(self.screen)
 
-        self.connect_stations([0, 1])
+        self.connect_airports([0, 1])
 
-        station_nodes_dict = build_station_nodes_dict(
-            self.mediator.stations, self.mediator.paths
+        airport_nodes_dict = build_airport_nodes_dict(
+            self.mediator.airports, self.mediator.paths
         )
-        start_station = self.mediator.stations[0]
-        end_station = self.mediator.stations[1]
-        start_node = station_nodes_dict[start_station]
-        end_node = station_nodes_dict[end_station]
+        start_airport = self.mediator.airports[0]
+        end_airport = self.mediator.airports[1]
+        start_node = airport_nodes_dict[start_airport]
+        end_node = airport_nodes_dict[end_airport]
         node_path = bfs(start_node, end_node)
         self.assertSequenceEqual(
             node_path,
             [start_node, end_node],
         )
 
-    def test_bfs_five_stations(self):
-        self.mediator.stations = get_random_stations(5)
-        for station in self.mediator.stations:
-            station.draw(self.screen)
+    def test_bfs_five_airports(self):
+        self.mediator.airports = get_random_airports(5)
+        for airport in self.mediator.airports:
+            airport.draw(self.screen)
 
-        self.connect_stations([0, 1, 2])
-        self.connect_stations([0, 3])
+        self.connect_airports([0, 1, 2])
+        self.connect_airports([0, 3])
 
-        station_nodes_dict = build_station_nodes_dict(
-            self.mediator.stations, self.mediator.paths
+        airport_nodes_dict = build_airport_nodes_dict(
+            self.mediator.airports, self.mediator.paths
         )
-        start_node = station_nodes_dict[self.mediator.stations[0]]
-        end_node = station_nodes_dict[self.mediator.stations[2]]
+        start_node = airport_nodes_dict[self.mediator.airports[0]]
+        end_node = airport_nodes_dict[self.mediator.airports[2]]
         node_path = bfs(start_node, end_node)
         self.assertSequenceEqual(
             node_path,
             [
-                Node(self.mediator.stations[0]),
-                Node(self.mediator.stations[1]),
-                Node(self.mediator.stations[2]),
+                Node(self.mediator.airports[0]),
+                Node(self.mediator.airports[1]),
+                Node(self.mediator.airports[2]),
             ],
         )
-        start_node = station_nodes_dict[self.mediator.stations[1]]
-        end_node = station_nodes_dict[self.mediator.stations[3]]
+        start_node = airport_nodes_dict[self.mediator.airports[1]]
+        end_node = airport_nodes_dict[self.mediator.airports[3]]
         node_path = bfs(start_node, end_node)
         self.assertSequenceEqual(
             node_path,
             [
-                Node(self.mediator.stations[1]),
-                Node(self.mediator.stations[0]),
-                Node(self.mediator.stations[3]),
+                Node(self.mediator.airports[1]),
+                Node(self.mediator.airports[0]),
+                Node(self.mediator.airports[3]),
             ],
         )
-        start_node = station_nodes_dict[self.mediator.stations[0]]
-        end_node = station_nodes_dict[self.mediator.stations[4]]
+        start_node = airport_nodes_dict[self.mediator.airports[0]]
+        end_node = airport_nodes_dict[self.mediator.airports[4]]
         node_path = bfs(start_node, end_node)
         self.assertSequenceEqual(
             node_path,
