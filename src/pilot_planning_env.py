@@ -15,7 +15,7 @@ MAX_airportS = 20
 MAX_PATHS = num_paths
 MAX_airportS_PER_PATH = 12
 
-class planeGameEnv(gym.Env):
+class PlaneGameEnv(gym.Env):
     """A Gymnasium environment for the Python Mini plane game."""
 
     metadata = {"render_modes": ["human"], "render_fps": 30}

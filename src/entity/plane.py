@@ -10,18 +10,18 @@ from config import (
 )
 from entity.holder import Holder
 from entity.segment import Segment
-from entity.airport import airport
+from entity.airport import Airport
 from geometry.rect import Rect
 
 
-class plane(Holder):
+class Plane(Holder):
     def __init__(self) -> None:
         self.size = plane_size
         plane_shape = Rect(color=plane_color, width=2 * self.size, height=self.size)
         super().__init__(
             shape=plane_shape,
             capacity=plane_capacity,
-            id=f"plane-{uuid()}",
+            id=f"Plane-{uuid()}",
         )
         self.current_airport: airport | None = None
         self.current_segment: Segment | None = None

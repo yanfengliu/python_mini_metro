@@ -1,14 +1,14 @@
 from typing import Dict, List
 
 from entity.path import Path
-from entity.airport import airport
+from entity.airport import Airport
 from graph.node import Node
 
 
-def build_airport_nodes_dict(airports: List[airport], paths: List[Path]):
+def build_airport_nodes_dict(airports: List[Airport], paths: List[Path]):
     airport_nodes: List[Node] = []
     connections: List[List[Node]] = []
-    airport_nodes_dict: Dict[airport, Node] = {}
+    airport_nodes_dict: Dict[Airport, Node] = {}
 
     for airport in airports:
         node = Node(airport)

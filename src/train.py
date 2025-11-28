@@ -7,7 +7,7 @@ from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.vec_env import VecNormalize
-from mini_plane_env import planeGameEnv
+from pilot_planning_env import PlaneGameEnv
 
 
 LOG_DIR = f"logs/{int(time.time())}/"
@@ -18,7 +18,7 @@ TB_LOG_NAME = "PPO_plane_Run"
 
 def create_env():
     """Helper function to create and wrap the environment."""
-    env = planeGameEnv(render_mode=None)
+    env = PlaneGameEnv(render_mode=None)
     env = gym.wrappers.TimeLimit(env, max_episode_steps=5000)
     return env
 

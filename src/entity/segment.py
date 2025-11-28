@@ -6,7 +6,7 @@ import pygame
 from shortuuid import uuid  # type: ignore
 
 from config import screen_height, screen_width
-from entity.airport import airport
+from entity.airport import Airport
 from geometry.line import Line
 from geometry.point import Point
 from type import Color

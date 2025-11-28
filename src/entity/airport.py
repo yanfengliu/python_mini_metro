@@ -9,12 +9,12 @@ from geometry.point import Point
 from geometry.shape import Shape
 
 
-class airport(Holder):
+class Airport(Holder):
     def __init__(self, shape: Shape, position: Point) -> None:
         super().__init__(
             shape=shape,
             capacity=airport_capacity,
-            id=f"airport-{uuid()}-{shape.type}",
+            id=f"Airport-{uuid()}-{shape.type}",
         )
         self.size = airport_size
         self.position = position
@@ -22,7 +22,7 @@ class airport(Holder):
         self.overcrowd_start_time = 0
         self.is_overcrowded = False
 
-    def __eq__(self, other: airport) -> bool:
+    def __eq__(self, other: Airport) -> bool:
         return self.id == other.id
 
     def __hash__(self):

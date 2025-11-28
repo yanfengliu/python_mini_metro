@@ -5,11 +5,11 @@ import pygame
 from shortuuid import uuid  # type: ignore
 
 from config import path_width
-from entity.plane import plane
+from entity.plane import Plane
 from entity.padding_segment import PaddingSegment
 from entity.path_segment import PathSegment
 from entity.segment import Segment
-from entity.airport import airport
+from entity.airport import Airport
 from geometry.line import Line
 from geometry.point import Point
 from geometry.utils import direction, distance
@@ -20,8 +20,8 @@ class Path:
     def __init__(self, color: Color) -> None:
         self.id = f"Path-{uuid()}"
         self.color = color
-        self.airports: List[airport] = []
-        self.planes: List[plane] = []
+        self.airports: List[Airport] = []
+        self.planes: List[Plane] = []
         self.is_looped = False
         self.is_being_created = False
         self.temp_point: Point | None = None
@@ -33,7 +33,7 @@ class Path:
     def __repr__(self) -> str:
         return self.id
 
-    def add_airport(self, airport: airport) -> None:
+    def add_airport(self, airport: Airport) -> None:
         self.airports.append(airport)
         self.update_segments()
 
@@ -80,9 +80,9 @@ class Path:
 
     def insert_airport_on_segment(
         self,
-        airport_to_insert: airport,
-        existing_airport_1: airport,
-        existing_airport_2: airport,
+        airport_to_insert: Airport,
+        existing_airport_1: Airport,
+        existing_airport_2: Airport,
     ) -> bool:
         """
         Finds a segment between two existing airports and inserts a new airport.
@@ -151,14 +151,14 @@ class Path:
         self.is_looped = False
         self.update_segments()
 
-    def add_plane(self, plane: plane) -> None:
+    def add_plane(self, plane: Plane) -> None:
         plane.shape.color = self.color
         plane.current_segment = self.segments[plane.current_segment_idx]
         plane.position = plane.current_segment.segment_start
         plane.path_id = self.id
         self.planes.append(plane)
 
-    def move_plane(self, plane: plane, dt_ms: int) -> None:
+    def move_plane(self, plane: Plane, dt_ms: int) -> None:
         assert plane.current_segment is not None
         if plane.is_forward:
             dst_airport = plane.current_segment.end_airport

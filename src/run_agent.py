@@ -6,7 +6,7 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv
 from stable_baselines3.common.env_util import make_vec_env
 
-from mini_plane_env import planeGameEnv
+from pilot_planning_env import PlaneGameEnv
 
 def run_agent(model_folder):
     """
@@ -32,7 +32,7 @@ def run_agent(model_folder):
         return
 
     def create_eval_env():
-        env = planeGameEnv(render_mode="human")
+        env = PlaneGameEnv(render_mode="human")
         env = gym.wrappers.TimeLimit(env, max_episode_steps=5000)
         return env
 
@@ -69,7 +69,7 @@ def run_agent(model_folder):
         env.close()
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run a trained Mini plane PPO agent with UI.")
+    parser = argparse.ArgumentParser(description="Run a trained Mini Plane PPO agent with UI.")
     parser.add_argument("model_folder", type=str, help="Path to the directory containing the saved model (.zip) and stats (vec_normalize.pkl).")
     
     args = parser.parse_args()

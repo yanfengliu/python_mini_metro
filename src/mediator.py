@@ -24,10 +24,10 @@ from config import (
     airport_spawn_interval
 )
 from entity.get_entity import get_initial_airports, get_new_random_airport
-from entity.plane import plane
+from entity.plane import Plane
 from entity.passenger import Passenger
 from entity.path import Path
-from entity.airport import airport
+from entity.airport import Airport
 from event.event import Event
 from event.keyboard import KeyboardEvent
 from event.mouse import MouseEvent
@@ -66,7 +66,7 @@ class Mediator:
 
         # entities
         self.airports = get_initial_airports()
-        self.planes: List[plane] = []
+        self.planes: List[Plane] = []
         self.paths: List[Path] = []
         self.passengers: List[Passenger] = []
         self.path_colors: Dict[Color, bool] = {}
@@ -88,7 +88,7 @@ class Mediator:
         self.is_game_over = False
         self.steps_since_last_airport_spawn = 0
         self.is_extending_path = False
-        self.original_airports_before_extend: List[airport] = []
+        self.original_airports_before_extend: List[Airport] = []
         self.is_old_path_looped = False
 
     def assign_paths_to_buttons(self):
@@ -146,7 +146,7 @@ class Mediator:
             )
             screen.blit(text_surface, text_rect)
 
-    def create_or_extend_path(self, airport_a: airport, airport_b: airport) -> bool:
+    def create_or_extend_path(self, airport_a: Airport, airport_b: Airport) -> bool:
         """Atomically creates a new path or extends an existing one."""
         for path in self.paths:
             if not path.airports or path.is_looped:
@@ -198,11 +198,11 @@ class Mediator:
     def _add_plane_to_path(self, path: Path):
         """Adds a new plane to a path if the limit has not been reached."""
         if len(self.planes) < self.num_planes:
-            plane = plane()
+            plane = Plane()
             path.add_plane(plane)
             self.planes.append(plane)
 
-    def insert_airport_on_path(self, s_insert: airport, s1: airport, s2: airport) -> bool:
+    def insert_airport_on_path(self, s_insert: Airport, s1: Airport, s2: Airport) -> bool:
         if s_insert == s1 or s_insert == s2 or s1 == s2:
             return False
         
@@ -217,7 +217,7 @@ class Mediator:
         if event.event_type == MouseEventType.MOUSE_DOWN:
             self.is_mouse_down = True
             if entity:
-                if isinstance(entity, airport):
+                if isinstance(entity, Airport):
                     if self.is_creating_path:
                         return
 
@@ -262,7 +262,7 @@ class Mediator:
             self.is_mouse_down = False
             if self.is_creating_path:
                 assert self.path_being_created is not None
-                if entity and isinstance(entity, airport):
+                if entity and isinstance(entity, Airport):
                     self.end_path_on_airport(entity)
                 else:
                     self.abort_path_creation()
@@ -274,7 +274,7 @@ class Mediator:
         elif event.event_type == MouseEventType.MOUSE_MOTION:
             if self.is_mouse_down:
                 if self.is_creating_path and self.path_being_created:
-                    if entity and isinstance(entity, airport):
+                    if entity and isinstance(entity, Airport):
                         self.add_airport_to_path(entity)
                     else:
                         self.path_being_created.set_temporary_point(event.position)
@@ -315,7 +315,7 @@ class Mediator:
         self.assign_paths_to_buttons()
         self.find_travel_plan_for_passengers()
 
-    def start_path_on_airport(self, airport: airport) -> None:
+    def start_path_on_airport(self, airport: Airport) -> None:
         if len(self.paths) < self.num_paths:
             self.is_creating_path = True
             assigned_color = (0, 0, 0)
@@ -331,7 +331,7 @@ class Mediator:
             self.path_being_created = path
             self.paths.append(path)
 
-    def add_airport_to_path(self, airport: airport) -> None:
+    def add_airport_to_path(self, airport: Airport) -> None:
         assert self.path_being_created is not None
         if self.path_being_created.airports[-1] == airport:
             return
@@ -387,13 +387,13 @@ class Mediator:
         self.path_being_created.is_being_created = False
         self.path_being_created.remove_temporary_point()
         if was_new_path and len(self.planes) < self.num_planes:
-            plane = plane()
+            plane = Plane()
             self.path_being_created.add_plane(plane)
             self.planes.append(plane)
         self.path_being_created = None
         self.assign_paths_to_buttons()
 
-    def end_path_on_airport(self, airport: airport) -> None:
+    def end_path_on_airport(self, airport: Airport) -> None:
         assert self.path_being_created is not None
         if self.path_being_created.airports[-1] == airport:
             if len(self.path_being_created.airports) > 1:
@@ -532,7 +532,7 @@ class Mediator:
                         plane.current_airport.move_passenger(passenger, plane)
 
     def get_airports_for_shape_type(self, shape_type: ShapeType):
-        airports: List[airport] = []
+        airports: List[Airport] = []
         for airport in self.airports:
             if airport.shape.type == shape_type:
                 airports.append(airport)
@@ -540,7 +540,7 @@ class Mediator:
 
         return airports
 
-    def find_shared_path(self, airport_a: airport, airport_b: airport) -> Path | None:
+    def find_shared_path(self, airport_a: Airport, airport_b: Airport) -> Path | None:
         for path in self.paths:
             airports = path.airports
             if (airport_a in airports) and (airport_b in airports):
@@ -554,7 +554,7 @@ class Mediator:
         )
 
     def find_next_path_for_passenger_at_airport(
-        self, passenger: Passenger, airport: airport
+        self, passenger: Passenger, airport: Airport
     ):
         next_airport = self.travel_plans[passenger].get_next_airport()
         assert next_airport is not None

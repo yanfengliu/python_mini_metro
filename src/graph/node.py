@@ -5,11 +5,11 @@ from typing import Set
 from shortuuid import uuid  # type: ignore
 
 from entity.path import Path
-from entity.airport import airport
+from entity.airport import Airport
 
 
 class Node:
-    def __init__(self, airport: airport) -> None:
+    def __init__(self, airport: Airport) -> None:
         self.id = f"Node-{uuid()}"
         self.airport = airport
         self.neighbors: Set[Node] = set()

@@ -7,7 +7,7 @@ from shortuuid import uuid  # type: ignore
 
 from config import path_order_shift, path_width
 from entity.segment import Segment
-from entity.airport import airport
+from entity.airport import Airport
 from geometry.line import Line
 from geometry.point import Point
 from geometry.utils import direction, distance
