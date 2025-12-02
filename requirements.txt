@@ -1,4 +1,4 @@
-numpy==1.24.2
-pygame==2.3.0
-shapely==2.0.1
-shortuuid==1.0.11
+numpy
+pygame
+shapely
+shortuuid

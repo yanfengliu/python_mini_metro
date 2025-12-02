@@ -5,5 +5,8 @@
   ],
   "isort.args": [
     "--profile=black"
+  ],
+  "cursorpyright.analysis.extraPaths": [
+    "./src"
   ]
 }
