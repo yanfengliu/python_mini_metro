@@ -11,6 +11,10 @@ This repo uses `pygame` to implement Mini Metro, a fun 2D strategic game where y
 * If you are running for the first time, install the requirements using `pip install -r requirements.txt`
 * Activate the virtual environment by running `source myenv/bin/activate`
 * Run `python src/main.py`
+* Hold down the mouse left button on a station and drag onto other stations to create a path for the metro.
+* Press SPACE to pause / unpause the game.
+* View the score on the top left corner of the screen.
+* The number of grey circles on top of the screen is the number of availabel metro lines left.
 
 # Testing
 `python -m unittest -v`
