@@ -1,0 +1,6 @@
+---
+alwaysApply: true
+---
+Before you do anything, check `PROGRESS.md` to check what is already done.
+After you do anything, update `PROGRESS.md` after to keep track of what is done.
+This serves as long-term context.

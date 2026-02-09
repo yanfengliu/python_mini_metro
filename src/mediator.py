@@ -74,6 +74,9 @@ class Mediator:
         self.is_paused = False
         self.score = 0
 
+    def step_time(self, dt_ms: int) -> None:
+        self.increment_time(dt_ms)
+
     def assign_paths_to_buttons(self) -> None:
         for path_button in self.path_buttons:
             path_button.remove_path()
@@ -162,6 +165,19 @@ class Mediator:
         self.assign_paths_to_buttons()
         self.find_travel_plan_for_passengers()
 
+    def remove_path_by_id(self, path_id: str) -> bool:
+        for path in self.paths:
+            if path.id == path_id:
+                self.remove_path(path)
+                return True
+        return False
+
+    def remove_path_by_index(self, path_index: int) -> bool:
+        if 0 <= path_index < len(self.paths):
+            self.remove_path(self.paths[path_index])
+            return True
+        return False
+
     def start_path_on_station(self, station: Station) -> None:
         if len(self.paths) < self.num_paths:
             self.is_creating_path = True
@@ -177,6 +193,30 @@ class Mediator:
             path.is_being_created = True
             self.path_being_created = path
             self.paths.append(path)
+
+    def create_path_from_station_indices(
+        self, station_indices: List[int], loop: bool = False
+    ) -> Path | None:
+        if len(station_indices) < 2 or len(self.paths) >= self.num_paths:
+            return None
+        if any(
+            idx < 0 or idx >= len(self.stations) for idx in station_indices
+        ):
+            return None
+
+        self.start_path_on_station(self.stations[station_indices[0]])
+        if not self.path_being_created:
+            return None
+
+        for idx in station_indices[1:-1]:
+            self.add_station_to_path(self.stations[idx])
+
+        if loop:
+            self.end_path_on_station(self.stations[station_indices[0]])
+        else:
+            self.end_path_on_station(self.stations[station_indices[-1]])
+
+        return self.paths[-1] if self.paths else None
 
     def add_station_to_path(self, station: Station) -> None:
         assert self.path_being_created is not None
@@ -216,6 +256,31 @@ class Mediator:
             self.metros.append(metro)
         self.path_being_created = None
         self.assign_paths_to_buttons()
+
+    def set_paused(self, paused: bool) -> None:
+        self.is_paused = paused
+
+    def apply_action(self, action: Dict) -> bool:
+        action_type = action.get("type")
+        if action_type == "create_path":
+            stations = action.get("stations", [])
+            loop = bool(action.get("loop", False))
+            return self.create_path_from_station_indices(stations, loop) is not None
+        if action_type == "remove_path":
+            if "path_id" in action:
+                return self.remove_path_by_id(action["path_id"])
+            if "path_index" in action:
+                return self.remove_path_by_index(action["path_index"])
+            return False
+        if action_type == "pause":
+            self.set_paused(True)
+            return True
+        if action_type == "resume":
+            self.set_paused(False)
+            return True
+        if action_type == "noop" or action_type is None:
+            return True
+        return False
 
     def end_path_on_station(self, station: Station) -> None:
         assert self.path_being_created is not None

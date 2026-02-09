@@ -17,5 +17,19 @@ This repo uses `pygame-ce` to implement Mini Metro, a fun 2D strategic game wher
 * The number of grey circles on top of the screen is the number of availabel metro lines left.
 * Click on the colored circle at the top to cancel an established line.
 
+# Programmatic play
+Use the Gym-like environment in `src/env.py`:
+
+```
+from env import MiniMetroEnv
+
+env = MiniMetroEnv(dt_ms=16)
+obs = env.reset(seed=42)
+obs, reward, done, info = env.step(
+    {"type": "create_path", "stations": [0, 1, 2], "loop": False}
+)
+obs, reward, done, info = env.step({"type": "remove_path", "path_index": 0})
+```
+
 # Testing
 `python -m unittest -v`
