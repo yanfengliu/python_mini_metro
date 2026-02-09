@@ -9,10 +9,12 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 import pygame
 from config import screen_height, screen_width, station_color, station_size
+from entity.path import Path
 from entity.station import Station
 from event.mouse import MouseEvent
 from event.type import MouseEventType
 from geometry.circle import Circle
+from geometry.point import Point
 from geometry.rect import Rect
 from graph.graph_algo import bfs, build_station_nodes_dict
 from graph.node import Node
@@ -140,6 +142,27 @@ class TestGraph(unittest.TestCase):
             node_path,
             [],
         )
+
+    def test_node_repr(self):
+        station = Station(
+            Rect(station_color, 2 * station_size, 2 * station_size), Point(0, 0)
+        )
+        node = Node(station)
+        self.assertIn("Node-", repr(node))
+
+    def test_build_station_nodes_dict_skips_being_created_paths(self):
+        station_a = Station(
+            Rect(station_color, 2 * station_size, 2 * station_size), Point(0, 0)
+        )
+        station_b = Station(Circle(station_color, station_size), Point(10, 0))
+        path = Path((0, 0, 0))
+        path.is_being_created = True
+        path.add_station(station_a)
+        path.add_station(station_b)
+
+        station_nodes = build_station_nodes_dict([station_a, station_b], [path])
+        for node in station_nodes.values():
+            self.assertEqual(node.paths, set())
 
 
 if __name__ == "__main__":

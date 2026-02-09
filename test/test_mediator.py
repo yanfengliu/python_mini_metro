@@ -23,11 +23,17 @@ from config import (
     station_color,
     station_size,
 )
+from entity.metro import Metro
+from entity.passenger import Passenger
+from entity.path import Path
 from entity.station import Station
 from geometry.circle import Circle
 from geometry.point import Point
 from geometry.rect import Rect
+from graph.node import Node
 from mediator import Mediator
+from travel_plan import TravelPlan
+from ui.button import Button
 from utils import get_random_color, get_random_position
 
 
@@ -59,6 +65,23 @@ class TestMediator(unittest.TestCase):
                 self.mediator.stations[station_idx[-1]].position,
             )
         )
+
+    def _build_two_station_mediator(self):
+        mediator = Mediator()
+        station_a = Station(
+            Rect(station_color, 2 * station_size, 2 * station_size), Point(0, 0)
+        )
+        station_b = Station(Circle(station_color, station_size), Point(10, 0))
+        mediator.stations = [station_a, station_b]
+        path = Path((10, 20, 30))
+        path.add_station(station_a)
+        path.add_station(station_b)
+        metro = Metro()
+        path.add_metro(metro)
+        mediator.paths = [path]
+        mediator.metros = [metro]
+        metro.current_station = station_a
+        return mediator, station_a, station_b, path, metro
 
     def test_react_mouse_down(self):
         for station in self.mediator.stations:
@@ -222,6 +245,168 @@ class TestMediator(unittest.TestCase):
                 self.assertEqual(
                     len(self.mediator.travel_plans[passenger].node_path), 1
                 )
+
+    def test_render_draws_paths_and_metros(self):
+        mediator, _, _, path, metro = self._build_two_station_mediator()
+        pygame.draw.line = MagicMock()
+        pygame.draw.circle = MagicMock()
+        pygame.draw.polygon = MagicMock()
+        mediator.render(self.screen)
+        self.assertIn(metro, mediator.metros)
+        self.assertIn(path, mediator.paths)
+
+    def test_mouse_motion_no_entity_triggers_exit(self):
+        mediator = Mediator()
+        mediator.stations = []
+        button = MagicMock()
+        button.contains = MagicMock(return_value=False)
+        mediator.buttons = [button]
+        mediator.react_mouse_event(
+            MouseEvent(MouseEventType.MOUSE_MOTION, Point(-1000, -1000))
+        )
+        button.on_exit.assert_called_once()
+
+    def test_mouse_motion_over_button_triggers_hover(self):
+        mediator = Mediator()
+        mediator.stations = []
+
+        class HoverButton(Button):
+            def __init__(self):
+                super().__init__(Circle(station_color, station_size))
+                self.position = Point(0, 0)
+                self.hovered = False
+
+            def contains(self, point: Point) -> bool:
+                return True
+
+            def on_hover(self):
+                self.hovered = True
+
+            def on_exit(self):
+                pass
+
+            def on_click(self):
+                pass
+
+        button = HoverButton()
+        mediator.buttons = [button]
+        mediator.react_mouse_event(
+            MouseEvent(MouseEventType.MOUSE_MOTION, Point(0, 0))
+        )
+        self.assertTrue(button.hovered)
+
+    def test_remove_path_cleans_passengers(self):
+        mediator, _, station_b, path, metro = self._build_two_station_mediator()
+        passenger = Passenger(station_b.shape)
+        metro.add_passenger(passenger)
+        mediator.passengers.append(passenger)
+        mediator.path_buttons[0].assign_path(path)
+        mediator.path_to_button[path] = mediator.path_buttons[0]
+        mediator.path_to_color[path] = path.color
+        mediator.remove_path(path)
+        self.assertNotIn(passenger, mediator.passengers)
+        self.assertNotIn(path, mediator.paths)
+
+    def test_add_station_to_path_returns_on_duplicate(self):
+        mediator = Mediator()
+        station = mediator.stations[0]
+        path = Path((0, 0, 0))
+        path.add_station(station)
+        mediator.path_being_created = path
+        mediator.is_creating_path = True
+        mediator.add_station_to_path(station)
+        self.assertEqual(len(path.stations), 1)
+
+    def test_add_station_to_path_removes_loop(self):
+        mediator = Mediator()
+        station_a = mediator.stations[0]
+        station_b = mediator.stations[1]
+        station_c = mediator.stations[2]
+        path = Path((0, 0, 0))
+        path.add_station(station_a)
+        path.add_station(station_b)
+        path.set_loop()
+        mediator.path_being_created = path
+        mediator.is_creating_path = True
+        mediator.add_station_to_path(station_c)
+        self.assertFalse(path.is_looped)
+
+    def test_end_path_on_station_aborts(self):
+        mediator = Mediator()
+        station = mediator.stations[0]
+        mediator.start_path_on_station(station)
+        mediator.end_path_on_station(station)
+        self.assertFalse(mediator.is_creating_path)
+        self.assertIsNone(mediator.path_being_created)
+        self.assertEqual(len(mediator.paths), 0)
+
+    def test_increment_time_paused(self):
+        mediator = Mediator()
+        mediator.is_paused = True
+        mediator.time_ms = 10
+        mediator.steps = 5
+        mediator.increment_time(100)
+        self.assertEqual(mediator.time_ms, 10)
+        self.assertEqual(mediator.steps, 5)
+
+    def test_move_passengers_covers_all_transfers(self):
+        mediator, station_a, station_b, path, metro = self._build_two_station_mediator()
+
+        passenger_at_destination = Passenger(station_a.shape)
+        passenger_to_station = Passenger(station_b.shape)
+        passenger_to_metro = Passenger(station_b.shape)
+
+        metro.add_passenger(passenger_at_destination)
+        metro.add_passenger(passenger_to_station)
+        station_a.add_passenger(passenger_to_metro)
+        mediator.passengers.extend(
+            [passenger_at_destination, passenger_to_station, passenger_to_metro]
+        )
+
+        mediator.travel_plans[passenger_at_destination] = TravelPlan([Node(station_a)])
+        mediator.travel_plans[passenger_to_station] = TravelPlan(
+            [Node(station_a), Node(station_b)]
+        )
+        mediator.travel_plans[passenger_to_metro] = TravelPlan([Node(station_b)])
+        mediator.travel_plans[passenger_to_metro].next_path = path
+
+        mediator.move_passengers()
+
+        self.assertNotIn(passenger_at_destination, mediator.passengers)
+        self.assertTrue(passenger_at_destination.is_at_destination)
+        self.assertNotIn(passenger_at_destination, mediator.travel_plans)
+        self.assertEqual(mediator.score, 1)
+
+        self.assertIn(passenger_to_station, station_a.passengers)
+        self.assertNotIn(passenger_to_station, metro.passengers)
+        self.assertEqual(mediator.travel_plans[passenger_to_station].next_path, path)
+
+        self.assertIn(passenger_to_metro, metro.passengers)
+        self.assertNotIn(passenger_to_metro, station_a.passengers)
+
+    def test_find_shared_path_returns_none(self):
+        mediator = Mediator()
+        station_a = mediator.stations[0]
+        station_b = mediator.stations[1]
+        self.assertIsNone(mediator.find_shared_path(station_a, station_b))
+
+    def test_find_travel_plan_handles_arrived_passenger(self):
+        mediator = Mediator()
+        station = Station(
+            Rect(station_color, 2 * station_size, 2 * station_size), Point(0, 0)
+        )
+        mediator.stations = [station]
+        passenger = Passenger(station.shape)
+        station.add_passenger(passenger)
+        mediator.passengers.append(passenger)
+        mediator.travel_plans[passenger] = TravelPlan([])
+
+        mediator.find_travel_plan_for_passengers()
+
+        self.assertNotIn(passenger, station.passengers)
+        self.assertNotIn(passenger, mediator.passengers)
+        self.assertTrue(passenger.is_at_destination)
+        self.assertNotIn(passenger, mediator.travel_plans)
 
 
 if __name__ == "__main__":

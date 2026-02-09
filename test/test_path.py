@@ -7,11 +7,12 @@ from unittest.mock import MagicMock, create_autospec
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 import pygame
-from config import framerate, metro_speed_per_ms
+from config import framerate, metro_speed_per_ms, station_color, station_size
 from entity.get_entity import get_random_station, get_random_stations
 from entity.metro import Metro
 from entity.path import Path
 from entity.station import Station
+from geometry.circle import Circle
 from geometry.point import Point
 from utils import get_random_color, get_random_position, get_random_station_shape
 
@@ -114,6 +115,68 @@ class TestPath(unittest.TestCase):
                 path.move_metro(metro, dt_ms)
 
             self.assertTrue(path.stations[station_idx].contains(metro.position))
+
+    def _build_path_with_four_stations(self):
+        path = Path((10, 10, 10))
+        for idx in range(4):
+            station = Station(Circle(station_color, station_size), Point(idx * 10, 0))
+            path.add_station(station)
+        metro = Metro()
+        path.add_metro(metro)
+        return path, metro
+
+    def test_path_repr_and_remove_loop(self):
+        path, _ = self._build_path_with_four_stations()
+        path.set_loop()
+        path.remove_loop()
+        self.assertFalse(path.is_looped)
+        self.assertIn("Path-", repr(path))
+
+    def test_move_metro_last_segment_forward_turns_around(self):
+        path, metro = self._build_path_with_four_stations()
+        metro.current_segment_idx = len(path.segments) - 1
+        metro.current_segment = path.segments[-1]
+        metro.is_forward = True
+        metro.position = metro.current_segment.segment_start
+        path.move_metro(metro, 100000)
+        self.assertFalse(metro.is_forward)
+
+    def test_move_metro_last_segment_backward_decrements(self):
+        path, metro = self._build_path_with_four_stations()
+        metro.current_segment_idx = len(path.segments) - 1
+        metro.current_segment = path.segments[-1]
+        metro.is_forward = False
+        metro.position = metro.current_segment.segment_end
+        path.move_metro(metro, 100000)
+        self.assertEqual(metro.current_segment_idx, len(path.segments) - 2)
+
+    def test_move_metro_first_segment_backward_sets_forward(self):
+        path, metro = self._build_path_with_four_stations()
+        metro.current_segment_idx = 0
+        metro.current_segment = path.segments[0]
+        metro.is_forward = False
+        metro.position = metro.current_segment.segment_end
+        path.move_metro(metro, 100000)
+        self.assertTrue(metro.is_forward)
+
+    def test_move_metro_middle_segment_backward_decrements(self):
+        path, metro = self._build_path_with_four_stations()
+        metro.current_segment_idx = 1
+        metro.current_segment = path.segments[1]
+        metro.is_forward = False
+        metro.position = metro.current_segment.segment_end
+        path.move_metro(metro, 100000)
+        self.assertEqual(metro.current_segment_idx, 0)
+
+    def test_move_metro_looped_first_segment_backward_wraps(self):
+        path, metro = self._build_path_with_four_stations()
+        path.set_loop()
+        metro.current_segment_idx = 0
+        metro.current_segment = path.segments[0]
+        metro.is_forward = False
+        metro.position = metro.current_segment.segment_end
+        path.move_metro(metro, 100000)
+        self.assertEqual(metro.current_segment_idx, len(path.segments) - 1)
 
 
 if __name__ == "__main__":
