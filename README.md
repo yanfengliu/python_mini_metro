@@ -15,6 +15,7 @@ This repo uses `pygame-ce` to implement Mini Metro, a fun 2D strategic game wher
 * Press SPACE to pause / unpause the game.
 * View the score on the top left corner of the screen.
 * The number of grey circles on top of the screen is the number of availabel metro lines left.
+* Click on the colored circle at the top to cancel an established line.
 
 # Testing
 `python -m unittest -v`
