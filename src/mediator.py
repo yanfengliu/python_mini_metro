@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pprint
 import random
 from typing import Dict, List
 
@@ -36,9 +35,6 @@ from ui.path_button import PathButton, get_path_buttons
 from utils import get_shape_from_type, hue_to_rgb
 
 TravelPlans = Dict[Passenger, TravelPlan]
-pp = pprint.PrettyPrinter(indent=4)
-
-
 class Mediator:
     def __init__(self) -> None:
         pygame.font.init()
@@ -78,14 +74,12 @@ class Mediator:
         self.is_paused = False
         self.score = 0
 
-    def assign_paths_to_buttons(self):
+    def assign_paths_to_buttons(self) -> None:
         for path_button in self.path_buttons:
             path_button.remove_path()
 
         self.path_to_button = {}
-        for i in range(min(len(self.paths), len(self.path_buttons))):
-            path = self.paths[i]
-            button = self.path_buttons[i]
+        for path, button in zip(self.paths, self.path_buttons):
             button.assign_path(path)
             self.path_to_button[path] = button
 
@@ -102,7 +96,7 @@ class Mediator:
         text_surface = self.font.render(f"Score: {self.score}", True, (0, 0, 0))
         screen.blit(text_surface, score_display_coords)
 
-    def react_mouse_event(self, event: MouseEvent):
+    def react_mouse_event(self, event: MouseEvent) -> None:
         entity = self.get_containing_entity(event.position)
 
         if event.event_type == MouseEventType.MOUSE_DOWN:
@@ -138,12 +132,12 @@ class Mediator:
                     for button in self.buttons:
                         button.on_exit()
 
-    def react_keyboard_event(self, event: KeyboardEvent):
+    def react_keyboard_event(self, event: KeyboardEvent) -> None:
         if event.event_type == KeyboardEventType.KEY_UP:
             if event.key == pygame.K_SPACE:
                 self.is_paused = not self.is_paused
 
-    def react(self, event: Event | None):
+    def react(self, event: Event | None) -> None:
         if isinstance(event, MouseEvent):
             self.react_mouse_event(event)
         elif isinstance(event, KeyboardEvent):
@@ -157,7 +151,7 @@ class Mediator:
             if button.contains(position):
                 return button
 
-    def remove_path(self, path: Path):
+    def remove_path(self, path: Path) -> None:
         self.path_to_button[path].remove_path()
         for metro in path.metros:
             for passenger in metro.passengers:
@@ -245,12 +239,8 @@ class Mediator:
         else:
             self.abort_path_creation()
 
-    def get_station_shape_types(self):
-        station_shape_types: List[ShapeType] = []
-        for station in self.stations:
-            if station.shape.type not in station_shape_types:
-                station_shape_types.append(station.shape.type)
-        return station_shape_types
+    def get_station_shape_types(self) -> List[ShapeType]:
+        return list(dict.fromkeys(station.shape.type for station in self.stations))
 
     def is_passenger_spawn_time(self) -> bool:
         return (
@@ -258,11 +248,13 @@ class Mediator:
             or self.steps_since_last_spawn == self.passenger_spawning_interval_step
         )
 
-    def spawn_passengers(self):
+    def spawn_passengers(self) -> None:
+        station_types = self.get_station_shape_types()
         for station in self.stations:
-            station_types = self.get_station_shape_types()
             other_station_shape_types = [
-                x for x in station_types if x != station.shape.type
+                shape_type
+                for shape_type in station_types
+                if shape_type != station.shape.type
             ]
             destination_shape_type = random.choice(other_station_shape_types)
             destination_shape = get_shape_from_type(
@@ -341,11 +333,10 @@ class Mediator:
                     if metro.has_room():
                         metro.current_station.move_passenger(passenger, metro)
 
-    def get_stations_for_shape_type(self, shape_type: ShapeType):
-        stations: List[Station] = []
-        for station in self.stations:
-            if station.shape.type == shape_type:
-                stations.append(station)
+    def get_stations_for_shape_type(self, shape_type: ShapeType) -> List[Station]:
+        stations = [
+            station for station in self.stations if station.shape.type == shape_type
+        ]
         random.shuffle(stations)
 
         return stations

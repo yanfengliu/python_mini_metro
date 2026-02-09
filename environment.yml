@@ -1,0 +1,12 @@
+name: py313
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.13
+  - numpy
+  - shapely
+  - shortuuid
+  - pip
+  - pip:
+      - pygame-ce

@@ -49,20 +49,20 @@ def get_random_passenger_shape() -> Shape:
     return get_random_shape(station_shape_type_list, get_random_color(), passenger_size)
 
 
-def tuple_to_point(tuple: Tuple[int, int]) -> Point:
-    return Point(left=tuple[0], top=tuple[1])
+def tuple_to_point(coords: Tuple[int, int]) -> Point:
+    return Point(left=coords[0], top=coords[1])
 
 
-def get_shape_from_type(type: ShapeType, color: Color, size: int) -> Shape:
-    if type == ShapeType.RECT:
+def get_shape_from_type(shape_type: ShapeType, color: Color, size: int) -> Shape:
+    if shape_type == ShapeType.RECT:
         return Rect(color=color, width=2 * size, height=2 * size)
-    elif type == ShapeType.CIRCLE:
+    elif shape_type == ShapeType.CIRCLE:
         return Circle(color=color, radius=size)
-    elif type == ShapeType.TRIANGLE:
+    elif shape_type == ShapeType.TRIANGLE:
         return Triangle(color=color, size=size)
     else:
         return Cross(color=color, size=size)
 
 
-def within_time_window(game_time_ms: int, time_mark_ms: int, window_ms: int):
+def within_time_window(game_time_ms: int, time_mark_ms: int, window_ms: int) -> bool:
     return window_ms <= game_time_ms - time_mark_ms < (2 * window_ms)
