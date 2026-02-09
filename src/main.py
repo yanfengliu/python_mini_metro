@@ -3,6 +3,7 @@ import os
 import pygame
 from config import framerate, screen_color, screen_height, screen_width
 from event.convert import convert_pygame_event
+from geometry.point import Point
 from mediator import Mediator
 
 
@@ -23,16 +24,36 @@ def run_game(max_frames: int | None = None) -> None:
         mediator.render(screen)
 
         # react to user interaction
+        restart_requested = False
         for pygame_event in pygame.event.get():
             if pygame_event.type == pygame.QUIT:
                 raise SystemExit
             else:
                 if is_game_over:
+                    if pygame_event.type == pygame.KEYUP:
+                        if pygame_event.key == pygame.K_r:
+                            restart_requested = True
+                            break
+                        if pygame_event.key == pygame.K_ESCAPE:
+                            raise SystemExit
+                    if pygame_event.type == pygame.MOUSEBUTTONUP:
+                        position = getattr(pygame_event, "pos", pygame.mouse.get_pos())
+                        action = mediator.handle_game_over_click(
+                            Point(position[0], position[1])
+                        )
+                        if action == "restart":
+                            restart_requested = True
+                            break
+                        if action == "exit":
+                            raise SystemExit
                     continue
                 event = convert_pygame_event(pygame_event)
                 mediator.react(event)
 
         pygame.display.flip()
+        if restart_requested:
+            mediator = Mediator()
+            continue
 
         if max_frames is not None:
             frames += 1

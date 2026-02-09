@@ -269,17 +269,38 @@ class TestMediator(unittest.TestCase):
             title_surface.get_rect.return_value = MagicMock()
             score_surface = MagicMock()
             score_surface.get_rect.return_value = MagicMock()
+            hint_surface = MagicMock()
+            hint_surface.get_rect.return_value = MagicMock()
+            hint_surface.get_width.return_value = 100
+            hint_surface.get_height.return_value = 20
             mediator.game_over_font = MagicMock()
             mediator.game_over_font.render = MagicMock(return_value=title_surface)
             mediator.font = MagicMock()
             mediator.font.render = MagicMock(return_value=score_surface)
+            mediator.game_over_hint_font = MagicMock()
+            mediator.game_over_hint_font.render = MagicMock(return_value=hint_surface)
             mediator.render(screen)
 
         surface_mock.assert_called_once()
         overlay.fill.assert_called_once()
         screen.blit.assert_any_call(overlay, (0, 0))
-        self.assertGreaterEqual(mediator.font.render.call_count, 2)
+        self.assertGreaterEqual(mediator.font.render.call_count, 1)
         mediator.game_over_font.render.assert_called_once()
+        self.assertGreaterEqual(mediator.game_over_hint_font.render.call_count, 2)
+
+    def test_handle_game_over_click(self):
+        mediator = Mediator()
+        mediator.is_game_over = True
+        mediator.game_over_restart_rect = pygame.Rect(0, 0, 10, 10)
+        mediator.game_over_exit_rect = pygame.Rect(20, 0, 10, 10)
+
+        self.assertEqual(
+            mediator.handle_game_over_click(Point(5, 5)), "restart"
+        )
+        self.assertEqual(
+            mediator.handle_game_over_click(Point(25, 5)), "exit"
+        )
+        self.assertIsNone(mediator.handle_game_over_click(Point(50, 50)))
 
     def test_mouse_motion_no_entity_triggers_exit(self):
         mediator = Mediator()

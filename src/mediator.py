@@ -15,6 +15,13 @@ from config import (
     passenger_spawning_interval_step,
     passenger_spawning_start_step,
     game_over_font_size,
+    game_over_hint_font_size,
+    game_over_button_border_color,
+    game_over_button_border_width,
+    game_over_button_color,
+    game_over_button_padding_x,
+    game_over_button_padding_y,
+    game_over_button_spacing,
     game_over_overlay_color,
     game_over_text_color,
     score_display_coords,
@@ -59,6 +66,11 @@ class Mediator:
         self.buttons = [*self.path_buttons]
         self.font = pygame.font.SysFont("arial", score_font_size)
         self.game_over_font = pygame.font.SysFont("arial", game_over_font_size)
+        self.game_over_hint_font = pygame.font.SysFont(
+            "arial", game_over_hint_font_size
+        )
+        self.game_over_restart_rect: pygame.Rect | None = None
+        self.game_over_exit_rect: pygame.Rect | None = None
 
         # entities
         self.stations = get_random_stations(self.num_stations)
@@ -113,6 +125,8 @@ class Mediator:
             self.render_game_over(screen)
 
     def render_game_over(self, screen: pygame.surface.Surface) -> None:
+        self.game_over_restart_rect = None
+        self.game_over_exit_rect = None
         overlay = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
         overlay.fill(game_over_overlay_color)
         screen.blit(overlay, (0, 0))
@@ -132,6 +146,61 @@ class Mediator:
             center=(screen_width // 2, screen_height // 2 + game_over_font_size // 3)
         )
         screen.blit(score_surface, score_rect)
+
+        button_texts = [
+            ("Restart (R)", "restart"),
+            ("Exit (Esc)", "exit"),
+        ]
+        button_surfaces = [
+            self.game_over_hint_font.render(text, True, game_over_text_color)
+            for text, _ in button_texts
+        ]
+        button_width = max(surface.get_width() for surface in button_surfaces)
+        button_height = max(surface.get_height() for surface in button_surfaces)
+        start_top = screen_height // 2 + game_over_font_size // 3 + 40
+        current_top = start_top
+
+        for surface, (_, action) in zip(button_surfaces, button_texts):
+            rect = pygame.Rect(
+                0,
+                0,
+                button_width + 2 * game_over_button_padding_x,
+                button_height + 2 * game_over_button_padding_y,
+            )
+            rect.centerx = screen_width // 2
+            rect.top = current_top
+            current_top = rect.bottom + game_over_button_spacing
+
+            pygame.draw.rect(screen, game_over_button_color, rect, border_radius=8)
+            pygame.draw.rect(
+                screen,
+                game_over_button_border_color,
+                rect,
+                game_over_button_border_width,
+                border_radius=8,
+            )
+            text_rect = surface.get_rect(center=rect.center)
+            screen.blit(surface, text_rect)
+
+            if action == "restart":
+                self.game_over_restart_rect = rect
+            elif action == "exit":
+                self.game_over_exit_rect = rect
+
+    def handle_game_over_click(self, position: Point) -> str | None:
+        if not self.is_game_over:
+            return None
+        if (
+            self.game_over_restart_rect
+            and self.game_over_restart_rect.collidepoint(position.to_tuple())
+        ):
+            return "restart"
+        if (
+            self.game_over_exit_rect
+            and self.game_over_exit_rect.collidepoint(position.to_tuple())
+        ):
+            return "exit"
+        return None
 
     def react_mouse_event(self, event: MouseEvent) -> None:
         entity = self.get_containing_entity(event.position)
