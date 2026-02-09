@@ -1,7 +1,7 @@
 import os
 import sys
 import unittest
-from unittest.mock import MagicMock, create_autospec
+from unittest.mock import MagicMock, create_autospec, patch
 
 from entity.get_entity import get_random_stations
 from event.mouse import MouseEvent
@@ -254,6 +254,32 @@ class TestMediator(unittest.TestCase):
         mediator.render(self.screen)
         self.assertIn(metro, mediator.metros)
         self.assertIn(path, mediator.paths)
+
+    def test_render_game_over_overlay(self):
+        mediator = Mediator()
+        mediator.paths = []
+        mediator.stations = []
+        mediator.metros = []
+        mediator.buttons = []
+        mediator.is_game_over = True
+        screen = MagicMock()
+        overlay = MagicMock()
+        with patch("mediator.pygame.Surface", return_value=overlay) as surface_mock:
+            title_surface = MagicMock()
+            title_surface.get_rect.return_value = MagicMock()
+            score_surface = MagicMock()
+            score_surface.get_rect.return_value = MagicMock()
+            mediator.game_over_font = MagicMock()
+            mediator.game_over_font.render = MagicMock(return_value=title_surface)
+            mediator.font = MagicMock()
+            mediator.font.render = MagicMock(return_value=score_surface)
+            mediator.render(screen)
+
+        surface_mock.assert_called_once()
+        overlay.fill.assert_called_once()
+        screen.blit.assert_any_call(overlay, (0, 0))
+        self.assertGreaterEqual(mediator.font.render.call_count, 2)
+        mediator.game_over_font.render.assert_called_once()
 
     def test_mouse_motion_no_entity_triggers_exit(self):
         mediator = Mediator()

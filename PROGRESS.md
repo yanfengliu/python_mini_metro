@@ -7,7 +7,10 @@
 - Added unit tests for agent playthrough recording and determinism in `test/test_agent_play.py`.
 - Added game-over rules for excessive long-waiting passengers, wired to env/manual play.
 - Added passenger wait tracking plus tests for game-over behavior.
+- Added game-over overlay rendering with final score display and main loop freeze on game-over.
+- Added mediator test coverage for game-over overlay rendering.
 
 Tests:
 - `python -m unittest -v test.test_env`
 - `python -m unittest -v test.test_agent_play`
+- `python -m unittest -v`

@@ -16,7 +16,9 @@ def run_game(max_frames: int | None = None) -> None:
 
     while True:
         dt_ms = clock.tick(framerate)
-        mediator.increment_time(dt_ms)
+        is_game_over = mediator.is_game_over is True
+        if not is_game_over:
+            mediator.increment_time(dt_ms)
         screen.fill(screen_color)
         mediator.render(screen)
 
@@ -25,13 +27,12 @@ def run_game(max_frames: int | None = None) -> None:
             if pygame_event.type == pygame.QUIT:
                 raise SystemExit
             else:
+                if is_game_over:
+                    continue
                 event = convert_pygame_event(pygame_event)
                 mediator.react(event)
 
         pygame.display.flip()
-
-        if mediator.is_game_over:
-            break
 
         if max_frames is not None:
             frames += 1

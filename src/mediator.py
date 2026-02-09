@@ -14,8 +14,13 @@ from config import (
     passenger_size,
     passenger_spawning_interval_step,
     passenger_spawning_start_step,
+    game_over_font_size,
+    game_over_overlay_color,
+    game_over_text_color,
     score_display_coords,
     score_font_size,
+    screen_height,
+    screen_width,
 )
 from entity.get_entity import get_random_stations
 from entity.metro import Metro
@@ -53,6 +58,7 @@ class Mediator:
         self.path_to_button: Dict[Path, PathButton] = {}
         self.buttons = [*self.path_buttons]
         self.font = pygame.font.SysFont("arial", score_font_size)
+        self.game_over_font = pygame.font.SysFont("arial", game_over_font_size)
 
         # entities
         self.stations = get_random_stations(self.num_stations)
@@ -103,6 +109,29 @@ class Mediator:
             button.draw(screen)
         text_surface = self.font.render(f"Score: {self.score}", True, (0, 0, 0))
         screen.blit(text_surface, score_display_coords)
+        if self.is_game_over:
+            self.render_game_over(screen)
+
+    def render_game_over(self, screen: pygame.surface.Surface) -> None:
+        overlay = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
+        overlay.fill(game_over_overlay_color)
+        screen.blit(overlay, (0, 0))
+
+        title_surface = self.game_over_font.render(
+            "Game Over", True, game_over_text_color
+        )
+        title_rect = title_surface.get_rect(
+            center=(screen_width // 2, screen_height // 2 - game_over_font_size // 3)
+        )
+        screen.blit(title_surface, title_rect)
+
+        score_surface = self.font.render(
+            f"Final Score: {self.score}", True, game_over_text_color
+        )
+        score_rect = score_surface.get_rect(
+            center=(screen_width // 2, screen_height // 2 + game_over_font_size // 3)
+        )
+        screen.blit(score_surface, score_rect)
 
     def react_mouse_event(self, event: MouseEvent) -> None:
         entity = self.get_containing_entity(event.position)

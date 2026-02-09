@@ -57,3 +57,6 @@ path_button_cross_width = 5
 # text
 score_font_size = 50
 score_display_coords = (20, 20)
+game_over_font_size = 120
+game_over_text_color = (20, 20, 20)
+game_over_overlay_color = (0, 0, 0, 140)
