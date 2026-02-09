@@ -1,6 +1,4 @@
 import pygame
-
-from event.event import Event
 from event.keyboard import KeyboardEvent
 from event.mouse import MouseEvent
 from event.type import KeyboardEventType, MouseEventType

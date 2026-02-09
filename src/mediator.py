@@ -5,7 +5,6 @@ import random
 from typing import Dict, List
 
 import pygame
-
 from config import (
     num_metros,
     num_paths,

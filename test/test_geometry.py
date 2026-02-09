@@ -8,7 +8,6 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 from copy import deepcopy
 
 import pygame
-
 from config import screen_height, screen_width
 from geometry.circle import Circle
 from geometry.line import Line

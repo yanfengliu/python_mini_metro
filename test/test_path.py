@@ -2,12 +2,11 @@ import os
 import sys
 import unittest
 from math import ceil
-from unittest.mock import MagicMock, create_autospec, patch
+from unittest.mock import MagicMock, create_autospec
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 import pygame
-
 from config import framerate, metro_speed_per_ms
 from entity.get_entity import get_random_station, get_random_stations
 from entity.metro import Metro

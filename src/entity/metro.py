@@ -1,6 +1,3 @@
-import pygame
-from shortuuid import uuid  # type: ignore
-
 from config import (
     metro_capacity,
     metro_color,
@@ -12,6 +9,7 @@ from entity.holder import Holder
 from entity.segment import Segment
 from entity.station import Station
 from geometry.rect import Rect
+from shortuuid import uuid  # type: ignore
 
 
 class Metro(Holder):

@@ -3,7 +3,6 @@ import random
 from typing import List, Tuple
 
 import numpy as np
-
 from config import passenger_size, station_color, station_shape_type_list, station_size
 from geometry.circle import Circle
 from geometry.cross import Cross

@@ -1,7 +1,6 @@
 from typing import List
 
 import pygame
-
 from config import (
     button_color,
     button_size,

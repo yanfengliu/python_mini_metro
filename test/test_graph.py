@@ -8,7 +8,6 @@ from entity.get_entity import get_random_stations
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 import pygame
-
 from config import screen_height, screen_width, station_color, station_size
 from entity.station import Station
 from event.mouse import MouseEvent

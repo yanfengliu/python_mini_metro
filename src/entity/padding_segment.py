@@ -1,10 +1,8 @@
-import pygame
-from shortuuid import uuid  # type: ignore
-
 from config import path_width
 from entity.segment import Segment
 from geometry.line import Line
 from geometry.point import Point
+from shortuuid import uuid  # type: ignore
 from type import Color
 
 

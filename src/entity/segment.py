@@ -3,12 +3,10 @@ from __future__ import annotations
 from abc import ABC
 
 import pygame
-from shortuuid import uuid  # type: ignore
-
-from config import screen_height, screen_width
 from entity.station import Station
 from geometry.line import Line
 from geometry.point import Point
+from shortuuid import uuid  # type: ignore
 from type import Color
 
 

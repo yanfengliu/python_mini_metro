@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import Set
 
-from shortuuid import uuid  # type: ignore
-
 from entity.path import Path
 from entity.station import Station
+from shortuuid import uuid  # type: ignore
 
 
 class Node:

@@ -4,7 +4,6 @@ from abc import ABC
 from typing import List
 
 import pygame
-
 from config import passenger_display_buffer, passenger_size
 from entity.passenger import Passenger
 from geometry.point import Point

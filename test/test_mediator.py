@@ -14,7 +14,6 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 from math import ceil
 
 import pygame
-
 from config import (
     framerate,
     passenger_spawning_interval_step,

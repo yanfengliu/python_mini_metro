@@ -2,8 +2,6 @@ import math
 from typing import List
 
 import pygame
-from shortuuid import uuid  # type: ignore
-
 from config import path_width
 from entity.metro import Metro
 from entity.padding_segment import PaddingSegment
@@ -13,6 +11,7 @@ from entity.station import Station
 from geometry.line import Line
 from geometry.point import Point
 from geometry.utils import direction, distance
+from shortuuid import uuid  # type: ignore
 from type import Color
 
 
