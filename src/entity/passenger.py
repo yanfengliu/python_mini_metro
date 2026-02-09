@@ -10,6 +10,7 @@ class Passenger:
         self.position = Point(0, 0)
         self.destination_shape = destination_shape
         self.is_at_destination = False
+        self.wait_ms = 0
 
     def __repr__(self) -> str:
         return f"{self.id}-{self.destination_shape.type}"

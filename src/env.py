@@ -35,7 +35,7 @@ class MiniMetroEnv:
         obs = self.observe()
         reward = self.mediator.score - self.last_score
         self.last_score = self.mediator.score
-        done = False
+        done = self.mediator.is_game_over
         info = {"action_ok": action_ok}
         return obs, reward, done, info
 
@@ -112,6 +112,7 @@ class MiniMetroEnv:
             "time_ms": self.mediator.time_ms,
             "steps": self.mediator.steps,
             "is_paused": self.mediator.is_paused,
+            "is_game_over": self.mediator.is_game_over,
             "index": {
                 "station_id_to_index": station_id_to_index,
                 "path_id_to_index": path_id_to_index,

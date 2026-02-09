@@ -18,8 +18,8 @@ class TestAgentPlay(unittest.TestCase):
         self.assertIsInstance(final_score, int)
         self.assertEqual(record.final_score, final_score)
         self.assertEqual(record.max_steps, 5)
-        self.assertEqual(len(record.actions), 5)
-        self.assertEqual(len(record.steps), 5)
+        self.assertLessEqual(len(record.actions), 5)
+        self.assertLessEqual(len(record.steps), 5)
 
     def test_replay_playthrough_is_deterministic(self):
         final_score, record = run_agent_playthrough(seed=42, max_steps=10, dt_ms=1)

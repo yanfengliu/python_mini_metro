@@ -30,6 +30,9 @@ def run_game(max_frames: int | None = None) -> None:
 
         pygame.display.flip()
 
+        if mediator.is_game_over:
+            break
+
         if max_frames is not None:
             frames += 1
             if frames >= max_frames:

@@ -327,5 +327,16 @@ class TestEnv(unittest.TestCase):
 
         self.assertEqual(locations[passenger_station.id], ("station", station_a.id))
         self.assertEqual(locations[passenger_metro.id], ("metro", metro.id))
+
+    def test_game_over_when_waiting_too_long(self):
+        env = MiniMetroEnv()
+        env.reset(seed=15)
+        env.mediator.passenger_max_wait_time_ms = 0
+        env.mediator.max_waiting_passengers = 1
+
+        _, _, done, _ = env.step({"type": "noop"}, dt_ms=1)
+
+        self.assertTrue(done)
+        self.assertTrue(env.mediator.is_game_over)
 if __name__ == "__main__":
     unittest.main()

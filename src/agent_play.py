@@ -38,6 +38,7 @@ class PlaythroughStep:
     reward: int
     score: int
     time_ms: int
+    is_done: bool
 
 
 @dataclass
@@ -70,7 +71,7 @@ def run_agent_playthrough(
 
     for _ in range(max_steps):
         action = agent.act(observation)
-        observation, reward, _, _ = env.step(action, dt_ms=dt_ms)
+        observation, reward, done, _ = env.step(action, dt_ms=dt_ms)
         record.actions.append(action)
         record.steps.append(
             PlaythroughStep(
@@ -78,8 +79,11 @@ def run_agent_playthrough(
                 reward=reward,
                 score=observation["structured"]["score"],
                 time_ms=observation["structured"]["time_ms"],
+                is_done=done,
             )
         )
+        if done:
+            break
 
     record.final_score = env.mediator.score
     return record.final_score, record
@@ -101,8 +105,10 @@ def iter_playthrough_observations(
         actions = actions[:max_steps]
 
     for action in actions:
-        observation, _, _, _ = env.step(action, dt_ms=record.dt_ms)
+        observation, _, done, _ = env.step(action, dt_ms=record.dt_ms)
         yield observation
+        if done:
+            break
 
 
 def replay_playthrough(

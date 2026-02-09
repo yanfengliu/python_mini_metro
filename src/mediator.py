@@ -5,10 +5,12 @@ from typing import Dict, List
 
 import pygame
 from config import (
+    max_waiting_passengers,
     num_metros,
     num_paths,
     num_stations,
     passenger_color,
+    passenger_max_wait_time_ms,
     passenger_size,
     passenger_spawning_interval_step,
     passenger_spawning_start_step,
@@ -73,6 +75,9 @@ class Mediator:
         self.travel_plans: TravelPlans = {}
         self.is_paused = False
         self.score = 0
+        self.is_game_over = False
+        self.passenger_max_wait_time_ms = passenger_max_wait_time_ms
+        self.max_waiting_passengers = max_waiting_passengers
 
     def step_time(self, dt_ms: int) -> None:
         self.increment_time(dt_ms)
@@ -351,6 +356,7 @@ class Mediator:
 
         self.find_travel_plan_for_passengers()
         self.move_passengers()
+        self.update_waiting_and_game_over(dt_ms)
 
     def move_passengers(self) -> None:
         for metro in self.metros:
@@ -389,6 +395,7 @@ class Mediator:
                 for passenger in passengers_from_metro_to_station:
                     if metro.current_station.has_room():
                         metro.move_passenger(passenger, metro.current_station)
+                        passenger.wait_ms = 0
                         self.travel_plans[passenger].increment_next_station()
                         self.find_next_path_for_passenger_at_station(
                             passenger, metro.current_station
@@ -397,6 +404,21 @@ class Mediator:
                 for passenger in passengers_from_station_to_metro:
                     if metro.has_room():
                         metro.current_station.move_passenger(passenger, metro)
+                        passenger.wait_ms = 0
+
+    def update_waiting_and_game_over(self, dt_ms: int) -> None:
+        if self.is_game_over:
+            return
+
+        waiting_over_limit = 0
+        for station in self.stations:
+            for passenger in station.passengers:
+                passenger.wait_ms += dt_ms
+                if passenger.wait_ms >= self.passenger_max_wait_time_ms:
+                    waiting_over_limit += 1
+
+        if waiting_over_limit >= self.max_waiting_passengers:
+            self.is_game_over = True
 
     def get_stations_for_shape_type(self, shape_type: ShapeType) -> List[Station]:
         stations = [

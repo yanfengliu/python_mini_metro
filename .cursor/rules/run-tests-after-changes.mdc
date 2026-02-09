@@ -4,6 +4,4 @@ alwaysApply: true
 ---
 # Run tests after changes
 
-- After making substantive code changes, run the relevant tests (targeted or full).
-- If tests are too slow or cannot be run, explain why and suggest a follow-up.
-- Prefer the smallest test set that covers the changes; use full suite when unsure.
+- After making any code changes, run all the tests. Fix any broken tests. Add tests to keep coverage at 100%.
