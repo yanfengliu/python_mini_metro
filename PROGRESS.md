@@ -9,10 +9,7 @@
 - Added passenger wait tracking plus tests for game-over behavior.
 - Added game-over overlay rendering with final score display and main loop freeze on game-over.
 - Added mediator test coverage for game-over overlay rendering.
-- Added restart/exit hints on game-over screen with key handling for restart and exit.
-- Added clickable restart/exit buttons on game-over screen with click handling.
+- Added clickable restart/exit buttons on game-over screen with click handling and keyboard shortcuts.
 
 Tests:
-- `python -m unittest -v test.test_env`
-- `python -m unittest -v test.test_agent_play`
 - `python -m unittest -v`
