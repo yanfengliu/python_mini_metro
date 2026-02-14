@@ -417,12 +417,14 @@ class TestMediator(unittest.TestCase):
         mediator.travel_plans[passenger_to_metro] = TravelPlan([Node(station_b)])
         mediator.travel_plans[passenger_to_metro].next_path = path
 
+        self.assertEqual(mediator.total_travels_handled, 0)
         mediator.move_passengers()
 
         self.assertNotIn(passenger_at_destination, mediator.passengers)
         self.assertTrue(passenger_at_destination.is_at_destination)
         self.assertNotIn(passenger_at_destination, mediator.travel_plans)
         self.assertEqual(mediator.score, 1)
+        self.assertEqual(mediator.total_travels_handled, 1)
 
         self.assertIn(passenger_to_station, station_a.passengers)
         self.assertNotIn(passenger_to_station, metro.passengers)
@@ -430,6 +432,23 @@ class TestMediator(unittest.TestCase):
 
         self.assertIn(passenger_to_metro, metro.passengers)
         self.assertNotIn(passenger_to_metro, station_a.passengers)
+
+    def test_move_passengers_increments_total_travels_per_delivery(self):
+        mediator, station_a, _, _, metro = self._build_two_station_mediator()
+
+        passenger_one = Passenger(station_a.shape)
+        passenger_two = Passenger(station_a.shape)
+        metro.add_passenger(passenger_one)
+        metro.add_passenger(passenger_two)
+        mediator.passengers.extend([passenger_one, passenger_two])
+        mediator.travel_plans[passenger_one] = TravelPlan([Node(station_a)])
+        mediator.travel_plans[passenger_two] = TravelPlan([Node(station_a)])
+
+        self.assertEqual(mediator.total_travels_handled, 0)
+        mediator.move_passengers()
+
+        self.assertEqual(mediator.score, 2)
+        self.assertEqual(mediator.total_travels_handled, 2)
 
     def test_find_shared_path_returns_none(self):
         mediator = Mediator()

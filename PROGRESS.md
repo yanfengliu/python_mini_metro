@@ -13,3 +13,14 @@
 
 Tests:
 - `python -m unittest -v`
+
+## 2026-02-14
+
+- Added progressive metro line unlock milestones tied to cumulative travels handled: 1 line at start, then 2/3/4 at 100/250/500 travels.
+- Switched line colors to runtime-randomized color allocation so each run can produce a different line color set.
+- Updated mediator and environment tests to account for progressive line unlocking and added dedicated milestone progression coverage.
+- Added game rules documentation in `GAME_RULES.md` describing unlock thresholds and randomized line color behavior.
+- Added targeted tests to verify `total_travels_handled` increments correctly on passenger delivery in both mediator and environment flows.
+
+Tests:
+- `python -m unittest -v`

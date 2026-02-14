@@ -152,6 +152,8 @@ class TestMediator(unittest.TestCase):
         self.mediator.stations = get_random_stations(5)
         for station in self.mediator.stations:
             station.draw(self.screen)
+        self.mediator.total_travels_handled = 500
+        self.mediator.update_unlocked_num_paths()
         self.connect_stations([0, 1])
         self.assertEqual(len(self.mediator.path_to_button.items()), 1)
         self.assertIn(self.mediator.paths[0], self.mediator.path_to_button)
@@ -169,6 +171,8 @@ class TestMediator(unittest.TestCase):
         self.mediator.stations = get_random_stations(5)
         for station in self.mediator.stations:
             station.draw(self.screen)
+        self.mediator.total_travels_handled = 500
+        self.mediator.update_unlocked_num_paths()
         self.connect_stations([0, 1])
         self.connect_stations([2, 3])
         self.connect_stations([1, 4])
@@ -183,6 +187,8 @@ class TestMediator(unittest.TestCase):
         self.mediator.stations = get_random_stations(5)
         for station in self.mediator.stations:
             station.draw(self.screen)
+        self.mediator.total_travels_handled = 500
+        self.mediator.update_unlocked_num_paths()
         self.connect_stations([0, 1])
         self.connect_stations([2, 3])
         self.connect_stations([1, 4])

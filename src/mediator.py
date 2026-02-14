@@ -8,6 +8,7 @@ from config import (
     max_waiting_passengers,
     num_metros,
     num_paths,
+    path_unlock_milestones,
     num_stations,
     passenger_color,
     passenger_max_wait_time_ms,
@@ -57,6 +58,7 @@ class Mediator:
         self.passenger_spawning_step = passenger_spawning_start_step
         self.passenger_spawning_interval_step = passenger_spawning_interval_step
         self.num_paths = num_paths
+        self.path_unlock_milestones = sorted(path_unlock_milestones)
         self.num_metros = num_metros
         self.num_stations = num_stations
 
@@ -78,8 +80,10 @@ class Mediator:
         self.paths: List[Path] = []
         self.passengers: List[Passenger] = []
         self.path_colors: Dict[Color, bool] = {}
-        for i in range(num_paths):
-            color = hue_to_rgb(i / (num_paths + 1))
+        for _ in range(num_paths):
+            color = hue_to_rgb(random.random())
+            while color in self.path_colors:
+                color = hue_to_rgb(random.random())
             self.path_colors[color] = False  # not taken
         self.path_to_color: Dict[Path, Color] = {}
 
@@ -93,9 +97,24 @@ class Mediator:
         self.travel_plans: TravelPlans = {}
         self.is_paused = False
         self.score = 0
+        self.total_travels_handled = 0
+        self.unlocked_num_paths = self.get_unlocked_num_paths()
         self.is_game_over = False
         self.passenger_max_wait_time_ms = passenger_max_wait_time_ms
         self.max_waiting_passengers = max_waiting_passengers
+
+    def get_unlocked_num_paths(self) -> int:
+        return max(
+            1,
+            sum(
+                1
+                for milestone in self.path_unlock_milestones
+                if self.total_travels_handled >= milestone
+            ),
+        )
+
+    def update_unlocked_num_paths(self) -> None:
+        self.unlocked_num_paths = self.get_unlocked_num_paths()
 
     def step_time(self, dt_ms: int) -> None:
         self.increment_time(dt_ms)
@@ -282,10 +301,12 @@ class Mediator:
         return False
 
     def start_path_on_station(self, station: Station) -> None:
-        if len(self.paths) < self.num_paths:
+        if len(self.paths) < self.unlocked_num_paths:
             self.is_creating_path = True
             assigned_color = (0, 0, 0)
-            for path_color, taken in self.path_colors.items():
+            available_colors = list(self.path_colors.keys())[: self.unlocked_num_paths]
+            for path_color in available_colors:
+                taken = self.path_colors[path_color]
                 if not taken:
                     assigned_color = path_color
                     self.path_colors[path_color] = True
@@ -300,7 +321,7 @@ class Mediator:
     def create_path_from_station_indices(
         self, station_indices: List[int], loop: bool = False
     ) -> Path | None:
-        if len(station_indices) < 2 or len(self.paths) >= self.num_paths:
+        if len(station_indices) < 2 or len(self.paths) >= self.unlocked_num_paths:
             return None
         if any(
             idx < 0 or idx >= len(self.stations) for idx in station_indices
@@ -489,6 +510,8 @@ class Mediator:
                     self.passengers.remove(passenger)
                     del self.travel_plans[passenger]
                     self.score += 1
+                    self.total_travels_handled += 1
+                    self.update_unlocked_num_paths()
 
                 for passenger in passengers_from_metro_to_station:
                     if metro.current_station.has_room():

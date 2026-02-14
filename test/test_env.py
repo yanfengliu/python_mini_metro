@@ -229,6 +229,8 @@ class TestEnv(unittest.TestCase):
     def test_path_creation_limit(self):
         env = MiniMetroEnv()
         env.reset(seed=12)
+        env.mediator.total_travels_handled = 500
+        env.mediator.update_unlocked_num_paths()
         for idx in range(env.mediator.num_paths):
             _, _, _, info = env.step(
                 {"type": "create_path", "stations": [idx, idx + 1], "loop": False}
@@ -240,6 +242,28 @@ class TestEnv(unittest.TestCase):
         )
         self.assertFalse(info["action_ok"])
         self.assertEqual(len(env.mediator.paths), env.mediator.num_paths)
+
+    def test_path_unlock_progression_uses_total_travels(self):
+        env = MiniMetroEnv()
+        env.reset(seed=16)
+
+        self.assertEqual(env.mediator.unlocked_num_paths, 1)
+
+        env.mediator.total_travels_handled = 99
+        env.mediator.update_unlocked_num_paths()
+        self.assertEqual(env.mediator.unlocked_num_paths, 1)
+
+        env.mediator.total_travels_handled = 100
+        env.mediator.update_unlocked_num_paths()
+        self.assertEqual(env.mediator.unlocked_num_paths, 2)
+
+        env.mediator.total_travels_handled = 250
+        env.mediator.update_unlocked_num_paths()
+        self.assertEqual(env.mediator.unlocked_num_paths, 3)
+
+        env.mediator.total_travels_handled = 500
+        env.mediator.update_unlocked_num_paths()
+        self.assertEqual(env.mediator.unlocked_num_paths, 4)
 
     def test_reward_increments_on_passenger_delivery(self):
         env = MiniMetroEnv()
@@ -280,6 +304,7 @@ class TestEnv(unittest.TestCase):
         self.assertTrue(info["action_ok"])
         self.assertEqual(reward, 1)
         self.assertEqual(env.mediator.score, 1)
+        self.assertEqual(env.mediator.total_travels_handled, 1)
         self.assertEqual(len(env.mediator.passengers), 0)
 
     def test_observation_passenger_locations(self):
