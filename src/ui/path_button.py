@@ -54,7 +54,11 @@ class PathButton(Button):
         if locked:
             self.cross = None
             self.path = None
-        self.shape.color = button_color
+            self.shape.color = button_color
+        elif self.path:
+            self.shape.color = self.path.color
+        else:
+            self.shape.color = button_color
 
     def draw(self, surface: pygame.surface.Surface) -> None:
         if self.is_locked and isinstance(self.shape, Circle):

@@ -27,6 +27,8 @@ Tests:
 - Added mediator logic to spawn newly unlocked stations from a pre-generated station pool while preserving existing station/path state.
 - Updated gameplay/environment tests for dynamic station counts and added mediator coverage for station unlock milestones.
 - Updated `GAME_RULES.md` with station unlock progression details.
+- Fixed path button color regression so unlocked line buttons keep the assigned metro line color instead of being reset to default gray on lock-state refresh.
+- Added regression coverage in `test/test_coverage_utils.py` to verify assigned path button color persists when unlocked.
 
 Tests:
 - `python -m unittest -v`

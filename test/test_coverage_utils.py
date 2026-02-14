@@ -107,6 +107,14 @@ class TestCoverageUtils(unittest.TestCase):
         button.draw(self.screen)
         button.cross.draw.assert_called_once()
 
+    def test_path_button_keeps_assigned_color_when_unlocked(self):
+        button = PathButton(Circle(button_color, button_size), Point(0, 0))
+        path = MagicMock()
+        path.color = (10, 20, 30)
+        button.assign_path(path)
+        button.set_locked(False)
+        self.assertEqual(button.shape.color, path.color)
+
     def test_get_path_buttons_positions(self):
         buttons = get_path_buttons(2)
         self.assertEqual(len(buttons), 2)
