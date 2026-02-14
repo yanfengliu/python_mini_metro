@@ -99,6 +99,7 @@ class Mediator:
         self.score = 0
         self.total_travels_handled = 0
         self.unlocked_num_paths = self.get_unlocked_num_paths()
+        self.update_path_button_lock_states()
         self.is_game_over = False
         self.passenger_max_wait_time_ms = passenger_max_wait_time_ms
         self.max_waiting_passengers = max_waiting_passengers
@@ -115,6 +116,11 @@ class Mediator:
 
     def update_unlocked_num_paths(self) -> None:
         self.unlocked_num_paths = self.get_unlocked_num_paths()
+        self.update_path_button_lock_states()
+
+    def update_path_button_lock_states(self) -> None:
+        for idx, button in enumerate(self.path_buttons):
+            button.set_locked(idx >= self.unlocked_num_paths)
 
     def step_time(self, dt_ms: int) -> None:
         self.increment_time(dt_ms)
@@ -127,6 +133,7 @@ class Mediator:
         for path, button in zip(self.paths, self.path_buttons):
             button.assign_path(path)
             self.path_to_button[path] = button
+        self.update_path_button_lock_states()
 
     def render(self, screen: pygame.surface.Surface) -> None:
         for idx, path in enumerate(self.paths):

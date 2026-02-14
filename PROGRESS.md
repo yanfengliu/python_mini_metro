@@ -22,6 +22,7 @@ Tests:
 - Added game rules documentation in `GAME_RULES.md` describing unlock thresholds and randomized line color behavior.
 - Added targeted tests to verify `total_travels_handled` increments correctly on passenger delivery in both mediator and environment flows.
 - Expanded `GAME_RULES.md` into a full implementation-aligned rules reference covering objective, stations/passengers, lines/metros, progression, routing, spawning, game-over, controls, and programmatic actions.
+- Updated locked path button visuals to draw as empty ring outlines (edge-only) instead of filled circles, and synchronized lock state updates with unlock progression.
 
 Tests:
 - `python -m unittest -v`

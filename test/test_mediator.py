@@ -15,6 +15,7 @@ from math import ceil
 
 import pygame
 from config import (
+    button_color,
     framerate,
     passenger_spawning_interval_step,
     passenger_spawning_start_step,
@@ -449,6 +450,24 @@ class TestMediator(unittest.TestCase):
 
         self.assertEqual(mediator.score, 2)
         self.assertEqual(mediator.total_travels_handled, 2)
+
+    def test_initial_path_button_locks_match_unlocked_lines(self):
+        mediator = Mediator()
+        self.assertEqual(mediator.unlocked_num_paths, 1)
+        self.assertFalse(mediator.path_buttons[0].is_locked)
+        for button in mediator.path_buttons[1:]:
+            self.assertTrue(button.is_locked)
+            self.assertEqual(button.shape.color, button_color)
+
+    def test_update_unlocked_paths_updates_button_locks(self):
+        mediator = Mediator()
+        mediator.total_travels_handled = 100
+        mediator.update_unlocked_num_paths()
+        self.assertEqual(mediator.unlocked_num_paths, 2)
+        self.assertFalse(mediator.path_buttons[0].is_locked)
+        self.assertFalse(mediator.path_buttons[1].is_locked)
+        for button in mediator.path_buttons[2:]:
+            self.assertTrue(button.is_locked)
 
     def test_find_shared_path_returns_none(self):
         mediator = Mediator()

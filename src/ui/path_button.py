@@ -8,6 +8,7 @@ from config import (
     path_button_cross_size,
     path_button_cross_width,
     path_button_dist_to_bottom,
+    path_button_locked_ring_width,
     path_button_start_left,
 )
 from entity.path import Path
@@ -25,11 +26,13 @@ class PathButton(Button):
         self.path: Path | None = None
         self.cross: Cross | None = None
         self.show_cross = False
+        self.is_locked = False
 
     def remove_path(self) -> None:
         self.cross = None
         self.path = None
-        self.shape.color = button_color
+        if not self.is_locked:
+            self.shape.color = button_color
 
     def assign_path(self, path: Path) -> None:
         self.cross = Cross((0, 0, 0), path_button_cross_size, path_button_cross_width)
@@ -46,8 +49,25 @@ class PathButton(Button):
     def on_click(self) -> None:
         self.remove_path()
 
+    def set_locked(self, locked: bool) -> None:
+        self.is_locked = locked
+        if locked:
+            self.cross = None
+            self.path = None
+        self.shape.color = button_color
+
     def draw(self, surface: pygame.surface.Surface) -> None:
-        super().draw(surface)
+        if self.is_locked and isinstance(self.shape, Circle):
+            self.shape.position = self.position
+            pygame.draw.circle(
+                surface,
+                self.shape.color,
+                self.position.to_tuple(),
+                self.shape.radius,
+                path_button_locked_ring_width,
+            )
+        else:
+            super().draw(surface)
         if self.cross and self.show_cross and self.path:
             self.cross.draw(surface, self.position)
 

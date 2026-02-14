@@ -54,6 +54,7 @@ path_button_dist_to_bottom = 50
 path_button_start_left = 500
 path_button_cross_size = 25
 path_button_cross_width = 5
+path_button_locked_ring_width = 5
 
 # text
 score_font_size = 50
