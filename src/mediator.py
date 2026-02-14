@@ -166,8 +166,10 @@ class Mediator:
         self.update_path_button_lock_states()
 
     def render(self, screen: pygame.surface.Surface) -> None:
+        active_path_count = len(self.paths)
         for idx, path in enumerate(self.paths):
-            path_order = idx - round(self.num_paths / 2)
+            # Keep active paths centered so a single path has zero offset.
+            path_order = idx - (active_path_count // 2)
             path.draw(screen, path_order)
         for station in self.stations:
             station.draw(screen)

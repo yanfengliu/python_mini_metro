@@ -29,6 +29,8 @@ Tests:
 - Updated `GAME_RULES.md` with station unlock progression details.
 - Fixed path button color regression so unlocked line buttons keep the assigned metro line color instead of being reset to default gray on lock-state refresh.
 - Added regression coverage in `test/test_coverage_utils.py` to verify assigned path button color persists when unlocked.
+- Fixed path rendering order centering so active paths are offset around zero based on current path count, preventing single-path geometry from self-crossing due to forced negative offsets.
+- Added mediator rendering regression tests to verify centered path offsets for one-path and three-path cases.
 
 Tests:
 - `python -m unittest -v`

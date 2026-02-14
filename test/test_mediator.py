@@ -259,6 +259,33 @@ class TestMediator(unittest.TestCase):
         self.assertIn(metro, mediator.metros)
         self.assertIn(path, mediator.paths)
 
+    def test_render_single_path_uses_zero_centered_offset(self):
+        mediator, _, _, path, _ = self._build_two_station_mediator()
+        mediator.stations = []
+        mediator.metros = []
+        mediator.buttons = []
+        path.draw = MagicMock()
+
+        mediator.render(self.screen)
+
+        path.draw.assert_called_once_with(self.screen, 0)
+
+    def test_render_three_paths_uses_centered_offsets(self):
+        mediator = Mediator()
+        mediator.stations = []
+        mediator.metros = []
+        mediator.buttons = []
+        path_a = MagicMock()
+        path_b = MagicMock()
+        path_c = MagicMock()
+        mediator.paths = [path_a, path_b, path_c]
+
+        mediator.render(self.screen)
+
+        path_a.draw.assert_called_once_with(self.screen, -1)
+        path_b.draw.assert_called_once_with(self.screen, 0)
+        path_c.draw.assert_called_once_with(self.screen, 1)
+
     def test_render_game_over_overlay(self):
         mediator = Mediator()
         mediator.paths = []
