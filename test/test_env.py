@@ -299,6 +299,9 @@ class TestEnv(unittest.TestCase):
 
         env.mediator.passenger_spawning_step = 999999
         env.mediator.passenger_spawning_interval_step = 999999
+        for station in env.mediator.stations:
+            env.mediator.station_steps_since_last_spawn[station] = 0
+            env.mediator.station_spawn_interval_steps[station] = 999999
 
         _, reward, _, info = env.step({"type": "noop"}, dt_ms=1)
 

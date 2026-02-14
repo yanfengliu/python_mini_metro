@@ -31,6 +31,8 @@ Tests:
 - Added regression coverage in `test/test_coverage_utils.py` to verify assigned path button color persists when unlocked.
 - Fixed path rendering order centering so active paths are offset around zero based on current path count, preventing single-path geometry from self-crossing due to forced negative offsets.
 - Added mediator rendering regression tests to verify centered path offsets for one-path and three-path cases.
+- Switched passenger spawning from one global cadence to per-station rhythms by tracking station-specific spawn intervals/timers and spawning passengers independently per station.
+- Updated mediator/env tests for the new spawning model and added dedicated coverage asserting independent station spawn rhythms.
 
 Tests:
 - `python -m unittest -v`

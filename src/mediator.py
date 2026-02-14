@@ -95,7 +95,9 @@ class Mediator:
         # status
         self.time_ms = 0
         self.steps = 0
-        self.steps_since_last_spawn = self.passenger_spawning_interval_step + 1
+        self.station_steps_since_last_spawn: Dict[Station, int] = {}
+        self.station_spawn_interval_steps: Dict[Station, int] = {}
+        self.initialize_station_spawning_state(self.all_stations)
         self.is_mouse_down = False
         self.is_creating_path = False
         self.path_being_created: Path | None = None
@@ -471,14 +473,37 @@ class Mediator:
         return list(dict.fromkeys(station.shape.type for station in self.stations))
 
     def is_passenger_spawn_time(self) -> bool:
+        return any(self.should_spawn_passenger_at_station(station) for station in self.stations)
+
+    def initialize_station_spawning_state(self, stations: List[Station]) -> None:
+        for station in stations:
+            if station not in self.station_spawn_interval_steps:
+                self.station_spawn_interval_steps[station] = (
+                    self.get_station_spawn_interval_step()
+                )
+            if station not in self.station_steps_since_last_spawn:
+                self.station_steps_since_last_spawn[station] = (
+                    self.station_spawn_interval_steps[station]
+                )
+
+    def get_station_spawn_interval_step(self) -> int:
+        min_interval = max(1, int(self.passenger_spawning_interval_step * 0.7))
+        max_interval = max(min_interval, int(self.passenger_spawning_interval_step * 1.3))
+        return random.randint(min_interval, max_interval)
+
+    def should_spawn_passenger_at_station(self, station: Station) -> bool:
+        self.initialize_station_spawning_state([station])
         return (
             self.steps == self.passenger_spawning_step
-            or self.steps_since_last_spawn == self.passenger_spawning_interval_step
+            or self.station_steps_since_last_spawn[station]
+            >= self.station_spawn_interval_steps[station]
         )
 
     def spawn_passengers(self) -> None:
         station_types = self.get_station_shape_types()
         for station in self.stations:
+            if not self.should_spawn_passenger_at_station(station):
+                continue
             other_station_shape_types = [
                 shape_type
                 for shape_type in station_types
@@ -492,6 +517,7 @@ class Mediator:
             if station.has_room():
                 station.add_passenger(passenger)
                 self.passengers.append(passenger)
+            self.station_steps_since_last_spawn[station] = 0
 
     def increment_time(self, dt_ms: int) -> None:
         if self.is_paused:
@@ -500,7 +526,9 @@ class Mediator:
         # record time
         self.time_ms += dt_ms
         self.steps += 1
-        self.steps_since_last_spawn += 1
+        self.initialize_station_spawning_state(self.stations)
+        for station in self.stations:
+            self.station_steps_since_last_spawn[station] += 1
 
         # move metros
         for path in self.paths:
@@ -510,7 +538,6 @@ class Mediator:
         # spawn passengers
         if self.is_passenger_spawn_time():
             self.spawn_passengers()
-            self.steps_since_last_spawn = 0
 
         self.find_travel_plan_for_passengers()
         self.move_passengers()

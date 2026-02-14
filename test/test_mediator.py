@@ -112,17 +112,59 @@ class TestMediator(unittest.TestCase):
         self.assertEqual(len(self.mediator.passengers), len(self.mediator.stations))
 
     def test_is_passenger_spawn_time(self):
-        self.mediator.spawn_passengers = MagicMock()
-        # Run the game until first wave of passengers spawn
+        for station in self.mediator.stations:
+            self.mediator.station_spawn_interval_steps[station] = (
+                passenger_spawning_interval_step
+            )
+            self.mediator.station_steps_since_last_spawn[station] = 0
+
+        # Run until first wave of passengers spawn.
         for _ in range(passenger_spawning_start_step):
             self.mediator.increment_time(ceil(1000 / framerate))
 
-        self.mediator.spawn_passengers.assert_called_once()
+        self.assertEqual(
+            len(self.mediator.passengers),
+            len(self.mediator.stations),
+        )
 
-        for _ in range(passenger_spawning_interval_step):
+        for _ in range(passenger_spawning_interval_step - 1):
             self.mediator.increment_time(ceil(1000 / framerate))
 
-        self.assertEqual(self.mediator.spawn_passengers.call_count, 2)
+        self.assertEqual(
+            len(self.mediator.passengers),
+            len(self.mediator.stations),
+        )
+
+        self.mediator.increment_time(ceil(1000 / framerate))
+        self.assertEqual(
+            len(self.mediator.passengers),
+            2 * len(self.mediator.stations),
+        )
+
+    def test_stations_spawn_with_independent_rhythms(self):
+        mediator = Mediator()
+        mediator.passenger_spawning_step = 999999
+
+        for idx, station in enumerate(mediator.stations):
+            mediator.station_steps_since_last_spawn[station] = 0
+            mediator.station_spawn_interval_steps[station] = 999999
+            if idx == 0:
+                mediator.station_spawn_interval_steps[station] = 2
+            elif idx == 1:
+                mediator.station_spawn_interval_steps[station] = 4
+
+        dt_ms = ceil(1000 / framerate)
+        mediator.increment_time(dt_ms)
+        mediator.increment_time(dt_ms)
+
+        self.assertEqual(len(mediator.stations[0].passengers), 1)
+        self.assertEqual(len(mediator.stations[1].passengers), 0)
+
+        mediator.increment_time(dt_ms)
+        mediator.increment_time(dt_ms)
+
+        self.assertEqual(len(mediator.stations[0].passengers), 2)
+        self.assertEqual(len(mediator.stations[1].passengers), 1)
 
     def test_passengers_spawned_at_a_station_have_a_different_destination(self):
         # Run the game until first wave of passengers spawn
