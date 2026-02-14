@@ -23,6 +23,10 @@ Tests:
 - Added targeted tests to verify `total_travels_handled` increments correctly on passenger delivery in both mediator and environment flows.
 - Expanded `GAME_RULES.md` into a full implementation-aligned rules reference covering objective, stations/passengers, lines/metros, progression, routing, spawning, game-over, controls, and programmatic actions.
 - Updated locked path button visuals to draw as empty ring outlines (edge-only) instead of filled circles, and synchronized lock state updates with unlock progression.
+- Added station progression tied to cumulative travels: start with 3 stations, then unlock additional stations at 30, 80, 150, 240, ... travels (increment +20 each unlock) up to 10 stations.
+- Added mediator logic to spawn newly unlocked stations from a pre-generated station pool while preserving existing station/path state.
+- Updated gameplay/environment tests for dynamic station counts and added mediator coverage for station unlock milestones.
+- Updated `GAME_RULES.md` with station unlock progression details.
 
 Tests:
 - `python -m unittest -v`

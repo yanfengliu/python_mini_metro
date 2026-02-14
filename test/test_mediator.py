@@ -17,10 +17,13 @@ import pygame
 from config import (
     button_color,
     framerate,
+    initial_num_stations,
+    num_stations,
     passenger_spawning_interval_step,
     passenger_spawning_start_step,
     screen_height,
     screen_width,
+    station_unlock_milestones,
     station_color,
     station_size,
 )
@@ -468,6 +471,35 @@ class TestMediator(unittest.TestCase):
         self.assertFalse(mediator.path_buttons[1].is_locked)
         for button in mediator.path_buttons[2:]:
             self.assertTrue(button.is_locked)
+
+    def test_initial_station_unlock_state(self):
+        mediator = Mediator()
+        self.assertEqual(mediator.unlocked_num_stations, initial_num_stations)
+        self.assertEqual(len(mediator.stations), initial_num_stations)
+
+    def test_station_unlock_progression_uses_travel_thresholds(self):
+        mediator = Mediator()
+        self.assertEqual(station_unlock_milestones[:5], [30, 80, 150, 240, 350])
+
+        mediator.total_travels_handled = 29
+        mediator.update_unlocked_num_stations()
+        self.assertEqual(mediator.unlocked_num_stations, 3)
+        self.assertEqual(len(mediator.stations), 3)
+
+        mediator.total_travels_handled = 30
+        mediator.update_unlocked_num_stations()
+        self.assertEqual(mediator.unlocked_num_stations, 4)
+        self.assertEqual(len(mediator.stations), 4)
+
+        mediator.total_travels_handled = 80
+        mediator.update_unlocked_num_stations()
+        self.assertEqual(mediator.unlocked_num_stations, 5)
+        self.assertEqual(len(mediator.stations), 5)
+
+        mediator.total_travels_handled = station_unlock_milestones[-1]
+        mediator.update_unlocked_num_stations()
+        self.assertEqual(mediator.unlocked_num_stations, num_stations)
+        self.assertEqual(len(mediator.stations), num_stations)
 
     def test_find_shared_path_returns_none(self):
         mediator = Mediator()

@@ -10,6 +10,16 @@ screen_color = (255, 255, 255)
 
 # station
 num_stations = 10
+initial_num_stations = 3
+station_unlock_first_increment = 30
+station_unlock_increment_step = 20
+station_unlock_milestones = []
+_total_station_unlock_travels = 0
+_next_station_unlock_increment = station_unlock_first_increment
+for _ in range(initial_num_stations, num_stations):
+    _total_station_unlock_travels += _next_station_unlock_increment
+    station_unlock_milestones.append(_total_station_unlock_travels)
+    _next_station_unlock_increment += station_unlock_increment_step
 station_size = 30
 station_capacity = 12
 station_color = (0, 0, 0)

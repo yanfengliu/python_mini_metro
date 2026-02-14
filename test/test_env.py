@@ -231,6 +231,7 @@ class TestEnv(unittest.TestCase):
         env.reset(seed=12)
         env.mediator.total_travels_handled = 500
         env.mediator.update_unlocked_num_paths()
+        env.mediator.update_unlocked_num_stations()
         for idx in range(env.mediator.num_paths):
             _, _, _, info = env.step(
                 {"type": "create_path", "stations": [idx, idx + 1], "loop": False}

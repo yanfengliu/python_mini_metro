@@ -6,9 +6,11 @@ from typing import Dict, List
 import pygame
 from config import (
     max_waiting_passengers,
+    initial_num_stations,
     num_metros,
     num_paths,
     path_unlock_milestones,
+    station_unlock_milestones,
     num_stations,
     passenger_color,
     passenger_max_wait_time_ms,
@@ -61,6 +63,8 @@ class Mediator:
         self.path_unlock_milestones = sorted(path_unlock_milestones)
         self.num_metros = num_metros
         self.num_stations = num_stations
+        self.initial_num_stations = initial_num_stations
+        self.station_unlock_milestones = sorted(station_unlock_milestones)
 
         # UI
         self.path_buttons = get_path_buttons(self.num_paths)
@@ -75,7 +79,8 @@ class Mediator:
         self.game_over_exit_rect: pygame.Rect | None = None
 
         # entities
-        self.stations = get_random_stations(self.num_stations)
+        self.all_stations = self.get_initial_station_pool()
+        self.stations = self.all_stations[: self.initial_num_stations]
         self.metros: List[Metro] = []
         self.paths: List[Path] = []
         self.passengers: List[Passenger] = []
@@ -99,10 +104,35 @@ class Mediator:
         self.score = 0
         self.total_travels_handled = 0
         self.unlocked_num_paths = self.get_unlocked_num_paths()
+        self.unlocked_num_stations = self.get_unlocked_num_stations()
         self.update_path_button_lock_states()
         self.is_game_over = False
         self.passenger_max_wait_time_ms = passenger_max_wait_time_ms
         self.max_waiting_passengers = max_waiting_passengers
+
+    def get_initial_station_pool(self) -> List[Station]:
+        # Keep initial gameplay valid by guaranteeing at least two shape types.
+        while True:
+            stations = get_random_stations(self.num_stations)
+            initial_shapes = {
+                station.shape.type
+                for station in stations[: self.initial_num_stations]
+            }
+            if len(initial_shapes) >= 2:
+                return stations
+
+    def get_unlocked_num_stations(self) -> int:
+        unlocked = self.initial_num_stations + sum(
+            1
+            for milestone in self.station_unlock_milestones
+            if self.total_travels_handled >= milestone
+        )
+        return min(unlocked, self.num_stations)
+
+    def update_unlocked_num_stations(self) -> None:
+        self.unlocked_num_stations = self.get_unlocked_num_stations()
+        if self.unlocked_num_stations > len(self.stations):
+            self.stations = self.all_stations[: self.unlocked_num_stations]
 
     def get_unlocked_num_paths(self) -> int:
         return max(
@@ -519,6 +549,7 @@ class Mediator:
                     self.score += 1
                     self.total_travels_handled += 1
                     self.update_unlocked_num_paths()
+                    self.update_unlocked_num_stations()
 
                 for passenger in passengers_from_metro_to_station:
                     if metro.current_station.has_room():

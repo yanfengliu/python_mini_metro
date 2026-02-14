@@ -48,6 +48,10 @@ class TestMediator(unittest.TestCase):
 
     def test_react_mouse_down_start_path(self):
         self.mediator.start_path_on_station = MagicMock()
+        self.mediator.total_travels_handled = 30
+        self.mediator.update_unlocked_num_stations()
+        for station in self.mediator.stations:
+            station.draw(self.screen)
         self.mediator.react(
             MouseEvent(
                 MouseEventType.MOUSE_DOWN,
@@ -112,6 +116,10 @@ class TestMediator(unittest.TestCase):
         self.assertTrue(self.mediator.paths[0].is_looped)
 
     def test_mouse_dragged_between_4_stations_creates_looped_path(self):
+        self.mediator.total_travels_handled = 30
+        self.mediator.update_unlocked_num_stations()
+        for station in self.mediator.stations:
+            station.draw(self.screen)
         self.connect_stations([0, 1, 2, 3, 0])
         self.assertEqual(len(self.mediator.paths), 1)
         self.assertTrue(self.mediator.paths[0].is_looped)

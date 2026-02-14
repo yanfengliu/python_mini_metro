@@ -9,7 +9,7 @@ This document summarizes the game rules currently implemented in code.
 
 ## Stations and Passengers
 
-- The map contains 10 stations.
+- The map starts with 3 stations and unlocks up to 10 as you handle more travels.
 - Station shapes are from: rectangle, circle, triangle, and cross.
 - Each station can hold up to 12 waiting passengers.
 - Passengers spawn with a destination shape that is different from their origin station shape.
@@ -39,6 +39,11 @@ This document summarizes the game rules currently implemented in code.
   - Unlock 2nd line at 100 travels.
   - Unlock 3rd line at 250 travels.
   - Unlock 4th line at 500 travels.
+- Unlocked stations are based on cumulative travels:
+  - Start with 3 stations.
+  - Unlock the 4th station at 30 travels.
+  - Then each next station requires +20 more travels than the previous unlock
+    (5th at 80, 6th at 150, 7th at 240, ...), up to 10 stations.
 - Line colors are randomized at runtime each run.
 
 ## Passenger Routing and Transfers
