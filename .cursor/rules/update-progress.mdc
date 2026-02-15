@@ -2,6 +2,6 @@
 description: Always keep progress updated
 alwaysApply: true
 ---
-Before you do anything, check `PROGRESS.md` for what is already done.
-After you do anything, update `PROGRESS.md` afterwards to keep track of what is done.
-This serves as long-term context.
+- Before you do anything, check `PROGRESS.md` for what is already done.
+- After you do anything, update `PROGRESS.md` afterwards to keep track of what is done. Keep the wording simple. Skip test related progress.
+- This serves as long-term context.

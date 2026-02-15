@@ -1,0 +1,4 @@
+---
+alwaysApply: false
+---
+- If the game mechanism changes in any way, update `GAME_RULES.md`.
