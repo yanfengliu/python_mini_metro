@@ -15,8 +15,9 @@ This repo uses `pygame-ce` to implement Mini Metro, a fun 2D strategic game wher
 * Press SPACE to pause / unpause the game.
 * Press `1`, `2`, or `3` to set game speed to 1x, 2x, or 4x.
 * View the score on the top left corner of the screen.
-* The number of grey circles on top of the screen is the number of availabel metro lines left.
-* Click on the colored circle at the top to cancel an established line.
+* The number of grey circles on bottom of the screen is the number of available metro lines left.
+* Click on the colored circle at the bottom to cancel an established line.
+* Click on the empty circles at the bottom to buy new lines with scores.
 
 ## To play programmatically
 Use the Gym-like environment in `src/env.py`:
