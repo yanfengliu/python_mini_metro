@@ -206,6 +206,17 @@ class Mediator:
         self.update_unlocked_num_paths()
         return True
 
+    def try_purchase_path_button_by_index(
+        self, button_idx: int | None = None
+    ) -> bool:
+        if button_idx is None:
+            button_idx = self.get_next_path_button_idx_to_purchase()
+        if button_idx is None:
+            return False
+        if button_idx < 0 or button_idx >= len(self.path_buttons):
+            return False
+        return self.try_purchase_path_button(self.path_buttons[button_idx])
+
     def step_time(self, dt_ms: int) -> None:
         self.increment_time(dt_ms)
 
@@ -524,6 +535,11 @@ class Mediator:
             stations = action.get("stations", [])
             loop = bool(action.get("loop", False))
             return self.create_path_from_station_indices(stations, loop) is not None
+        if action_type == "buy_line":
+            button_idx = action.get("path_index")
+            if button_idx is not None and not isinstance(button_idx, int):
+                return False
+            return self.try_purchase_path_button_by_index(button_idx)
         if action_type == "remove_path":
             if "path_id" in action:
                 return self.remove_path_by_id(action["path_id"])

@@ -264,6 +264,39 @@ class TestEnv(unittest.TestCase):
         self.assertTrue(env.mediator.try_purchase_path_button(second_button))
         self.assertEqual(env.mediator.unlocked_num_paths, 2)
 
+    def test_step_buy_line_purchases_next_locked_line(self):
+        env = MiniMetroEnv()
+        env.reset(seed=17)
+        env.mediator.score = env.mediator.path_purchase_prices[0]
+
+        _, _, _, info = env.step({"type": "buy_line"})
+
+        self.assertTrue(info["action_ok"])
+        self.assertEqual(env.mediator.unlocked_num_paths, 2)
+        self.assertFalse(env.mediator.path_buttons[1].is_locked)
+        self.assertEqual(env.mediator.score, 0)
+
+    def test_step_buy_line_supports_path_index(self):
+        env = MiniMetroEnv()
+        env.reset(seed=18)
+        env.mediator.score = env.mediator.path_purchase_prices[0]
+
+        _, _, _, info = env.step({"type": "buy_line", "path_index": 1})
+
+        self.assertTrue(info["action_ok"])
+        self.assertEqual(env.mediator.unlocked_num_paths, 2)
+
+    def test_step_buy_line_invalid_index_returns_false(self):
+        env = MiniMetroEnv()
+        env.reset(seed=19)
+        env.mediator.score = 10_000
+
+        _, _, _, info = env.step({"type": "buy_line", "path_index": "1"})
+        self.assertFalse(info["action_ok"])
+
+        _, _, _, info = env.step({"type": "buy_line", "path_index": 99})
+        self.assertFalse(info["action_ok"])
+
     def test_reward_increments_on_passenger_delivery(self):
         env = MiniMetroEnv()
         env.reset(seed=13)

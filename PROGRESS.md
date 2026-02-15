@@ -55,3 +55,4 @@
 - Updated game rules docs for purchase-based line unlocks and the new locked-button hover/click behavior.
 - Changed UI font usage to `courier` via shared `font_name` config.
 - Expanded `README.md` programmatic play docs to list the `MiniMetroEnv` API, action schemas, valid input constraints, and observation/step return fields.
+- Added programmatic `buy_line` action to purchase metro lines through `env.step(...)`, with optional `path_index` targeting and validation.

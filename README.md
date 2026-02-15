@@ -64,6 +64,13 @@ obs, reward, done, info = env.step({"type": "remove_path", "path_index": 0})
   - Valid only when `0 <= k < len(observation["structured"]["paths"])`.
 - `{"type": "remove_path", "path_id": "..."}` 
   - Removes an existing path by path id string from `observation["structured"]["paths"][*]["id"]`.
+- `{"type": "buy_line"}`
+  - Buys the next locked line if affordable.
+  - Price follows configured incremental unlock costs (derived from `path_unlock_milestones`).
+- `{"type": "buy_line", "path_index": k}`
+  - Attempts to buy a specific locked line button index.
+  - Must be the next purchasable locked index (sequential purchase rule); otherwise fails.
+  - `path_index` must be an integer in `[0, num_paths - 1]`.
 - `{"type": "pause"}`
   - Pauses simulation updates.
 - `{"type": "resume"}`
