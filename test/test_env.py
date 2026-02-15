@@ -229,7 +229,7 @@ class TestEnv(unittest.TestCase):
     def test_path_creation_limit(self):
         env = MiniMetroEnv()
         env.reset(seed=12)
-        env.mediator.total_travels_handled = 500
+        env.mediator.total_travels_handled = 650
         env.mediator.update_unlocked_num_paths()
         env.mediator.update_unlocked_num_stations()
         for idx in range(env.mediator.num_paths):
@@ -258,11 +258,11 @@ class TestEnv(unittest.TestCase):
         env.mediator.update_unlocked_num_paths()
         self.assertEqual(env.mediator.unlocked_num_paths, 2)
 
-        env.mediator.total_travels_handled = 250
+        env.mediator.total_travels_handled = 300
         env.mediator.update_unlocked_num_paths()
         self.assertEqual(env.mediator.unlocked_num_paths, 3)
 
-        env.mediator.total_travels_handled = 500
+        env.mediator.total_travels_handled = 650
         env.mediator.update_unlocked_num_paths()
         self.assertEqual(env.mediator.unlocked_num_paths, 4)
 

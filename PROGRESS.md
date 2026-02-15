@@ -45,6 +45,7 @@ Tests:
 - Updated boarding behavior so waiting passengers can board the first arriving metro with space when that metro can still lead to a valid destination route, even if their prior plan targeted another line.
 - Added mediator regression coverage for first-arriving eligible metro boarding and travel-plan reassignment to the arriving line.
 - Increased station cap from 10 to 20 by updating `num_stations` in `src/config.py` (unlock milestones now generate up to 20 stations).
+- Updated path unlock milestones to `[0, 90, 300, 650]` in `src/config.py` and adjusted affected unlock-threshold tests in env/gameplay/graph suites.
 
 Tests:
 - `python -m unittest -v`

@@ -108,7 +108,7 @@ class TestGraph(unittest.TestCase):
             station.draw(self.screen)
 
         self.connect_stations([0, 1, 2])
-        self.mediator.total_travels_handled = 100
+        self.mediator.total_travels_handled = 90
         self.mediator.update_unlocked_num_paths()
         self.connect_stations([0, 3])
 
