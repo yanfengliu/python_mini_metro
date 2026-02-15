@@ -469,6 +469,28 @@ class TestMediator(unittest.TestCase):
         self.assertEqual(mediator.time_ms, 10)
         self.assertEqual(mediator.steps, 5)
 
+    def test_increment_time_scales_with_game_speed_multiplier(self):
+        mediator = Mediator()
+        mediator.game_speed_multiplier = 4
+        mediator.time_ms = 10
+        mediator.steps = 5
+        station = mediator.stations[0]
+        station_steps_before = mediator.station_steps_since_last_spawn[station]
+
+        mediator.is_passenger_spawn_time = MagicMock(return_value=False)
+        mediator.find_travel_plan_for_passengers = MagicMock()
+        mediator.move_passengers = MagicMock()
+        mediator.update_waiting_and_game_over = MagicMock()
+
+        mediator.increment_time(100)
+
+        self.assertEqual(mediator.time_ms, 410)
+        self.assertEqual(mediator.steps, 9)
+        self.assertEqual(
+            mediator.station_steps_since_last_spawn[station], station_steps_before + 4
+        )
+        mediator.update_waiting_and_game_over.assert_called_once_with(400)
+
     def test_move_passengers_covers_all_transfers(self):
         mediator, station_a, station_b, path, metro = self._build_two_station_mediator()
 

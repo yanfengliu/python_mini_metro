@@ -34,6 +34,8 @@ Tests:
 - Switched passenger spawning from one global cadence to per-station rhythms by tracking station-specific spawn intervals/timers and spawning passengers independently per station.
 - Updated mediator/env tests for the new spawning model and added dedicated coverage asserting independent station spawn rhythms.
 - Changed station unlock baseline to 10 travels as the intended behavior, and updated mediator unlock-threshold tests plus `GAME_RULES.md` milestones accordingly.
+- Added keyboard speed controls (1x/2x/4x via keys `1`/`2`/`3`) and wired simulation timing, metro movement, spawn-step progression, and wait-time updates to respect the selected speed.
+- Added gameplay and mediator test coverage for speed key handling and time-scaling behavior; updated docs controls in `README.md` and `GAME_RULES.md`.
 
 Tests:
 - `python -m unittest -v`

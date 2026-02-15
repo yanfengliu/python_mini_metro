@@ -76,6 +76,7 @@ This document summarizes the game rules currently implemented in code.
   - On game-over screen, click Restart or Exit buttons.
 - Keyboard:
   - SPACE: pause / resume.
+  - 1 / 2 / 3: set game speed to 1x / 2x / 4x.
   - R: restart (game-over screen).
   - ESC: exit (game-over screen).
 

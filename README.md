@@ -13,6 +13,7 @@ This repo uses `pygame-ce` to implement Mini Metro, a fun 2D strategic game wher
 * Run `python src/main.py`
 * Hold down the mouse left button on a station and drag onto other stations to create a path for the metro.
 * Press SPACE to pause / unpause the game.
+* Press `1`, `2`, or `3` to set game speed to 1x, 2x, or 4x.
 * View the score on the top left corner of the screen.
 * The number of grey circles on top of the screen is the number of availabel metro lines left.
 * Click on the colored circle at the top to cancel an established line.

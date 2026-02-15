@@ -145,6 +145,16 @@ class TestMediator(unittest.TestCase):
 
         self.assertFalse(self.mediator.is_paused)
 
+    def test_number_keys_update_game_speed_multiplier(self):
+        self.mediator.react(KeyboardEvent(KeyboardEventType.KEY_UP, pygame.K_2))
+        self.assertEqual(self.mediator.game_speed_multiplier, 2)
+
+        self.mediator.react(KeyboardEvent(KeyboardEventType.KEY_UP, pygame.K_3))
+        self.assertEqual(self.mediator.game_speed_multiplier, 4)
+
+        self.mediator.react(KeyboardEvent(KeyboardEventType.KEY_UP, pygame.K_1))
+        self.assertEqual(self.mediator.game_speed_multiplier, 1)
+
     def test_path_button_removes_path_on_click(self):
         self.mediator.stations = get_random_stations(5)
         for station in self.mediator.stations:

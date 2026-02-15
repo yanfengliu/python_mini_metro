@@ -103,6 +103,7 @@ class Mediator:
         self.path_being_created: Path | None = None
         self.travel_plans: TravelPlans = {}
         self.is_paused = False
+        self.game_speed_multiplier = 1
         self.score = 0
         self.total_travels_handled = 0
         self.unlocked_num_paths = self.get_unlocked_num_paths()
@@ -302,6 +303,12 @@ class Mediator:
         if event.event_type == KeyboardEventType.KEY_UP:
             if event.key == pygame.K_SPACE:
                 self.is_paused = not self.is_paused
+            elif event.key == pygame.K_1:
+                self.game_speed_multiplier = 1
+            elif event.key == pygame.K_2:
+                self.game_speed_multiplier = 2
+            elif event.key == pygame.K_3:
+                self.game_speed_multiplier = 4
 
     def react(self, event: Event | None) -> None:
         if isinstance(event, MouseEvent):
@@ -523,17 +530,20 @@ class Mediator:
         if self.is_paused:
             return
 
+        speed_multiplier = self.game_speed_multiplier
+        scaled_dt_ms = dt_ms * speed_multiplier
+
         # record time
-        self.time_ms += dt_ms
-        self.steps += 1
+        self.time_ms += scaled_dt_ms
+        self.steps += speed_multiplier
         self.initialize_station_spawning_state(self.stations)
         for station in self.stations:
-            self.station_steps_since_last_spawn[station] += 1
+            self.station_steps_since_last_spawn[station] += speed_multiplier
 
         # move metros
         for path in self.paths:
             for metro in path.metros:
-                path.move_metro(metro, dt_ms)
+                path.move_metro(metro, scaled_dt_ms)
 
         # spawn passengers
         if self.is_passenger_spawn_time():
@@ -541,7 +551,7 @@ class Mediator:
 
         self.find_travel_plan_for_passengers()
         self.move_passengers()
-        self.update_waiting_and_game_over(dt_ms)
+        self.update_waiting_and_game_over(scaled_dt_ms)
 
     def move_passengers(self) -> None:
         for metro in self.metros:
