@@ -53,3 +53,4 @@
 - Kept unlock milestone economics by using incremental line purchase prices derived from `[0, 90, 300, 650]`.
 - Added locked-button hover buy hints with two lines of text (`Buy` and price), using gray text when unaffordable and black text when affordable.
 - Updated game rules docs for purchase-based line unlocks and the new locked-button hover/click behavior.
+- Changed UI font usage to `courier` via shared `font_name` config.

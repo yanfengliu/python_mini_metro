@@ -84,6 +84,7 @@ path_button_buy_text_disabled_color = (140, 140, 140)
 path_button_buy_text_font_size = 26
 
 # text
+font_name = "courier"
 score_font_size = 50
 score_display_coords = (20, 20)
 game_over_font_size = 120

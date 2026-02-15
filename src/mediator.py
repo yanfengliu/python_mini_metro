@@ -5,6 +5,7 @@ from typing import Dict, List
 
 import pygame
 from config import (
+    font_name,
     max_waiting_passengers,
     initial_num_stations,
     num_metros,
@@ -71,10 +72,10 @@ class Mediator:
         self.path_buttons = get_path_buttons(self.num_paths)
         self.path_to_button: Dict[Path, PathButton] = {}
         self.buttons = [*self.path_buttons]
-        self.font = pygame.font.SysFont("arial", score_font_size)
-        self.game_over_font = pygame.font.SysFont("arial", game_over_font_size)
+        self.font = pygame.font.SysFont(font_name, score_font_size)
+        self.game_over_font = pygame.font.SysFont(font_name, game_over_font_size)
         self.game_over_hint_font = pygame.font.SysFont(
-            "arial", game_over_hint_font_size
+            font_name, game_over_hint_font_size
         )
         self.game_over_restart_rect: pygame.Rect | None = None
         self.game_over_exit_rect: pygame.Rect | None = None

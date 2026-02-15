@@ -4,6 +4,7 @@ import pygame
 from config import (
     button_color,
     button_size,
+    font_name,
     path_button_buffer,
     path_button_buy_text_color,
     path_button_buy_text_disabled_color,
@@ -110,7 +111,7 @@ class PathButton(Button):
             if self.show_cross and locked_purchase_price is not None:
                 if self.buy_text_font is None:
                     self.buy_text_font = pygame.font.SysFont(
-                        "arial", path_button_buy_text_font_size
+                        font_name, path_button_buy_text_font_size
                     )
                 text_color = (
                     path_button_buy_text_color
