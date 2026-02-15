@@ -7,7 +7,7 @@ This repo uses `pygame-ce` to implement Mini Metro, a fun 2D strategic game wher
 `pip install -r requirements.txt`
 
 # How to run
-## To play the game manually
+## To play manually
 * If you are running for the first time, install the requirements using `pip install -r requirements.txt`
 * Activate the virtual environment by running `conda activate py313`
 * Run `python src/main.py`
@@ -18,7 +18,7 @@ This repo uses `pygame-ce` to implement Mini Metro, a fun 2D strategic game wher
 * The number of grey circles on top of the screen is the number of availabel metro lines left.
 * Click on the colored circle at the top to cancel an established line.
 
-# Programmatic play
+## To play programmatically
 Use the Gym-like environment in `src/env.py`:
 
 ```
