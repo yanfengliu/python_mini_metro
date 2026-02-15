@@ -38,6 +38,8 @@ passenger_spawning_start_step = 1
 passenger_spawning_interval_step = 10 * framerate
 passenger_display_buffer = 3 * passenger_size
 passenger_max_wait_time_ms = 60_000
+passenger_blink_warning_time_ms = 10_000
+passenger_blink_interval_ms = 250
 max_waiting_passengers = 20
 
 # metro

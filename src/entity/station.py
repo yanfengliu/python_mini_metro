@@ -56,10 +56,15 @@ class Station(Holder):
         self,
         surface: pygame.surface.Surface,
         current_time_ms: int | None = None,
+        passenger_max_wait_time_ms: int | None = None,
     ) -> None:
         if (
             current_time_ms is not None
             and not self.is_unlock_blink_visible(current_time_ms)
         ):
             return
-        super().draw(surface)
+        super().draw(
+            surface,
+            current_time_ms=current_time_ms,
+            passenger_max_wait_time_ms=passenger_max_wait_time_ms,
+        )

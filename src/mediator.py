@@ -188,7 +188,11 @@ class Mediator:
             path_order = idx - (active_path_count // 2)
             path.draw(screen, path_order)
         for station in self.stations:
-            station.draw(screen, self.time_ms)
+            station.draw(
+                screen,
+                self.time_ms,
+                passenger_max_wait_time_ms=self.passenger_max_wait_time_ms,
+            )
         for metro in self.metros:
             metro.draw(screen)
         for button in self.buttons:

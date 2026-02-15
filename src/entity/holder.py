@@ -23,7 +23,12 @@ class Holder(ABC):
     def __repr__(self) -> str:
         return self.id
 
-    def draw(self, surface: pygame.surface.Surface):
+    def draw(
+        self,
+        surface: pygame.surface.Surface,
+        current_time_ms: int | None = None,
+        passenger_max_wait_time_ms: int | None = None,
+    ):
         # draw self
         self.shape.draw(surface, self.position)
 
@@ -42,7 +47,11 @@ class Holder(ABC):
                 )
             )
 
-            passenger.draw(surface)
+            passenger.draw(
+                surface,
+                current_time_ms=current_time_ms,
+                max_wait_time_ms=passenger_max_wait_time_ms,
+            )
 
             if col < (self.passengers_per_row - 1):
                 col += 1

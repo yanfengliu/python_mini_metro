@@ -46,6 +46,9 @@ Tests:
 - Added mediator regression coverage for first-arriving eligible metro boarding and travel-plan reassignment to the arriving line.
 - Increased station cap from 10 to 20 by updating `num_stations` in `src/config.py` (unlock milestones now generate up to 20 stations).
 - Updated path unlock milestones to `[0, 90, 300, 650]` in `src/config.py` and adjusted affected unlock-threshold tests in env/gameplay/graph suites.
+- Added pre-timeout passenger warning blink: passengers in the last 10 seconds before `passenger_max_wait_time_ms` now blink on/off in station queues.
+- Threaded render-time wait thresholds through holder/station rendering so passenger warning blink is deterministic from mediator time.
+- Added station rendering regression coverage for warning passenger blink visibility phases.
 
 Tests:
 - `python -m unittest -v`
