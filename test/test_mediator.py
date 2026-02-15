@@ -666,6 +666,55 @@ class TestMediator(unittest.TestCase):
         self.assertNotIn(passenger, start_station.passengers)
         self.assertEqual(mediator.travel_plans[passenger].next_path, short_path)
 
+    def test_passenger_boards_first_arriving_eligible_metro(self):
+        mediator = Mediator()
+        start_station = Station(
+            Rect(station_color, 2 * station_size, 2 * station_size), Point(0, 0)
+        )
+        intermediate_station = Station(
+            Circle(station_color, station_size), Point(10, 0)
+        )
+        short_destination = Station(
+            Triangle(station_color, station_size), Point(20, 0)
+        )
+        long_destination = Station(
+            Triangle(station_color, station_size), Point(30, 0)
+        )
+        mediator.stations = [
+            start_station,
+            intermediate_station,
+            short_destination,
+            long_destination,
+        ]
+
+        short_path = Path((10, 20, 30))
+        short_path.add_station(start_station)
+        short_path.add_station(short_destination)
+
+        long_path = Path((40, 50, 60))
+        long_path.add_station(start_station)
+        long_path.add_station(intermediate_station)
+        long_path.add_station(long_destination)
+
+        metro = Metro()
+        long_path.add_metro(metro)
+        metro.current_station = start_station
+        mediator.paths = [short_path, long_path]
+        mediator.metros = [metro]
+
+        passenger = Passenger(short_destination.shape)
+        start_station.add_passenger(passenger)
+        mediator.passengers = [passenger]
+
+        mediator.find_travel_plan_for_passengers()
+        self.assertEqual(mediator.travel_plans[passenger].next_path, short_path)
+
+        mediator.move_passengers()
+
+        self.assertIn(passenger, metro.passengers)
+        self.assertNotIn(passenger, start_station.passengers)
+        self.assertEqual(mediator.travel_plans[passenger].next_path, long_path)
+
 
 if __name__ == "__main__":
     unittest.main()

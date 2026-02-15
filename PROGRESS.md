@@ -38,6 +38,8 @@ Tests:
 - Added gameplay and mediator test coverage for speed key handling and time-scaling behavior; updated docs controls in `README.md` and `GAME_RULES.md`.
 - Fixed passenger route selection to prefer the shortest reachable destination route (with transfer-aware tie-breaking) so riders board eligible metros instead of waiting for longer alternatives.
 - Added mediator regression coverage to verify a passenger chooses the shortest destination route and boards an available metro with matching path capacity.
+- Updated boarding behavior so waiting passengers can board the first arriving metro with space when that metro can still lead to a valid destination route, even if their prior plan targeted another line.
+- Added mediator regression coverage for first-arriving eligible metro boarding and travel-plan reassignment to the arriving line.
 
 Tests:
 - `python -m unittest -v`

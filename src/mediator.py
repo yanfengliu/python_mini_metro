@@ -559,6 +559,8 @@ class Mediator:
                 passengers_to_remove = []
                 passengers_from_metro_to_station = []
                 passengers_from_station_to_metro = []
+                metro_path = self.get_path_by_id(metro.path_id)
+                station_nodes_dict = build_station_nodes_dict(self.stations, self.paths)
 
                 # queue
                 for passenger in metro.passengers:
@@ -573,10 +575,27 @@ class Mediator:
                     ):
                         passengers_from_metro_to_station.append(passenger)
                 for passenger in metro.current_station.passengers:
+                    if metro_path is None:
+                        continue
+                    current_travel_plan = self.travel_plans.get(passenger)
                     if (
-                        self.travel_plans[passenger].next_path
-                        and self.travel_plans[passenger].next_path.id == metro.path_id  # type: ignore
+                        current_travel_plan
+                        and current_travel_plan.next_path
+                        and current_travel_plan.next_path.id == metro.path_id
                     ):
+                        passengers_from_station_to_metro.append(passenger)
+                        continue
+
+                    travel_plan_for_arriving_metro = (
+                        self.get_travel_plan_starting_with_path(
+                            passenger,
+                            metro.current_station,
+                            metro_path,
+                            station_nodes_dict,
+                        )
+                    )
+                    if travel_plan_for_arriving_metro is not None:
+                        self.travel_plans[passenger] = travel_plan_for_arriving_metro
                         passengers_from_station_to_metro.append(passenger)
 
                 # process
@@ -646,6 +665,55 @@ class Mediator:
         assert next_station is not None
         next_path = self.find_shared_path(station, next_station)
         self.travel_plans[passenger].next_path = next_path
+
+    def get_path_by_id(self, path_id: str) -> Path | None:
+        for path in self.paths:
+            if path.id == path_id:
+                return path
+        return None
+
+    def get_travel_plan_starting_with_path(
+        self,
+        passenger: Passenger,
+        station: Station,
+        required_first_path: Path,
+        station_nodes_dict: Dict[Station, Node],
+    ) -> TravelPlan | None:
+        possible_dst_stations = self.get_stations_for_shape_type(
+            passenger.destination_shape.type
+        )
+        best_node_path: List[Node] | None = None
+        best_path_cost: tuple[int, int] | None = None
+        start = station_nodes_dict[station]
+        for possible_dst_station in possible_dst_stations:
+            end = station_nodes_dict[possible_dst_station]
+            node_path = bfs(start, end)
+            if len(node_path) <= 1:
+                continue
+            reduced_node_path = self.skip_stations_on_same_path(list(node_path))
+            if len(reduced_node_path) <= 1:
+                continue
+            first_hop_path = self.find_shared_path(
+                station, reduced_node_path[1].station
+            )
+            if (
+                first_hop_path is None
+                or first_hop_path.id != required_first_path.id
+            ):
+                continue
+            candidate_cost = (len(node_path), len(reduced_node_path))
+            if best_path_cost is None or candidate_cost < best_path_cost:
+                best_path_cost = candidate_cost
+                best_node_path = reduced_node_path
+
+        if best_node_path is None:
+            return None
+        travel_plan = TravelPlan(best_node_path[1:])
+        next_station = travel_plan.get_next_station()
+        if next_station is None:
+            return None
+        travel_plan.next_path = self.find_shared_path(station, next_station)
+        return travel_plan
 
     def skip_stations_on_same_path(self, node_path: List[Node]):
         assert len(node_path) >= 2
