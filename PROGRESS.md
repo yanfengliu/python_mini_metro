@@ -33,6 +33,7 @@ Tests:
 - Added mediator rendering regression tests to verify centered path offsets for one-path and three-path cases.
 - Switched passenger spawning from one global cadence to per-station rhythms by tracking station-specific spawn intervals/timers and spawning passengers independently per station.
 - Updated mediator/env tests for the new spawning model and added dedicated coverage asserting independent station spawn rhythms.
+- Changed station unlock baseline to 10 travels as the intended behavior, and updated mediator unlock-threshold tests plus `GAME_RULES.md` milestones accordingly.
 
 Tests:
 - `python -m unittest -v`

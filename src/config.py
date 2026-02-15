@@ -11,7 +11,7 @@ screen_color = (255, 255, 255)
 # station
 num_stations = 10
 initial_num_stations = 3
-station_unlock_first_increment = 30
+station_unlock_first_increment = 10
 station_unlock_increment_step = 20
 station_unlock_milestones = []
 _total_station_unlock_travels = 0

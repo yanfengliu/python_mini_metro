@@ -41,9 +41,9 @@ This document summarizes the game rules currently implemented in code.
   - Unlock 4th line at 500 travels.
 - Unlocked stations are based on cumulative travels:
   - Start with 3 stations.
-  - Unlock the 4th station at 30 travels.
+  - Unlock the 4th station at 10 travels.
   - Then each next station requires +20 more travels than the previous unlock
-    (5th at 80, 6th at 150, 7th at 240, ...), up to 10 stations.
+    (5th at 40, 6th at 90, 7th at 160, ...), up to 10 stations.
 - Line colors are randomized at runtime each run.
 
 ## Passenger Routing and Transfers

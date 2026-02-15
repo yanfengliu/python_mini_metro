@@ -548,19 +548,19 @@ class TestMediator(unittest.TestCase):
 
     def test_station_unlock_progression_uses_travel_thresholds(self):
         mediator = Mediator()
-        self.assertEqual(station_unlock_milestones[:5], [30, 80, 150, 240, 350])
+        self.assertEqual(station_unlock_milestones[:5], [10, 40, 90, 160, 250])
 
-        mediator.total_travels_handled = 29
+        mediator.total_travels_handled = 9
         mediator.update_unlocked_num_stations()
         self.assertEqual(mediator.unlocked_num_stations, 3)
         self.assertEqual(len(mediator.stations), 3)
 
-        mediator.total_travels_handled = 30
+        mediator.total_travels_handled = 10
         mediator.update_unlocked_num_stations()
         self.assertEqual(mediator.unlocked_num_stations, 4)
         self.assertEqual(len(mediator.stations), 4)
 
-        mediator.total_travels_handled = 80
+        mediator.total_travels_handled = 40
         mediator.update_unlocked_num_stations()
         self.assertEqual(mediator.unlocked_num_stations, 5)
         self.assertEqual(len(mediator.stations), 5)
