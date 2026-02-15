@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+---
+- Before you do anything, check `ARCHITECTURE.md` for the file structure.
+- Keep `ARCHITECTURE.md` updated to reflect the latest file structure structure.

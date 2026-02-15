@@ -37,3 +37,4 @@
 - Updated `GAME_RULES.md` line/station progression and passenger spawning timing details to match current implementation.
 - Added rare one-of-a-kind station shapes (diamond, pentagon, star) and shape rendering support.
 - Added station-pool generation logic so unique shapes can only appear after the 10th station slot and at most once each per run.
+- Updated `ARCHITECTURE.md` to reflect the latest project file structure.
