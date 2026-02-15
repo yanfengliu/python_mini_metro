@@ -54,3 +54,4 @@
 - Added locked-button hover buy hints with two lines of text (`Buy` and price), using gray text when unaffordable and black text when affordable.
 - Updated game rules docs for purchase-based line unlocks and the new locked-button hover/click behavior.
 - Changed UI font usage to `courier` via shared `font_name` config.
+- Expanded `README.md` programmatic play docs to list the `MiniMetroEnv` API, action schemas, valid input constraints, and observation/step return fields.
