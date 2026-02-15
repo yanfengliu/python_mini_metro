@@ -9,7 +9,7 @@ screen_height = 1080
 screen_color = (255, 255, 255)
 
 # station
-num_stations = 10
+num_stations = 20
 initial_num_stations = 3
 station_unlock_first_increment = 10
 station_unlock_increment_step = 20

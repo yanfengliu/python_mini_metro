@@ -44,6 +44,7 @@ Tests:
 - Added mediator regression coverage to verify a passenger chooses the shortest destination route and boards an available metro with matching path capacity.
 - Updated boarding behavior so waiting passengers can board the first arriving metro with space when that metro can still lead to a valid destination route, even if their prior plan targeted another line.
 - Added mediator regression coverage for first-arriving eligible metro boarding and travel-plan reassignment to the arriving line.
+- Increased station cap from 10 to 20 by updating `num_stations` in `src/config.py` (unlock milestones now generate up to 20 stations).
 
 Tests:
 - `python -m unittest -v`
