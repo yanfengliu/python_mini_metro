@@ -9,7 +9,6 @@ from config import (
     path_button_cross_width,
     path_button_dist_to_bottom,
     path_button_locked_ring_width,
-    path_button_start_left,
     unlock_blink_count,
     unlock_blink_duration_ms,
 )
@@ -108,13 +107,25 @@ class PathButton(Button):
             self.cross.draw(surface, self.position)
 
 
-def get_path_buttons(num: int) -> List[PathButton]:
+def update_path_button_positions(
+    path_buttons: List[PathButton], surface_width: int, surface_height: int
+) -> None:
+    if not path_buttons:
+        return
+    step = path_button_buffer + 2 * button_size
+    first_x = (surface_width - step * (len(path_buttons) - 1)) // 2
+    y = surface_height - path_button_dist_to_bottom
+    for idx, button in enumerate(path_buttons):
+        button.position = Point(first_x + idx * step, y)
+
+
+def get_path_buttons(
+    num: int, surface_width: int | None = None, surface_height: int | None = None
+) -> List[PathButton]:
     path_buttons = []
     for i in range(num):
-        position = (
-            Point(path_button_start_left, path_button_dist_to_bottom)
-            + Point(i * path_button_buffer, 0)
-            + Point(2 * i * button_size, 0)
-        )
+        position = Point(0, 0)
         path_buttons.append(PathButton(Circle(button_color, button_size), position))
+    if surface_width is not None and surface_height is not None:
+        update_path_button_positions(path_buttons, surface_width, surface_height)
     return path_buttons

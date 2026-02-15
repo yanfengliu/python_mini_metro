@@ -337,6 +337,8 @@ class TestMediator(unittest.TestCase):
         mediator.buttons = []
         mediator.is_game_over = True
         screen = MagicMock()
+        screen.get_width.return_value = screen_width
+        screen.get_height.return_value = screen_height
         overlay = MagicMock()
         with patch("mediator.pygame.Surface", return_value=overlay) as surface_mock:
             title_surface = MagicMock()
@@ -355,7 +357,7 @@ class TestMediator(unittest.TestCase):
             mediator.game_over_hint_font.render = MagicMock(return_value=hint_surface)
             mediator.render(screen)
 
-        surface_mock.assert_called_once()
+        surface_mock.assert_called_once_with((screen_width, screen_height), pygame.SRCALPHA)
         overlay.fill.assert_called_once()
         screen.blit.assert_any_call(overlay, (0, 0))
         self.assertGreaterEqual(mediator.font.render.call_count, 1)

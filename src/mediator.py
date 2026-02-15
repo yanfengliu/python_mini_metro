@@ -48,7 +48,7 @@ from graph.node import Node
 from travel_plan import TravelPlan
 from type import Color
 from ui.button import Button
-from ui.path_button import PathButton, get_path_buttons
+from ui.path_button import PathButton, get_path_buttons, update_path_button_positions
 from utils import get_shape_from_type, hue_to_rgb
 
 TravelPlans = Dict[Passenger, TravelPlan]
@@ -181,7 +181,22 @@ class Mediator:
             self.path_to_button[path] = button
         self.update_path_button_lock_states()
 
+    def get_surface_size(self, screen: pygame.surface.Surface) -> tuple[int, int]:
+        width = screen_width
+        height = screen_height
+        maybe_width = screen.get_width()
+        maybe_height = screen.get_height()
+        if isinstance(maybe_width, (int, float)):
+            width = int(maybe_width)
+        if isinstance(maybe_height, (int, float)):
+            height = int(maybe_height)
+        return (width, height)
+
     def render(self, screen: pygame.surface.Surface) -> None:
+        width, height = self.get_surface_size(screen)
+        update_path_button_positions(
+            self.path_buttons, width, height
+        )
         active_path_count = len(self.paths)
         for idx, path in enumerate(self.paths):
             # Keep active paths centered so a single path has zero offset.
@@ -205,7 +220,8 @@ class Mediator:
     def render_game_over(self, screen: pygame.surface.Surface) -> None:
         self.game_over_restart_rect = None
         self.game_over_exit_rect = None
-        overlay = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
+        width, height = self.get_surface_size(screen)
+        overlay = pygame.Surface((width, height), pygame.SRCALPHA)
         overlay.fill(game_over_overlay_color)
         screen.blit(overlay, (0, 0))
 
@@ -213,7 +229,7 @@ class Mediator:
             "Game Over", True, game_over_text_color
         )
         title_rect = title_surface.get_rect(
-            center=(screen_width // 2, screen_height // 2 - game_over_font_size // 3)
+            center=(width // 2, height // 2 - game_over_font_size // 3)
         )
         screen.blit(title_surface, title_rect)
 
@@ -221,7 +237,7 @@ class Mediator:
             f"Final Score: {self.score}", True, game_over_text_color
         )
         score_rect = score_surface.get_rect(
-            center=(screen_width // 2, screen_height // 2 + game_over_font_size // 3)
+            center=(width // 2, height // 2 + game_over_font_size // 3)
         )
         screen.blit(score_surface, score_rect)
 
@@ -235,7 +251,7 @@ class Mediator:
         ]
         button_width = max(surface.get_width() for surface in button_surfaces)
         button_height = max(surface.get_height() for surface in button_surfaces)
-        start_top = screen_height // 2 + game_over_font_size // 3 + 40
+        start_top = height // 2 + game_over_font_size // 3 + 40
         current_top = start_top
 
         for surface, (_, action) in zip(button_surfaces, button_texts):
@@ -245,7 +261,7 @@ class Mediator:
                 button_width + 2 * game_over_button_padding_x,
                 button_height + 2 * game_over_button_padding_y,
             )
-            rect.centerx = screen_width // 2
+            rect.centerx = width // 2
             rect.top = current_top
             current_top = rect.bottom + game_over_button_spacing
 

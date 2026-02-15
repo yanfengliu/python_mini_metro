@@ -6,7 +6,12 @@ from unittest.mock import MagicMock, create_autospec, patch
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 import pygame
-from config import button_color, button_size
+from config import (
+    button_color,
+    button_size,
+    path_button_buffer,
+    path_button_dist_to_bottom,
+)
 from event.convert import convert_pygame_event
 from event.type import KeyboardEventType, MouseEventType
 from geometry.circle import Circle
@@ -15,7 +20,7 @@ from geometry.point import Point
 from geometry.shape import Shape
 from geometry.type import ShapeType
 from ui.button import Button
-from ui.path_button import PathButton, get_path_buttons
+from ui.path_button import PathButton, get_path_buttons, update_path_button_positions
 from utils import get_random_passenger_shape, tuple_to_point, within_time_window
 
 
@@ -128,8 +133,21 @@ class TestCoverageUtils(unittest.TestCase):
         button.shape.draw.assert_not_called()
 
     def test_get_path_buttons_positions(self):
-        buttons = get_path_buttons(2)
+        width = 1000
+        height = 600
+        buttons = get_path_buttons(2, surface_width=width, surface_height=height)
         self.assertEqual(len(buttons), 2)
+        expected_step = path_button_buffer + 2 * button_size
+        self.assertEqual(buttons[0].position.left + expected_step, buttons[1].position.left)
+        self.assertEqual(buttons[0].position.top, height - path_button_dist_to_bottom)
+
+    def test_update_path_button_positions_is_centered(self):
+        buttons = get_path_buttons(3)
+        update_path_button_positions(buttons, 1200, 800)
+        center_x = 1200 / 2
+        left = buttons[0].position.left
+        right = buttons[-1].position.left
+        self.assertEqual((left + right) / 2, center_x)
 
     def test_utils_helpers(self):
         passenger_shape = get_random_passenger_shape()

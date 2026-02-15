@@ -49,6 +49,10 @@ Tests:
 - Added pre-timeout passenger warning blink: passengers in the last 10 seconds before `passenger_max_wait_time_ms` now blink on/off in station queues.
 - Threaded render-time wait thresholds through holder/station rendering so passenger warning blink is deterministic from mediator time.
 - Added station rendering regression coverage for warning passenger blink visibility phases.
+- Added resolution-adaptive rendering via a virtual game surface + viewport transform (`src/ui/viewport.py`) with letterboxed scaling to resizable windows.
+- Updated main-loop rendering/input flow to draw to virtual space, scale to the window, and remap mouse events from window coordinates back into virtual coordinates.
+- Refactored game-over overlay and path-button layout to compute positions from render-surface dimensions instead of fixed screen constants.
+- Extended coverage with viewport transform tests and layout assertions for centered path-button placement.
 
 Tests:
 - `python -m unittest -v`
