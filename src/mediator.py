@@ -574,87 +574,257 @@ class Mediator:
             self.station_steps_since_last_spawn[station] += speed_multiplier
 
         # move metros
+        station_nodes_dict = build_station_nodes_dict(self.stations, self.paths)
         for path in self.paths:
             for metro in path.metros:
-                path.move_metro(metro, scaled_dt_ms)
+                if metro.current_station is not None and metro.stop_time_remaining_ms <= 0:
+                    self.start_station_stop_if_needed(
+                        metro,
+                        metro.current_station,
+                        station_nodes_dict,
+                    )
+                should_stop_at_next_station = self.should_stop_at_next_station(
+                    metro, station_nodes_dict
+                )
+                path.move_metro(
+                    metro,
+                    scaled_dt_ms,
+                    should_stop_at_next_station=should_stop_at_next_station,
+                )
+                if metro.just_arrived_and_stopped and metro.current_station is not None:
+                    self.start_station_stop_if_needed(
+                        metro,
+                        metro.current_station,
+                        station_nodes_dict,
+                    )
 
         # spawn passengers
         if self.is_passenger_spawn_time():
             self.spawn_passengers()
 
         self.find_travel_plan_for_passengers()
-        self.move_passengers()
+        self.move_passengers(scaled_dt_ms)
         self.update_waiting_and_game_over(scaled_dt_ms)
 
-    def move_passengers(self) -> None:
+    def get_next_station_for_metro(self, metro: Metro) -> Station | None:
+        assert metro.current_segment is not None
+        if metro.is_forward:
+            return metro.current_segment.end_station
+        return metro.current_segment.start_station
+
+    def get_boarding_candidates_for_metro(
+        self,
+        metro: Metro,
+        station: Station,
+        station_nodes_dict: Dict[Station, Node],
+        mutate_travel_plans: bool,
+    ) -> List[Passenger]:
+        metro_path = self.get_path_by_id(metro.path_id)
+        if metro_path is None:
+            return []
+
+        candidates: List[Passenger] = []
+        for passenger in station.passengers:
+            current_travel_plan = self.travel_plans.get(passenger)
+            if (
+                current_travel_plan
+                and current_travel_plan.next_path
+                and current_travel_plan.next_path.id == metro.path_id
+            ):
+                candidates.append(passenger)
+                continue
+
+            travel_plan_for_arriving_metro = self.get_travel_plan_starting_with_path(
+                passenger,
+                station,
+                metro_path,
+                station_nodes_dict,
+            )
+            if travel_plan_for_arriving_metro is not None:
+                if mutate_travel_plans:
+                    self.travel_plans[passenger] = travel_plan_for_arriving_metro
+                candidates.append(passenger)
+        return candidates
+
+    def get_unloading_candidates_for_metro(
+        self, metro: Metro, station: Station
+    ) -> tuple[List[Passenger], List[Passenger]]:
+        passengers_to_destination: List[Passenger] = []
+        passengers_to_transfer: List[Passenger] = []
+        for passenger in metro.passengers:
+            if station.shape.type == passenger.destination_shape.type:
+                passengers_to_destination.append(passenger)
+                continue
+            travel_plan = self.travel_plans.get(passenger)
+            if travel_plan is not None and travel_plan.get_next_station() == station:
+                passengers_to_transfer.append(passenger)
+        return passengers_to_destination, passengers_to_transfer
+
+    def should_stop_at_next_station(
+        self, metro: Metro, station_nodes_dict: Dict[Station, Node]
+    ) -> bool:
+        if metro.current_segment is None:
+            return False
+        destination_station = self.get_next_station_for_metro(metro)
+        if destination_station is None:
+            return False
+        unload_to_destination, unload_to_transfer = (
+            self.get_unloading_candidates_for_metro(metro, destination_station)
+        )
+        if unload_to_destination or unload_to_transfer:
+            return True
+        if not self.can_board_at_station(metro, destination_station):
+            return False
+        boarding_candidates = self.get_boarding_candidates_for_metro(
+            metro,
+            destination_station,
+            station_nodes_dict,
+            mutate_travel_plans=False,
+        )
+        return len(boarding_candidates) > 0
+
+    def start_station_stop_if_needed(
+        self,
+        metro: Metro,
+        station: Station,
+        station_nodes_dict: Dict[Station, Node],
+    ) -> None:
+        if metro.stop_time_remaining_ms > 0:
+            return
+        unload_to_destination, unload_to_transfer = self.get_unloading_candidates_for_metro(
+            metro, station
+        )
+        num_unload_actions = len(unload_to_destination) + len(unload_to_transfer)
+        boarding_candidates = self.get_boarding_candidates_for_metro(
+            metro,
+            station,
+            station_nodes_dict,
+            mutate_travel_plans=False,
+        )
+        num_boarding_actions = 0
+        if self.can_board_at_station(metro, station):
+            num_boarding_actions = len(boarding_candidates)
+        num_actions = num_unload_actions + num_boarding_actions
+        if num_actions > 0:
+            metro.stop_time_remaining_ms = (
+                num_actions * metro.boarding_time_per_passenger_ms
+            )
+            metro.boarding_progress_ms = 0
+            metro.speed = 0
+
+    def can_board_at_station(self, metro: Metro, station: Station) -> bool:
+        if metro.has_room():
+            return True
+        for passenger in metro.passengers:
+            if station.shape.type == passenger.destination_shape.type:
+                return True
+            travel_plan = self.travel_plans.get(passenger)
+            if (
+                travel_plan is not None
+                and travel_plan.get_next_station() == station
+            ):
+                return True
+        return False
+
+    def move_passengers(self, dt_ms: int) -> None:
+        station_nodes_dict = build_station_nodes_dict(self.stations, self.paths)
         for metro in self.metros:
             if metro.current_station:
-                passengers_to_remove = []
-                passengers_from_metro_to_station = []
-                passengers_from_station_to_metro = []
-                metro_path = self.get_path_by_id(metro.path_id)
-                station_nodes_dict = build_station_nodes_dict(self.stations, self.paths)
-
-                # queue
-                for passenger in metro.passengers:
-                    if (
-                        metro.current_station.shape.type
-                        == passenger.destination_shape.type
-                    ):
-                        passengers_to_remove.append(passenger)
-                    elif (
-                        self.travel_plans[passenger].get_next_station()
-                        == metro.current_station
-                    ):
-                        passengers_from_metro_to_station.append(passenger)
-                for passenger in metro.current_station.passengers:
-                    if metro_path is None:
-                        continue
-                    current_travel_plan = self.travel_plans.get(passenger)
-                    if (
-                        current_travel_plan
-                        and current_travel_plan.next_path
-                        and current_travel_plan.next_path.id == metro.path_id
-                    ):
-                        passengers_from_station_to_metro.append(passenger)
-                        continue
-
-                    travel_plan_for_arriving_metro = (
-                        self.get_travel_plan_starting_with_path(
-                            passenger,
-                            metro.current_station,
-                            metro_path,
-                            station_nodes_dict,
-                        )
+                station = metro.current_station
+                unload_to_destination, unload_to_transfer = (
+                    self.get_unloading_candidates_for_metro(metro, station)
+                )
+                boarding_candidates = self.get_boarding_candidates_for_metro(
+                    metro,
+                    station,
+                    station_nodes_dict,
+                    mutate_travel_plans=True,
+                )
+                if metro.stop_time_remaining_ms > 0:
+                    active_boarding_dt = min(dt_ms, metro.stop_time_remaining_ms)
+                    metro.stop_time_remaining_ms = max(
+                        0, metro.stop_time_remaining_ms - dt_ms
                     )
-                    if travel_plan_for_arriving_metro is not None:
-                        self.travel_plans[passenger] = travel_plan_for_arriving_metro
-                        passengers_from_station_to_metro.append(passenger)
-
-                # process
-                for passenger in passengers_to_remove:
-                    passenger.is_at_destination = True
-                    metro.remove_passenger(passenger)
-                    self.passengers.remove(passenger)
-                    del self.travel_plans[passenger]
-                    self.score += 1
-                    self.total_travels_handled += 1
-                    self.update_unlocked_num_paths()
-                    self.update_unlocked_num_stations()
-
-                for passenger in passengers_from_metro_to_station:
-                    if metro.current_station.has_room():
-                        metro.move_passenger(passenger, metro.current_station)
-                        passenger.wait_ms = 0
-                        self.travel_plans[passenger].increment_next_station()
-                        self.find_next_path_for_passenger_at_station(
-                            passenger, metro.current_station
+                    metro.boarding_progress_ms += active_boarding_dt
+                elif unload_to_destination or unload_to_transfer or boarding_candidates:
+                    metro.stop_time_remaining_ms = (
+                        (
+                            len(unload_to_destination)
+                            + len(unload_to_transfer)
+                            + len(boarding_candidates)
                         )
+                        * metro.boarding_time_per_passenger_ms
+                    )
+                    metro.boarding_progress_ms = 0
+                    metro.speed = 0
+                    active_boarding_dt = min(dt_ms, metro.stop_time_remaining_ms)
+                    metro.stop_time_remaining_ms = max(
+                        0, metro.stop_time_remaining_ms - dt_ms
+                    )
+                    metro.boarding_progress_ms += active_boarding_dt
+                boarding_slots = int(
+                    metro.boarding_progress_ms // metro.boarding_time_per_passenger_ms
+                )
+                if boarding_slots > 0:
+                    metro.boarding_progress_ms -= (
+                        boarding_slots * metro.boarding_time_per_passenger_ms
+                    )
 
-                for passenger in passengers_from_station_to_metro:
-                    if metro.has_room():
-                        metro.current_station.move_passenger(passenger, metro)
+                while boarding_slots > 0:
+                    unload_to_destination, unload_to_transfer = (
+                        self.get_unloading_candidates_for_metro(metro, station)
+                    )
+                    if unload_to_destination:
+                        passenger = unload_to_destination[0]
+                        passenger.is_at_destination = True
+                        metro.remove_passenger(passenger)
+                        self.passengers.remove(passenger)
+                        if passenger in self.travel_plans:
+                            del self.travel_plans[passenger]
+                        self.score += 1
+                        self.total_travels_handled += 1
+                        self.update_unlocked_num_paths()
+                        self.update_unlocked_num_stations()
+                        boarding_slots -= 1
+                        continue
+
+                    if unload_to_transfer and station.has_room():
+                        passenger = unload_to_transfer[0]
+                        metro.move_passenger(passenger, station)
                         passenger.wait_ms = 0
+                        travel_plan = self.travel_plans.get(passenger)
+                        if travel_plan is not None:
+                            travel_plan.increment_next_station()
+                            self.find_next_path_for_passenger_at_station(
+                                passenger, station
+                            )
+                        boarding_slots -= 1
+                        continue
+
+                    boarding_candidates = self.get_boarding_candidates_for_metro(
+                        metro,
+                        station,
+                        station_nodes_dict,
+                        mutate_travel_plans=True,
+                    )
+                    if not boarding_candidates:
+                        break
+                    if not metro.has_room():
+                        break
+                    passenger = boarding_candidates[0]
+                    station.move_passenger(passenger, metro)
+                    passenger.wait_ms = 0
+                    boarding_slots -= 1
+
+                if (
+                    boarding_slots > 0
+                    and not unload_to_destination
+                    and (not unload_to_transfer or not station.has_room())
+                    and (not metro.has_room() or not boarding_candidates)
+                ):
+                    # Avoid keeping the metro parked when no transfer action can proceed.
+                    metro.stop_time_remaining_ms = 0
+                    metro.boarding_progress_ms = 0
 
     def update_waiting_and_game_over(self, dt_ms: int) -> None:
         if self.is_game_over:

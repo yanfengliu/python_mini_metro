@@ -55,6 +55,9 @@ metro_size = 30
 metro_color = (200, 200, 200)
 metro_capacity = 6
 metro_speed_per_ms = 150 / 1000  # pixels / ms
+metro_accel_time_ms = 1000
+metro_decel_time_ms = 1000
+metro_boarding_time_per_passenger_ms = 500
 metro_passengers_per_row = 3
 
 # path

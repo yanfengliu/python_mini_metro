@@ -40,3 +40,9 @@
 - Updated `ARCHITECTURE.md` to reflect the latest project file structure.
 - Fixed passenger wait blink logic so passengers at or past the max wait threshold also blink instead of only pre-timeout passengers.
 - Fixed path segment offset direction to use a stable station-pair orientation so reversed A/B segments stay parallel and no longer cross each other.
+- Added metro motion profiling with 1-second acceleration and 1-second deceleration, including graceful handling for short inter-station distances.
+- Added conditional metro station stops so metros only dwell when there are eligible passengers to board that line.
+- Added boarding-duration timing at stations so each boarding passenger consumes 0.5 seconds of dwell time.
+- Fixed metro stop-planning crash on padding segments by guarding next-station lookup when a segment endpoint is not a station.
+- Fixed zero-length direction vectors to return `(0, 0)` so metro rotation never receives NaN angles on collapsed/zero-distance segments.
+- Fixed metro station-dwell deadlock by only scheduling boarding stops when metro capacity is available now or will be freed by alighting at that station.

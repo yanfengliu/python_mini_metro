@@ -14,6 +14,7 @@ from geometry.line import Line
 from geometry.point import Point
 from geometry.rect import Rect
 from geometry.triangle import Triangle
+from geometry.utils import direction
 from utils import get_random_color, get_random_position
 
 
@@ -139,6 +140,10 @@ class TestGeometry(unittest.TestCase):
         triangle.draw(self.screen, self.position)
 
         pygame.draw.polygon.assert_called_once()
+
+    def test_direction_with_same_points_returns_zero_vector(self):
+        point = Point(10, 20)
+        self.assertEqual(direction(point, point), Point(0, 0))
 
 
 if __name__ == "__main__":

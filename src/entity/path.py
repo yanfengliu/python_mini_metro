@@ -114,8 +114,14 @@ class Path:
         metro.path_id = self.id
         self.metros.append(metro)
 
-    def move_metro(self, metro: Metro, dt_ms: int) -> None:
+    def move_metro(
+        self, metro: Metro, dt_ms: int, should_stop_at_next_station: bool = False
+    ) -> None:
         assert metro.current_segment is not None
+        metro.just_arrived_and_stopped = False
+        if metro.current_station is not None and metro.stop_time_remaining_ms > 0:
+            return
+
         if metro.is_forward:
             dst_station = metro.current_segment.end_station
             dst_position = metro.current_segment.segment_end
@@ -130,7 +136,29 @@ class Path:
         radians = math.atan2(direct.top, direct.left)
         degrees = math.degrees(radians)
         metro.shape.set_degrees(degrees)
-        travel_dist_in_dt = metro.speed * dt_ms
+        if should_stop_at_next_station:
+            if metro.deceleration_per_ms > 0:
+                stopping_distance = (metro.speed * metro.speed) / (
+                    2 * metro.deceleration_per_ms
+                )
+            else:
+                stopping_distance = 0
+            target_speed = 0 if dist <= stopping_distance else metro.max_speed
+        else:
+            target_speed = metro.max_speed
+
+        start_speed = metro.speed
+        if metro.speed < target_speed:
+            metro.speed = min(
+                target_speed,
+                metro.speed + metro.acceleration_per_ms * dt_ms,
+            )
+        elif metro.speed > target_speed:
+            metro.speed = max(
+                target_speed,
+                metro.speed - metro.deceleration_per_ms * dt_ms,
+            )
+        travel_dist_in_dt = ((start_speed + metro.speed) / 2) * dt_ms
         # metro is not at one end of segment
         if dist > travel_dist_in_dt:
             metro.current_station = None
@@ -138,6 +166,10 @@ class Path:
         # metro is at one end of segment
         else:
             metro.current_station = dst_station
+            metro.position = dst_position
+            if should_stop_at_next_station:
+                metro.speed = 0
+                metro.just_arrived_and_stopped = True
             if len(self.segments) == 1:
                 metro.is_forward = not metro.is_forward
             elif metro.current_segment_idx == len(self.segments) - 1:

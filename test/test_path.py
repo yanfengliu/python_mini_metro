@@ -189,6 +189,51 @@ class TestPath(unittest.TestCase):
         offset_from_b = segment_ba.segment_start - station_b.position
         self.assertEqual(offset_from_a, offset_from_b)
 
+    def test_move_metro_stops_at_station_when_requested(self):
+        path = Path(get_random_color())
+        station_a = Station(get_random_station_shape(), Point(0, 0))
+        station_b = Station(get_random_station_shape(), Point(200, 0))
+        path.add_station(station_a)
+        path.add_station(station_b)
+        metro = Metro()
+        path.add_metro(metro)
+
+        for _ in range(framerate * 3):
+            path.move_metro(metro, ceil(1000 / framerate), should_stop_at_next_station=True)
+            if metro.current_station is station_b:
+                break
+
+        self.assertIs(metro.current_station, station_b)
+        self.assertEqual(metro.speed, 0)
+
+    def test_move_metro_handles_short_segments_with_back_to_back_stops(self):
+        path = Path(get_random_color())
+        station_a = Station(get_random_station_shape(), Point(0, 0))
+        station_b = Station(get_random_station_shape(), Point(20, 0))
+        station_c = Station(get_random_station_shape(), Point(40, 0))
+        path.add_station(station_a)
+        path.add_station(station_b)
+        path.add_station(station_c)
+        metro = Metro()
+        path.add_metro(metro)
+        metro.speed = 0
+
+        for _ in range(10):
+            path.move_metro(metro, 200, should_stop_at_next_station=True)
+            if metro.current_station is station_b:
+                break
+
+        self.assertIs(metro.current_station, station_b)
+        self.assertEqual(metro.speed, 0)
+
+        for _ in range(20):
+            path.move_metro(metro, 200, should_stop_at_next_station=True)
+            if metro.current_station is station_c:
+                break
+
+        self.assertIs(metro.current_station, station_c)
+        self.assertEqual(metro.speed, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

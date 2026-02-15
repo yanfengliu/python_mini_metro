@@ -303,7 +303,7 @@ class TestEnv(unittest.TestCase):
             env.mediator.station_steps_since_last_spawn[station] = 0
             env.mediator.station_spawn_interval_steps[station] = 999999
 
-        _, reward, _, info = env.step({"type": "noop"}, dt_ms=1)
+        _, reward, _, info = env.step({"type": "noop"}, dt_ms=500)
 
         self.assertTrue(info["action_ok"])
         self.assertEqual(reward, 1)
