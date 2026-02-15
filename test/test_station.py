@@ -1,7 +1,7 @@
 import os
 import sys
 import unittest
-from unittest.mock import MagicMock, create_autospec
+from unittest.mock import MagicMock, create_autospec, patch
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
@@ -12,14 +12,16 @@ from config import (
     passenger_size,
     station_color,
     station_size,
+    station_unique_shape_type_list,
 )
-from entity.get_entity import get_metros
+from entity.get_entity import get_metros, get_random_stations
 from entity.metro import Metro
 from entity.passenger import Passenger
 from entity.station import Station
 from geometry.circle import Circle
 from geometry.point import Point
 from geometry.rect import Rect
+from geometry.type import ShapeType
 from graph.node import Node
 from travel_plan import TravelPlan
 from utils import get_random_position, get_random_station_shape
@@ -123,6 +125,44 @@ class TestStation(unittest.TestCase):
             passenger_max_wait_time_ms=passenger_max_wait_time_ms,
         )
         passenger.destination_shape.draw.assert_not_called()
+
+    def test_unique_station_shapes_only_spawn_after_threshold_and_once(self):
+        with (
+            patch(
+                "entity.get_entity.station_unique_spawn_start_index",
+                2,
+            ),
+            patch(
+                "entity.get_entity.station_unique_spawn_chance",
+                1.0,
+            ),
+        ):
+            stations = get_random_stations(8)
+
+        unique_shape_types = set(station_unique_shape_type_list)
+        first_two_shape_types = [station.shape.type for station in stations[:2]]
+        self.assertTrue(
+            all(
+                shape_type not in unique_shape_types
+                for shape_type in first_two_shape_types
+            )
+        )
+
+        later_shape_types = [station.shape.type for station in stations[2:]]
+        spawned_unique_shape_types = [
+            shape_type
+            for shape_type in later_shape_types
+            if shape_type in unique_shape_types
+        ]
+        self.assertEqual(
+            len(spawned_unique_shape_types), len(set(spawned_unique_shape_types))
+        )
+        self.assertEqual(
+            len(spawned_unique_shape_types),
+            min(len(unique_shape_types), len(stations) - 2),
+        )
+        for shape_type in spawned_unique_shape_types:
+            self.assertIn(shape_type, list(ShapeType))
 
 
 if __name__ == "__main__":

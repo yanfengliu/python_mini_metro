@@ -35,3 +35,5 @@
 - Updated main-loop rendering/input flow to draw to virtual space, scale to the window, and remap mouse events from window coordinates back into virtual coordinates.
 - Refactored game-over overlay and path-button layout to compute positions from render-surface dimensions instead of fixed screen constants.
 - Updated `GAME_RULES.md` line/station progression and passenger spawning timing details to match current implementation.
+- Added rare one-of-a-kind station shapes (diamond, pentagon, star) and shape rendering support.
+- Added station-pool generation logic so unique shapes can only appear after the 10th station slot and at most once each per run.

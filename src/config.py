@@ -29,6 +29,13 @@ station_shape_type_list = [
     ShapeType.TRIANGLE,
     ShapeType.CROSS,
 ]
+station_unique_shape_type_list = [
+    ShapeType.DIAMOND,
+    ShapeType.PENTAGON,
+    ShapeType.STAR,
+]
+station_unique_spawn_start_index = 10
+station_unique_spawn_chance = 0.35
 station_passengers_per_row = 4
 
 # passenger

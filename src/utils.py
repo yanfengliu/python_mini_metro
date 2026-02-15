@@ -6,9 +6,12 @@ import numpy as np
 from config import passenger_size, station_color, station_shape_type_list, station_size
 from geometry.circle import Circle
 from geometry.cross import Cross
+from geometry.diamond import Diamond
+from geometry.pentagon import Pentagon
 from geometry.point import Point
 from geometry.rect import Rect
 from geometry.shape import Shape
+from geometry.star import Star
 from geometry.triangle import Triangle
 from geometry.type import ShapeType
 from type import Color
@@ -56,12 +59,19 @@ def tuple_to_point(coords: Tuple[int, int]) -> Point:
 def get_shape_from_type(shape_type: ShapeType, color: Color, size: int) -> Shape:
     if shape_type == ShapeType.RECT:
         return Rect(color=color, width=2 * size, height=2 * size)
-    elif shape_type == ShapeType.CIRCLE:
+    if shape_type == ShapeType.CIRCLE:
         return Circle(color=color, radius=size)
-    elif shape_type == ShapeType.TRIANGLE:
+    if shape_type == ShapeType.TRIANGLE:
         return Triangle(color=color, size=size)
-    else:
+    if shape_type == ShapeType.CROSS:
         return Cross(color=color, size=size)
+    if shape_type == ShapeType.DIAMOND:
+        return Diamond(color=color, size=size)
+    if shape_type == ShapeType.PENTAGON:
+        return Pentagon(color=color, size=size)
+    if shape_type == ShapeType.STAR:
+        return Star(color=color, size=size)
+    raise ValueError(f"Unsupported shape type: {shape_type}")
 
 
 def within_time_window(game_time_ms: int, time_mark_ms: int, window_ms: int) -> bool:

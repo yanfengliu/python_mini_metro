@@ -21,7 +21,12 @@ from geometry.shape import Shape
 from geometry.type import ShapeType
 from ui.button import Button
 from ui.path_button import PathButton, get_path_buttons, update_path_button_positions
-from utils import get_random_passenger_shape, tuple_to_point, within_time_window
+from utils import (
+    get_random_passenger_shape,
+    get_shape_from_type,
+    tuple_to_point,
+    within_time_window,
+)
 
 
 class PassthroughShape(Shape):
@@ -152,6 +157,18 @@ class TestCoverageUtils(unittest.TestCase):
     def test_utils_helpers(self):
         passenger_shape = get_random_passenger_shape()
         self.assertIn(passenger_shape.type, list(ShapeType))
+        self.assertEqual(
+            get_shape_from_type(ShapeType.DIAMOND, (0, 0, 0), 4).type,
+            ShapeType.DIAMOND,
+        )
+        self.assertEqual(
+            get_shape_from_type(ShapeType.PENTAGON, (0, 0, 0), 4).type,
+            ShapeType.PENTAGON,
+        )
+        self.assertEqual(
+            get_shape_from_type(ShapeType.STAR, (0, 0, 0), 4).type,
+            ShapeType.STAR,
+        )
         point = tuple_to_point((3, 4))
         self.assertEqual(point, Point(3, 4))
         self.assertTrue(within_time_window(16, 10, 5))
