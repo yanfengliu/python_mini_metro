@@ -9,7 +9,7 @@ This document summarizes the game rules currently implemented in code.
 
 ## Stations and Passengers
 
-- The map starts with 3 stations and unlocks up to 10 as you handle more travels.
+- The map starts with 3 stations and unlocks up to 20 as you handle more travels.
 - Station shapes are from: rectangle, circle, triangle, and cross.
 - Each station can hold up to 12 waiting passengers.
 - Passengers spawn with a destination shape that is different from their origin station shape.
@@ -36,14 +36,14 @@ This document summarizes the game rules currently implemented in code.
 - The game tracks cumulative travels handled (delivered passengers).
 - Unlocked line slots are based on cumulative travels:
   - Start with 1 available line.
-  - Unlock 2nd line at 100 travels.
-  - Unlock 3rd line at 250 travels.
-  - Unlock 4th line at 500 travels.
+  - Unlock 2nd line at 90 travels.
+  - Unlock 3rd line at 300 travels.
+  - Unlock 4th line at 650 travels.
 - Unlocked stations are based on cumulative travels:
   - Start with 3 stations.
   - Unlock the 4th station at 10 travels.
   - Then each next station requires +20 more travels than the previous unlock
-    (5th at 40, 6th at 90, 7th at 160, ...), up to 10 stations.
+    (5th at 40, 6th at 90, 7th at 160, ...), up to 20 stations.
 - Line colors are randomized at runtime each run.
 
 ## Passenger Routing and Transfers
@@ -57,8 +57,10 @@ This document summarizes the game rules currently implemented in code.
 ## Timing and Spawning
 
 - Game updates at 60 FPS.
-- Passenger spawning starts at step 1, then repeats every 600 steps (about every 10 seconds at 60 FPS).
-- On each spawn tick, each station attempts to spawn 1 passenger if it has room.
+- Passenger spawning starts at step 1.
+- Each station has its own spawn interval, randomized once per station between 70% and
+  130% of 600 steps (about 420-780 steps, or 7-13 seconds at 60 FPS).
+- On each station spawn tick, that station attempts to spawn 1 passenger if it has room.
 
 ## Game Over
 
