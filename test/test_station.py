@@ -126,6 +126,28 @@ class TestStation(unittest.TestCase):
         )
         passenger.destination_shape.draw.assert_not_called()
 
+    def test_station_draw_hides_overdue_passenger_during_off_phase(self):
+        station = Station(Circle(station_color, station_size), Point(0, 0))
+        passenger = Passenger(Circle((0, 0, 0), 3))
+        passenger.wait_ms = passenger_max_wait_time_ms + 1_000
+        station.add_passenger(passenger)
+        passenger.destination_shape.draw = MagicMock()
+
+        station.draw(
+            self.screen,
+            current_time_ms=0,
+            passenger_max_wait_time_ms=passenger_max_wait_time_ms,
+        )
+        passenger.destination_shape.draw.assert_called_once()
+
+        passenger.destination_shape.draw.reset_mock()
+        station.draw(
+            self.screen,
+            current_time_ms=250,
+            passenger_max_wait_time_ms=passenger_max_wait_time_ms,
+        )
+        passenger.destination_shape.draw.assert_not_called()
+
     def test_unique_station_shapes_only_spawn_after_threshold_and_once(self):
         with (
             patch(

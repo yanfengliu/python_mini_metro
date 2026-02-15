@@ -25,6 +25,14 @@ class Passenger:
             and (max_wait_time_ms - self.wait_ms) <= passenger_blink_warning_time_ms
         )
 
+    def is_waiting_too_long(self, max_wait_time_ms: int) -> bool:
+        return self.wait_ms >= max_wait_time_ms
+
+    def should_blink_for_wait(self, max_wait_time_ms: int) -> bool:
+        return self.is_in_warning_window(max_wait_time_ms) or self.is_waiting_too_long(
+            max_wait_time_ms
+        )
+
     def is_warning_blink_visible(self, current_time_ms: int) -> bool:
         phase_index = int(current_time_ms / passenger_blink_interval_ms)
         return phase_index % 2 == 0
@@ -38,7 +46,7 @@ class Passenger:
         if (
             current_time_ms is not None
             and max_wait_time_ms is not None
-            and self.is_in_warning_window(max_wait_time_ms)
+            and self.should_blink_for_wait(max_wait_time_ms)
             and not self.is_warning_blink_visible(current_time_ms)
         ):
             return
