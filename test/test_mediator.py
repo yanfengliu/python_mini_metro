@@ -496,6 +496,61 @@ class TestMediator(unittest.TestCase):
         mediator.move_passengers.assert_called_once_with(400)
         mediator.update_waiting_and_game_over.assert_called_once_with(400)
 
+    def test_update_waiting_game_over_at_passenger_max_wait_boundary(self):
+        mediator = Mediator()
+        station = Station(Circle(station_color, station_size), Point(0, 0))
+        mediator.stations = [station]
+        passenger = Passenger(Circle(station_color, station_size))
+        station.add_passenger(passenger)
+
+        mediator.passenger_max_wait_time_ms = 100
+        mediator.max_waiting_passengers = 1
+
+        mediator.update_waiting_and_game_over(99)
+        self.assertEqual(passenger.wait_ms, 99)
+        self.assertFalse(mediator.is_game_over)
+
+        mediator.update_waiting_and_game_over(1)
+        self.assertEqual(passenger.wait_ms, 100)
+        self.assertTrue(mediator.is_game_over)
+
+    def test_update_waiting_game_over_respects_max_waiting_passengers(self):
+        mediator = Mediator()
+        station = Station(Circle(station_color, station_size), Point(0, 0))
+        mediator.stations = [station]
+        passenger_a = Passenger(Circle(station_color, station_size))
+        passenger_b = Passenger(Circle(station_color, station_size))
+        station.add_passenger(passenger_a)
+        station.add_passenger(passenger_b)
+
+        mediator.passenger_max_wait_time_ms = 100
+        mediator.max_waiting_passengers = 2
+        passenger_a.wait_ms = 100
+        passenger_b.wait_ms = 99
+
+        mediator.update_waiting_and_game_over(0)
+        self.assertFalse(mediator.is_game_over)
+
+        mediator.update_waiting_and_game_over(1)
+        self.assertTrue(mediator.is_game_over)
+
+    def test_update_waiting_ignores_metro_passengers_for_game_over(self):
+        mediator = Mediator()
+        station = Station(Circle(station_color, station_size), Point(0, 0))
+        mediator.stations = [station]
+        metro = Metro()
+        passenger = Passenger(Circle(station_color, station_size))
+        passenger.wait_ms = 10_000
+        metro.add_passenger(passenger)
+        mediator.metros = [metro]
+        mediator.passengers = [passenger]
+
+        mediator.passenger_max_wait_time_ms = 1
+        mediator.max_waiting_passengers = 1
+
+        mediator.update_waiting_and_game_over(0)
+        self.assertFalse(mediator.is_game_over)
+
     def test_move_passengers_covers_all_transfers(self):
         mediator, station_a, station_b, path, metro = self._build_two_station_mediator()
         mediator.update_unlocked_num_paths = MagicMock()

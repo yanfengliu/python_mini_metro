@@ -67,8 +67,8 @@ This document summarizes the game rules currently implemented in code.
 
 ## Game Over
 
-- A passenger is considered over-waiting at 60 seconds or more of station wait time.
-- Game over occurs when 20 or more passengers are over-waiting.
+- A passenger is considered over-waiting at 40 seconds or more of station wait time.
+- Game over occurs when 1 or more passengers are over-waiting.
 - On game over:
   - Simulation time and gameplay updates stop.
   - A game-over overlay appears with final score.
