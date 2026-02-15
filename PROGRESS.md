@@ -39,3 +39,4 @@
 - Added station-pool generation logic so unique shapes can only appear after the 10th station slot and at most once each per run.
 - Updated `ARCHITECTURE.md` to reflect the latest project file structure.
 - Fixed passenger wait blink logic so passengers at or past the max wait threshold also blink instead of only pre-timeout passengers.
+- Fixed path segment offset direction to use a stable station-pair orientation so reversed A/B segments stay parallel and no longer cross each other.

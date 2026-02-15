@@ -11,6 +11,7 @@ from config import framerate, metro_speed_per_ms, station_color, station_size
 from entity.get_entity import get_random_station, get_random_stations
 from entity.metro import Metro
 from entity.path import Path
+from entity.path_segment import PathSegment
 from entity.station import Station
 from geometry.circle import Circle
 from geometry.point import Point
@@ -177,6 +178,16 @@ class TestPath(unittest.TestCase):
         metro.position = metro.current_segment.segment_end
         path.move_metro(metro, 100000)
         self.assertEqual(metro.current_segment_idx, len(path.segments) - 1)
+
+    def test_path_segment_keeps_parallel_offsets_for_reversed_station_pair(self):
+        station_a = Station(Circle(station_color, station_size), Point(0, 0))
+        station_b = Station(Circle(station_color, station_size), Point(100, 40))
+        segment_ab = PathSegment((10, 10, 10), station_a, station_b, path_order=2)
+        segment_ba = PathSegment((10, 10, 10), station_b, station_a, path_order=2)
+
+        offset_from_a = segment_ab.segment_start - station_a.position
+        offset_from_b = segment_ba.segment_start - station_b.position
+        self.assertEqual(offset_from_a, offset_from_b)
 
 
 if __name__ == "__main__":

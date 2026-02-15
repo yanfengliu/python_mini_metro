@@ -4,12 +4,28 @@ from config import path_order_shift, path_width
 from entity.segment import Segment
 from entity.station import Station
 from geometry.line import Line
+from geometry.point import Point
 from geometry.utils import direction
 from shortuuid import uuid  # type: ignore
 from type import Color
 
 
 class PathSegment(Segment):
+    @staticmethod
+    def _canonical_pair_direction(
+        start_station: Station, end_station: Station
+    ) -> Point:
+        start_position = start_station.position
+        end_position = end_station.position
+        # Use one stable ordering per station pair so offsets are consistent
+        # for both A->B and B->A segments.
+        if (
+            (start_position.left, start_position.top)
+            <= (end_position.left, end_position.top)
+        ):
+            return direction(start_position, end_position)
+        return direction(end_position, start_position)
+
     def __init__(
         self,
         color: Color,
@@ -23,9 +39,7 @@ class PathSegment(Segment):
         self.end_station = end_station
         self.path_order = path_order
 
-        start_point = start_station.position
-        end_point = end_station.position
-        direct = direction(start_point, end_point)
+        direct = self._canonical_pair_direction(start_station, end_station)
         buffer_vector = direct * path_order_shift
         buffer_vector = buffer_vector.rotate(90)
 
