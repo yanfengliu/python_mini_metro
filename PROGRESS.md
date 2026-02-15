@@ -36,6 +36,8 @@ Tests:
 - Changed station unlock baseline to 10 travels as the intended behavior, and updated mediator unlock-threshold tests plus `GAME_RULES.md` milestones accordingly.
 - Added keyboard speed controls (1x/2x/4x via keys `1`/`2`/`3`) and wired simulation timing, metro movement, spawn-step progression, and wait-time updates to respect the selected speed.
 - Added gameplay and mediator test coverage for speed key handling and time-scaling behavior; updated docs controls in `README.md` and `GAME_RULES.md`.
+- Fixed passenger route selection to prefer the shortest reachable destination route (with transfer-aware tie-breaking) so riders board eligible metros instead of waiting for longer alternatives.
+- Added mediator regression coverage to verify a passenger chooses the shortest destination route and boards an available metro with matching path capacity.
 
 Tests:
 - `python -m unittest -v`

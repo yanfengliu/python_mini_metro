@@ -679,7 +679,8 @@ class Mediator:
                     possible_dst_stations = self.get_stations_for_shape_type(
                         passenger.destination_shape.type
                     )
-                    should_set_null_path = True
+                    best_node_path: List[Node] | None = None
+                    best_path_cost: tuple[int, int] | None = None
                     for possible_dst_station in possible_dst_stations:
                         start = station_nodes_dict[station]
                         end = station_nodes_dict[possible_dst_station]
@@ -690,15 +691,26 @@ class Mediator:
                             self.passengers.remove(passenger)
                             passenger.is_at_destination = True
                             del self.travel_plans[passenger]
-                            should_set_null_path = False
+                            best_node_path = None
                             break
                         elif len(node_path) > 1:
-                            node_path = self.skip_stations_on_same_path(node_path)
-                            self.travel_plans[passenger] = TravelPlan(node_path[1:])
-                            self.find_next_path_for_passenger_at_station(
-                                passenger, station
+                            # Prefer the shortest reachable destination route so
+                            # passengers board metros that can deliver them sooner.
+                            reduced_node_path = self.skip_stations_on_same_path(
+                                list(node_path)
                             )
-                            should_set_null_path = False
-                            break
-                    if should_set_null_path:
+                            candidate_cost = (len(node_path), len(reduced_node_path))
+                            if (
+                                best_path_cost is None
+                                or candidate_cost < best_path_cost
+                            ):
+                                best_path_cost = candidate_cost
+                                best_node_path = reduced_node_path
+
+                    if best_node_path is not None:
+                        self.travel_plans[passenger] = TravelPlan(best_node_path[1:])
+                        self.find_next_path_for_passenger_at_station(passenger, station)
+                    elif (
+                        not passenger.is_at_destination and passenger not in self.travel_plans
+                    ):
                         self.travel_plans[passenger] = TravelPlan([])
