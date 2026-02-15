@@ -250,11 +250,11 @@ class TestEnv(unittest.TestCase):
 
         self.assertEqual(env.mediator.unlocked_num_paths, 1)
 
-        env.mediator.total_travels_handled = 99
+        env.mediator.total_travels_handled = 89
         env.mediator.update_unlocked_num_paths()
         self.assertEqual(env.mediator.unlocked_num_paths, 1)
 
-        env.mediator.total_travels_handled = 100
+        env.mediator.total_travels_handled = 90
         env.mediator.update_unlocked_num_paths()
         self.assertEqual(env.mediator.unlocked_num_paths, 2)
 

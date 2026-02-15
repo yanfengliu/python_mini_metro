@@ -49,7 +49,7 @@ metro_speed_per_ms = 150 / 1000  # pixels / ms
 metro_passengers_per_row = 3
 
 # path
-path_unlock_milestones = [0, 100, 250, 500]
+path_unlock_milestones = [0, 90, 250, 500]
 num_paths = len(path_unlock_milestones)
 path_width = 10
 path_order_shift = 10
