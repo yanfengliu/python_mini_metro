@@ -1,5 +1,4 @@
 ---
-description: Always keep progress updated
 alwaysApply: true
 ---
 - Before you do anything, check `PROGRESS.md` for what is already done.

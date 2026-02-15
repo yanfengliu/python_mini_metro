@@ -1,0 +1,5 @@
+---
+description: Keep file size reasonably small.
+alwaysApply: false
+---
+- If a file has too much code in it, try to divide it into sub modules that live in different files.
