@@ -61,6 +61,7 @@ class Mediator:
         self.passenger_spawning_interval_step = passenger_spawning_interval_step
         self.num_paths = num_paths
         self.path_unlock_milestones = sorted(path_unlock_milestones)
+        self.path_purchase_prices = self.get_path_purchase_prices()
         self.num_metros = num_metros
         self.num_stations = num_stations
         self.initial_num_stations = initial_num_stations
@@ -106,12 +107,21 @@ class Mediator:
         self.game_speed_multiplier = 1
         self.score = 0
         self.total_travels_handled = 0
+        self.purchased_num_paths = 1
         self.unlocked_num_paths = self.get_unlocked_num_paths()
         self.unlocked_num_stations = self.get_unlocked_num_stations()
         self.update_path_button_lock_states()
         self.is_game_over = False
         self.passenger_max_wait_time_ms = passenger_max_wait_time_ms
         self.max_waiting_passengers = max_waiting_passengers
+
+    def get_path_purchase_prices(self) -> List[int]:
+        if self.num_paths <= 1:
+            return []
+        return [
+            self.path_unlock_milestones[idx] - self.path_unlock_milestones[idx - 1]
+            for idx in range(1, self.num_paths)
+        ]
 
     def get_initial_station_pool(self) -> List[Station]:
         # Keep initial gameplay valid by guaranteeing at least two shape types.
@@ -145,14 +155,7 @@ class Mediator:
                     station.start_unlock_blink(self.time_ms)
 
     def get_unlocked_num_paths(self) -> int:
-        return max(
-            1,
-            sum(
-                1
-                for milestone in self.path_unlock_milestones
-                if self.total_travels_handled >= milestone
-            ),
-        )
+        return min(max(1, self.purchased_num_paths), self.num_paths)
 
     def update_unlocked_num_paths(self) -> None:
         previous_unlocked_num_paths = self.unlocked_num_paths
@@ -167,6 +170,40 @@ class Mediator:
     def update_path_button_lock_states(self) -> None:
         for idx, button in enumerate(self.path_buttons):
             button.set_locked(idx >= self.unlocked_num_paths)
+
+    def get_next_path_button_idx_to_purchase(self) -> int | None:
+        if self.unlocked_num_paths >= self.num_paths:
+            return None
+        return self.unlocked_num_paths
+
+    def get_purchase_price_for_path_button_idx(self, button_idx: int) -> int | None:
+        if button_idx <= 0 or button_idx >= self.num_paths:
+            return None
+        return self.path_purchase_prices[button_idx - 1]
+
+    def can_purchase_path_button_idx(self, button_idx: int) -> bool:
+        next_button_idx = self.get_next_path_button_idx_to_purchase()
+        if next_button_idx is None or next_button_idx != button_idx:
+            return False
+        price = self.get_purchase_price_for_path_button_idx(button_idx)
+        return price is not None and self.score >= price
+
+    def try_purchase_path_button(self, button: PathButton) -> bool:
+        if not button.is_locked:
+            return False
+        try:
+            button_idx = self.path_buttons.index(button)
+        except ValueError:
+            return False
+        if not self.can_purchase_path_button_idx(button_idx):
+            return False
+        price = self.get_purchase_price_for_path_button_idx(button_idx)
+        if price is None:
+            return False
+        self.score -= price
+        self.purchased_num_paths += 1
+        self.update_unlocked_num_paths()
+        return True
 
     def step_time(self, dt_ms: int) -> None:
         self.increment_time(dt_ms)
@@ -211,7 +248,20 @@ class Mediator:
         for metro in self.metros:
             metro.draw(screen)
         for button in self.buttons:
-            button.draw(screen, self.time_ms)
+            if isinstance(button, PathButton):
+                button_idx = self.path_buttons.index(button)
+                button.draw(
+                    screen,
+                    self.time_ms,
+                    locked_purchase_price=self.get_purchase_price_for_path_button_idx(
+                        button_idx
+                    ),
+                    locked_purchase_affordable=self.can_purchase_path_button_idx(
+                        button_idx
+                    ),
+                )
+            else:
+                button.draw(screen, self.time_ms)
         text_surface = self.font.render(f"Score: {self.score}", True, (0, 0, 0))
         screen.blit(text_surface, score_display_coords)
         if self.is_game_over:
@@ -317,6 +367,8 @@ class Mediator:
                 if entity and isinstance(entity, PathButton):
                     if entity.path:
                         self.remove_path(entity.path)
+                    elif entity.is_locked:
+                        self.try_purchase_path_button(entity)
 
         elif event.event_type == MouseEventType.MOUSE_MOTION:
             if self.is_mouse_down:

@@ -36,11 +36,12 @@ This document summarizes the game rules currently implemented in code.
 
 - Score increases by 1 for each delivered passenger.
 - The game tracks cumulative travels handled (delivered passengers).
-- Unlocked line slots are based on cumulative travels:
+- Line slot unlocks are purchased using score by clicking locked (empty ring) line buttons:
   - Start with 1 available line.
-  - Unlock 2nd line at 90 travels.
-  - Unlock 3rd line at 300 travels.
-  - Unlock 4th line at 650 travels.
+  - 2nd line costs 90 score.
+  - 3rd line costs 210 score.
+  - 4th line costs 350 score.
+  - These costs are incremental amounts derived from milestones [0, 90, 300, 650].
 - Unlocked stations are based on cumulative travels:
   - Start with 3 stations.
   - Unlock the 4th station at 10 travels.
@@ -76,6 +77,8 @@ This document summarizes the game rules currently implemented in code.
 
 - Mouse:
   - Click and drag from station to station to create a line.
+  - Hover a locked line button to see a two-line buy hint (`Buy` + price).
+  - Click a locked line button (empty ring) to purchase that slot if score is enough.
   - Click a line color button at the top to remove that line.
   - On game-over screen, click Restart or Exit buttons.
 - Keyboard:

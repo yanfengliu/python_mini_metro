@@ -229,7 +229,8 @@ class TestEnv(unittest.TestCase):
     def test_path_creation_limit(self):
         env = MiniMetroEnv()
         env.reset(seed=12)
-        env.mediator.total_travels_handled = 650
+        env.mediator.purchased_num_paths = env.mediator.num_paths
+        env.mediator.total_travels_handled = 10000
         env.mediator.update_unlocked_num_paths()
         env.mediator.update_unlocked_num_stations()
         for idx in range(env.mediator.num_paths):
@@ -244,27 +245,24 @@ class TestEnv(unittest.TestCase):
         self.assertFalse(info["action_ok"])
         self.assertEqual(len(env.mediator.paths), env.mediator.num_paths)
 
-    def test_path_unlock_progression_uses_total_travels(self):
+    def test_path_unlock_progression_uses_score_purchases(self):
         env = MiniMetroEnv()
         env.reset(seed=16)
 
         self.assertEqual(env.mediator.unlocked_num_paths, 1)
+        second_button = env.mediator.path_buttons[1]
 
-        env.mediator.total_travels_handled = 89
+        env.mediator.total_travels_handled = 10000
         env.mediator.update_unlocked_num_paths()
         self.assertEqual(env.mediator.unlocked_num_paths, 1)
 
-        env.mediator.total_travels_handled = 90
-        env.mediator.update_unlocked_num_paths()
+        env.mediator.score = env.mediator.path_purchase_prices[0] - 1
+        self.assertFalse(env.mediator.try_purchase_path_button(second_button))
+        self.assertEqual(env.mediator.unlocked_num_paths, 1)
+
+        env.mediator.score += 1
+        self.assertTrue(env.mediator.try_purchase_path_button(second_button))
         self.assertEqual(env.mediator.unlocked_num_paths, 2)
-
-        env.mediator.total_travels_handled = 300
-        env.mediator.update_unlocked_num_paths()
-        self.assertEqual(env.mediator.unlocked_num_paths, 3)
-
-        env.mediator.total_travels_handled = 650
-        env.mediator.update_unlocked_num_paths()
-        self.assertEqual(env.mediator.unlocked_num_paths, 4)
 
     def test_reward_increments_on_passenger_delivery(self):
         env = MiniMetroEnv()

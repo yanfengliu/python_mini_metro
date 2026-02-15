@@ -46,3 +46,10 @@
 - Fixed metro stop-planning crash on padding segments by guarding next-station lookup when a segment endpoint is not a station.
 - Fixed zero-length direction vectors to return `(0, 0)` so metro rotation never receives NaN angles on collapsed/zero-distance segments.
 - Fixed metro station-dwell deadlock by only scheduling boarding stops when metro capacity is available now or will be freed by alighting at that station.
+
+## 2026-02-15
+
+- Changed metro line unlocks to score purchases by clicking locked path buttons instead of auto-unlocking from travels.
+- Kept unlock milestone economics by using incremental line purchase prices derived from `[0, 90, 300, 650]`.
+- Added locked-button hover buy hints with two lines of text (`Buy` and price), using gray text when unaffordable and black text when affordable.
+- Updated game rules docs for purchase-based line unlocks and the new locked-button hover/click behavior.

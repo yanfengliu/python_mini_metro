@@ -19,6 +19,7 @@ from config import (
     framerate,
     initial_num_stations,
     num_stations,
+    path_unlock_milestones,
     passenger_spawning_interval_step,
     passenger_spawning_start_step,
     screen_height,
@@ -562,7 +563,7 @@ class TestMediator(unittest.TestCase):
 
     def test_update_unlocked_paths_updates_button_locks(self):
         mediator = Mediator()
-        mediator.total_travels_handled = 90
+        mediator.purchased_num_paths = 2
         mediator.update_unlocked_num_paths()
         self.assertEqual(mediator.unlocked_num_paths, 2)
         self.assertFalse(mediator.path_buttons[0].is_locked)
@@ -575,7 +576,7 @@ class TestMediator(unittest.TestCase):
         second_button = mediator.path_buttons[1]
 
         self.assertFalse(second_button.is_unlock_blink_active(mediator.time_ms))
-        mediator.total_travels_handled = 90
+        mediator.purchased_num_paths = 2
         mediator.update_unlocked_num_paths()
 
         self.assertTrue(second_button.is_unlock_blink_active(mediator.time_ms))
@@ -586,6 +587,47 @@ class TestMediator(unittest.TestCase):
                 mediator.time_ms + unlock_blink_duration_ms
             )
         )
+
+    def test_path_purchase_prices_are_incremental_from_milestones(self):
+        mediator = Mediator()
+        expected_prices = [
+            path_unlock_milestones[idx] - path_unlock_milestones[idx - 1]
+            for idx in range(1, len(path_unlock_milestones))
+        ]
+        self.assertEqual(mediator.path_purchase_prices, expected_prices)
+
+    def test_try_purchase_path_button_unlocks_next_slot(self):
+        mediator = Mediator()
+        second_button = mediator.path_buttons[1]
+        self.assertTrue(second_button.is_locked)
+        self.assertEqual(mediator.unlocked_num_paths, 1)
+        self.assertEqual(mediator.score, 0)
+
+        mediator.score = mediator.path_purchase_prices[0]
+        purchased = mediator.try_purchase_path_button(second_button)
+
+        self.assertTrue(purchased)
+        self.assertEqual(mediator.unlocked_num_paths, 2)
+        self.assertFalse(second_button.is_locked)
+        self.assertEqual(mediator.score, 0)
+
+    def test_try_purchase_path_button_requires_enough_score(self):
+        mediator = Mediator()
+        second_button = mediator.path_buttons[1]
+        mediator.score = mediator.path_purchase_prices[0] - 1
+
+        purchased = mediator.try_purchase_path_button(second_button)
+
+        self.assertFalse(purchased)
+        self.assertTrue(second_button.is_locked)
+        self.assertEqual(mediator.unlocked_num_paths, 1)
+        self.assertEqual(mediator.score, mediator.path_purchase_prices[0] - 1)
+
+    def test_path_unlock_no_longer_follows_total_travels(self):
+        mediator = Mediator()
+        mediator.total_travels_handled = 650
+        mediator.update_unlocked_num_paths()
+        self.assertEqual(mediator.unlocked_num_paths, 1)
 
     def test_initial_station_unlock_state(self):
         mediator = Mediator()

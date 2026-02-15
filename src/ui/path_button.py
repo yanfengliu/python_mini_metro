@@ -5,6 +5,9 @@ from config import (
     button_color,
     button_size,
     path_button_buffer,
+    path_button_buy_text_color,
+    path_button_buy_text_disabled_color,
+    path_button_buy_text_font_size,
     path_button_cross_size,
     path_button_cross_width,
     path_button_dist_to_bottom,
@@ -29,6 +32,7 @@ class PathButton(Button):
         self.show_cross = False
         self.is_locked = False
         self.unlock_blink_start_time_ms: int | None = None
+        self.buy_text_font: pygame.font.Font | None = None
 
     def remove_path(self) -> None:
         self.cross = None
@@ -86,6 +90,8 @@ class PathButton(Button):
         self,
         surface: pygame.surface.Surface,
         current_time_ms: int | None = None,
+        locked_purchase_price: int | None = None,
+        locked_purchase_affordable: bool = False,
     ) -> None:
         if (
             current_time_ms is not None
@@ -101,6 +107,42 @@ class PathButton(Button):
                 self.shape.radius,
                 path_button_locked_ring_width,
             )
+            if self.show_cross and locked_purchase_price is not None:
+                if self.buy_text_font is None:
+                    self.buy_text_font = pygame.font.SysFont(
+                        "arial", path_button_buy_text_font_size
+                    )
+                text_color = (
+                    path_button_buy_text_color
+                    if locked_purchase_affordable
+                    else path_button_buy_text_disabled_color
+                )
+                buy_surface = self.buy_text_font.render("Buy", True, text_color)
+                price_surface = self.buy_text_font.render(
+                    str(locked_purchase_price), True, text_color
+                )
+                line_spacing = 4
+                total_text_height = (
+                    buy_surface.get_height()
+                    + price_surface.get_height()
+                    + line_spacing
+                )
+                top = (
+                    self.position.top
+                    - self.shape.radius
+                    - 8
+                    - total_text_height
+                )
+                buy_rect = buy_surface.get_rect(center=(self.position.left, top))
+                buy_rect.top = top
+                price_rect = price_surface.get_rect(
+                    center=(
+                        self.position.left,
+                        buy_rect.bottom + line_spacing + price_surface.get_height() // 2,
+                    )
+                )
+                surface.blit(buy_surface, buy_rect)
+                surface.blit(price_surface, price_rect)
         else:
             super().draw(surface)
         if self.cross and self.show_cross and self.path:

@@ -79,6 +79,9 @@ path_button_start_left = 500
 path_button_cross_size = 25
 path_button_cross_width = 5
 path_button_locked_ring_width = 5
+path_button_buy_text_color = (0, 0, 0)
+path_button_buy_text_disabled_color = (140, 140, 140)
+path_button_buy_text_font_size = 26
 
 # text
 score_font_size = 50

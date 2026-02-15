@@ -10,6 +10,8 @@ from config import (
     button_color,
     button_size,
     path_button_buffer,
+    path_button_buy_text_color,
+    path_button_buy_text_disabled_color,
     path_button_dist_to_bottom,
 )
 from event.convert import convert_pygame_event
@@ -136,6 +138,48 @@ class TestCoverageUtils(unittest.TestCase):
         button.shape.draw.reset_mock()
         button.draw(self.screen, current_time_ms=200)
         button.shape.draw.assert_not_called()
+
+    def test_locked_path_button_hover_text_uses_disabled_color_when_unaffordable(self):
+        button = PathButton(Circle(button_color, button_size), Point(0, 0))
+        button.set_locked(True)
+        button.on_hover()
+        fake_font = MagicMock()
+        fake_surface = MagicMock()
+        fake_surface.get_height.return_value = 10
+        fake_surface.get_rect.return_value = pygame.Rect(0, 0, 10, 10)
+        fake_font.render = MagicMock(return_value=fake_surface)
+        pygame.font.SysFont = MagicMock(return_value=fake_font)
+        pygame.draw.circle = MagicMock()
+
+        button.draw(
+            self.screen,
+            locked_purchase_price=90,
+            locked_purchase_affordable=False,
+        )
+
+        fake_font.render.assert_any_call("Buy", True, path_button_buy_text_disabled_color)
+        fake_font.render.assert_any_call("90", True, path_button_buy_text_disabled_color)
+
+    def test_locked_path_button_hover_text_uses_enabled_color_when_affordable(self):
+        button = PathButton(Circle(button_color, button_size), Point(0, 0))
+        button.set_locked(True)
+        button.on_hover()
+        fake_font = MagicMock()
+        fake_surface = MagicMock()
+        fake_surface.get_height.return_value = 10
+        fake_surface.get_rect.return_value = pygame.Rect(0, 0, 10, 10)
+        fake_font.render = MagicMock(return_value=fake_surface)
+        pygame.font.SysFont = MagicMock(return_value=fake_font)
+        pygame.draw.circle = MagicMock()
+
+        button.draw(
+            self.screen,
+            locked_purchase_price=90,
+            locked_purchase_affordable=True,
+        )
+
+        fake_font.render.assert_any_call("Buy", True, path_button_buy_text_color)
+        fake_font.render.assert_any_call("90", True, path_button_buy_text_color)
 
     def test_get_path_buttons_positions(self):
         width = 1000
