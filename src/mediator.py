@@ -133,9 +133,16 @@ class Mediator:
         return min(unlocked, self.num_stations)
 
     def update_unlocked_num_stations(self) -> None:
+        previous_unlocked_num_stations = self.unlocked_num_stations
         self.unlocked_num_stations = self.get_unlocked_num_stations()
         if self.unlocked_num_stations > len(self.stations):
+            newly_unlocked_stations = self.all_stations[
+                len(self.stations) : self.unlocked_num_stations
+            ]
             self.stations = self.all_stations[: self.unlocked_num_stations]
+            if self.unlocked_num_stations > previous_unlocked_num_stations:
+                for station in newly_unlocked_stations:
+                    station.start_unlock_blink(self.time_ms)
 
     def get_unlocked_num_paths(self) -> int:
         return max(
@@ -148,7 +155,13 @@ class Mediator:
         )
 
     def update_unlocked_num_paths(self) -> None:
+        previous_unlocked_num_paths = self.unlocked_num_paths
         self.unlocked_num_paths = self.get_unlocked_num_paths()
+        if self.unlocked_num_paths > previous_unlocked_num_paths:
+            for path_button_idx in range(
+                previous_unlocked_num_paths, self.unlocked_num_paths
+            ):
+                self.path_buttons[path_button_idx].start_unlock_blink(self.time_ms)
         self.update_path_button_lock_states()
 
     def update_path_button_lock_states(self) -> None:
@@ -175,11 +188,11 @@ class Mediator:
             path_order = idx - (active_path_count // 2)
             path.draw(screen, path_order)
         for station in self.stations:
-            station.draw(screen)
+            station.draw(screen, self.time_ms)
         for metro in self.metros:
             metro.draw(screen)
         for button in self.buttons:
-            button.draw(screen)
+            button.draw(screen, self.time_ms)
         text_surface = self.font.render(f"Score: {self.score}", True, (0, 0, 0))
         screen.blit(text_surface, score_display_coords)
         if self.is_game_over:

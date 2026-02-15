@@ -57,6 +57,8 @@ path_order_shift = 10
 # button
 button_color = (180, 180, 180)
 button_size = 30
+unlock_blink_count = 3
+unlock_blink_duration_ms = 1000
 
 # path button
 path_button_buffer = 20

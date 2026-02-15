@@ -11,7 +11,11 @@ class Button(ABC):
         self.shape = shape
         self.position: Point
 
-    def draw(self, surface: pygame.surface.Surface) -> None:
+    def draw(
+        self,
+        surface: pygame.surface.Surface,
+        current_time_ms: int | None = None,
+    ) -> None:
         self.shape.draw(surface, self.position)
 
     def contains(self, point: Point) -> bool:

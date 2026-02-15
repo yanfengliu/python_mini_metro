@@ -26,6 +26,7 @@ from config import (
     station_unlock_milestones,
     station_color,
     station_size,
+    unlock_blink_duration_ms,
 )
 from entity.metro import Metro
 from entity.passenger import Passenger
@@ -555,13 +556,30 @@ class TestMediator(unittest.TestCase):
 
     def test_update_unlocked_paths_updates_button_locks(self):
         mediator = Mediator()
-        mediator.total_travels_handled = 100
+        mediator.total_travels_handled = 90
         mediator.update_unlocked_num_paths()
         self.assertEqual(mediator.unlocked_num_paths, 2)
         self.assertFalse(mediator.path_buttons[0].is_locked)
         self.assertFalse(mediator.path_buttons[1].is_locked)
         for button in mediator.path_buttons[2:]:
             self.assertTrue(button.is_locked)
+
+    def test_update_unlocked_paths_starts_button_blink(self):
+        mediator = Mediator()
+        second_button = mediator.path_buttons[1]
+
+        self.assertFalse(second_button.is_unlock_blink_active(mediator.time_ms))
+        mediator.total_travels_handled = 90
+        mediator.update_unlocked_num_paths()
+
+        self.assertTrue(second_button.is_unlock_blink_active(mediator.time_ms))
+        self.assertTrue(second_button.is_unlock_blink_visible(mediator.time_ms))
+        self.assertFalse(second_button.is_unlock_blink_visible(mediator.time_ms + 200))
+        self.assertFalse(
+            second_button.is_unlock_blink_active(
+                mediator.time_ms + unlock_blink_duration_ms
+            )
+        )
 
     def test_initial_station_unlock_state(self):
         mediator = Mediator()
@@ -591,6 +609,29 @@ class TestMediator(unittest.TestCase):
         mediator.update_unlocked_num_stations()
         self.assertEqual(mediator.unlocked_num_stations, num_stations)
         self.assertEqual(len(mediator.stations), num_stations)
+
+    def test_station_unlock_starts_new_station_blink(self):
+        mediator = Mediator()
+        first_new_station = mediator.all_stations[initial_num_stations]
+        initial_station = mediator.stations[0]
+
+        self.assertFalse(initial_station.is_unlock_blink_active(mediator.time_ms))
+        self.assertFalse(first_new_station.is_unlock_blink_active(mediator.time_ms))
+
+        mediator.total_travels_handled = station_unlock_milestones[0]
+        mediator.update_unlocked_num_stations()
+
+        self.assertIn(first_new_station, mediator.stations)
+        self.assertTrue(first_new_station.is_unlock_blink_active(mediator.time_ms))
+        self.assertTrue(first_new_station.is_unlock_blink_visible(mediator.time_ms))
+        self.assertFalse(
+            first_new_station.is_unlock_blink_visible(mediator.time_ms + 200)
+        )
+        self.assertFalse(
+            first_new_station.is_unlock_blink_active(
+                mediator.time_ms + unlock_blink_duration_ms
+            )
+        )
 
     def test_find_shared_path_returns_none(self):
         mediator = Mediator()

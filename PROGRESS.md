@@ -13,6 +13,10 @@
 
 Tests:
 - `python -m unittest -v`
+- Added unlock-attention blinking for newly unlocked stations and metro-line buttons: each now blinks 3 times over 1 second when it becomes available.
+- Wired mediator unlock updates to trigger blink only on newly unlocked entities and passed `time_ms` through render for deterministic blink timing.
+- Added regression tests for station/button blink timing and visibility behavior on unlock.
+- Re-ran full tests: `python -m unittest -v` -> `Ran 122 tests` / `OK`.
 
 ## 2026-02-14
 

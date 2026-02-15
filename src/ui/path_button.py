@@ -10,6 +10,8 @@ from config import (
     path_button_dist_to_bottom,
     path_button_locked_ring_width,
     path_button_start_left,
+    unlock_blink_count,
+    unlock_blink_duration_ms,
 )
 from entity.path import Path
 from geometry.circle import Circle
@@ -27,6 +29,7 @@ class PathButton(Button):
         self.cross: Cross | None = None
         self.show_cross = False
         self.is_locked = False
+        self.unlock_blink_start_time_ms: int | None = None
 
     def remove_path(self) -> None:
         self.cross = None
@@ -60,7 +63,36 @@ class PathButton(Button):
         else:
             self.shape.color = button_color
 
-    def draw(self, surface: pygame.surface.Surface) -> None:
+    def start_unlock_blink(self, current_time_ms: int) -> None:
+        self.unlock_blink_start_time_ms = current_time_ms
+
+    def is_unlock_blink_active(self, current_time_ms: int) -> bool:
+        if self.unlock_blink_start_time_ms is None:
+            return False
+        return (
+            current_time_ms - self.unlock_blink_start_time_ms
+            < unlock_blink_duration_ms
+        )
+
+    def is_unlock_blink_visible(self, current_time_ms: int) -> bool:
+        if not self.is_unlock_blink_active(current_time_ms):
+            return True
+        assert self.unlock_blink_start_time_ms is not None
+        elapsed_ms = current_time_ms - self.unlock_blink_start_time_ms
+        phase_duration_ms = unlock_blink_duration_ms / (unlock_blink_count * 2)
+        phase_index = int(elapsed_ms / phase_duration_ms)
+        return phase_index % 2 == 0
+
+    def draw(
+        self,
+        surface: pygame.surface.Surface,
+        current_time_ms: int | None = None,
+    ) -> None:
+        if (
+            current_time_ms is not None
+            and not self.is_unlock_blink_visible(current_time_ms)
+        ):
+            return
         if self.is_locked and isinstance(self.shape, Circle):
             self.shape.position = self.position
             pygame.draw.circle(

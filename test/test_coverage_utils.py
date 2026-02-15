@@ -115,6 +115,18 @@ class TestCoverageUtils(unittest.TestCase):
         button.set_locked(False)
         self.assertEqual(button.shape.color, path.color)
 
+    def test_path_button_unlock_blink_hides_during_off_phase(self):
+        button = PathButton(Circle(button_color, button_size), Point(0, 0))
+        button.start_unlock_blink(0)
+        button.shape.draw = MagicMock()
+
+        button.draw(self.screen, current_time_ms=0)
+        button.shape.draw.assert_called_once()
+
+        button.shape.draw.reset_mock()
+        button.draw(self.screen, current_time_ms=200)
+        button.shape.draw.assert_not_called()
+
     def test_get_path_buttons_positions(self):
         buttons = get_path_buttons(2)
         self.assertEqual(len(buttons), 2)

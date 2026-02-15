@@ -84,6 +84,18 @@ class TestStation(unittest.TestCase):
         empty_plan = TravelPlan([])
         self.assertIsNone(empty_plan.get_next_station())
 
+    def test_station_unlock_blink_hides_shape_during_off_phase(self):
+        station = Station(Circle(station_color, station_size), Point(0, 0))
+        station.shape.draw = MagicMock()
+        station.start_unlock_blink(0)
+
+        station.draw(self.screen, current_time_ms=0)
+        station.shape.draw.assert_called_once()
+
+        station.shape.draw.reset_mock()
+        station.draw(self.screen, current_time_ms=200)
+        station.shape.draw.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
