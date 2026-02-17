@@ -56,3 +56,8 @@
 - Changed UI font usage to `courier` via shared `font_name` config.
 - Expanded `README.md` programmatic play docs to list the `MiniMetroEnv` API, action schemas, valid input constraints, and observation/step return fields.
 - Added programmatic `buy_line` action to purchase metro lines through `env.step(...)`, with optional `path_index` targeting and validation.
+
+## 2026-02-16
+
+- Improved random metro line color generation to prefer hues that are more distinct from already selected line colors.
+- Added color-distance helper utilities and tests for hue wrap distance and distinct hue selection behavior.

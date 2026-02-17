@@ -26,6 +26,8 @@ from ui.path_button import PathButton, get_path_buttons, update_path_button_posi
 from utils import (
     get_random_passenger_shape,
     get_shape_from_type,
+    hue_circular_distance,
+    pick_distinct_hue,
     tuple_to_point,
     within_time_window,
 )
@@ -217,6 +219,23 @@ class TestCoverageUtils(unittest.TestCase):
         self.assertEqual(point, Point(3, 4))
         self.assertTrue(within_time_window(16, 10, 5))
         self.assertFalse(within_time_window(14, 10, 5))
+
+    def test_hue_circular_distance_wraps(self):
+        self.assertAlmostEqual(hue_circular_distance(0.95, 0.05), 0.1)
+        self.assertAlmostEqual(hue_circular_distance(0.2, 0.6), 0.4)
+
+    def test_pick_distinct_hue_prefers_farthest_candidate(self):
+        existing_hues = [0.0, 0.2]
+        candidate_hues = [0.1, 0.52, 0.9]
+        picked_hue = pick_distinct_hue(existing_hues, candidate_hues)
+        self.assertEqual(picked_hue, 0.52)
+
+    def test_pick_distinct_hue_handles_empty_existing(self):
+        self.assertEqual(pick_distinct_hue([], [0.33, 0.66]), 0.33)
+
+    def test_pick_distinct_hue_requires_candidates(self):
+        with self.assertRaises(ValueError):
+            pick_distinct_hue([0.1], [])
 
     def test_convert_pygame_event(self):
         with patch("pygame.mouse.get_pos", return_value=(5, 6)):

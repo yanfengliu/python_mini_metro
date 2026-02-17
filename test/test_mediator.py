@@ -96,6 +96,24 @@ class TestMediator(unittest.TestCase):
 
         self.assertTrue(self.mediator.is_mouse_down)
 
+    def test_generate_distinct_path_colors_handles_non_positive_count(self):
+        self.assertEqual(self.mediator.generate_distinct_path_colors(0), {})
+
+    def test_generate_distinct_path_colors_backfills_color_collisions(self):
+        calls = {"count": 0}
+
+        def fake_hue_to_rgb(_hue):
+            calls["count"] += 1
+            if calls["count"] <= self.mediator.num_paths:
+                return (0, 0, 0)
+            idx = calls["count"]
+            return (idx, idx, idx)
+
+        with patch("mediator.hue_to_rgb", side_effect=fake_hue_to_rgb):
+            colors = self.mediator.generate_distinct_path_colors(self.mediator.num_paths)
+
+        self.assertEqual(len(colors), self.mediator.num_paths)
+
     def test_get_containing_entity(self):
         self.assertTrue(
             self.mediator.get_containing_entity(

@@ -37,6 +37,25 @@ def hue_to_rgb(hue: float) -> Color:
     return tuple(255 * np.asarray(colorsys.hsv_to_rgb(hue, 1.0, 1.0)))
 
 
+def hue_circular_distance(hue_a: float, hue_b: float) -> float:
+    distance = abs(hue_a - hue_b)
+    return min(distance, 1 - distance)
+
+
+def pick_distinct_hue(existing_hues: List[float], candidate_hues: List[float]) -> float:
+    if not candidate_hues:
+        raise ValueError("candidate_hues must not be empty")
+    if not existing_hues:
+        return candidate_hues[0]
+    return max(
+        candidate_hues,
+        key=lambda candidate: min(
+            hue_circular_distance(candidate, existing_hue)
+            for existing_hue in existing_hues
+        ),
+    )
+
+
 def get_random_shape(
     shape_type_list: List[ShapeType], color: Color, size: int
 ) -> Shape:

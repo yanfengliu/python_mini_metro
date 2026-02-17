@@ -50,7 +50,7 @@ from travel_plan import TravelPlan
 from type import Color
 from ui.button import Button
 from ui.path_button import PathButton, get_path_buttons, update_path_button_positions
-from utils import get_shape_from_type, hue_to_rgb
+from utils import get_shape_from_type, hue_to_rgb, pick_distinct_hue
 
 TravelPlans = Dict[Passenger, TravelPlan]
 class Mediator:
@@ -86,12 +86,7 @@ class Mediator:
         self.metros: List[Metro] = []
         self.paths: List[Path] = []
         self.passengers: List[Passenger] = []
-        self.path_colors: Dict[Color, bool] = {}
-        for _ in range(num_paths):
-            color = hue_to_rgb(random.random())
-            while color in self.path_colors:
-                color = hue_to_rgb(random.random())
-            self.path_colors[color] = False  # not taken
+        self.path_colors = self.generate_distinct_path_colors(num_paths)
         self.path_to_color: Dict[Path, Color] = {}
 
         # status
@@ -115,6 +110,22 @@ class Mediator:
         self.is_game_over = False
         self.passenger_max_wait_time_ms = passenger_max_wait_time_ms
         self.max_waiting_passengers = max_waiting_passengers
+
+    def generate_distinct_path_colors(self, path_count: int) -> Dict[Color, bool]:
+        if path_count <= 0:
+            return {}
+        selected_hues: List[float] = [random.random()]
+        candidate_count = 24
+        while len(selected_hues) < path_count:
+            candidate_hues = [random.random() for _ in range(candidate_count)]
+            candidate_hues.append(random.random())
+            selected_hues.append(pick_distinct_hue(selected_hues, candidate_hues))
+        path_colors: Dict[Color, bool] = {}
+        for hue in selected_hues:
+            path_colors[hue_to_rgb(hue)] = False
+        while len(path_colors) < path_count:
+            path_colors[hue_to_rgb(random.random())] = False
+        return path_colors
 
     def get_path_purchase_prices(self) -> List[int]:
         if self.num_paths <= 1:
