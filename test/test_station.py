@@ -87,6 +87,60 @@ class TestStation(unittest.TestCase):
         self.assertNotIn(passengers[1], station.passengers)
         self.assertIn(passengers[1], other_station.passengers)
 
+    def test_metro_draw_positions_passengers_in_3x2_grid(self):
+        metro = Metro()
+        metro.position = Point(100, 100)
+        passengers = [Passenger(Circle((0, 0, 0), 1)) for _ in range(6)]
+        for passenger in passengers:
+            passenger.draw = MagicMock()
+            metro.add_passenger(passenger)
+
+        metro.draw(self.screen)
+
+        grid_cols = metro.passengers_per_row
+        grid_rows = 2
+        metro_width = 2 * metro.size
+        metro_height = metro.size
+        passenger_diameter = 2 * passenger_size
+        x_gap = (metro_width - (grid_cols * passenger_diameter)) / (grid_cols + 1)
+        y_gap = (metro_height - (grid_rows * passenger_diameter)) / (grid_rows + 1)
+        x_step = passenger_diameter + x_gap
+        y_step = passenger_diameter + y_gap
+        x_start = (-metro_width / 2) + x_gap + passenger_size
+        y_start = (-metro_height / 2) + y_gap + passenger_size
+
+        for idx, passenger in enumerate(passengers):
+            col = idx % grid_cols
+            row = idx // grid_cols
+            x_offset = x_start + (col * x_step)
+            y_offset = y_start + (row * y_step)
+            expected_position = metro.position + Point(x_offset, y_offset).rotate(0)
+            self.assertEqual(passenger.position, expected_position)
+
+    def test_metro_draw_rotates_passenger_grid_with_metro(self):
+        metro = Metro()
+        metro.position = Point(200, 200)
+        metro.shape.set_degrees(90)
+        passenger = Passenger(Circle((0, 0, 0), 1))
+        passenger.draw = MagicMock()
+        metro.add_passenger(passenger)
+
+        metro.draw(self.screen)
+
+        grid_cols = metro.passengers_per_row
+        grid_rows = 2
+        metro_width = 2 * metro.size
+        metro_height = metro.size
+        passenger_diameter = 2 * passenger_size
+        x_gap = (metro_width - (grid_cols * passenger_diameter)) / (grid_cols + 1)
+        y_gap = (metro_height - (grid_rows * passenger_diameter)) / (grid_rows + 1)
+        x_start = (-metro_width / 2) + x_gap + passenger_size
+        y_start = (-metro_height / 2) + y_gap + passenger_size
+        x_offset = x_start
+        y_offset = y_start
+        expected_position = metro.position + Point(x_offset, y_offset).rotate(90)
+        self.assertEqual(passenger.position, expected_position)
+
     def test_travel_plan_methods(self):
         station = Station(Rect(station_color, station_size, station_size), Point(0, 0))
         plan = TravelPlan([Node(station)])
