@@ -11,6 +11,8 @@ This document summarizes the game rules currently implemented in code.
 
 - The map starts with 3 stations and unlocks up to 20 as you handle more travels.
 - Station shapes are from: rectangle, circle, triangle, and cross.
+- New station positions are sampled randomly but weighted to be more likely near the
+  current center of existing stations, so very far placements are less common.
 - After the 10th station slot in the unlock pool, rare one-of-a-kind stations can appear:
   diamond, pentagon, and star (each at most once per run).
 - Each station can hold up to 12 waiting passengers.

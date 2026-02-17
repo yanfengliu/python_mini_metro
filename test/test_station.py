@@ -14,7 +14,11 @@ from config import (
     station_size,
     station_unique_shape_type_list,
 )
-from entity.get_entity import get_metros, get_random_stations
+from entity.get_entity import (
+    get_metros,
+    get_random_stations,
+    get_station_spawn_position,
+)
 from entity.metro import Metro
 from entity.passenger import Passenger
 from entity.station import Station
@@ -185,6 +189,44 @@ class TestStation(unittest.TestCase):
         )
         for shape_type in spawned_unique_shape_types:
             self.assertIn(shape_type, list(ShapeType))
+
+    def test_station_spawn_position_biases_toward_existing_station_mass(self):
+        existing_positions = [Point(100, 100), Point(120, 110), Point(80, 90)]
+        candidate_positions = [
+            Point(105, 102),
+            Point(900, 900),
+            Point(400, 400),
+            Point(300, 100),
+            Point(100, 300),
+            Point(50, 50),
+            Point(1800, 1000),
+            Point(600, 50),
+        ]
+
+        with patch(
+            "entity.get_entity.get_random_position",
+            side_effect=candidate_positions,
+        ), patch(
+            "entity.get_entity.random.choices",
+            side_effect=lambda population, weights, k: [population[0]],
+        ) as choices_mock:
+            spawn_position = get_station_spawn_position(existing_positions)
+
+        self.assertEqual(spawn_position, candidate_positions[0])
+        weights = choices_mock.call_args.kwargs["weights"]
+        self.assertGreater(weights[0], weights[1])
+        self.assertGreater(weights[0], weights[2])
+
+    def test_station_spawn_position_without_existing_is_uniform_random(self):
+        expected_position = Point(333, 444)
+        with patch(
+            "entity.get_entity.get_random_position",
+            return_value=expected_position,
+        ) as random_position_mock:
+            spawn_position = get_station_spawn_position([])
+
+        self.assertEqual(spawn_position, expected_position)
+        random_position_mock.assert_called_once()
 
 
 if __name__ == "__main__":

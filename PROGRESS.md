@@ -61,3 +61,4 @@
 
 - Improved random metro line color generation to prefer hues that are more distinct from already selected line colors.
 - Added color-distance helper utilities and tests for hue wrap distance and distinct hue selection behavior.
+- Changed station pool generation so new station positions are less likely to spawn far from the current station cluster center.
