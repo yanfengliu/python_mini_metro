@@ -50,6 +50,12 @@ from travel_plan import TravelPlan
 from type import Color
 from ui.button import Button
 from ui.path_button import PathButton, get_path_buttons, update_path_button_positions
+from ui.speed_button import (
+    SpeedAction,
+    SpeedButton,
+    get_speed_buttons,
+    update_speed_button_positions,
+)
 from utils import get_shape_from_type, hue_to_rgb, pick_distinct_hue
 
 TravelPlans = Dict[Passenger, TravelPlan]
@@ -70,8 +76,9 @@ class Mediator:
 
         # UI
         self.path_buttons = get_path_buttons(self.num_paths)
+        self.speed_buttons = get_speed_buttons()
         self.path_to_button: Dict[Path, PathButton] = {}
-        self.buttons = [*self.path_buttons]
+        self.buttons = [*self.path_buttons, *self.speed_buttons]
         self.font = pygame.font.SysFont(font_name, score_font_size)
         self.game_over_font = pygame.font.SysFont(font_name, game_over_font_size)
         self.game_over_hint_font = pygame.font.SysFont(
@@ -254,9 +261,8 @@ class Mediator:
 
     def render(self, screen: pygame.surface.Surface) -> None:
         width, height = self.get_surface_size(screen)
-        update_path_button_positions(
-            self.path_buttons, width, height
-        )
+        update_path_button_positions(self.path_buttons, width, height)
+        update_speed_button_positions(self.speed_buttons, width, height)
         active_path_count = len(self.paths)
         for idx, path in enumerate(self.paths):
             # Keep active paths centered so a single path has zero offset.
@@ -282,6 +288,12 @@ class Mediator:
                     locked_purchase_affordable=self.can_purchase_path_button_idx(
                         button_idx
                     ),
+                )
+            elif isinstance(button, SpeedButton):
+                button.draw(
+                    screen,
+                    self.time_ms,
+                    is_active=self.is_speed_button_active(button.action),
                 )
             else:
                 button.draw(screen, self.time_ms)
@@ -392,6 +404,8 @@ class Mediator:
                         self.remove_path(entity.path)
                     elif entity.is_locked:
                         self.try_purchase_path_button(entity)
+                elif entity and isinstance(entity, SpeedButton):
+                    self.apply_speed_action(entity.action)
 
         elif event.event_type == MouseEventType.MOUSE_MOTION:
             if self.is_mouse_down:
@@ -412,11 +426,11 @@ class Mediator:
             if event.key == pygame.K_SPACE:
                 self.is_paused = not self.is_paused
             elif event.key == pygame.K_1:
-                self.game_speed_multiplier = 1
+                self.set_game_speed(1)
             elif event.key == pygame.K_2:
-                self.game_speed_multiplier = 2
+                self.set_game_speed(2)
             elif event.key == pygame.K_3:
-                self.game_speed_multiplier = 4
+                self.set_game_speed(4)
 
     def react(self, event: Event | None) -> None:
         if isinstance(event, MouseEvent):
@@ -541,6 +555,34 @@ class Mediator:
 
     def set_paused(self, paused: bool) -> None:
         self.is_paused = paused
+
+    def set_game_speed(self, speed_multiplier: int) -> None:
+        self.game_speed_multiplier = speed_multiplier
+
+    def apply_speed_action(self, action: SpeedAction) -> None:
+        if action == "pause":
+            self.set_paused(True)
+            return
+        if action == "speed_1":
+            self.set_game_speed(1)
+        elif action == "speed_2":
+            self.set_game_speed(2)
+        elif action == "speed_4":
+            self.set_game_speed(4)
+        self.set_paused(False)
+
+    def is_speed_button_active(self, action: SpeedAction) -> bool:
+        if action == "pause":
+            return self.is_paused
+        if self.is_paused:
+            return False
+        if action == "speed_1":
+            return self.game_speed_multiplier == 1
+        if action == "speed_2":
+            return self.game_speed_multiplier == 2
+        if action == "speed_4":
+            return self.game_speed_multiplier == 4
+        return False
 
     def apply_action(self, action: Dict) -> bool:
         action_type = action.get("type")

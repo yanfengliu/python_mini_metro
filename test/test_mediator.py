@@ -437,6 +437,23 @@ class TestMediator(unittest.TestCase):
         )
         self.assertTrue(button.hovered)
 
+    def test_speed_buttons_pause_and_resume_with_multiplier(self):
+        mediator = Mediator()
+        mediator.render(self.screen)
+        pause_button = mediator.speed_buttons[0]
+        speed_4_button = mediator.speed_buttons[3]
+
+        mediator.react_mouse_event(
+            MouseEvent(MouseEventType.MOUSE_UP, pause_button.position)
+        )
+        self.assertTrue(mediator.is_paused)
+
+        mediator.react_mouse_event(
+            MouseEvent(MouseEventType.MOUSE_UP, speed_4_button.position)
+        )
+        self.assertFalse(mediator.is_paused)
+        self.assertEqual(mediator.game_speed_multiplier, 4)
+
     def test_remove_path_cleans_passengers(self):
         mediator, _, station_b, path, metro = self._build_two_station_mediator()
         passenger = Passenger(station_b.shape)

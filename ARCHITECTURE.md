@@ -53,6 +53,7 @@ python_mini_metro/
 |  \- ui/
 |     |- button.py
 |     |- path_button.py
+|     |- speed_button.py
 |     \- viewport.py
 |- test/
 |  |- test_agent_play.py

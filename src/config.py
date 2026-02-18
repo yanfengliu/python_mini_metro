@@ -86,6 +86,18 @@ path_button_buy_text_color = (0, 0, 0)
 path_button_buy_text_disabled_color = (140, 140, 140)
 path_button_buy_text_font_size = 26
 
+# speed button
+speed_button_width = 78
+speed_button_height = 40
+speed_button_buffer = 12
+speed_button_left_padding = 28
+speed_button_dist_to_bottom = 28
+speed_button_text_font_size = 28
+speed_button_text_color = (20, 20, 20)
+speed_button_border_color = (20, 20, 20)
+speed_button_active_color = (215, 215, 215)
+speed_button_hover_color = (235, 235, 235)
+
 # text
 font_name = "courier"
 score_font_size = 50
