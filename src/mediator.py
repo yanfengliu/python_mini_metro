@@ -129,9 +129,9 @@ class Mediator:
             selected_hues.append(pick_distinct_hue(selected_hues, candidate_hues))
         path_colors: Dict[Color, bool] = {}
         for hue in selected_hues:
-            path_colors[hue_to_rgb(hue)] = False
+            path_colors[hue_to_rgb(hue, saturation=0.6, value=0.9)] = False
         while len(path_colors) < path_count:
-            path_colors[hue_to_rgb(random.random())] = False
+            path_colors[hue_to_rgb(random.random(), saturation=0.6, value=0.9)] = False
         return path_colors
 
     def get_path_purchase_prices(self) -> List[int]:

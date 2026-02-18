@@ -50,7 +50,7 @@ This document summarizes the game rules currently implemented in code.
   - Unlock the 4th station at 10 travels.
   - Then each next station requires +20 more travels than the previous unlock
     (5th at 40, 6th at 90, 7th at 160, ...), up to 20 stations.
-- Line colors are randomized at runtime each run.
+- Line colors are randomized at runtime each run, using a less saturated palette for softer visuals.
 
 ## Passenger Routing and Transfers
 

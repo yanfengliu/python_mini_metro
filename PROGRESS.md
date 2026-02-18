@@ -75,3 +75,4 @@
 - Updated `GAME_RULES.md` to document the station snap-blip behavior during line creation.
 - Added bottom-left simulation speed controls (`Pause`, `1x`, `2x`, `4x`) with clickable UI buttons wired to pause and speed state.
 - Switched speed-control button labels to iconography: pause bars, single play, double play, and four-play symbols.
+- Changed runtime-randomized metro line colors to a less saturated palette for softer visuals.

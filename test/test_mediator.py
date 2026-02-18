@@ -102,7 +102,7 @@ class TestMediator(unittest.TestCase):
     def test_generate_distinct_path_colors_backfills_color_collisions(self):
         calls = {"count": 0}
 
-        def fake_hue_to_rgb(_hue):
+        def fake_hue_to_rgb(_hue, saturation=1.0, value=1.0):
             calls["count"] += 1
             if calls["count"] <= self.mediator.num_paths:
                 return (0, 0, 0)

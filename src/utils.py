@@ -33,8 +33,8 @@ def get_random_color() -> Color:
     return hue_to_rgb(np.random.rand())
 
 
-def hue_to_rgb(hue: float) -> Color:
-    return tuple(255 * np.asarray(colorsys.hsv_to_rgb(hue, 1.0, 1.0)))
+def hue_to_rgb(hue: float, saturation: float = 1.0, value: float = 1.0) -> Color:
+    return tuple(255 * np.asarray(colorsys.hsv_to_rgb(hue, saturation, value)))
 
 
 def hue_circular_distance(hue_a: float, hue_b: float) -> float:
