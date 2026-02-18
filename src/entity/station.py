@@ -5,6 +5,9 @@ from config import (
     station_capacity,
     station_passengers_per_row,
     station_size,
+    station_snap_blip_duration_ms,
+    station_snap_blip_radius_growth,
+    station_snap_blip_width,
     unlock_blink_count,
     unlock_blink_duration_ms,
 )
@@ -12,6 +15,7 @@ from entity.holder import Holder
 from geometry.point import Point
 from geometry.shape import Shape
 from shortuuid import uuid  # type: ignore
+from type import Color
 
 
 class Station(Holder):
@@ -25,6 +29,7 @@ class Station(Holder):
         self.position = position
         self.passengers_per_row = station_passengers_per_row
         self.unlock_blink_start_time_ms: int | None = None
+        self.snap_blips: list[tuple[int, Color]] = []
 
     def __eq__(self, other: Station) -> bool:
         return self.id == other.id
@@ -52,6 +57,33 @@ class Station(Holder):
         phase_index = int(elapsed_ms / phase_duration_ms)
         return phase_index % 2 == 0
 
+    def start_snap_blip(self, current_time_ms: int, color: Color) -> None:
+        self.snap_blips.append((current_time_ms, color))
+
+    def get_active_snap_blips(self, current_time_ms: int) -> list[tuple[int, Color]]:
+        return [
+            (start_time_ms, color)
+            for start_time_ms, color in self.snap_blips
+            if current_time_ms - start_time_ms < station_snap_blip_duration_ms
+        ]
+
+    def draw_snap_blips(
+        self, surface: pygame.surface.Surface, current_time_ms: int
+    ) -> None:
+        self.snap_blips = self.get_active_snap_blips(current_time_ms)
+        for start_time_ms, color in self.snap_blips:
+            elapsed_ms = current_time_ms - start_time_ms
+            progress = elapsed_ms / station_snap_blip_duration_ms
+            radius = int(self.size + (station_snap_blip_radius_growth * progress))
+            if radius > self.size:
+                pygame.draw.circle(
+                    surface,
+                    color,
+                    self.position.to_tuple(),
+                    radius,
+                    station_snap_blip_width,
+                )
+
     def draw(
         self,
         surface: pygame.surface.Surface,
@@ -68,3 +100,5 @@ class Station(Holder):
             current_time_ms=current_time_ms,
             passenger_max_wait_time_ms=passenger_max_wait_time_ms,
         )
+        if current_time_ms is not None:
+            self.draw_snap_blips(surface, current_time_ms)

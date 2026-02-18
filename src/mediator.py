@@ -508,11 +508,13 @@ class Mediator:
             and self.path_being_created.stations[0] == station
         ):
             self.path_being_created.set_loop()
+            station.start_snap_blip(self.time_ms, self.path_being_created.color)
         # non-loop
         elif self.path_being_created.stations[0] != station:
             if self.path_being_created.is_looped:
                 self.path_being_created.remove_loop()
             self.path_being_created.add_station(station)
+            station.start_snap_blip(self.time_ms, self.path_being_created.color)
 
     def abort_path_creation(self) -> None:
         assert self.path_being_created is not None
@@ -585,6 +587,7 @@ class Mediator:
         # non-loop
         elif self.path_being_created.stations[0] != station:
             self.path_being_created.add_station(station)
+            station.start_snap_blip(self.time_ms, self.path_being_created.color)
             self.finish_path_creation()
         else:
             self.abort_path_creation()

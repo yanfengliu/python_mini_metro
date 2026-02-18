@@ -66,3 +66,10 @@
 - Improved metro passenger icon spacing and rotated passenger icon placement to follow metro car orientation.
 - Rebalanced metro passenger slot layout to a uniform 3x2 in-car grid to prevent overlap while preserving car-aligned rotation.
 - Updated metro passenger slot spacing so row and column icon gaps match the side margins inside the metro car.
+
+## 2026-02-17
+
+- Added station snap blips: when a line endpoint snaps onto a station during path creation, the station emits a short outward ring in the line color.
+- Triggered snap blips for both drag-snap station additions and direct line-complete snaps on mouse release.
+- Added station and mediator tests covering snap blip lifecycle, rendering, and snap-trigger calls.
+- Updated `GAME_RULES.md` to document the station snap-blip behavior during line creation.

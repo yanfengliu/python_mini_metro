@@ -25,6 +25,7 @@ This document summarizes the game rules currently implemented in code.
 - You can create a line by connecting at least 2 stations.
 - Duplicate station picks are ignored while creating a line.
 - Optional loop creation is supported by connecting the line back to its first station.
+- When a line endpoint snaps onto a station during creation, that station emits a brief outward ring blip in the line color.
 - A line can only be created if there is an unlocked line slot available.
 - Removing a line also removes the metros assigned to it.
 - Metro capacity is 6 passengers.

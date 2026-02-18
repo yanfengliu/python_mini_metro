@@ -473,6 +473,20 @@ class TestMediator(unittest.TestCase):
         mediator.add_station_to_path(station_c)
         self.assertFalse(path.is_looped)
 
+    def test_add_station_to_path_starts_station_snap_blip(self):
+        mediator = Mediator()
+        station_a = mediator.stations[0]
+        station_b = mediator.stations[1]
+        path = Path((12, 34, 56))
+        path.add_station(station_a)
+        station_b.start_snap_blip = MagicMock()
+        mediator.path_being_created = path
+        mediator.is_creating_path = True
+
+        mediator.add_station_to_path(station_b)
+
+        station_b.start_snap_blip.assert_called_once_with(mediator.time_ms, path.color)
+
     def test_end_path_on_station_aborts(self):
         mediator = Mediator()
         station = mediator.stations[0]
@@ -481,6 +495,19 @@ class TestMediator(unittest.TestCase):
         self.assertFalse(mediator.is_creating_path)
         self.assertIsNone(mediator.path_being_created)
         self.assertEqual(len(mediator.paths), 0)
+
+    def test_end_path_on_station_starts_station_snap_blip_when_added(self):
+        mediator = Mediator()
+        station_a = mediator.stations[0]
+        station_b = mediator.stations[1]
+        mediator.start_path_on_station(station_a)
+        assert mediator.path_being_created is not None
+        path_color = mediator.path_being_created.color
+        station_b.start_snap_blip = MagicMock()
+
+        mediator.end_path_on_station(station_b)
+
+        station_b.start_snap_blip.assert_called_once_with(mediator.time_ms, path_color)
 
     def test_increment_time_paused(self):
         mediator = Mediator()

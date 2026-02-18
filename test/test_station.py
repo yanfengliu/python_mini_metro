@@ -11,6 +11,7 @@ from config import (
     passenger_max_wait_time_ms,
     passenger_size,
     station_color,
+    station_snap_blip_duration_ms,
     station_size,
     station_unique_shape_type_list,
 )
@@ -205,6 +206,28 @@ class TestStation(unittest.TestCase):
             passenger_max_wait_time_ms=passenger_max_wait_time_ms,
         )
         passenger.destination_shape.draw.assert_not_called()
+
+    def test_station_snap_blip_lifecycle(self):
+        station = Station(Circle(station_color, station_size), Point(0, 0))
+        station.start_snap_blip(100, (1, 2, 3))
+
+        active_early = station.get_active_snap_blips(100)
+        self.assertEqual(len(active_early), 1)
+
+        active_late = station.get_active_snap_blips(
+            100 + station_snap_blip_duration_ms
+        )
+        self.assertEqual(active_late, [])
+
+    def test_station_draw_renders_snap_blip_as_expanding_ring(self):
+        station = Station(Circle(station_color, station_size), Point(0, 0))
+        station.start_snap_blip(0, (11, 22, 33))
+        station.shape.draw = MagicMock()
+        pygame.draw.circle = MagicMock()
+
+        station.draw(self.screen, current_time_ms=200)
+
+        self.assertGreaterEqual(pygame.draw.circle.call_count, 1)
 
     def test_unique_station_shapes_only_spawn_after_threshold_and_once(self):
         with (
