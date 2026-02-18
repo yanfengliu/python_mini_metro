@@ -42,6 +42,7 @@ class Passenger:
         surface: pygame.surface.Surface,
         current_time_ms: int | None = None,
         max_wait_time_ms: int | None = None,
+        rotation_degrees: float | None = None,
     ):
         if (
             current_time_ms is not None
@@ -50,4 +51,12 @@ class Passenger:
             and not self.is_warning_blink_visible(current_time_ms)
         ):
             return
+        if rotation_degrees is None:
+            self.destination_shape.draw(surface, self.position)
+            return
+
+        previous_degrees = getattr(self.destination_shape, "degrees", None)
+        self.destination_shape.set_degrees(rotation_degrees)
         self.destination_shape.draw(surface, self.position)
+        if previous_degrees is not None:
+            self.destination_shape.set_degrees(previous_degrees)

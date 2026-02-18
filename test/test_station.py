@@ -26,6 +26,7 @@ from entity.station import Station
 from geometry.circle import Circle
 from geometry.point import Point
 from geometry.rect import Rect
+from geometry.triangle import Triangle
 from geometry.type import ShapeType
 from graph.node import Node
 from travel_plan import TravelPlan
@@ -56,6 +57,21 @@ class TestStation(unittest.TestCase):
         shape.draw = MagicMock()
         passenger.draw(self.screen)
         shape.draw.assert_called_once()
+
+    def test_passenger_draw_applies_requested_rotation_for_polygons(self):
+        shape = Triangle((0, 0, 0), 3)
+        passenger = Passenger(shape)
+        passenger.position = Point(10, 20)
+        observed_degrees: list[float] = []
+
+        def record_draw(*args, **kwargs):
+            observed_degrees.append(shape.degrees)
+
+        shape.draw = MagicMock(side_effect=record_draw)
+        passenger.draw(self.screen, rotation_degrees=45)
+
+        self.assertEqual(observed_degrees, [45])
+        self.assertEqual(shape.degrees, 0)
 
     def test_holder_draw_positions_and_move(self):
         station = Station(Circle(station_color, station_size), Point(100, 100))
@@ -141,6 +157,12 @@ class TestStation(unittest.TestCase):
         y_offset = y_start
         expected_position = metro.position + Point(x_offset, y_offset).rotate(90)
         self.assertEqual(passenger.position, expected_position)
+        passenger.draw.assert_called_once_with(
+            self.screen,
+            current_time_ms=None,
+            max_wait_time_ms=None,
+            rotation_degrees=90,
+        )
 
     def test_travel_plan_methods(self):
         station = Station(Rect(station_color, station_size, station_size), Point(0, 0))

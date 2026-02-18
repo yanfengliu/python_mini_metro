@@ -76,4 +76,5 @@ class Metro(Holder):
                 surface,
                 current_time_ms=current_time_ms,
                 max_wait_time_ms=passenger_max_wait_time_ms,
+                rotation_degrees=metro_degrees,
             )
