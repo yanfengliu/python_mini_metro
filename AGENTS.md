@@ -36,7 +36,7 @@
 - `ARCHITECTURE.md`: current file structure and architectural boundaries.
 - `GAME_RULES.md`: implementation-aligned game mechanics and controls.
 - `PROGRESS.md`: single running project log.
-- `docs/reviews/`: multi-CLI review artifacts for substantive changes and full-codebase audits.
+- `docs/threads/`: active and completed work threads, including multi-CLI review artifacts and full-codebase audits.
 
 ## Validation Gates
 
@@ -66,14 +66,18 @@
 - Review is required for changes to files such as `AGENTS.md`, `CLAUDE.md`, `ARCHITECTURE.md`, `GAME_RULES.md`, `.github/workflows/*`, `.pre-commit-config.yaml`, `pyproject.toml`, `environment.yml`, and any new review-process docs.
 - Review is also required for game-mechanic changes in `src/`, public API changes in `src/env.py` or `src/mediator.py`, balance/config changes in `src/config.py`, and new architectural boundaries.
 - Trivial typo fixes, status summaries, dependency inspection, simple setup commands, and README wording polish can skip review if they do not change behavior or process.
-- Store review artifacts under `docs/reviews/<scope>/<YYYY-MM-DD>/<iteration>/`:
+- Store active thread artifacts under `docs/threads/current/<theme>/<YYYY-MM-DD>/<iteration>/`:
   - `raw/codex.md`
   - `raw/opus.md`
   - optional extra independent reviewers as `raw/codex-2.md`, `raw/opus-2.md`, etc.
   - optional `raw/*.stdout.log` and `raw/*.stderr.log`
   - `diff.md`
   - `REVIEW.md`
-- Use path-limited diffs from `main`, for example `git diff -- AGENTS.md ARCHITECTURE.md docs/reviews/README.md`.
+- Use short kebab-case theme names. Full-codebase review threads always use `full`.
+- When a thread is complete, move or merge it into `docs/threads/done/<theme>/`. If that theme already exists under `done/`, move only the new date or iteration directories into the existing theme; never replace the whole theme directory.
+- Before choosing a new iteration number for a recurring theme, inspect both `docs/threads/current/<theme>/<YYYY-MM-DD>/` and `docs/threads/done/<theme>/<YYYY-MM-DD>/`.
+- Preserve `raw/` reviewer outputs verbatim. Record path migrations or follow-up context in `REVIEW.md` rather than rewriting raw reviewer text.
+- Use path-limited diffs from `main`, for example `git diff -- AGENTS.md ARCHITECTURE.md docs/threads/README.md`.
 - Reviewer prompt baseline:
 
 ```text
@@ -85,23 +89,23 @@ You are a senior code reviewer. Flag bugs, process regressions, stale documentat
 
 ## Full-Codebase Review
 
-- Full-codebase review iterations live under `docs/reviews/full/<YYYY-MM-DD>/<iteration>/`.
-- Before starting a new iteration, inspect existing numeric iteration folders for the same date and use the next number. If earlier iterations exist, give reviewers the previous `REVIEW.md` summaries and ask them to verify that earlier findings were resolved.
+- Full-codebase review iterations start under `docs/threads/current/full/<YYYY-MM-DD>/<iteration>/` and move or merge into `docs/threads/done/full/<YYYY-MM-DD>/<iteration>/` when complete.
+- Before starting a new iteration, inspect existing numeric iteration folders for the same date under both `current/full/` and `done/full/`, then use the next number. If earlier iterations exist, give reviewers the previous `REVIEW.md` summaries and ask them to verify that earlier findings were resolved.
 - Run three independent reviewers. Use both Codex and Claude when available; if one service is unavailable or out of quota, run additional independent instances of the available service until there are three raw reports.
 - Codex full-codebase reviewer command. Keep the prompt in a file and pipe it through stdin; this avoids PowerShell splitting multi-line prompts into unexpected positional arguments. Use `--ignore-user-config` so local plugin sync or user config does not interfere with a read-only review run:
 
 ```powershell
-Get-Content -Raw docs/reviews/full/<YYYY-MM-DD>/<iteration>/prompt-codex-1.md | codex -m gpt-5.5 -c model_reasoning_effort='xhigh' -a never -s read-only exec --ignore-user-config --cd . --ephemeral -o docs/reviews/full/<YYYY-MM-DD>/<iteration>/raw/codex-1.md -
+Get-Content -Raw docs/threads/current/full/<YYYY-MM-DD>/<iteration>/prompt-codex-1.md | codex -m gpt-5.5 -c model_reasoning_effort='xhigh' -a never -s read-only exec --ignore-user-config --cd . --ephemeral -o docs/threads/current/full/<YYYY-MM-DD>/<iteration>/raw/codex-1.md -
 ```
 
 - Claude full-codebase reviewer command. Keep the prompt in a variable so PowerShell passes it as one argument:
 
 ```powershell
-$prompt = Get-Content -Raw docs/reviews/full/<YYYY-MM-DD>/<iteration>/prompt-claude.md
+$prompt = Get-Content -Raw docs/threads/current/full/<YYYY-MM-DD>/<iteration>/prompt-claude.md
 claude -p $prompt --model best --effort max --permission-mode bypassPermissions --no-session-persistence --tools "Read,Glob,Grep,Bash" --allowedTools "Read,Glob,Grep,Bash(git *),Bash(python -m unittest *),Bash(C:\Users\38909\miniconda3\envs\py313\python.exe -m unittest *)" --output-format text
 ```
 
-- Save raw reviewer output under `raw/`, then synthesize `REVIEW.md` with severity, evidence, disposition, and a fix plan. Only fix findings after checking them against the codebase. Re-review fixes in the next iteration if code changes are made.
+- Save raw reviewer output under `raw/`, then synthesize `REVIEW.md` with severity, evidence, disposition, and a fix plan. Only fix findings after checking them against the codebase. Re-review fixes in the next iteration if code changes are made. When the full review is complete, move or merge the thread into `docs/threads/done/full/`.
 
 ## Visual Changes
 

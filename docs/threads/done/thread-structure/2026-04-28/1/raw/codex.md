@@ -1,0 +1,5 @@
+**Findings**
+
+Medium: raw review artifacts are being rewritten instead of only moved. `AGENTS.md` treats `raw/*` as saved raw reviewer output, but the diff edits multiple files under `docs/threads/done/**/raw/*.md`. One clear example is [codex-2.md](</C:/Users/38909/Documents/github/python_mini_metro/docs/threads/done/full/2026-04-28/1/raw/codex-2.md:13>), which now says the old path and current required path are both `docs/threads/done/`, making the finding self-contradictory. [opus.md](</C:/Users/38909/Documents/github/python_mini_metro/docs/threads/done/agents-repo-fit/2026-04-28/1/raw/opus.md:8>) also rewrites what the reviewer originally said. Preserve raw files unchanged and put migration/context notes in `REVIEW.md` or another non-raw artifact.
+
+No other important issues found. The live guidance files have no remaining `docs/reviews`, `docs\reviews`, or top-level `reviews/` references, and neither old directory exists. `AGENTS.md` clearly covers `current/` vs `done/`, recurring theme merge semantics, and `done/full` placement. `ARCHITECTURE.md` and `PROGRESS.md` match the current thread layout.

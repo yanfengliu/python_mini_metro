@@ -5,10 +5,14 @@ python_mini_metro/
 |- .vscode/
 |  \- settings.json
 |- docs/
-|  \- reviews/
+|  \- threads/
 |     |- README.md
-|     |- agents-repo-fit/
-|     \- full/
+|     |- current/
+|     |  \- README.md
+|     \- done/
+|        |- README.md
+|        |- agents-repo-fit/
+|        \- full/
 |- src/
 |  |- agent_play.py
 |  |- config.py
