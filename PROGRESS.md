@@ -77,3 +77,7 @@
 - Switched speed-control button labels to iconography: pause bars, single play, double play, and four-play symbols.
 - Changed runtime-randomized metro line colors to a less saturated palette for softer visuals.
 - Updated metro passenger rendering so passenger icon orientation rotates with the car instead of staying upright.
+
+## 2026-04-28
+
+- Added Python/py313 workflow guidance in `AGENTS.md` with a `CLAUDE.md` shim, reflected the removed `.cursor/rules`, and added a `reviews/` artifact directory.

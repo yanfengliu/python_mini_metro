@@ -1,13 +1,11 @@
 python_mini_metro/
-|- .cursor/
-|  |- rules/
-|  |  |- run-tests-after-changes.mdc
-|  |  |- update-architecture.mdc
-|  |  |- update-game-rules.mdc
-|  |  \- update-progress.mdc
 |- .github/
 |  \- workflows/
 |     \- test.yml
+|- .vscode/
+|  \- settings.json
+|- reviews/
+|  \- README.md
 |- src/
 |  |- agent_play.py
 |  |- config.py
@@ -69,7 +67,9 @@ python_mini_metro/
 |  \- test_viewport.py
 |- .gitignore
 |- .pre-commit-config.yaml
+|- AGENTS.md
 |- ARCHITECTURE.md
+|- CLAUDE.md
 |- environment.yml
 |- GAME_RULES.md
 |- PROGRESS.md

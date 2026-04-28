@@ -1,5 +1,0 @@
----
-alwaysApply: false
-description: Keep game rules accurately documented.
----
-- If the game mechanism changes in any way, update `GAME_RULES.md`.

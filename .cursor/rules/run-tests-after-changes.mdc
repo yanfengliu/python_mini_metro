@@ -1,7 +1,0 @@
----
-description: Always run tests after code changes
-alwaysApply: true
----
-# Run tests after changes
-
-- After making any code changes, run all the tests. Fix any broken tests. Add tests to keep coverage at 100%.

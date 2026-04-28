@@ -1,0 +1,3 @@
+1. `PROGRESS.md:80` logs this as `## 2026-04-28`, but the change is being reviewed in a `2026-04-27` session. If that date is not intentional, the project log becomes inaccurate immediately and future readers will infer the process update landed a day later than it actually did.
+
+2. `AGENTS.md:5` hard-requires both Codex and Claude to approve every substantive plan, but unlike the later review section it gives no fallback when one CLI is unavailable. That creates a process dead-end for normal repo work under quota, outage, or harness failure conditions, which is a real workflow regression in a repo-level instruction file. Clarify whether the same “proceed and record the missing reviewer” escape hatch applies at the planning stage too.
