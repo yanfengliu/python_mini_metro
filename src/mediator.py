@@ -4,34 +4,35 @@ import random
 from typing import Dict, List
 
 import pygame
+
 from config import (
     font_name,
-    max_waiting_passengers,
-    initial_num_stations,
-    num_metros,
-    num_paths,
-    path_unlock_milestones,
-    station_unlock_milestones,
-    num_stations,
-    passenger_color,
-    passenger_max_wait_time_ms,
-    passenger_size,
-    passenger_spawning_interval_step,
-    passenger_spawning_start_step,
-    game_over_font_size,
-    game_over_hint_font_size,
     game_over_button_border_color,
     game_over_button_border_width,
     game_over_button_color,
     game_over_button_padding_x,
     game_over_button_padding_y,
     game_over_button_spacing,
+    game_over_font_size,
+    game_over_hint_font_size,
     game_over_overlay_color,
     game_over_text_color,
+    initial_num_stations,
+    max_waiting_passengers,
+    num_metros,
+    num_paths,
+    num_stations,
+    passenger_color,
+    passenger_max_wait_time_ms,
+    passenger_size,
+    passenger_spawning_interval_step,
+    passenger_spawning_start_step,
+    path_unlock_milestones,
     score_display_coords,
     score_font_size,
     screen_height,
     screen_width,
+    station_unlock_milestones,
 )
 from entity.get_entity import get_random_stations
 from entity.metro import Metro
@@ -59,6 +60,8 @@ from ui.speed_button import (
 from utils import get_shape_from_type, hue_to_rgb, pick_distinct_hue
 
 TravelPlans = Dict[Passenger, TravelPlan]
+
+
 class Mediator:
     def __init__(self) -> None:
         pygame.font.init()
@@ -147,8 +150,7 @@ class Mediator:
         while True:
             stations = get_random_stations(self.num_stations)
             initial_shapes = {
-                station.shape.type
-                for station in stations[: self.initial_num_stations]
+                station.shape.type for station in stations[: self.initial_num_stations]
             }
             if len(initial_shapes) >= 2:
                 return stations
@@ -224,9 +226,7 @@ class Mediator:
         self.update_unlocked_num_paths()
         return True
 
-    def try_purchase_path_button_by_index(
-        self, button_idx: int | None = None
-    ) -> bool:
+    def try_purchase_path_button_by_index(self, button_idx: int | None = None) -> bool:
         if button_idx is None:
             button_idx = self.get_next_path_button_idx_to_purchase()
         if button_idx is None:
@@ -369,14 +369,12 @@ class Mediator:
     def handle_game_over_click(self, position: Point) -> str | None:
         if not self.is_game_over:
             return None
-        if (
-            self.game_over_restart_rect
-            and self.game_over_restart_rect.collidepoint(position.to_tuple())
+        if self.game_over_restart_rect and self.game_over_restart_rect.collidepoint(
+            position.to_tuple()
         ):
             return "restart"
-        if (
-            self.game_over_exit_rect
-            and self.game_over_exit_rect.collidepoint(position.to_tuple())
+        if self.game_over_exit_rect and self.game_over_exit_rect.collidepoint(
+            position.to_tuple()
         ):
             return "exit"
         return None
@@ -448,14 +446,30 @@ class Mediator:
 
     def remove_path(self, path: Path) -> None:
         self.path_to_button[path].remove_path()
-        for metro in path.metros:
-            for passenger in metro.passengers:
-                self.passengers.remove(passenger)
-            self.metros.remove(metro)
+        for metro in list(path.metros):
+            for passenger in list(metro.passengers):
+                if passenger in self.passengers:
+                    self.passengers.remove(passenger)
+                self.travel_plans.pop(passenger, None)
+            if metro in self.metros:
+                self.metros.remove(metro)
+        self.invalidate_travel_plans_for_path(path)
         self.release_color_for_path(path)
         self.paths.remove(path)
         self.assign_paths_to_buttons()
         self.find_travel_plan_for_passengers()
+
+    def invalidate_travel_plans_for_path(self, path: Path) -> None:
+        onboard_passengers = {
+            passenger for metro in self.metros for passenger in metro.passengers
+        }
+        for passenger, travel_plan in list(self.travel_plans.items()):
+            if passenger in onboard_passengers and travel_plan.next_path != path:
+                continue
+            if travel_plan.next_path == path or any(
+                path in node.paths for node in travel_plan.node_path
+            ):
+                del self.travel_plans[passenger]
 
     def remove_path_by_id(self, path_id: str) -> bool:
         for path in self.paths:
@@ -465,6 +479,8 @@ class Mediator:
         return False
 
     def remove_path_by_index(self, path_index: int) -> bool:
+        if type(path_index) is not int:
+            return False
         if 0 <= path_index < len(self.paths):
             self.remove_path(self.paths[path_index])
             return True
@@ -491,18 +507,28 @@ class Mediator:
     def create_path_from_station_indices(
         self, station_indices: List[int], loop: bool = False
     ) -> Path | None:
+        if not isinstance(station_indices, list):
+            return None
         if len(station_indices) < 2 or len(self.paths) >= self.unlocked_num_paths:
             return None
         if any(
-            idx < 0 or idx >= len(self.stations) for idx in station_indices
+            type(idx) is not int or idx < 0 or idx >= len(self.stations)
+            for idx in station_indices
         ):
             return None
 
         self.start_path_on_station(self.stations[station_indices[0]])
-        if not self.path_being_created:
+        created_path = self.path_being_created
+        if not created_path:
             return None
 
-        for idx in station_indices[1:-1]:
+        stations_to_add = station_indices[1:-1]
+        if loop:
+            stations_to_add = station_indices[1:]
+            if station_indices[-1] == station_indices[0]:
+                stations_to_add = station_indices[1:-1]
+
+        for idx in stations_to_add:
             self.add_station_to_path(self.stations[idx])
 
         if loop:
@@ -510,7 +536,9 @@ class Mediator:
         else:
             self.end_path_on_station(self.stations[station_indices[-1]])
 
-        return self.paths[-1] if self.paths else None
+        if created_path in self.paths and not created_path.is_being_created:
+            return created_path
+        return None
 
     def add_station_to_path(self, station: Station) -> None:
         assert self.path_being_created is not None
@@ -584,15 +612,23 @@ class Mediator:
             return self.game_speed_multiplier == 4
         return False
 
-    def apply_action(self, action: Dict) -> bool:
+    def apply_action(self, action: object) -> bool:
+        if self.is_game_over:
+            return False
+        if not isinstance(action, dict):
+            return False
         action_type = action.get("type")
+        if not isinstance(action_type, str):
+            return False
         if action_type == "create_path":
             stations = action.get("stations", [])
-            loop = bool(action.get("loop", False))
+            loop = action.get("loop", False)
+            if type(loop) is not bool:
+                return False
             return self.create_path_from_station_indices(stations, loop) is not None
         if action_type == "buy_line":
             button_idx = action.get("path_index")
-            if button_idx is not None and not isinstance(button_idx, int):
+            if button_idx is not None and type(button_idx) is not int:
                 return False
             return self.try_purchase_path_button_by_index(button_idx)
         if action_type == "remove_path":
@@ -607,7 +643,7 @@ class Mediator:
         if action_type == "resume":
             self.set_paused(False)
             return True
-        if action_type == "noop" or action_type is None:
+        if action_type == "noop":
             return True
         return False
 
@@ -638,7 +674,9 @@ class Mediator:
         return list(dict.fromkeys(station.shape.type for station in self.stations))
 
     def is_passenger_spawn_time(self) -> bool:
-        return any(self.should_spawn_passenger_at_station(station) for station in self.stations)
+        return any(
+            self.should_spawn_passenger_at_station(station) for station in self.stations
+        )
 
     def initialize_station_spawning_state(self, stations: List[Station]) -> None:
         for station in stations:
@@ -653,7 +691,9 @@ class Mediator:
 
     def get_station_spawn_interval_step(self) -> int:
         min_interval = max(1, int(self.passenger_spawning_interval_step * 0.7))
-        max_interval = max(min_interval, int(self.passenger_spawning_interval_step * 1.3))
+        max_interval = max(
+            min_interval, int(self.passenger_spawning_interval_step * 1.3)
+        )
         return random.randint(min_interval, max_interval)
 
     def should_spawn_passenger_at_station(self, station: Station) -> bool:
@@ -685,7 +725,7 @@ class Mediator:
             self.station_steps_since_last_spawn[station] = 0
 
     def increment_time(self, dt_ms: int) -> None:
-        if self.is_paused:
+        if self.is_paused or self.is_game_over:
             return
 
         speed_multiplier = self.game_speed_multiplier
@@ -702,7 +742,10 @@ class Mediator:
         station_nodes_dict = build_station_nodes_dict(self.stations, self.paths)
         for path in self.paths:
             for metro in path.metros:
-                if metro.current_station is not None and metro.stop_time_remaining_ms <= 0:
+                if (
+                    metro.current_station is not None
+                    and metro.stop_time_remaining_ms <= 0
+                ):
                     self.start_station_stop_if_needed(
                         metro,
                         metro.current_station,
@@ -816,8 +859,8 @@ class Mediator:
     ) -> None:
         if metro.stop_time_remaining_ms > 0:
             return
-        unload_to_destination, unload_to_transfer = self.get_unloading_candidates_for_metro(
-            metro, station
+        unload_to_destination, unload_to_transfer = (
+            self.get_unloading_candidates_for_metro(metro, station)
         )
         num_unload_actions = len(unload_to_destination) + len(unload_to_transfer)
         boarding_candidates = self.get_boarding_candidates_for_metro(
@@ -844,10 +887,7 @@ class Mediator:
             if station.shape.type == passenger.destination_shape.type:
                 return True
             travel_plan = self.travel_plans.get(passenger)
-            if (
-                travel_plan is not None
-                and travel_plan.get_next_station() == station
-            ):
+            if travel_plan is not None and travel_plan.get_next_station() == station:
                 return True
         return False
 
@@ -873,13 +913,10 @@ class Mediator:
                     metro.boarding_progress_ms += active_boarding_dt
                 elif unload_to_destination or unload_to_transfer or boarding_candidates:
                     metro.stop_time_remaining_ms = (
-                        (
-                            len(unload_to_destination)
-                            + len(unload_to_transfer)
-                            + len(boarding_candidates)
-                        )
-                        * metro.boarding_time_per_passenger_ms
-                    )
+                        len(unload_to_destination)
+                        + len(unload_to_transfer)
+                        + len(boarding_candidates)
+                    ) * metro.boarding_time_per_passenger_ms
                     metro.boarding_progress_ms = 0
                     metro.speed = 0
                     active_boarding_dt = min(dt_ms, metro.stop_time_remaining_ms)
@@ -993,6 +1030,8 @@ class Mediator:
         assert next_station is not None
         next_path = self.find_shared_path(station, next_station)
         self.travel_plans[passenger].next_path = next_path
+        if next_path is None:
+            self.travel_plans[passenger].next_station = None
 
     def get_path_by_id(self, path_id: str) -> Path | None:
         for path in self.paths:
@@ -1024,10 +1063,7 @@ class Mediator:
             first_hop_path = self.find_shared_path(
                 station, reduced_node_path[1].station
             )
-            if (
-                first_hop_path is None
-                or first_hop_path.id != required_first_path.id
-            ):
+            if first_hop_path is None or first_hop_path.id != required_first_path.id:
                 continue
             candidate_cost = (len(node_path), len(reduced_node_path))
             if best_path_cost is None or candidate_cost < best_path_cost:
@@ -1107,6 +1143,7 @@ class Mediator:
                         self.travel_plans[passenger] = TravelPlan(best_node_path[1:])
                         self.find_next_path_for_passenger_at_station(passenger, station)
                     elif (
-                        not passenger.is_at_destination and passenger not in self.travel_plans
+                        not passenger.is_at_destination
+                        and passenger not in self.travel_plans
                     ):
                         self.travel_plans[passenger] = TravelPlan([])

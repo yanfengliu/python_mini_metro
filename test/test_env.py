@@ -5,11 +5,11 @@ import unittest
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 from config import station_color, station_size
-from env import MiniMetroEnv
 from entity.metro import Metro
 from entity.passenger import Passenger
 from entity.path import Path
 from entity.station import Station
+from env import MiniMetroEnv
 from geometry.circle import Circle
 from geometry.point import Point
 from geometry.rect import Rect
@@ -53,9 +53,7 @@ class TestEnv(unittest.TestCase):
         env.step({"type": "create_path", "stations": [0, 1, 2], "loop": False})
 
         self.assertEqual(len(env.mediator.paths), 1)
-        obs, reward, done, info = env.step(
-            {"type": "remove_path", "path_index": 0}
-        )
+        obs, reward, done, info = env.step({"type": "remove_path", "path_index": 0})
 
         self.assertTrue(info["action_ok"])
         self.assertFalse(done)
@@ -68,9 +66,7 @@ class TestEnv(unittest.TestCase):
         env.step({"type": "create_path", "stations": [0, 1], "loop": False})
 
         path_id = env.mediator.paths[0].id
-        obs, reward, done, info = env.step(
-            {"type": "remove_path", "path_id": path_id}
-        )
+        obs, reward, done, info = env.step({"type": "remove_path", "path_id": path_id})
 
         self.assertTrue(info["action_ok"])
         self.assertFalse(done)
@@ -110,6 +106,76 @@ class TestEnv(unittest.TestCase):
         _, _, _, info = env.step({"type": "remove_path", "path_index": 99})
 
         self.assertFalse(info["action_ok"])
+
+    def test_malformed_actions_return_false_without_mutating(self):
+        malformed_actions = [
+            {},
+            "not-a-dict",
+            {"type": "create_path", "stations": "01", "loop": False},
+            {"type": "create_path", "stations": [0, "1"], "loop": False},
+            {"type": "create_path", "stations": [False, 1], "loop": False},
+            {"type": "create_path", "stations": [0, 1, 2], "loop": "false"},
+            {"type": None},
+            {"type": "remove_path", "path_index": False},
+        ]
+
+        for action in malformed_actions:
+            with self.subTest(action=action):
+                env = MiniMetroEnv()
+                env.reset(seed=20)
+                _, _, _, info = env.step(
+                    {"type": "create_path", "stations": [0, 1], "loop": False}
+                )
+                self.assertTrue(info["action_ok"])
+                env.mediator.purchased_num_paths = 2
+                env.mediator.update_unlocked_num_paths()
+                initial_path_ids = [path.id for path in env.mediator.paths]
+                initial_time_ms = env.mediator.time_ms
+
+                _, _, _, info = env.step(action, dt_ms=10)  # type: ignore[arg-type]
+
+                self.assertFalse(info["action_ok"])
+                self.assertEqual(
+                    [path.id for path in env.mediator.paths], initial_path_ids
+                )
+                self.assertEqual(env.mediator.time_ms, initial_time_ms)
+
+    def test_aborted_create_path_does_not_report_existing_path_success(self):
+        env = MiniMetroEnv()
+        env.reset(seed=21)
+        _, _, _, info = env.step(
+            {"type": "create_path", "stations": [0, 1], "loop": False}
+        )
+        self.assertTrue(info["action_ok"])
+        self.assertEqual(len(env.mediator.paths), 1)
+
+        env.mediator.purchased_num_paths = 2
+        env.mediator.update_unlocked_num_paths()
+        _, _, _, info = env.step(
+            {"type": "create_path", "stations": [0, 0], "loop": False}
+        )
+
+        self.assertFalse(info["action_ok"])
+        self.assertEqual(len(env.mediator.paths), 1)
+
+    def test_step_after_game_over_is_stable_noop(self):
+        env = MiniMetroEnv(dt_ms=10)
+        env.reset(seed=22)
+        env.mediator.is_game_over = True
+        time_before = env.mediator.time_ms
+        steps_before = env.mediator.steps
+        paths_before = len(env.mediator.paths)
+
+        _, reward, done, info = env.step(
+            {"type": "create_path", "stations": [0, 1], "loop": False}
+        )
+
+        self.assertFalse(info["action_ok"])
+        self.assertEqual(reward, 0)
+        self.assertTrue(done)
+        self.assertEqual(env.mediator.time_ms, time_before)
+        self.assertEqual(env.mediator.steps, steps_before)
+        self.assertEqual(len(env.mediator.paths), paths_before)
 
     def test_observation_arrays_shapes(self):
         env = MiniMetroEnv()
@@ -209,6 +275,14 @@ class TestEnv(unittest.TestCase):
         self.assertTrue(info["action_ok"])
         self.assertEqual(len(env.mediator.paths), 1)
         self.assertTrue(env.mediator.paths[0].is_looped)
+        self.assertEqual(
+            env.mediator.paths[0].stations,
+            [
+                env.mediator.stations[0],
+                env.mediator.stations[1],
+                env.mediator.stations[2],
+            ],
+        )
         self.assertIn("structured", obs)
 
     def test_invalid_create_path_inputs(self):
@@ -398,5 +472,7 @@ class TestEnv(unittest.TestCase):
 
         self.assertTrue(done)
         self.assertTrue(env.mediator.is_game_over)
+
+
 if __name__ == "__main__":
     unittest.main()

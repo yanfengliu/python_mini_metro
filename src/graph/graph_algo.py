@@ -21,6 +21,8 @@ def build_station_nodes_dict(stations: List[Station], paths: List[Path]):
         for station in path.stations:
             station_nodes_dict[station].paths.add(path)
             connection.append(station_nodes_dict[station])
+        if path.is_looped and len(connection) > 1:
+            connection.append(connection[0])
         connections.append(connection)
 
     while len(station_nodes) > 0:

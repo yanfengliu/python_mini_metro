@@ -1,14 +1,13 @@
 import os
 import sys
 import unittest
-from unittest.mock import create_autospec
-
-from entity.get_entity import get_random_stations
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 import pygame
+
 from config import screen_height, screen_width, station_color, station_size
+from entity.get_entity import get_random_stations
 from entity.path import Path
 from entity.station import Station
 from event.mouse import MouseEvent
@@ -25,7 +24,7 @@ from utils import get_random_color, get_random_position
 class TestGraph(unittest.TestCase):
     def setUp(self):
         self.width, self.height = screen_width, screen_height
-        self.screen = create_autospec(pygame.surface.Surface)
+        self.screen = pygame.Surface((self.width, self.height))
         self.position = get_random_position(self.width, self.height)
         self.color = get_random_color()
         self.mediator = Mediator()
@@ -165,6 +164,38 @@ class TestGraph(unittest.TestCase):
         station_nodes = build_station_nodes_dict([station_a, station_b], [path])
         for node in station_nodes.values():
             self.assertEqual(node.paths, set())
+
+    def test_build_station_nodes_dict_connects_loop_closure(self):
+        station_a = Station(
+            Rect(station_color, 2 * station_size, 2 * station_size), Point(0, 0)
+        )
+        station_b = Station(Circle(station_color, station_size), Point(10, 0))
+        station_c = Station(
+            Rect(station_color, 2 * station_size, 2 * station_size), Point(20, 0)
+        )
+        path = Path((0, 0, 0))
+        path.add_station(station_a)
+        path.add_station(station_b)
+        path.add_station(station_c)
+        path.set_loop()
+
+        station_nodes = build_station_nodes_dict(
+            [station_a, station_b, station_c], [path]
+        )
+
+        self.assertIn(station_nodes[station_c], station_nodes[station_a].neighbors)
+        self.assertIn(station_nodes[station_a], station_nodes[station_c].neighbors)
+        self.assertSequenceEqual(
+            bfs(station_nodes[station_a], station_nodes[station_c]),
+            [station_nodes[station_a], station_nodes[station_c]],
+        )
+
+    def test_equal_nodes_have_same_hash(self):
+        station = Station(
+            Rect(station_color, 2 * station_size, 2 * station_size), Point(0, 0)
+        )
+
+        self.assertEqual(len({Node(station), Node(station)}), 1)
 
 
 if __name__ == "__main__":

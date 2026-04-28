@@ -2,11 +2,12 @@ import os
 import sys
 import unittest
 from math import ceil
-from unittest.mock import MagicMock, create_autospec
+from unittest.mock import create_autospec, patch
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 import pygame
+
 from config import framerate, metro_speed_per_ms, station_color, station_size
 from entity.get_entity import get_random_station, get_random_stations
 from entity.metro import Metro
@@ -24,6 +25,15 @@ class TestPath(unittest.TestCase):
         self.screen = create_autospec(pygame.surface.Surface)
         self.position = get_random_position(self.width, self.height)
         self.color = get_random_color()
+        self.draw_line_patcher = patch("pygame.draw.line")
+        self.draw_line = self.draw_line_patcher.start()
+        self.addCleanup(self.draw_line_patcher.stop)
+        self.draw_circle_patcher = patch("pygame.draw.circle")
+        self.draw_circle_patcher.start()
+        self.addCleanup(self.draw_circle_patcher.stop)
+        self.draw_polygon_patcher = patch("pygame.draw.polygon")
+        self.draw_polygon_patcher.start()
+        self.addCleanup(self.draw_polygon_patcher.stop)
 
     def test_init(self):
         path = Path(get_random_color())
@@ -35,21 +45,19 @@ class TestPath(unittest.TestCase):
     def test_draw(self):
         path = Path(get_random_color())
         stations = get_random_stations(5)
-        pygame.draw.line = MagicMock()
         for station in stations:
             path.add_station(station)
         path.draw(self.screen, 0)
 
-        self.assertEqual(pygame.draw.line.call_count, 4 + 3)
+        self.assertEqual(self.draw_line.call_count, 4 + 3)
 
     def test_draw_temporary_point(self):
         path = Path(get_random_color())
-        pygame.draw.line = MagicMock()
         path.add_station(get_random_station())
         path.set_temporary_point(Point(1, 1))
         path.draw(self.screen, 0)
 
-        self.assertEqual(pygame.draw.line.call_count, 1)
+        self.assertEqual(self.draw_line.call_count, 1)
 
     def test_metro_starts_at_beginning_of_first_line(self):
         path = Path(get_random_color())
@@ -199,7 +207,9 @@ class TestPath(unittest.TestCase):
         path.add_metro(metro)
 
         for _ in range(framerate * 3):
-            path.move_metro(metro, ceil(1000 / framerate), should_stop_at_next_station=True)
+            path.move_metro(
+                metro, ceil(1000 / framerate), should_stop_at_next_station=True
+            )
             if metro.current_station is station_b:
                 break
 

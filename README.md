@@ -46,6 +46,7 @@ obs, reward, done, info = env.step({"type": "remove_path", "path_index": 0})
     - `reward` (`int`): score delta since previous step
     - `done` (`bool`): `True` when game is over
     - `info` (`dict`): currently contains `{"action_ok": bool}`
+  - Once `done` is `True`, later `step(...)` calls are stable no-ops: actions are rejected, time does not advance, and `info["action_ok"]` is `False` until `reset(...)`.
 
 ### Valid `action` inputs
 - `None`
@@ -62,7 +63,7 @@ obs, reward, done, info = env.step({"type": "remove_path", "path_index": 0})
 - `{"type": "remove_path", "path_index": k}`
   - Removes an existing path by index.
   - Valid only when `0 <= k < len(observation["structured"]["paths"])`.
-- `{"type": "remove_path", "path_id": "..."}` 
+- `{"type": "remove_path", "path_id": "..."}`
   - Removes an existing path by path id string from `observation["structured"]["paths"][*]["id"]`.
 - `{"type": "buy_line"}`
   - Buys the next locked line if affordable.
@@ -76,12 +77,14 @@ obs, reward, done, info = env.step({"type": "remove_path", "path_index": 0})
 - `{"type": "resume"}`
   - Resumes simulation updates.
 
-Any unknown `type`, or malformed action payload, returns `info["action_ok"] == False`.
+Any unknown `type`, or malformed action payload, returns `info["action_ok"] == False` without mutating game state.
 
 ### `step(..., dt_ms=...)` behavior
 - `dt_ms` argument to `step(...)` overrides constructor `dt_ms` for that call.
 - If effective `dt_ms` is an integer, simulation advances by that many milliseconds.
 - If effective `dt_ms` is `None`, action is applied but time is not advanced.
+- If the action is rejected, no simulation time advances for that step.
+- If the environment is already game-over, no simulation time advances regardless of `dt_ms`.
 
 ### Observation shape
 `observation` is:

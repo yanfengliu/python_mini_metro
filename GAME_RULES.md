@@ -56,9 +56,10 @@ This document summarizes the game rules currently implemented in code.
 
 - Passengers compute travel plans based on currently available, completed lines.
 - Routing is shortest-hop style (BFS over the station graph).
+- Looped lines include the closing segment between their last and first stations in routing, matching metro movement.
 - If multiple stations match a destination shape, the game uses one with a valid route.
 - Passengers can transfer between lines at stations according to their travel plan.
-- If no route exists, passengers wait until the network changes.
+- If no route exists, passengers wait until the network changes. Removing a line invalidates waiting-passenger plans that used it; passengers already riding a surviving line keep their immediate transfer plan until they leave that line, then replan against the updated network.
 
 ## Timing and Spawning
 
@@ -74,6 +75,7 @@ This document summarizes the game rules currently implemented in code.
 - Game over occurs when 1 or more passengers are over-waiting.
 - On game over:
   - Simulation time and gameplay updates stop.
+  - Programmatic `step(...)` calls become stable no-ops until reset.
   - A game-over overlay appears with final score.
 
 ## Controls
@@ -97,3 +99,4 @@ This document summarizes the game rules currently implemented in code.
 - `pause`: pause simulation.
 - `resume`: resume simulation.
 - `noop` (or `None`): do nothing this step.
+- Malformed actions are rejected without mutating game state.

@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Set
 
+from shortuuid import uuid  # type: ignore
+
 from entity.path import Path
 from entity.station import Station
-from shortuuid import uuid  # type: ignore
 
 
 class Node:
@@ -18,7 +19,7 @@ class Node:
         return self.station == other.station
 
     def __hash__(self) -> int:
-        return hash(self.id)
+        return hash(self.station)
 
     def __repr__(self) -> str:
         return f"Node-{self.station.__repr__()}"

@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, create_autospec
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 import pygame
+
 from config import screen_height, screen_width
 from entity.get_entity import get_random_stations
 from event.keyboard import KeyboardEvent
@@ -23,6 +24,8 @@ class TestMediator(unittest.TestCase):
         self.position = get_random_position(self.width, self.height)
         self.color = get_random_color()
         self.mediator = Mediator()
+        original_draw = pygame.draw
+        self.addCleanup(setattr, pygame, "draw", original_draw)
         pygame.draw = MagicMock()
         self.mediator.render(self.screen)
 

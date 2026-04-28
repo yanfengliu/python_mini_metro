@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, create_autospec, patch
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 import pygame
+
 from config import (
     button_color,
     button_size,
@@ -116,9 +117,9 @@ class TestCoverageUtils(unittest.TestCase):
         button = PathButton(Circle(button_color, button_size), Point(0, 0))
         button.assign_path(MagicMock())
         button.on_hover()
-        pygame.draw.circle = MagicMock()
         button.cross.draw = MagicMock()
-        button.draw(self.screen)
+        with patch("pygame.draw.circle"):
+            button.draw(self.screen)
         button.cross.draw.assert_called_once()
 
     def test_path_button_keeps_assigned_color_when_unlocked(self):
@@ -150,17 +151,22 @@ class TestCoverageUtils(unittest.TestCase):
         fake_surface.get_height.return_value = 10
         fake_surface.get_rect.return_value = pygame.Rect(0, 0, 10, 10)
         fake_font.render = MagicMock(return_value=fake_surface)
-        pygame.font.SysFont = MagicMock(return_value=fake_font)
-        pygame.draw.circle = MagicMock()
+        with (
+            patch("pygame.font.SysFont", return_value=fake_font),
+            patch("pygame.draw.circle"),
+        ):
+            button.draw(
+                self.screen,
+                locked_purchase_price=90,
+                locked_purchase_affordable=False,
+            )
 
-        button.draw(
-            self.screen,
-            locked_purchase_price=90,
-            locked_purchase_affordable=False,
+        fake_font.render.assert_any_call(
+            "Buy", True, path_button_buy_text_disabled_color
         )
-
-        fake_font.render.assert_any_call("Buy", True, path_button_buy_text_disabled_color)
-        fake_font.render.assert_any_call("90", True, path_button_buy_text_disabled_color)
+        fake_font.render.assert_any_call(
+            "90", True, path_button_buy_text_disabled_color
+        )
 
     def test_locked_path_button_hover_text_uses_enabled_color_when_affordable(self):
         button = PathButton(Circle(button_color, button_size), Point(0, 0))
@@ -171,14 +177,15 @@ class TestCoverageUtils(unittest.TestCase):
         fake_surface.get_height.return_value = 10
         fake_surface.get_rect.return_value = pygame.Rect(0, 0, 10, 10)
         fake_font.render = MagicMock(return_value=fake_surface)
-        pygame.font.SysFont = MagicMock(return_value=fake_font)
-        pygame.draw.circle = MagicMock()
-
-        button.draw(
-            self.screen,
-            locked_purchase_price=90,
-            locked_purchase_affordable=True,
-        )
+        with (
+            patch("pygame.font.SysFont", return_value=fake_font),
+            patch("pygame.draw.circle"),
+        ):
+            button.draw(
+                self.screen,
+                locked_purchase_price=90,
+                locked_purchase_affordable=True,
+            )
 
         fake_font.render.assert_any_call("Buy", True, path_button_buy_text_color)
         fake_font.render.assert_any_call("90", True, path_button_buy_text_color)
@@ -189,7 +196,9 @@ class TestCoverageUtils(unittest.TestCase):
         buttons = get_path_buttons(2, surface_width=width, surface_height=height)
         self.assertEqual(len(buttons), 2)
         expected_step = path_button_buffer + 2 * button_size
-        self.assertEqual(buttons[0].position.left + expected_step, buttons[1].position.left)
+        self.assertEqual(
+            buttons[0].position.left + expected_step, buttons[1].position.left
+        )
         self.assertEqual(buttons[0].position.top, height - path_button_dist_to_bottom)
 
     def test_update_path_button_positions_is_centered(self):

@@ -4,8 +4,11 @@ python_mini_metro/
 |     \- test.yml
 |- .vscode/
 |  \- settings.json
-|- reviews/
-|  \- README.md
+|- docs/
+|  \- reviews/
+|     |- README.md
+|     |- agents-repo-fit/
+|     \- full/
 |- src/
 |  |- agent_play.py
 |  |- config.py

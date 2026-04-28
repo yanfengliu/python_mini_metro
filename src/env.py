@@ -1,5 +1,5 @@
 import random
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, Tuple
 
 import numpy as np
 
@@ -23,13 +23,19 @@ class MiniMetroEnv:
     def step(
         self, action: Dict[str, Any] | None = None, dt_ms: int | None = None
     ) -> Tuple[Dict[str, Any], int, bool, Dict[str, Any]]:
+        if self.mediator.is_game_over:
+            obs = self.observe()
+            reward = self.mediator.score - self.last_score
+            self.last_score = self.mediator.score
+            return obs, reward, True, {"action_ok": False}
+
         if action is None:
             action = {"type": "noop"}
         action_ok = self.mediator.apply_action(action)
 
         if dt_ms is None:
             dt_ms = self.dt_ms_default
-        if dt_ms is not None:
+        if action_ok and dt_ms is not None:
             self.mediator.step_time(dt_ms)
 
         obs = self.observe()
@@ -153,9 +159,7 @@ class MiniMetroEnv:
             dtype=np.int64,
         )
         path_station_indices = [
-            np.array(
-                [station_id_to_index[s.id] for s in path.stations], dtype=np.int64
-            )
+            np.array([station_id_to_index[s.id] for s in path.stations], dtype=np.int64)
             for path in self.mediator.paths
         ]
         path_is_looped = np.array(
@@ -173,10 +177,7 @@ class MiniMetroEnv:
         else:
             metro_positions = np.zeros((0, 2), dtype=np.float32)
         metro_path_indices = np.array(
-            [
-                path_id_to_index.get(metro.path_id, -1)
-                for metro in self.mediator.metros
-            ],
+            [path_id_to_index.get(metro.path_id, -1) for metro in self.mediator.metros],
             dtype=np.int64,
         )
 

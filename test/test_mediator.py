@@ -1,41 +1,41 @@
 import os
 import sys
 import unittest
-from unittest.mock import MagicMock, create_autospec, patch
-
-from entity.get_entity import get_random_stations
-from event.mouse import MouseEvent
-from event.type import MouseEventType
-from geometry.triangle import Triangle
-from geometry.type import ShapeType
+from unittest.mock import MagicMock, patch
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 from math import ceil
 
 import pygame
+
 from config import (
     button_color,
     framerate,
     initial_num_stations,
     num_stations,
-    path_unlock_milestones,
     passenger_spawning_interval_step,
     passenger_spawning_start_step,
+    path_unlock_milestones,
     screen_height,
     screen_width,
-    station_unlock_milestones,
     station_color,
     station_size,
+    station_unlock_milestones,
     unlock_blink_duration_ms,
 )
 from entity.metro import Metro
 from entity.passenger import Passenger
 from entity.path import Path
 from entity.station import Station
+from event.mouse import MouseEvent
+from event.type import MouseEventType
 from geometry.circle import Circle
 from geometry.point import Point
 from geometry.rect import Rect
+from geometry.triangle import Triangle
+from geometry.type import ShapeType
+from graph.graph_algo import build_station_nodes_dict
 from graph.node import Node
 from mediator import Mediator
 from travel_plan import TravelPlan
@@ -46,10 +46,15 @@ from utils import get_random_color, get_random_position
 class TestMediator(unittest.TestCase):
     def setUp(self):
         self.width, self.height = screen_width, screen_height
-        self.screen = create_autospec(pygame.surface.Surface)
+        self.screen = MagicMock()
+        self.screen.get_width.return_value = self.width
+        self.screen.get_height.return_value = self.height
         self.position = get_random_position(self.width, self.height)
         self.color = get_random_color()
         self.mediator = Mediator()
+        original_draw = pygame.draw
+        self.addCleanup(setattr, pygame, "draw", original_draw)
+        pygame.draw = MagicMock()
         self.mediator.render(self.screen)
 
     def connect_stations(self, station_idx):
@@ -110,7 +115,9 @@ class TestMediator(unittest.TestCase):
             return (idx, idx, idx)
 
         with patch("mediator.hue_to_rgb", side_effect=fake_hue_to_rgb):
-            colors = self.mediator.generate_distinct_path_colors(self.mediator.num_paths)
+            colors = self.mediator.generate_distinct_path_colors(
+                self.mediator.num_paths
+            )
 
         self.assertEqual(len(colors), self.mediator.num_paths)
 
@@ -300,11 +307,24 @@ class TestMediator(unittest.TestCase):
         self.assertCountEqual(triangle_stations, self.mediator.stations[3:])
 
     def test_skip_stations_on_same_path(self):
-        self.mediator.stations = get_random_stations(5)
+        station_a = Station(
+            Rect(station_color, 2 * station_size, 2 * station_size), Point(0, 0)
+        )
+        station_b = Station(Circle(station_color, station_size), Point(100, 0))
+        station_c = Station(Triangle(station_color, station_size), Point(200, 0))
+        self.mediator.stations = [station_a, station_b, station_c]
         for station in self.mediator.stations:
             station.draw(self.screen)
-        self.connect_stations([i for i in range(5)])
-        self.mediator.spawn_passengers()
+        self.connect_stations([0, 1, 2])
+
+        passenger_a = Passenger(station_c.shape)
+        passenger_b = Passenger(station_a.shape)
+        passenger_c = Passenger(station_b.shape)
+        station_a.add_passenger(passenger_a)
+        station_b.add_passenger(passenger_b)
+        station_c.add_passenger(passenger_c)
+        self.mediator.passengers = [passenger_a, passenger_b, passenger_c]
+
         self.mediator.find_travel_plan_for_passengers()
         for station in self.mediator.stations:
             for passenger in station.passengers:
@@ -376,7 +396,9 @@ class TestMediator(unittest.TestCase):
             mediator.game_over_hint_font.render = MagicMock(return_value=hint_surface)
             mediator.render(screen)
 
-        surface_mock.assert_called_once_with((screen_width, screen_height), pygame.SRCALPHA)
+        surface_mock.assert_called_once_with(
+            (screen_width, screen_height), pygame.SRCALPHA
+        )
         overlay.fill.assert_called_once()
         screen.blit.assert_any_call(overlay, (0, 0))
         self.assertGreaterEqual(mediator.font.render.call_count, 1)
@@ -389,12 +411,8 @@ class TestMediator(unittest.TestCase):
         mediator.game_over_restart_rect = pygame.Rect(0, 0, 10, 10)
         mediator.game_over_exit_rect = pygame.Rect(20, 0, 10, 10)
 
-        self.assertEqual(
-            mediator.handle_game_over_click(Point(5, 5)), "restart"
-        )
-        self.assertEqual(
-            mediator.handle_game_over_click(Point(25, 5)), "exit"
-        )
+        self.assertEqual(mediator.handle_game_over_click(Point(5, 5)), "restart")
+        self.assertEqual(mediator.handle_game_over_click(Point(25, 5)), "exit")
         self.assertIsNone(mediator.handle_game_over_click(Point(50, 50)))
 
     def test_mouse_motion_no_entity_triggers_exit(self):
@@ -432,9 +450,7 @@ class TestMediator(unittest.TestCase):
 
         button = HoverButton()
         mediator.buttons = [button]
-        mediator.react_mouse_event(
-            MouseEvent(MouseEventType.MOUSE_MOTION, Point(0, 0))
-        )
+        mediator.react_mouse_event(MouseEvent(MouseEventType.MOUSE_MOTION, Point(0, 0)))
         self.assertTrue(button.hovered)
 
     def test_speed_buttons_pause_and_resume_with_multiplier(self):
@@ -459,12 +475,74 @@ class TestMediator(unittest.TestCase):
         passenger = Passenger(station_b.shape)
         metro.add_passenger(passenger)
         mediator.passengers.append(passenger)
+        mediator.travel_plans[passenger] = TravelPlan([Node(station_b)])
         mediator.path_buttons[0].assign_path(path)
         mediator.path_to_button[path] = mediator.path_buttons[0]
         mediator.path_to_color[path] = path.color
         mediator.remove_path(path)
         self.assertNotIn(passenger, mediator.passengers)
+        self.assertNotIn(passenger, mediator.travel_plans)
         self.assertNotIn(path, mediator.paths)
+
+    def test_remove_path_recomputes_waiting_passenger_plan(self):
+        mediator, station_a, station_b, path, _ = self._build_two_station_mediator()
+        passenger = Passenger(station_b.shape)
+        station_a.add_passenger(passenger)
+        mediator.passengers.append(passenger)
+        mediator.travel_plans[passenger] = TravelPlan([Node(station_b)])
+        mediator.travel_plans[passenger].next_path = path
+        mediator.path_buttons[0].assign_path(path)
+        mediator.path_to_button[path] = mediator.path_buttons[0]
+        mediator.path_to_color[path] = path.color
+
+        mediator.remove_path(path)
+
+        self.assertIn(passenger, mediator.passengers)
+        self.assertIn(passenger, mediator.travel_plans)
+        self.assertIsNone(mediator.travel_plans[passenger].next_path)
+        self.assertIsNone(mediator.travel_plans[passenger].next_station)
+
+    def test_remove_path_keeps_onboard_plan_until_transfer_station(self):
+        mediator = Mediator()
+        station_a = Station(
+            Rect(station_color, 2 * station_size, 2 * station_size), Point(0, 0)
+        )
+        station_b = Station(Circle(station_color, station_size), Point(100, 0))
+        station_c = Station(Triangle(station_color, station_size), Point(200, 0))
+        mediator.stations = [station_a, station_b, station_c]
+
+        surviving_path = Path((10, 20, 30))
+        surviving_path.add_station(station_a)
+        surviving_path.add_station(station_b)
+        removed_path = Path((40, 50, 60))
+        removed_path.add_station(station_b)
+        removed_path.add_station(station_c)
+        metro = Metro()
+        surviving_path.add_metro(metro)
+        metro.current_station = station_b
+        metro.position = station_b.position
+        mediator.paths = [surviving_path, removed_path]
+        mediator.metros = [metro]
+        for idx, path in enumerate(mediator.paths):
+            mediator.path_buttons[idx].assign_path(path)
+            mediator.path_to_button[path] = mediator.path_buttons[idx]
+            mediator.path_to_color[path] = path.color
+
+        passenger = Passenger(station_c.shape)
+        metro.add_passenger(passenger)
+        mediator.passengers = [passenger]
+        station_nodes = build_station_nodes_dict(mediator.stations, mediator.paths)
+        travel_plan = TravelPlan([station_nodes[station_b], station_nodes[station_c]])
+        travel_plan.next_path = surviving_path
+        mediator.travel_plans[passenger] = travel_plan
+
+        mediator.remove_path(removed_path)
+        mediator.move_passengers(1000)
+
+        self.assertIn(passenger, station_b.passengers)
+        self.assertIn(passenger, mediator.travel_plans)
+        self.assertIsNone(mediator.travel_plans[passenger].next_path)
+        self.assertIsNone(mediator.travel_plans[passenger].next_station)
 
     def test_add_station_to_path_returns_on_duplicate(self):
         mediator = Mediator()
@@ -830,12 +908,8 @@ class TestMediator(unittest.TestCase):
         intermediate_station = Station(
             Circle(station_color, station_size), Point(10, 0)
         )
-        short_destination = Station(
-            Triangle(station_color, station_size), Point(20, 0)
-        )
-        long_destination = Station(
-            Triangle(station_color, station_size), Point(30, 0)
-        )
+        short_destination = Station(Triangle(station_color, station_size), Point(20, 0))
+        long_destination = Station(Triangle(station_color, station_size), Point(30, 0))
         mediator.stations = [
             start_station,
             intermediate_station,
@@ -880,12 +954,8 @@ class TestMediator(unittest.TestCase):
         intermediate_station = Station(
             Circle(station_color, station_size), Point(10, 0)
         )
-        short_destination = Station(
-            Triangle(station_color, station_size), Point(20, 0)
-        )
-        long_destination = Station(
-            Triangle(station_color, station_size), Point(30, 0)
-        )
+        short_destination = Station(Triangle(station_color, station_size), Point(20, 0))
+        long_destination = Station(Triangle(station_color, station_size), Point(30, 0))
         mediator.stations = [
             start_station,
             intermediate_station,

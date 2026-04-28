@@ -6,13 +6,14 @@ from unittest.mock import MagicMock, create_autospec, patch
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 import pygame
+
 from config import (
     passenger_display_buffer,
     passenger_max_wait_time_ms,
     passenger_size,
     station_color,
-    station_snap_blip_duration_ms,
     station_size,
+    station_snap_blip_duration_ms,
     station_unique_shape_type_list,
 )
 from entity.get_entity import (
@@ -38,6 +39,12 @@ class TestStation(unittest.TestCase):
         self.position = get_random_position(width=100, height=100)
         self.shape = get_random_station_shape()
         self.screen = create_autospec(pygame.surface.Surface)
+        self.draw_circle_patcher = patch("pygame.draw.circle")
+        self.draw_circle = self.draw_circle_patcher.start()
+        self.addCleanup(self.draw_circle_patcher.stop)
+        self.draw_polygon_patcher = patch("pygame.draw.polygon")
+        self.draw_polygon_patcher.start()
+        self.addCleanup(self.draw_polygon_patcher.stop)
 
     def test_init(self):
         station = Station(self.shape, self.position)
@@ -81,7 +88,6 @@ class TestStation(unittest.TestCase):
             passenger.draw = MagicMock()
             station.add_passenger(passenger)
 
-        pygame.draw.circle = MagicMock()
         station.draw(self.screen)
 
         base_offset = Point(
@@ -236,20 +242,18 @@ class TestStation(unittest.TestCase):
         active_early = station.get_active_snap_blips(100)
         self.assertEqual(len(active_early), 1)
 
-        active_late = station.get_active_snap_blips(
-            100 + station_snap_blip_duration_ms
-        )
+        active_late = station.get_active_snap_blips(100 + station_snap_blip_duration_ms)
         self.assertEqual(active_late, [])
 
     def test_station_draw_renders_snap_blip_as_expanding_ring(self):
         station = Station(Circle(station_color, station_size), Point(0, 0))
         station.start_snap_blip(0, (11, 22, 33))
         station.shape.draw = MagicMock()
-        pygame.draw.circle = MagicMock()
 
+        self.draw_circle.reset_mock()
         station.draw(self.screen, current_time_ms=200)
 
-        self.assertGreaterEqual(pygame.draw.circle.call_count, 1)
+        self.assertGreaterEqual(self.draw_circle.call_count, 1)
 
     def test_unique_station_shapes_only_spawn_after_threshold_and_once(self):
         with (
@@ -302,13 +306,16 @@ class TestStation(unittest.TestCase):
             Point(600, 50),
         ]
 
-        with patch(
-            "entity.get_entity.get_random_position",
-            side_effect=candidate_positions,
-        ), patch(
-            "entity.get_entity.random.choices",
-            side_effect=lambda population, weights, k: [population[0]],
-        ) as choices_mock:
+        with (
+            patch(
+                "entity.get_entity.get_random_position",
+                side_effect=candidate_positions,
+            ),
+            patch(
+                "entity.get_entity.random.choices",
+                side_effect=lambda population, weights, k: [population[0]],
+            ) as choices_mock,
+        ):
             spawn_position = get_station_spawn_position(existing_positions)
 
         self.assertEqual(spawn_position, candidate_positions[0])

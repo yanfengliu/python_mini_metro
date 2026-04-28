@@ -1,13 +1,14 @@
 import os
 import sys
 import unittest
-from unittest.mock import MagicMock, create_autospec
+from unittest.mock import create_autospec, patch
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 from copy import deepcopy
 
 import pygame
+
 from config import screen_height, screen_width
 from geometry.circle import Circle
 from geometry.line import Line
@@ -41,14 +42,15 @@ class TestGeometry(unittest.TestCase):
 
     def test_circle_draw(self):
         circle = self.init_circle()
-        pygame.draw.circle = MagicMock()
-        circle.draw(self.screen, self.position)
-        pygame.draw.circle.assert_called_once()
+        with patch("pygame.draw.circle") as draw_circle:
+            circle.draw(self.screen, self.position)
+
+        draw_circle.assert_called_once()
 
     def test_circle_contains_point(self):
         circle = self.init_circle()
-        pygame.draw.circle = MagicMock()
-        circle.draw(self.screen, self.position)
+        with patch("pygame.draw.circle"):
+            circle.draw(self.screen, self.position)
 
         self.assertTrue(
             circle.contains(self.position + Point(circle.radius - 1, circle.radius - 1))
@@ -71,23 +73,23 @@ class TestGeometry(unittest.TestCase):
 
     def test_rect_draw(self):
         rect = self.init_rect()
-        pygame.draw.polygon = MagicMock()
-        rect.draw(self.screen, self.position)
+        with patch("pygame.draw.polygon") as draw_polygon:
+            rect.draw(self.screen, self.position)
 
-        pygame.draw.polygon.assert_called_once()
+        draw_polygon.assert_called_once()
 
     def test_rect_contains_point(self):
         rect = self.init_rect()
-        pygame.draw.polygon = MagicMock()
-        rect.draw(self.screen, self.position)
+        with patch("pygame.draw.polygon"):
+            rect.draw(self.screen, self.position)
 
         self.assertTrue(rect.contains(rect.position + Point(1, 1)))
         self.assertFalse(rect.contains(rect.position + Point(rect.width, rect.height)))
 
     def test_rect_rotate(self):
         rect = self.init_rect()
-        pygame.draw.polygon = MagicMock()
-        rect.draw(self.screen, self.position)
+        with patch("pygame.draw.polygon"):
+            rect.draw(self.screen, self.position)
         rect_points = deepcopy(rect.points)
         rect.rotate(180)
         for point in rect.points:
@@ -97,8 +99,8 @@ class TestGeometry(unittest.TestCase):
 
     def test_rect_set_degrees(self):
         rect = self.init_rect()
-        pygame.draw.polygon = MagicMock()
-        rect.draw(self.screen, self.position)
+        with patch("pygame.draw.polygon"):
+            rect.draw(self.screen, self.position)
         rect_points = deepcopy(rect.points)
         rect.set_degrees(180)
         for point in rect.points:
@@ -119,10 +121,10 @@ class TestGeometry(unittest.TestCase):
 
     def test_line_draw(self):
         line = self.init_line()
-        pygame.draw.line = MagicMock()
-        line.draw(self.screen)
+        with patch("pygame.draw.line") as draw_line:
+            line.draw(self.screen)
 
-        pygame.draw.line.assert_called_once()
+        draw_line.assert_called_once()
 
     def test_triangle_init(self):
         size = 10
@@ -136,10 +138,10 @@ class TestGeometry(unittest.TestCase):
 
     def test_triangle_draw(self):
         triangle = self.init_triangle()
-        pygame.draw.polygon = MagicMock()
-        triangle.draw(self.screen, self.position)
+        with patch("pygame.draw.polygon") as draw_polygon:
+            triangle.draw(self.screen, self.position)
 
-        pygame.draw.polygon.assert_called_once()
+        draw_polygon.assert_called_once()
 
     def test_direction_with_same_points_returns_zero_vector(self):
         point = Point(10, 20)

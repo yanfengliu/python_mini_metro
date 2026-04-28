@@ -80,4 +80,6 @@
 
 ## 2026-04-28
 
-- Added Python/py313 workflow guidance in `AGENTS.md` with a `CLAUDE.md` shim, reflected the removed `.cursor/rules`, and added a `reviews/` artifact directory.
+- Added Python/py313 workflow guidance in `AGENTS.md` with a `CLAUDE.md` shim, reflected the removed `.cursor/rules`, and added an initial review artifact directory.
+- Moved review artifacts under `docs/reviews/` and documented robust full-codebase Codex/Claude review commands.
+- Ran the first full-codebase review, fixed terminal-state API mutation, malformed action handling, loop routing closure, stale travel-plan cleanup, the graph node hash contract, and the stale Ruff pre-commit hook, then added focused regressions.
