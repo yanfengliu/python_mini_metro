@@ -44,6 +44,16 @@
 - `PROGRESS.md`: single running project log.
 - `docs/threads/`: active and completed work threads, including multi-CLI review artifacts and full-codebase audits.
 
+## Dependency-change protocol
+
+Mandatory whenever you touch `requirements.txt`, `environment.yml`, or any other dependency-declaration file:
+
+1. Re-resolve the lockfile: `uv pip compile requirements.txt --generate-hashes > requirements-locked.txt` (commit it). Adapt to whatever package manager the repo uses; the principle is "pin every transitive dep with a hash".
+2. Run `pip-audit -r requirements-locked.txt --disable-pip` (install via `pip install pip-audit` if not already on PATH). Confirm "No known vulnerabilities found". A new CVE is a blocker — upgrade past it, swap the dep, or document the suppression in `PROGRESS.md` with a reason and expiry date.
+3. Mention the audit result in the commit message ("pip-audit: 0 CVEs" or similar).
+
+Skipping any step is a process regression — supply-chain risk compounds silently and the only defense is making the check unmissable.
+
 ## Validation Gates
 
 - For every code or behavior change, run the full unit suite in `py313`:
