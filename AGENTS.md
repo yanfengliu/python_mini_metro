@@ -132,3 +132,4 @@ claude -p $prompt --model best --effort max --permission-mode bypassPermissions 
 - Never revert unrelated user changes.
 - Before any commit, inspect `git diff --cached --stat` and `git diff --cached`.
 - Keep generated caches such as `.pytest_cache`, `.ruff_cache`, `.coverage`, and `__pycache__` out of commits.
+- **Push to remote at the end of every task.** If local commits are ahead of the remote, run `git push`. Don't leave the remote behind.
