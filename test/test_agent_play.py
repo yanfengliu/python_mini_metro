@@ -33,6 +33,36 @@ class TestAgentPlay(unittest.TestCase):
 
         self.assertEqual(len(observations), 4)
 
+    def test_run_agent_playthrough_snapshots_reused_mutable_actions(self):
+        class ReusingActionAgent:
+            def __init__(self):
+                self.action = {"type": "noop", "payload": {"call": 0}}
+
+            def reset(self, observation):
+                self.action["payload"]["call"] = 0
+
+            def act(self, observation):
+                self.action["payload"]["call"] += 1
+                return self.action
+
+        agent = ReusingActionAgent()
+        _, record = run_agent_playthrough(agent=agent, seed=11, max_steps=2, dt_ms=1)
+
+        self.assertEqual(
+            [action["payload"]["call"] for action in record.actions], [1, 2]
+        )
+        self.assertEqual(
+            [step.action["payload"]["call"] for step in record.steps], [1, 2]
+        )
+
+        agent.action["payload"]["call"] = 3
+        record.actions[0]["payload"]["call"] = 4
+        self.assertEqual(record.steps[0].action["payload"]["call"], 1)
+        self.assertEqual(record.actions[1]["payload"]["call"], 2)
+
+        record.steps[1].action["payload"]["call"] = 5
+        self.assertEqual(record.actions[1]["payload"]["call"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()

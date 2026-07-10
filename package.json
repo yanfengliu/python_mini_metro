@@ -1,0 +1,17 @@
+{
+  "name": "python-mini-metro",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "playtest:verify": "node scripts/playtest-verify.mjs",
+    "playtest:recursive": "node scripts/playtest-recursive.mjs"
+  },
+  "dependencies": {
+    "civ-engine": "file:../civ-engine"
+  }
+}

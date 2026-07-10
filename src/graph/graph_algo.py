@@ -1,3 +1,4 @@
+from collections import deque
 from typing import Dict, List
 
 from entity.path import Path
@@ -42,22 +43,18 @@ def build_station_nodes_dict(stations: List[Station], paths: List[Path]):
 
 
 def bfs(start: Node, end: Node) -> List[Node]:
-    # Create a queue and enqueue the start node\
-    queue = [(start, [start])]
+    queue = deque([(start, [start])])
+    visited = {start}
 
-    # While the queue is not empty
     while queue:
-        # Dequeue the first node
-        (node, path) = queue.pop(0)
+        node, path = queue.popleft()
 
-        # If the node is the end node, return the path
         if node == end:
             return path
 
-        # Enqueue the neighbors of the node
-        for next in node.neighbors:
-            if next not in path:
-                queue.append((next, path + [next]))
+        for neighbor in node.neighbors:
+            if neighbor not in visited:
+                visited.add(neighbor)
+                queue.append((neighbor, path + [neighbor]))
 
-    # If no path was found, return an empty list
     return []

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Protocol
 
@@ -71,11 +72,12 @@ def run_agent_playthrough(
 
     for _ in range(max_steps):
         action = agent.act(observation)
+        action_snapshot = deepcopy(action)
         observation, reward, done, _ = env.step(action, dt_ms=dt_ms)
-        record.actions.append(action)
+        record.actions.append(action_snapshot)
         record.steps.append(
             PlaythroughStep(
-                action=action,
+                action=deepcopy(action_snapshot),
                 reward=reward,
                 score=observation["structured"]["score"],
                 time_ms=observation["structured"]["time_ms"],
@@ -119,8 +121,6 @@ def replay_playthrough(
 ) -> int:
     if env is None:
         env = MiniMetroEnv(dt_ms=record.dt_ms)
-    for _ in iter_playthrough_observations(
-        record, env=env, max_steps=max_steps
-    ):
+    for _ in iter_playthrough_observations(record, env=env, max_steps=max_steps):
         pass
     return env.mediator.score

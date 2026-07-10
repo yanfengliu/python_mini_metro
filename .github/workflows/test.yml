@@ -1,4 +1,4 @@
-name: Python package
+name: Python and recursive loop
 
 on: [push]
 
@@ -7,15 +7,59 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout python_mini_metro
+        uses: actions/checkout@v4
+        with:
+          path: python_mini_metro
+
+      - name: Checkout pinned civ-engine sibling
+        uses: actions/checkout@v4
+        with:
+          repository: yanfengliu/civ-engine
+          ref: e0cb614a516c449159a4562c2ac45bd40bffd3df
+          path: civ-engine
+
       - name: Set up Python 3.13
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
           architecture: "x64"
-      - name: Install dependencies
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: python_mini_metro/package-lock.json
+
+      - name: Build pinned civ-engine
+        working-directory: civ-engine
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install recursive-loop dependency
+        working-directory: python_mini_metro
+        run: npm ci
+
+      - name: Verify civ-engine contract version
+        working-directory: python_mini_metro
+        run: node --input-type=module -e "import { ENGINE_VERSION } from 'civ-engine'; if (ENGINE_VERSION !== '2.2.0') throw new Error('expected civ-engine 2.2.0, got ' + ENGINE_VERSION)"
+
+      - name: Install hash-pinned Python dependencies
+        working-directory: python_mini_metro
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-      - name: Run unit tests
+          python -m pip install -r requirements-locked.txt
+
+      - name: Run recursive-loop contract tests
+        working-directory: python_mini_metro
+        run: npm test
+
+      - name: Run clean default recursive pass
+        working-directory: python_mini_metro
+        run: npm run playtest:recursive
+
+      - name: Run Python unit tests
+        working-directory: python_mini_metro
         run: python -m unittest -v

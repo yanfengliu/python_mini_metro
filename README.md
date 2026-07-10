@@ -1,13 +1,35 @@
 [![Demo](https://i.imgur.com/xpUow2f.png)](https://youtu.be/W5fCgqlECeI)
 
 # python_mini_metro
+
 This repo uses `pygame-ce` to implement Mini Metro, a fun 2D strategic game where you try to optimize the max number of passengers your metro system can handle. Both human and program inputs are supported. One of the purposes of this implementation is to enable reinforcement learning agents to be trained on it.
 
 # Installation
-`pip install -r requirements.txt`
+
+Activate the Python 3.13 environment and install the game dependencies:
+
+```powershell
+conda activate py313
+python -m pip install -r requirements.txt
+```
+
+The recursive playtest also requires Node.js 20 or newer and a built `civ-engine` sibling at `../civ-engine`. The checked-in package lock expects civ-engine 2.2.0 through that relative link; CI pins the sibling to commit `e0cb614a516c449159a4562c2ac45bd40bffd3df` and verifies the imported engine version before testing.
+
+```powershell
+cd ../civ-engine
+npm ci
+npm run build
+cd ../python_mini_metro
+npm ci
+python -m pip install -r requirements-locked.txt
+```
+
+Set `PYTHON` to a specific interpreter path when `python` is not the intended executable. Recursive runs set `PYTHONHASHSEED` to `0` by default unless it is already defined.
 
 # How to run
+
 ## To play manually
+
 * If you are running for the first time, install the requirements using `pip install -r requirements.txt`
 * Activate the virtual environment by running `conda activate py313`
 * Run `python src/main.py`
@@ -20,6 +42,7 @@ This repo uses `pygame-ce` to implement Mini Metro, a fun 2D strategic game wher
 * Click on the empty circles at the bottom to buy new lines with scores.
 
 ## To play programmatically
+
 Use the Gym-like environment in `src/env.py`:
 
 ```python
@@ -93,5 +116,47 @@ Any unknown `type`, or malformed action payload, returns `info["action_ok"] == F
 - `observation["arrays"]`: NumPy-friendly arrays/lists
   - includes station positions/types/counts, path station-index sequences, metro positions/path indices, passenger destination types and locations.
 
+# Recursive self-improvement loop
+
+The deterministic fixture at `scripts/fixtures/recursive-playtest.json` uses seed `42` to create a line, advance time, exercise pause/resume, remove the line, and verify rejected actions. The harness drives `MiniMetroEnv` directly; it does not use the pygame GUI clock or an LLM.
+
+Run the Node contract tests and one proposal-only recursive pass with:
+
+```powershell
+npm test
+npm run playtest:recursive
+```
+
+Use another strict scenario or keep artifacts under a different subdirectory of `output/` with:
+
+```powershell
+npm run playtest:recursive -- --scenario path/to/scenario.json
+npm run playtest:recursive -- --output-root output/my-recursive-runs
+```
+
+Normal recursive runs fail closed when relevant runtime source under `src/`, `scripts/`, `package*.json`, or `requirements*.txt` is dirty. They also require the resolved `civ-engine` package to match the pinned version, Git commit, and full runtime-tree digest, so a modified ignored `dist/` build cannot masquerade as the pinned engine. Commit or restore those files first. Deliberate canary and development runs may opt in explicitly; the resulting source inventories, dirty or mismatched status, and local patch are retained with the evidence:
+
+```powershell
+npm run playtest:recursive -- --allow-dirty
+```
+
+Re-verify an existing run in a fresh Python process with:
+
+```powershell
+npm run playtest:verify -- output/recursive/<run-id>
+```
+
+Each public verification attempt is append-only under the run's `verification-attempts/` directory. There is no separate public `playtest:pass` script: `npm run playtest:recursive` executes the pass, while `scripts/recursive-pass.mjs` provides its candidate selection, complete-manifest validation, and transactional ledger persistence.
+
+Every default pass creates `output/recursive/<run-id>/` with `source-state.json`, an optional dirty `source-diff.patch`, recorded `inputs.json`, one-row-per-operation `transcript.jsonl`, `findings.authored.json`, `run-result.json`, drive logs, fresh-process replay evidence under `redrive/`, `verification.json`, verified and verification findings, and complete run/pass manifests. Source state carries deterministic SHA-256 inventories for this repository and the resolved linked engine plus relevant Git status, and both manifests embed its validated portable summary. The driver recaptures both sources immediately before finalization; drift produces `source-state.final.json`, an optional final local diff, and a failed pass rather than verified stale evidence. The append-only run and pass ledgers are `output/recursive/ledger.jsonl` and `output/recursive/passes.jsonl`; pending write-ahead intents under `output/recursive/ledger-intents/` repair interrupted manifest/ledger persistence and are removed only after both manifest files and rows are durably confirmed. Everything under `output/` is generated evidence and remains uncommitted.
+
+Authored findings are always `unverified`. The verifier re-drives the exact recorded operations in a fresh process and requires exact replayable input metadata, transcript results, full canonical checkpoint vectors, and finding semantics to match. Only replay-side findings that pass those checks become `verified` with `verificationMethod: "replay"` and an addressed bundle evidence reference to the original run. Any mismatch is an unverified nondeterminism finding and fails the run.
+
+Pass outcomes are `no-fix-candidate`, `proposal-only`, or `run-failed`. `proposal-only` reports the highest-severity verified fix-classified finding; this repository adds no automatic apply or fix arm, so the driving agent must implement the fix through the normal TDD and review workflow, rerun the pass, prove the finding's stable bug class absent, and preserve a regression test. A failed drive, replay, or validation exits nonzero and records `run-failed` manifests and ledger rows.
+
 # Testing
-`python -m unittest -v`
+
+```powershell
+python -m unittest -v
+npm test
+```

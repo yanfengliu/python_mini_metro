@@ -84,3 +84,7 @@
 - Moved review artifacts under the docs thread area and documented robust full-codebase Codex/Claude review commands.
 - Ran the first full-codebase review, fixed terminal-state API mutation, malformed action handling, loop routing closure, stale travel-plan cleanup, the graph node hash contract, and the stale Ruff pre-commit hook, then added focused regressions.
 - Renamed review artifacts into the broader `docs/threads/` lifecycle, with active work in `current/`, completed work in `done/`, and completed `full` and `agents-repo-fit` themes migrated under `done/`.
+
+## 2026-07-10
+
+- Onboarded the deterministic proposal-only recursive playtest with fresh-process verification, exact local and civ-engine runtime provenance, crash-recoverable manifest/ledger finalization, promoted regression coverage, and stable equal-cost BFS routing.

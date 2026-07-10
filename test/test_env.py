@@ -205,6 +205,25 @@ class TestEnv(unittest.TestCase):
             len(structured["paths"]),
         )
 
+    def test_observation_path_topology_views_preserve_the_same_station_order(self):
+        env = MiniMetroEnv()
+        env.reset(seed=23)
+
+        observation, _, _, info = env.step(
+            {"type": "create_path", "stations": [0, 1, 2], "loop": False}
+        )
+
+        self.assertTrue(info["action_ok"])
+        structured = observation["structured"]
+        station_indices = structured["index"]["station_id_to_index"]
+        structured_path = [
+            station_indices[station_id]
+            for station_id in structured["paths"][0]["station_ids"]
+        ]
+        array_path = observation["arrays"]["path_station_indices"][0].tolist()
+        self.assertEqual(structured_path, [0, 1, 2])
+        self.assertEqual(structured_path, array_path)
+
     def test_passengers_spawn_and_get_travel_plans(self):
         env = MiniMetroEnv()
         env.reset(seed=8)

@@ -1,3 +1,8 @@
 *.pyc
+__pycache__/
+.pytest_cache/
+.ruff_cache/
 myenv/
 .coverage
+/node_modules/
+/output/

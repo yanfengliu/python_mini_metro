@@ -144,6 +144,47 @@ class TestGraph(unittest.TestCase):
             [],
         )
 
+    def test_bfs_prefers_first_inserted_equal_length_route(self):
+        stations = [
+            Station(
+                Rect(station_color, 2 * station_size, 2 * station_size), Point(0, 0)
+            ),
+            Station(Circle(station_color, station_size), Point(10, 0)),
+            Station(Circle(station_color, station_size), Point(10, 10)),
+            Station(
+                Rect(station_color, 2 * station_size, 2 * station_size),
+                Point(20, 0),
+            ),
+        ]
+        for station, station_id in zip(
+            stations, ["start", "left", "right", "end"], strict=True
+        ):
+            station.id = station_id
+
+        left_route = Path((255, 0, 0))
+        for station in (stations[0], stations[1], stations[3]):
+            left_route.add_station(station)
+        right_route = Path((0, 0, 255))
+        for station in (stations[0], stations[2], stations[3]):
+            right_route.add_station(station)
+
+        station_nodes = build_station_nodes_dict(
+            stations, [left_route, left_route, right_route]
+        )
+
+        self.assertSequenceEqual(
+            list(station_nodes[stations[0]].neighbors),
+            [station_nodes[stations[1]], station_nodes[stations[2]]],
+        )
+        self.assertSequenceEqual(
+            bfs(station_nodes[stations[0]], station_nodes[stations[3]]),
+            [
+                station_nodes[stations[0]],
+                station_nodes[stations[1]],
+                station_nodes[stations[3]],
+            ],
+        )
+
     def test_node_repr(self):
         station = Station(
             Rect(station_color, 2 * station_size, 2 * station_size), Point(0, 0)

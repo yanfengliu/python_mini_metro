@@ -56,6 +56,7 @@ This document summarizes the game rules currently implemented in code.
 
 - Passengers compute travel plans based on currently available, completed lines.
 - Routing is shortest-hop style (BFS over the station graph).
+- When multiple equal-length BFS routes exist, neighbors are explored in graph-connection insertion order and duplicate connections keep their first position, so the first inserted route wins deterministically.
 - Looped lines include the closing segment between their last and first stations in routing, matching metro movement.
 - If multiple stations match a destination shape, the game uses one with a valid route.
 - Passengers can transfer between lines at stations according to their travel plan.
