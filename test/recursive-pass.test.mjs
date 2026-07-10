@@ -70,7 +70,7 @@ test('pass and run manifests satisfy engine and repo completeness contracts', ()
     assert.equal(manifest.provider, 'scripted');
     assert.equal(manifest.costUsd, 0);
     assert.equal(manifest.data.sourceState.treeDigest, 'a'.repeat(64));
-    assert.ok(manifest.tags.includes('source-state-v1'));
+    assert.ok(manifest.tags.includes('source-state-v2'));
   }
 });
 
@@ -85,8 +85,39 @@ test('new manifests require strict source state while legacy rows remain readabl
   invalid.data.sourceState.treeDigest = 'not-a-digest';
   assert.throws(() => assertCompleteManifest(invalid), /source state/i);
 
+  const sourceStateV1 = structuredClone(current);
+  sourceStateV1.tags = sourceStateV1.tags.map((tag) => (
+    tag === 'source-state-v2' ? 'source-state-v1' : tag
+  ));
+  delete sourceStateV1.data.sourceState.engine;
+  assert.doesNotThrow(() => assertCompleteManifest(sourceStateV1));
+
+  const sourceStateV1Engine = structuredClone(current);
+  sourceStateV1Engine.tags = sourceStateV1Engine.tags.map((tag) => (
+    tag === 'source-state-v2' ? 'source-state-v1' : tag
+  ));
+  delete sourceStateV1Engine.data.sourceState.engine.expectedTreeDigest;
+  delete sourceStateV1Engine.data.sourceState.engine.runtimeMatches;
+  assert.doesNotThrow(() => assertCompleteManifest(sourceStateV1Engine));
+  sourceStateV1Engine.data.sourceState.engine.treeDigest = 'corrupt';
+  assert.throws(() => assertCompleteManifest(sourceStateV1Engine), /civ-engine.*state/i);
+
+  const unknownMixed = structuredClone(current);
+  unknownMixed.tags.push('source-state-v999');
+  assert.throws(() => assertCompleteManifest(unknownMixed), /source state version/i);
+
+  const unknownOnly = structuredClone(current);
+  unknownOnly.tags = unknownOnly.tags.filter((tag) => tag !== 'source-state-v2');
+  unknownOnly.tags.push('source-state-v999');
+  delete unknownOnly.data.sourceState;
+  assert.throws(() => assertCompleteManifest(unknownOnly), /source state version/i);
+
+  const duplicated = structuredClone(current);
+  duplicated.tags.push('source-state-v2');
+  assert.throws(() => assertCompleteManifest(duplicated), /source state version/i);
+
   const legacy = structuredClone(current);
-  legacy.tags = legacy.tags.filter((tag) => tag !== 'source-state-v1');
+  legacy.tags = legacy.tags.filter((tag) => tag !== 'source-state-v2');
   delete legacy.data.sourceState;
   assert.doesNotThrow(() => assertCompleteManifest(legacy));
 });

@@ -10,3 +10,9 @@ Verify each claim in the plan/diff against the live codebase — grep for the sy
 While implementing the requested CLI regression, it exposed another correctness defect: finalization correctly changed the persisted manifests to `run-failed`, but the top-level CLI still printed and exited from the earlier success object. `finalize()` now returns the attributed result and the caller uses it for output and exit status.
 
 Fresh re-review of the live fixes found no substantive remaining issue. It independently resolved the canonical runtime digest, verified capture-before-dynamic-import ordering, traced ending provenance into the final patch, checked the attributed CLI result, and ran the focused source/end-to-end suites (17/17). One duplicate architecture-tree entry was removed as cosmetic cleanup.
+
+Post-commit retained failure drills then exposed an upgrade regression: source-state-v1 rows created before engine provenance could not be reopened by the current validator. The repair versions new writes as source-state-v2 and keeps a bounded strict reader for known v1 shapes; a real interrupted finalization was recovered before fresh v2 failure rows were appended.
+
+Migration re-review found that unknown or duplicate `source-state-v*` tags could still fail open. The validator now requires exactly one recognized version whenever source state exists and rejects unknown, mixed, and duplicate version tags; explicit red/green regressions cover all three cases.
+
+Final convergence re-review: `APPROVED`, with no substantive findings. The reviewer verified every version-tag branch against the live validator and reran the focused suite (10/10).

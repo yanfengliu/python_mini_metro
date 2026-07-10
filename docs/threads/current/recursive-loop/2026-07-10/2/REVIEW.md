@@ -15,6 +15,8 @@ The external Codex and Claude commands required for a high-risk multi-CLI pass w
 - **Medium — unrecoverable torn JSONL tail: fixed.** Locked recovery truncates only an unterminated final fragment. Terminated or middle corruption fails closed.
 - **Medium — repeated intent scans: fixed.** One reconciliation reads/indexes both ledgers once and drains all valid intents in deterministic order.
 - **Medium — incomplete documentation map: fixed.** Architecture and user docs now describe engine provenance, final recapture, the split lock module, and manifest-plus-ledger recovery.
+- **High — provenance-schema upgrade stranded retained rows: fixed after acceptance.** New manifests now write `source-state-v2`; strict legacy readers accept the bounded historical v1 shapes (without engine data, with the earlier engine summary, or with the current summary) while rejecting corrupt digests and unknown fields. A real retained ledger reconciled an interrupted v1 finalization, appended v2 rows, and ended with seven matched run/pass rows and zero pending intents.
+- **Medium — source-version tags failed open: fixed.** Unknown-only, mixed known/unknown, and duplicate source-version tags are rejected; truly pre-version rows are accepted only when they carry no source-state payload.
 
 ## Verification
 

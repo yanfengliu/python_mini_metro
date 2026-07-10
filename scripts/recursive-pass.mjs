@@ -12,7 +12,8 @@ import { createRecursiveLedger } from './recursive-ledger.mjs';
 import { assertCivEngineStateSummary } from './source-provenance-engine.mjs';
 
 const GAME_ID = 'python_mini_metro';
-const SOURCE_STATE_TAG = 'source-state-v1';
+const SOURCE_STATE_TAG = 'source-state-v2';
+const LEGACY_SOURCE_STATE_TAG = 'source-state-v1';
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const PASS_OUTCOMES = new Set([
   'no-fix-candidate',
@@ -185,15 +186,40 @@ export function assertCompleteManifest(manifest) {
   ) {
     throw new Error('complete manifest data.outcome must equal stopReason');
   }
-  const hasSourceStateTag = manifest.tags.includes(SOURCE_STATE_TAG);
-  if (hasSourceStateTag) {
+  const sourceStateTags = manifest.tags.filter((tag) => (
+    typeof tag === 'string' && tag.startsWith('source-state-v')
+  ));
+  if (sourceStateTags.length > 1) {
+    throw new Error('manifest requires exactly one source state version');
+  }
+  const sourceStateTag = sourceStateTags[0];
+  if (sourceStateTag === SOURCE_STATE_TAG) {
     assertSourceStateSummary(manifest.data.sourceState, manifest.gitCommit);
+  } else if (sourceStateTag === LEGACY_SOURCE_STATE_TAG) {
+    assertLegacySourceStateSummary(manifest.data.sourceState, manifest.gitCommit);
+  } else if (sourceStateTag !== undefined) {
+    throw new Error(`unsupported source state version: ${sourceStateTag}`);
   } else if (manifest.data.sourceState !== undefined) {
     throw new Error('legacy manifest source state requires its version tag');
   }
 }
 
 function assertSourceStateSummary(sourceState, gitCommit) {
+  assertSourceStateCore(sourceState, gitCommit);
+  assertCivEngineStateSummary(sourceState.engine);
+}
+
+function assertLegacySourceStateSummary(sourceState, gitCommit) {
+  assertSourceStateCore(sourceState, gitCommit);
+  if (sourceState.engine === undefined) return;
+  try {
+    assertCivEngineStateSummary(sourceState.engine);
+  } catch {
+    assertLegacyCivEngineStateSummary(sourceState.engine);
+  }
+}
+
+function assertSourceStateCore(sourceState, gitCommit) {
   if (!sourceState || typeof sourceState !== 'object' || Array.isArray(sourceState)) {
     throw new Error('complete manifest requires source state');
   }
@@ -232,7 +258,74 @@ function assertSourceStateSummary(sourceState, gitCommit) {
   ) {
     throw new Error('complete manifest source state diff metadata is invalid');
   }
-  assertCivEngineStateSummary(sourceState.engine);
+}
+
+function assertLegacyCivEngineStateSummary(engine) {
+  const keys = [
+    'algorithm',
+    'available',
+    'commitMatches',
+    'error',
+    'expectedGitCommit',
+    'expectedPackageVersion',
+    'fileCount',
+    'gitCommit',
+    'packageName',
+    'packageVersion',
+    'resolvedPackageRoot',
+    'runtimeEntry',
+    'schemaVersion',
+    'statusDigest',
+    'treeDigest',
+    'versionMatches',
+    'worktreeDirty',
+  ];
+  if (
+    !engine
+    || typeof engine !== 'object'
+    || Array.isArray(engine)
+    || Object.keys(engine).sort().join('\0') !== keys.sort().join('\0')
+    || engine.schemaVersion !== 1
+    || engine.algorithm !== 'sha256'
+    || typeof engine.available !== 'boolean'
+    || typeof engine.resolvedPackageRoot !== 'string'
+    || typeof engine.expectedPackageVersion !== 'string'
+    || typeof engine.expectedGitCommit !== 'string'
+    || typeof engine.versionMatches !== 'boolean'
+    || typeof engine.commitMatches !== 'boolean'
+    || !Number.isSafeInteger(engine.fileCount)
+    || engine.fileCount < 0
+  ) {
+    throw new Error('legacy manifest civ-engine source state is invalid');
+  }
+  if (engine.available) {
+    if (
+      engine.packageName !== 'civ-engine'
+      || typeof engine.packageVersion !== 'string'
+      || typeof engine.runtimeEntry !== 'string'
+      || !/^[0-9a-f]{40,64}$/.test(engine.gitCommit)
+      || typeof engine.worktreeDirty !== 'boolean'
+      || !SHA256_PATTERN.test(engine.statusDigest)
+      || !SHA256_PATTERN.test(engine.treeDigest)
+      || engine.fileCount <= 0
+      || engine.error !== null
+    ) {
+      throw new Error('legacy manifest available civ-engine state is invalid');
+    }
+  } else if (
+    engine.packageName !== null
+    || engine.packageVersion !== null
+    || engine.runtimeEntry !== null
+    || engine.gitCommit !== null
+    || engine.worktreeDirty !== null
+    || engine.statusDigest !== null
+    || engine.treeDigest !== null
+    || engine.fileCount !== 0
+    || typeof engine.error !== 'string'
+    || engine.error.length === 0
+  ) {
+    throw new Error('legacy manifest unavailable civ-engine state is invalid');
+  }
 }
 
 export async function writeValidatedManifest(
