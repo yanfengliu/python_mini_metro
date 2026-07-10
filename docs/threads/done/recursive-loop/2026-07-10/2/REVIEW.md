@@ -29,4 +29,9 @@ The final independent re-review found no substantive remaining issue after inspe
 - `pip-audit -r requirements-locked.txt --disable-pip`: no known vulnerabilities.
 - `npm audit --audit-level=low`: 0 vulnerabilities.
 
-Post-commit clean, canary, restored-clean, and retained failure-drill run identifiers will be appended before this review thread moves to `done/`.
+## Post-commit acceptance
+
+- Final clean pass `recursive-2026-07-10T18-34-36-249Z-e32f24d7` ran at commit `0890e29517b5dc26faf3591c8d12b9a604460735`, used `source-state-v2`, matched the pinned engine runtime, and returned `no-fix-candidate`.
+- Canary pass `recursive-2026-07-10T18-35-06-823Z-798b5f2b` retained a one-line `src/env.py` patch, returned `proposal-only`, and selected stable class `observation-path-topology-mismatch`. Its promoted regression failed red with `[0, 1, 2] != [2, 1, 0]`.
+- After byte-for-byte restoration, the promoted regression passed and clean pass `recursive-2026-07-10T18-35-41-715Z-3569c73d` returned `no-fix-candidate` at the same commit with clean source and the pinned engine runtime.
+- Retained failure drills at the final commit recorded missing-Python spawn failure `recursive-2026-07-10T18-34-38-319Z-5fbc85ed`, node-as-Python drive failure `recursive-2026-07-10T18-34-37-484Z-892dc1fe`, and unparseable-scenario drive failure `recursive-2026-07-10T18-34-36-430Z-0832bac2`. The retained aggregate has ten matched run/pass rows and zero pending intents.
