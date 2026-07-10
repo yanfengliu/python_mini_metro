@@ -9,7 +9,7 @@ description: Use when running the multi-CLI (Codex + Claude) adversarial code re
 
 python_mini_metro-specific notes:
 
-- Reviewer pin sites in scripts: NONE (verified 2026-07-10 — reviewer model strings appear only in AGENTS.md, this stub, and historical `docs/threads/` artifacts). The Codex PowerShell form below quotes the pinned model string, so re-sync it whenever the fleet bumps pins.
+- Reviewer pin sites in scripts: NONE (verified 2026-07-10 — reviewer model strings appear only in AGENTS.md, this stub, and historical `docs/threads/` artifacts). The Codex and Claude PowerShell forms below quote the pinned model strings, so re-sync them whenever the fleet bumps pins.
 - Capture/artifact override: reviewer outputs are COMMITTED verbatim as thread artifacts under `docs/threads/current/<theme>/<YYYY-MM-DD>/<iteration>/raw/` (`raw/codex.md`, `raw/opus.md`, extra instances as `raw/codex-2.md`, optional `raw/*.stdout.log` / `raw/*.stderr.log`) — this overrides the canonical never-staged `tmp/review-runs/` default; see AGENTS.md → Code review → Thread artifacts. Point the background poller at those paths (`until [ -s raw/codex.md ] && [ -s raw/opus.md ]; do sleep 8; done`).
 - Failure-mode routing: record an unreachable CLI in the thread's `REVIEW.md` (this repo's replacement for the canonical's "devlog or progress log"), then retry it on the next iteration.
 - Domain prompt enrichment: every review prompt in this repo also asks reviewers to flag process regressions, stale documentation, and missing validation (per AGENTS.md → Code review).
@@ -25,5 +25,5 @@ Claude full-codebase reviewer (PowerShell) — keep the prompt in a variable so 
 
 ```powershell
 $prompt = Get-Content -Raw docs/threads/current/full/<YYYY-MM-DD>/<iteration>/prompt-claude.md
-claude -p $prompt --model "opus[1m]" --effort max --permission-mode bypassPermissions --no-session-persistence --tools "Read,Glob,Grep,Bash" --allowedTools "Read,Glob,Grep,Bash(git *),Bash(python -m unittest *),Bash(C:\Users\38909\miniconda3\envs\py313\python.exe -m unittest *)" --output-format text
+claude -p $prompt --model "claude-fable-5[1m]" --effort max --permission-mode bypassPermissions --no-session-persistence --tools "Read,Glob,Grep,Bash" --allowedTools "Read,Glob,Grep,Bash(git *),Bash(python -m unittest *),Bash(C:\Users\38909\miniconda3\envs\py313\python.exe -m unittest *)" --output-format text
 ```
