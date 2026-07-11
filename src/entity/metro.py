@@ -1,5 +1,7 @@
+from math import ceil, cos, radians, sin
+
 import pygame
-from math import ceil
+from shortuuid import uuid  # type: ignore
 
 from config import (
     metro_accel_time_ms,
@@ -7,6 +9,8 @@ from config import (
     metro_capacity,
     metro_color,
     metro_decel_time_ms,
+    metro_outline_color,
+    metro_outline_width,
     metro_passengers_per_row,
     metro_size,
     metro_speed_per_ms,
@@ -17,7 +21,6 @@ from entity.segment import Segment
 from entity.station import Station
 from geometry.point import Point
 from geometry.rect import Rect
-from shortuuid import uuid  # type: ignore
 
 
 class Metro(Holder):
@@ -49,8 +52,41 @@ class Metro(Holder):
         surface: pygame.surface.Surface,
         current_time_ms: int | None = None,
         passenger_max_wait_time_ms: int | None = None,
+        display_position: Point | tuple[float, float] | None = None,
+        rotation_degrees: float | None = None,
     ) -> None:
-        self.shape.draw(surface, self.position)
+        draw_position = self.position if display_position is None else display_position
+        center_x, center_y = (
+            draw_position
+            if isinstance(draw_position, tuple)
+            else draw_position.to_tuple()
+        )
+        draw_degrees = (
+            getattr(self.shape, "degrees", 0.0)
+            if rotation_degrees is None
+            else rotation_degrees
+        )
+        self.shape.draw(
+            surface,
+            draw_position,
+            rotation_degrees=draw_degrees,
+        )
+        angle = radians(draw_degrees)
+        sine = sin(angle)
+        cosine = cos(angle)
+        outline_points = [
+            (
+                round(cosine * point.left - sine * point.top) + center_x,
+                round(sine * point.left + cosine * point.top) + center_y,
+            )
+            for point in self.shape.points
+        ]
+        pygame.draw.polygon(
+            surface,
+            metro_outline_color,
+            outline_points,
+            metro_outline_width,
+        )
 
         grid_cols = self.passengers_per_row
         grid_rows = ceil(self.capacity / grid_cols)
@@ -63,18 +99,18 @@ class Metro(Holder):
         y_step = passenger_diameter + y_gap
         x_start = (-metro_width / 2) + x_gap + passenger_size
         y_start = (-metro_height / 2) + y_gap + passenger_size
-        metro_degrees = getattr(self.shape, "degrees", 0.0)
 
         for idx, passenger in enumerate(self.passengers):
             col = idx % grid_cols
             row = idx // grid_cols
-            x_offset = x_start + (col * x_step)
-            y_offset = y_start + (row * y_step)
-            rotated_offset = Point(x_offset, y_offset).rotate(metro_degrees)
-            passenger.position = self.position + rotated_offset
+            x_offset = x_start + col * x_step
+            y_offset = y_start + row * y_step
+            rotated_x = round(cosine * x_offset - sine * y_offset)
+            rotated_y = round(sine * x_offset + cosine * y_offset)
             passenger.draw(
                 surface,
                 current_time_ms=current_time_ms,
                 max_wait_time_ms=passenger_max_wait_time_ms,
-                rotation_degrees=metro_degrees,
+                rotation_degrees=draw_degrees,
+                display_position=(center_x + rotated_x, center_y + rotated_y),
             )

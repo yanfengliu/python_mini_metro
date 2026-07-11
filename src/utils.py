@@ -3,6 +3,7 @@ import random
 from typing import List, Tuple
 
 import numpy as np
+
 from config import passenger_size, station_color, station_shape_type_list, station_size
 from geometry.circle import Circle
 from geometry.cross import Cross
@@ -14,23 +15,26 @@ from geometry.shape import Shape
 from geometry.star import Star
 from geometry.triangle import Triangle
 from geometry.type import ShapeType
+from simulation_context import SimulationContext
 from type import Color
 
 
-def get_random_position(width: int, height: int) -> Point:
+def get_random_position(
+    width: int, height: int, context: SimulationContext | None = None
+) -> Point:
     padding_ratio = 0.1
+    random_value = (
+        context.numpy_random.random if context is not None else np.random.rand
+    )
     return Point(
-        left=round(
-            width * (padding_ratio + np.random.rand() * (1 - padding_ratio * 2))
-        ),
-        top=round(
-            height * (padding_ratio + np.random.rand() * (1 - padding_ratio * 2))
-        ),
+        left=round(width * (padding_ratio + random_value() * (1 - padding_ratio * 2))),
+        top=round(height * (padding_ratio + random_value() * (1 - padding_ratio * 2))),
     )
 
 
-def get_random_color() -> Color:
-    return hue_to_rgb(np.random.rand())
+def get_random_color(context: SimulationContext | None = None) -> Color:
+    hue = context.numpy_random.random() if context is not None else np.random.rand()
+    return hue_to_rgb(hue)
 
 
 def hue_to_rgb(hue: float, saturation: float = 1.0, value: float = 1.0) -> Color:
@@ -57,18 +61,29 @@ def pick_distinct_hue(existing_hues: List[float], candidate_hues: List[float]) -
 
 
 def get_random_shape(
-    shape_type_list: List[ShapeType], color: Color, size: int
+    shape_type_list: List[ShapeType],
+    color: Color,
+    size: int,
+    context: SimulationContext | None = None,
 ) -> Shape:
-    shape_type = random.choice(shape_type_list)
+    random_source = context.python_random if context is not None else random
+    shape_type = random_source.choice(shape_type_list)
     return get_shape_from_type(shape_type, color, size)
 
 
-def get_random_station_shape() -> Shape:
-    return get_random_shape(station_shape_type_list, station_color, station_size)
+def get_random_station_shape(context: SimulationContext | None = None) -> Shape:
+    return get_random_shape(
+        station_shape_type_list, station_color, station_size, context=context
+    )
 
 
-def get_random_passenger_shape() -> Shape:
-    return get_random_shape(station_shape_type_list, get_random_color(), passenger_size)
+def get_random_passenger_shape(context: SimulationContext | None = None) -> Shape:
+    return get_random_shape(
+        station_shape_type_list,
+        get_random_color(context),
+        passenger_size,
+        context=context,
+    )
 
 
 def tuple_to_point(coords: Tuple[int, int]) -> Point:

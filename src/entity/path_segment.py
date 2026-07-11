@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from shortuuid import uuid  # type: ignore
+
 from config import path_order_shift, path_width
 from entity.segment import Segment
 from entity.station import Station
 from geometry.line import Line
 from geometry.point import Point
 from geometry.utils import direction
-from shortuuid import uuid  # type: ignore
 from type import Color
 
 
@@ -19,9 +20,9 @@ class PathSegment(Segment):
         end_position = end_station.position
         # Use one stable ordering per station pair so offsets are consistent
         # for both A->B and B->A segments.
-        if (
-            (start_position.left, start_position.top)
-            <= (end_position.left, end_position.top)
+        if (start_position.left, start_position.top) <= (
+            end_position.left,
+            end_position.top,
         ):
             return direction(start_position, end_position)
         return direction(end_position, start_position)

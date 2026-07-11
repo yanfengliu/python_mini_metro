@@ -1,22 +1,14 @@
 from __future__ import annotations
 
-import random
 from typing import Dict, List
 
 import pygame
 
 from config import (
-    font_name,
-    game_over_button_border_color,
-    game_over_button_border_width,
-    game_over_button_color,
-    game_over_button_padding_x,
-    game_over_button_padding_y,
+    game_over_button_height,
     game_over_button_spacing,
+    game_over_button_width,
     game_over_font_size,
-    game_over_hint_font_size,
-    game_over_overlay_color,
-    game_over_text_color,
     initial_num_stations,
     max_waiting_passengers,
     num_metros,
@@ -28,8 +20,6 @@ from config import (
     passenger_spawning_interval_step,
     passenger_spawning_start_step,
     path_unlock_milestones,
-    score_display_coords,
-    score_font_size,
     screen_height,
     screen_width,
     station_unlock_milestones,
@@ -47,6 +37,7 @@ from geometry.point import Point
 from geometry.type import ShapeType
 from graph.graph_algo import bfs, build_station_nodes_dict
 from graph.node import Node
+from simulation_context import SimulationContext
 from travel_plan import TravelPlan
 from type import Color
 from ui.button import Button
@@ -63,8 +54,15 @@ TravelPlans = Dict[Passenger, TravelPlan]
 
 
 class Mediator:
-    def __init__(self) -> None:
-        pygame.font.init()
+    def __init__(
+        self,
+        *,
+        seed: int | None = None,
+        context: SimulationContext | None = None,
+    ) -> None:
+        if seed is not None and context is not None:
+            raise ValueError("seed and context are mutually exclusive")
+        self.context = context if context is not None else SimulationContext(seed)
 
         # configs
         self.passenger_spawning_step = passenger_spawning_start_step
@@ -82,13 +80,10 @@ class Mediator:
         self.speed_buttons = get_speed_buttons()
         self.path_to_button: Dict[Path, PathButton] = {}
         self.buttons = [*self.path_buttons, *self.speed_buttons]
-        self.font = pygame.font.SysFont(font_name, score_font_size)
-        self.game_over_font = pygame.font.SysFont(font_name, game_over_font_size)
-        self.game_over_hint_font = pygame.font.SysFont(
-            font_name, game_over_hint_font_size
-        )
         self.game_over_restart_rect: pygame.Rect | None = None
         self.game_over_exit_rect: pygame.Rect | None = None
+        self._layout_size: tuple[int, int] | None = None
+        self._compat_renderer: object | None = None
 
         # entities
         self.all_stations = self.get_initial_station_pool()
@@ -120,21 +115,42 @@ class Mediator:
         self.is_game_over = False
         self.passenger_max_wait_time_ms = passenger_max_wait_time_ms
         self.max_waiting_passengers = max_waiting_passengers
+        self.prepare_layout(screen_width, screen_height)
+
+    def prepare_layout(self, width: int, height: int) -> None:
+        """Prepare every interactive hitbox before input is dispatched."""
+
+        update_path_button_positions(self.path_buttons, width, height)
+        update_speed_button_positions(self.speed_buttons, width, height)
+        start_top = height // 2 + game_over_font_size // 3 + 40
+        restart_rect = pygame.Rect(
+            0, 0, game_over_button_width, game_over_button_height
+        )
+        restart_rect.centerx = width // 2
+        restart_rect.top = start_top
+        exit_rect = restart_rect.copy()
+        exit_rect.top = restart_rect.bottom + game_over_button_spacing
+        self.game_over_restart_rect = restart_rect
+        self.game_over_exit_rect = exit_rect
+        self._layout_size = (width, height)
 
     def generate_distinct_path_colors(self, path_count: int) -> Dict[Color, bool]:
         if path_count <= 0:
             return {}
-        selected_hues: List[float] = [random.random()]
+        selected_hues: List[float] = [self.context.python_random.random()]
         candidate_count = 24
         while len(selected_hues) < path_count:
-            candidate_hues = [random.random() for _ in range(candidate_count)]
-            candidate_hues.append(random.random())
+            candidate_hues = [
+                self.context.python_random.random() for _ in range(candidate_count)
+            ]
+            candidate_hues.append(self.context.python_random.random())
             selected_hues.append(pick_distinct_hue(selected_hues, candidate_hues))
         path_colors: Dict[Color, bool] = {}
         for hue in selected_hues:
             path_colors[hue_to_rgb(hue, saturation=0.6, value=0.9)] = False
         while len(path_colors) < path_count:
-            path_colors[hue_to_rgb(random.random(), saturation=0.6, value=0.9)] = False
+            hue = self.context.python_random.random()
+            path_colors[hue_to_rgb(hue, saturation=0.6, value=0.9)] = False
         return path_colors
 
     def get_path_purchase_prices(self) -> List[int]:
@@ -148,7 +164,7 @@ class Mediator:
     def get_initial_station_pool(self) -> List[Station]:
         # Keep initial gameplay valid by guaranteeing at least two shape types.
         while True:
-            stations = get_random_stations(self.num_stations)
+            stations = get_random_stations(self.num_stations, context=self.context)
             initial_shapes = {
                 station.shape.type for station in stations[: self.initial_num_stations]
             }
@@ -259,112 +275,26 @@ class Mediator:
             height = int(maybe_height)
         return (width, height)
 
-    def render(self, screen: pygame.surface.Surface) -> None:
-        width, height = self.get_surface_size(screen)
-        update_path_button_positions(self.path_buttons, width, height)
-        update_speed_button_positions(self.speed_buttons, width, height)
-        active_path_count = len(self.paths)
-        for idx, path in enumerate(self.paths):
-            # Keep active paths centered so a single path has zero offset.
-            path_order = idx - (active_path_count // 2)
-            path.draw(screen, path_order)
-        for station in self.stations:
-            station.draw(
-                screen,
-                self.time_ms,
-                passenger_max_wait_time_ms=self.passenger_max_wait_time_ms,
-            )
-        for metro in self.metros:
-            metro.draw(screen)
-        for button in self.buttons:
-            if isinstance(button, PathButton):
-                button_idx = self.path_buttons.index(button)
-                button.draw(
-                    screen,
-                    self.time_ms,
-                    locked_purchase_price=self.get_purchase_price_for_path_button_idx(
-                        button_idx
-                    ),
-                    locked_purchase_affordable=self.can_purchase_path_button_idx(
-                        button_idx
-                    ),
-                )
-            elif isinstance(button, SpeedButton):
-                button.draw(
-                    screen,
-                    self.time_ms,
-                    is_active=self.is_speed_button_active(button.action),
-                )
-            else:
-                button.draw(screen, self.time_ms)
-        text_surface = self.font.render(f"Score: {self.score}", True, (0, 0, 0))
-        screen.blit(text_surface, score_display_coords)
-        if self.is_game_over:
-            self.render_game_over(screen)
+    def render(
+        self,
+        screen: pygame.surface.Surface,
+        renderer: object | None = None,
+        alpha: float = 1.0,
+    ) -> None:
+        """Compatibility rendering entrypoint; callers should own the renderer."""
 
-    def render_game_over(self, screen: pygame.surface.Surface) -> None:
-        self.game_over_restart_rect = None
-        self.game_over_exit_rect = None
-        width, height = self.get_surface_size(screen)
-        overlay = pygame.Surface((width, height), pygame.SRCALPHA)
-        overlay.fill(game_over_overlay_color)
-        screen.blit(overlay, (0, 0))
+        size = self.get_surface_size(screen)
+        if self._layout_size != size:
+            self.prepare_layout(*size)
+        if renderer is None and self._compat_renderer is None:
+            from rendering.game_renderer import GameRenderer
 
-        title_surface = self.game_over_font.render(
-            "Game Over", True, game_over_text_color
-        )
-        title_rect = title_surface.get_rect(
-            center=(width // 2, height // 2 - game_over_font_size // 3)
-        )
-        screen.blit(title_surface, title_rect)
-
-        score_surface = self.font.render(
-            f"Final Score: {self.score}", True, game_over_text_color
-        )
-        score_rect = score_surface.get_rect(
-            center=(width // 2, height // 2 + game_over_font_size // 3)
-        )
-        screen.blit(score_surface, score_rect)
-
-        button_texts = [
-            ("Restart (R)", "restart"),
-            ("Exit (Esc)", "exit"),
-        ]
-        button_surfaces = [
-            self.game_over_hint_font.render(text, True, game_over_text_color)
-            for text, _ in button_texts
-        ]
-        button_width = max(surface.get_width() for surface in button_surfaces)
-        button_height = max(surface.get_height() for surface in button_surfaces)
-        start_top = height // 2 + game_over_font_size // 3 + 40
-        current_top = start_top
-
-        for surface, (_, action) in zip(button_surfaces, button_texts):
-            rect = pygame.Rect(
-                0,
-                0,
-                button_width + 2 * game_over_button_padding_x,
-                button_height + 2 * game_over_button_padding_y,
-            )
-            rect.centerx = width // 2
-            rect.top = current_top
-            current_top = rect.bottom + game_over_button_spacing
-
-            pygame.draw.rect(screen, game_over_button_color, rect, border_radius=8)
-            pygame.draw.rect(
-                screen,
-                game_over_button_border_color,
-                rect,
-                game_over_button_border_width,
-                border_radius=8,
-            )
-            text_rect = surface.get_rect(center=rect.center)
-            screen.blit(surface, text_rect)
-
-            if action == "restart":
-                self.game_over_restart_rect = rect
-            elif action == "exit":
-                self.game_over_exit_rect = rect
+            self._compat_renderer = GameRenderer()
+        if renderer is None:
+            renderer = self._compat_renderer
+        assert renderer is not None
+        draw = getattr(renderer, "draw")
+        draw(screen, self, alpha=alpha)
 
     def handle_game_over_click(self, position: Point) -> str | None:
         if not self.is_game_over:
@@ -694,7 +624,7 @@ class Mediator:
         max_interval = max(
             min_interval, int(self.passenger_spawning_interval_step * 1.3)
         )
-        return random.randint(min_interval, max_interval)
+        return self.context.python_random.randint(min_interval, max_interval)
 
     def should_spawn_passenger_at_station(self, station: Station) -> bool:
         self.initialize_station_spawning_state([station])
@@ -714,7 +644,9 @@ class Mediator:
                 for shape_type in station_types
                 if shape_type != station.shape.type
             ]
-            destination_shape_type = random.choice(other_station_shape_types)
+            destination_shape_type = self.context.python_random.choice(
+                other_station_shape_types
+            )
             destination_shape = get_shape_from_type(
                 destination_shape_type, passenger_color, passenger_size
             )
@@ -737,6 +669,7 @@ class Mediator:
         self.initialize_station_spawning_state(self.stations)
         for station in self.stations:
             self.station_steps_since_last_spawn[station] += speed_multiplier
+            station.prune_visual_effects(self.time_ms)
 
         # move metros
         station_nodes_dict = build_station_nodes_dict(self.stations, self.paths)
@@ -1006,7 +939,7 @@ class Mediator:
         stations = [
             station for station in self.stations if station.shape.type == shape_type
         ]
-        random.shuffle(stations)
+        self.context.python_random.shuffle(stations)
 
         return stations
 

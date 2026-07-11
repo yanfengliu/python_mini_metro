@@ -59,6 +59,71 @@ class TestPath(unittest.TestCase):
 
         self.assertEqual(self.draw_line.call_count, 1)
 
+    def test_draw_preserves_logical_segments_and_metro_reference(self):
+        path = Path(get_random_color())
+        path.add_station(get_random_station())
+        path.add_station(get_random_station())
+        metro = Metro()
+        path.add_metro(metro)
+        segment_ids = tuple(id(segment) for segment in path.segments)
+        current_segment = metro.current_segment
+
+        path.draw(self.screen, 3)
+        path.draw(self.screen, -2)
+
+        self.assertEqual(tuple(id(segment) for segment in path.segments), segment_ids)
+        self.assertIs(metro.current_segment, current_segment)
+        self.assertEqual(path.path_order, 0)
+
+    def test_draw_honors_visual_path_order_without_rebuilding(self):
+        path = Path((10, 20, 30))
+        path.add_station(Station(get_random_station_shape(), Point(0, 0)))
+        path.add_station(Station(get_random_station_shape(), Point(100, 0)))
+
+        path.draw(self.screen, 2)
+
+        _, _, start, end, _ = self.draw_line.call_args.args
+        self.assertEqual(start, (0.0, 20.0))
+        self.assertEqual(end, (100.0, 20.0))
+
+    def test_rebuild_geometry_rebinds_existing_metro_to_revised_segment(self):
+        path = Path((10, 20, 30))
+        station_a = Station(get_random_station_shape(), Point(0, 0))
+        station_b = Station(get_random_station_shape(), Point(100, 0))
+        path.add_station(station_a)
+        path.add_station(station_b)
+        metro = Metro()
+        path.add_metro(metro)
+        metro.position = Point(50, 0)
+        old_segment = metro.current_segment
+        station_b.position = Point(200, 0)
+        station_b.shape.position = station_b.position
+
+        path.rebuild_geometry()
+
+        self.assertIsNot(metro.current_segment, old_segment)
+        self.assertIs(metro.current_segment, path.segments[metro.current_segment_idx])
+        self.assertEqual(metro.current_segment.segment_end, Point(200, 0))
+        self.assertEqual(metro.position, Point(100, 0))
+
+    def test_rebuild_geometry_snaps_stopped_metro_to_moved_station(self):
+        path = Path((10, 20, 30))
+        station_a = Station(get_random_station_shape(), Point(0, 0))
+        station_b = Station(get_random_station_shape(), Point(100, 0))
+        path.add_station(station_a)
+        path.add_station(station_b)
+        metro = Metro()
+        path.add_metro(metro)
+        metro.current_station = station_b
+        metro.position = station_b.position
+        station_b.position = Point(200, 40)
+        station_b.shape.position = station_b.position
+
+        path.rebuild_geometry()
+
+        self.assertIs(metro.current_segment, path.segments[metro.current_segment_idx])
+        self.assertIs(metro.position, station_b.position)
+
     def test_metro_starts_at_beginning_of_first_line(self):
         path = Path(get_random_color())
         path.add_station(get_random_station())

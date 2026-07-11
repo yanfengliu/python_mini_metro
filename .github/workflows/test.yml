@@ -1,4 +1,4 @@
-name: Python and recursive loop
+name: Python, recursive loop, and RL smoke
 
 on: [push]
 
@@ -63,3 +63,42 @@ jobs:
       - name: Run Python unit tests
         working-directory: python_mini_metro
         run: python -m unittest -v
+
+  rl-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout python_mini_metro
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          architecture: "x64"
+
+      - name: Install hash-pinned RL dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-rl-locked.txt
+
+      - name: Run RL contract and library smoke tests
+        run: python -m unittest -v test.test_player_env test.test_rl_demonstrator test.test_rl_artifacts test.test_rl_cli test.test_rl_evaluation test.test_rl_manifest test.test_rl_protocol test.test_rl_training
+
+      - name: Run fresh, resumed, and authenticated PPO smoke
+        run: |
+          python scripts/train_rl.py --total-timesteps 256 --n-envs 2 --max-episode-steps 4 --checkpoint-every 128 --eval-every 128 --eval-episodes 1 --device cpu --run-dir output/rl/ci-smoke
+          python scripts/evaluate_rl.py output/rl/ci-smoke/final_model.zip --episodes 1 --device cpu --output output/rl/ci-smoke/evaluation-ci.json
+          python scripts/train_rl.py --resume output/rl/ci-smoke/final_model.zip --run-dir output/rl/ci-resumed --total-timesteps 128 --seed 77 --n-envs 2 --max-episode-steps 4 --checkpoint-every 128 --eval-every 128 --eval-episodes 1 --device cpu
+          python scripts/evaluate_rl.py output/rl/ci-resumed/final_model.zip --episodes 1 --device cpu --output output/rl/ci-resumed/evaluation-ci.json
+
+          $freshEvaluation = Get-Content -Raw output/rl/ci-smoke/evaluation-ci.json | ConvertFrom-Json
+          if ($freshEvaluation.seed -ne 10042 -or $freshEvaluation.episodeMetrics[0].seed -ne 10042) { throw "fresh evaluation seed mismatch" }
+
+          $resumedManifest = Get-Content -Raw output/rl/ci-resumed/training-manifest.json | ConvertFrom-Json
+          $resumedEvaluation = Get-Content -Raw output/rl/ci-resumed/evaluation-ci.json | ConvertFrom-Json
+          if ($resumedManifest.status -ne "complete") { throw "resumed manifest is not complete" }
+          if ($resumedManifest.tags -notcontains "resumed-training") { throw "resumed-training tag is missing" }
+          if ([string]::IsNullOrWhiteSpace($resumedManifest.parentManifestSha256) -or [string]::IsNullOrWhiteSpace($resumedManifest.parentModelSha256)) { throw "resumed parent digests are missing" }
+          if ($resumedManifest.seed -ne 77 -or $resumedEvaluation.seed -ne 10077 -or $resumedEvaluation.episodeMetrics[0].seed -ne 10077) { throw "resumed seed mismatch" }

@@ -3,14 +3,11 @@ from __future__ import annotations
 import math
 from copy import deepcopy
 
-from shortuuid import uuid  # type: ignore
-
 
 class Point:
     def __init__(self, left: int | float, top: int | float) -> None:
         self.left = left
         self.top = top
-        self.id = f"Point-{uuid()}"
 
     def __repr__(self) -> str:
         return f"Point(left = {self.left}, top = {self.top})"
@@ -43,7 +40,9 @@ class Point:
     def __rmul__(self, other: int | float) -> Point:
         return self.__mul__(other)
 
-    def __eq__(self, other: Point) -> bool:
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Point):
+            return NotImplemented
         return self.left == other.left and self.top == other.top
 
     def rotate(self, degrees: float) -> Point:

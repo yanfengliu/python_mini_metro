@@ -9,4 +9,5 @@ dependencies:
   - shortuuid
   - pip
   - pip:
+      - gymnasium==1.3.0
       - pygame-ce

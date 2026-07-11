@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-import random
 from enum import Enum
 from typing import Any, Sequence
 
@@ -376,8 +375,8 @@ def canonical_checkpoint(
         },
         "metroMotion": metro_motion,
         "rng": {
-            "python": _safe(random.getstate()),
-            "numpy": _safe(np.random.get_state()),
+            "python": _safe(mediator.context.python_random.getstate()),
+            "numpy": _safe(mediator.context.numpy_random.bit_generator.state),
         },
     }
     return _safe(checkpoint)

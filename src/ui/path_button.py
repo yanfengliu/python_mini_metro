@@ -1,10 +1,10 @@
 from typing import List
 
 import pygame
+
 from config import (
     button_color,
     button_size,
-    font_name,
     path_button_buffer,
     path_button_buy_text_color,
     path_button_buy_text_disabled_color,
@@ -28,12 +28,12 @@ class PathButton(Button):
     def __init__(self, shape: Shape, position: Point) -> None:
         super().__init__(shape)
         self.position = position
+        self.shape.position = position
         self.path: Path | None = None
         self.cross: Cross | None = None
         self.show_cross = False
         self.is_locked = False
         self.unlock_blink_start_time_ms: int | None = None
-        self.buy_text_font: pygame.font.Font | None = None
 
     def remove_path(self) -> None:
         self.cross = None
@@ -74,8 +74,7 @@ class PathButton(Button):
         if self.unlock_blink_start_time_ms is None:
             return False
         return (
-            current_time_ms - self.unlock_blink_start_time_ms
-            < unlock_blink_duration_ms
+            current_time_ms - self.unlock_blink_start_time_ms < unlock_blink_duration_ms
         )
 
     def is_unlock_blink_visible(self, current_time_ms: int) -> bool:
@@ -93,14 +92,13 @@ class PathButton(Button):
         current_time_ms: int | None = None,
         locked_purchase_price: int | None = None,
         locked_purchase_affordable: bool = False,
+        buy_text_font: pygame.font.Font | None = None,
     ) -> None:
-        if (
-            current_time_ms is not None
-            and not self.is_unlock_blink_visible(current_time_ms)
+        if current_time_ms is not None and not self.is_unlock_blink_visible(
+            current_time_ms
         ):
             return
         if self.is_locked and isinstance(self.shape, Circle):
-            self.shape.position = self.position
             pygame.draw.circle(
                 surface,
                 self.shape.color,
@@ -109,37 +107,32 @@ class PathButton(Button):
                 path_button_locked_ring_width,
             )
             if self.show_cross and locked_purchase_price is not None:
-                if self.buy_text_font is None:
-                    self.buy_text_font = pygame.font.SysFont(
-                        font_name, path_button_buy_text_font_size
+                if buy_text_font is None:
+                    buy_text_font = pygame.font.Font(
+                        None, path_button_buy_text_font_size
                     )
                 text_color = (
                     path_button_buy_text_color
                     if locked_purchase_affordable
                     else path_button_buy_text_disabled_color
                 )
-                buy_surface = self.buy_text_font.render("Buy", True, text_color)
-                price_surface = self.buy_text_font.render(
+                buy_surface = buy_text_font.render("Buy", True, text_color)
+                price_surface = buy_text_font.render(
                     str(locked_purchase_price), True, text_color
                 )
                 line_spacing = 4
                 total_text_height = (
-                    buy_surface.get_height()
-                    + price_surface.get_height()
-                    + line_spacing
+                    buy_surface.get_height() + price_surface.get_height() + line_spacing
                 )
-                top = (
-                    self.position.top
-                    - self.shape.radius
-                    - 8
-                    - total_text_height
-                )
+                top = self.position.top - self.shape.radius - 8 - total_text_height
                 buy_rect = buy_surface.get_rect(center=(self.position.left, top))
                 buy_rect.top = top
                 price_rect = price_surface.get_rect(
                     center=(
                         self.position.left,
-                        buy_rect.bottom + line_spacing + price_surface.get_height() // 2,
+                        buy_rect.bottom
+                        + line_spacing
+                        + price_surface.get_height() // 2,
                     )
                 )
                 surface.blit(buy_surface, buy_rect)
@@ -147,7 +140,15 @@ class PathButton(Button):
         else:
             super().draw(surface)
         if self.cross and self.show_cross and self.path:
-            self.cross.draw(surface, self.position)
+            had_position = hasattr(self.cross, "position")
+            previous_position = getattr(self.cross, "position", None)
+            try:
+                self.cross.draw(surface, self.position)
+            finally:
+                if had_position:
+                    self.cross.position = previous_position
+                elif hasattr(self.cross, "position"):
+                    del self.cross.position
 
 
 def update_path_button_positions(
@@ -160,6 +161,7 @@ def update_path_button_positions(
     y = surface_height - path_button_dist_to_bottom
     for idx, button in enumerate(path_buttons):
         button.position = Point(first_x + idx * step, y)
+        button.shape.position = button.position
 
 
 def get_path_buttons(

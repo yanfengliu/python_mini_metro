@@ -1,8 +1,9 @@
 import pygame
+from shortuuid import uuid  # type: ignore
+
 from geometry.point import Point
 from geometry.shape import Shape
 from geometry.type import ShapeType
-from shortuuid import uuid  # type: ignore
 from type import Color
 
 
@@ -12,9 +13,16 @@ class Circle(Shape):
         self.id = f"Circle-{uuid()}"
         self.radius = radius
 
-    def draw(self, surface: pygame.surface.Surface, position: Point):
-        super().draw(surface, position)
-        center = (position.left, position.top)
+    def draw(
+        self,
+        surface: pygame.surface.Surface,
+        position: Point | tuple[float, float],
+        rotation_degrees: float | None = None,
+    ):
+        del rotation_degrees
+        center = (
+            position if isinstance(position, tuple) else (position.left, position.top)
+        )
         radius = self.radius
         return pygame.draw.circle(surface, self.color, center, radius)
 

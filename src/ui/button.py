@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 
 import pygame
+
 from geometry.point import Point
 from geometry.shape import Shape
 

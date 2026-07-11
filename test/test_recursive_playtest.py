@@ -1,14 +1,11 @@
 import json
 import math
 import os
-import random
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-
-import numpy as np
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
@@ -216,11 +213,11 @@ class TestCheckpoint(unittest.TestCase):
 
     def test_checkpoint_changes_for_python_and_numpy_rng(self):
         initial = self.checkpoint()
-        random.random()
+        self.env.mediator.context.python_random.random()
         after_python = self.checkpoint()
         self.assertNotEqual(initial, after_python)
 
-        np.random.random()
+        self.env.mediator.context.numpy_random.random()
         after_numpy = self.checkpoint()
         self.assertNotEqual(after_python, after_numpy)
 

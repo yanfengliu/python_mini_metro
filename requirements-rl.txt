@@ -1,0 +1,4 @@
+-r requirements.txt
+
+stable-baselines3==2.9.0
+tensorboard==2.21.0

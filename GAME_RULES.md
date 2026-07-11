@@ -7,6 +7,14 @@ This document summarizes the game rules currently implemented in code.
 - Build and manage metro lines to deliver passengers to stations that match their destination shape.
 - Maximize the score (total successful passenger deliveries) before game over.
 
+## Timing and Presentation
+
+- Interactive play advances the simulation on a deterministic 60 Hz cadence of 17, 17, then 16 milliseconds; delayed frames are bounded so a stall cannot create an unlimited catch-up spiral.
+- Player input is applied before the simulation updates for that frame.
+- Metro positions are visually interpolated between completed simulation updates. Interpolation changes only presentation, not travel timing, stops, scoring, or passenger state.
+- Multiple lines through the same station pair occupy symmetric visual lanes around their shared logical centerline. The logical path and padding segment sequence used for metro movement is unchanged.
+- Drawing is observational: rendering does not advance time, rebuild logical routes, expire effects, or change hitboxes.
+
 ## Stations and Passengers
 
 - The map starts with 3 stations and unlocks up to 20 as you handle more travels.
@@ -76,7 +84,7 @@ This document summarizes the game rules currently implemented in code.
 - Game over occurs when 1 or more passengers are over-waiting.
 - On game over:
   - Simulation time and gameplay updates stop.
-  - Programmatic `step(...)` calls become stable no-ops until reset.
+  - `MiniMetroEnv.step(...)` calls become stable no-ops until reset; `PlayerPixelEnv.step(...)` rejects further actions until its required reset.
   - A game-over overlay appears with final score.
 
 ## Controls
@@ -85,7 +93,7 @@ This document summarizes the game rules currently implemented in code.
   - Click and drag from station to station to create a line.
   - Hover a locked line button to see a two-line buy hint (`Buy` + price).
   - Click a locked line button (empty ring) to purchase that slot if score is enough.
-  - Click a line color button at the top to remove that line.
+  - Click a line color button at the bottom to remove that line.
   - On game-over screen, click Restart or Exit buttons.
 - Keyboard:
   - SPACE: pause / resume.
@@ -97,7 +105,17 @@ This document summarizes the game rules currently implemented in code.
 
 - `create_path`: create a line from station indices (with optional loop flag).
 - `remove_path`: remove a line by index or id.
+- `buy_line`: purchase the next locked line, optionally targeting its sequential button index.
 - `pause`: pause simulation.
 - `resume`: resume simulation.
 - `noop` (or `None`): do nothing this step.
 - Malformed actions are rejected without mutating game state.
+
+## Player-Equivalent RL Controls
+
+- The pixel RL environment uses the same 1920x1080 virtual player view, hitboxes, pygame event conversion, and fixed simulation updates as manual play.
+- The policy observes only RGB pixels with a rendered software cursor. The default `fast` profile is 192x108 and the registered `fidelity` profile is 320x180; both are downsampled from the canonical player render.
+- One action contains a kind plus a pointer coordinate. Supported kinds are no-op, mouse motion, left-button down, left-button up, Space, and the `1`/`2`/`3` speed keys. Mouse coordinates span the selected observation grid and map exactly to the edges of the canonical view.
+- The default decision advances six fixed ticks, or 100 simulated milliseconds at 1x speed. Pause consumes decisions without accumulating simulation backlog; speed keys apply the same 1x/2x/4x gameplay multipliers as manual play.
+- An episode terminates at game over and truncates at its configured decision horizon. The default learning reward is newly delivered passengers; the optional display-score-delta reward includes score spent purchasing line slots.
+- Adding mouse-driven stations, buttons, routes, passengers, or other visible content does not require a new action schema. Adding another keyboard control, changing action meanings, changing registered pixel profiles, or changing cursor pixels requires an explicit protocol update so saved models cannot silently receive a different task.

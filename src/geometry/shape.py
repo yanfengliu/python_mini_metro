@@ -3,9 +3,10 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 import pygame
+from shortuuid import uuid  # type: ignore
+
 from geometry.point import Point
 from geometry.type import ShapeType
-from shortuuid import uuid  # type: ignore
 from type import Color
 
 
@@ -19,8 +20,15 @@ class Shape(ABC):
         return self.id == other.id
 
     @abstractmethod
-    def draw(self, surface: pygame.surface.Surface, position: Point) -> None:
-        self.position = position
+    def draw(
+        self,
+        surface: pygame.surface.Surface,
+        position: Point | tuple[float, float],
+        rotation_degrees: float | None = None,
+    ) -> None:
+        """Draw at a visual pose without changing the shape's hitbox state."""
+
+        del surface, position, rotation_degrees
 
     @abstractmethod
     def contains(self, point: Point) -> bool:

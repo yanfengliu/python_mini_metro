@@ -51,6 +51,8 @@ class TestStation(unittest.TestCase):
 
         self.assertEqual(station.shape, self.shape)
         self.assertEqual(station.position, self.position)
+        self.assertEqual(station.shape.position, self.position)
+        self.assertTrue(station.contains(self.position))
 
     def test_get_metros_count(self):
         metros = get_metros(3)
@@ -69,22 +71,60 @@ class TestStation(unittest.TestCase):
         shape = Triangle((0, 0, 0), 3)
         passenger = Passenger(shape)
         passenger.position = Point(10, 20)
+        display_position = Point(30, 40)
         observed_degrees: list[float] = []
 
         def record_draw(*args, **kwargs):
-            observed_degrees.append(shape.degrees)
+            del args
+            observed_degrees.append(kwargs["rotation_degrees"])
 
         shape.draw = MagicMock(side_effect=record_draw)
-        passenger.draw(self.screen, rotation_degrees=45)
+        passenger.draw(
+            self.screen,
+            rotation_degrees=45,
+            display_position=display_position,
+        )
 
         self.assertEqual(observed_degrees, [45])
+        self.assertEqual(shape.degrees, 0)
+        self.assertEqual(passenger.position, Point(10, 20))
+        shape.draw.assert_called_once_with(
+            self.screen, display_position, rotation_degrees=45
+        )
+
+    def test_passenger_draw_restores_rotation_when_shape_draw_fails(self):
+        shape = Triangle((0, 0, 0), 3)
+        shape.set_degrees(15)
+        shape.draw = MagicMock(side_effect=RuntimeError("draw failed"))
+        passenger = Passenger(shape)
+
+        with self.assertRaisesRegex(RuntimeError, "draw failed"):
+            passenger.draw(self.screen, rotation_degrees=45)
+
+        self.assertEqual(shape.degrees, 15)
+
+    def test_passenger_draw_restores_shape_hitbox_after_display_projection(self):
+        shape = Triangle((0, 0, 0), 3)
+        canonical_position = Point(10, 20)
+        shape.position = canonical_position
+        passenger = Passenger(shape)
+
+        passenger.draw(
+            self.screen,
+            rotation_degrees=45,
+            display_position=Point(30, 40),
+        )
+
+        self.assertIs(shape.position, canonical_position)
         self.assertEqual(shape.degrees, 0)
 
     def test_holder_draw_positions_and_move(self):
         station = Station(Circle(station_color, station_size), Point(100, 100))
         self.assertIn("Station-", repr(station))
         passengers = [Passenger(Circle((0, 0, 0), 1)) for _ in range(5)]
-        for passenger in passengers:
+        original_positions = [Point(idx, -idx) for idx in range(len(passengers))]
+        for passenger, original_position in zip(passengers, original_positions):
+            passenger.position = original_position
             passenger.draw = MagicMock()
             station.add_passenger(passenger)
 
@@ -94,13 +134,31 @@ class TestStation(unittest.TestCase):
             (-2 * passenger_size - passenger_display_buffer),
             1.5 * station.size,
         )
-        self.assertEqual(passengers[0].position, station.position + base_offset)
-        self.assertEqual(
-            passengers[4].position,
+        expected_positions = [
+            station.position + base_offset,
+            station.position
+            + base_offset
+            + Point(passenger_size + passenger_display_buffer, 0),
+            station.position
+            + base_offset
+            + Point(2 * (passenger_size + passenger_display_buffer), 0),
+            station.position
+            + base_offset
+            + Point(3 * (passenger_size + passenger_display_buffer), 0),
             station.position
             + base_offset
             + Point(0, passenger_size + passenger_display_buffer),
+        ]
+        self.assertEqual(
+            [passenger.position for passenger in passengers], original_positions
         )
+        for passenger, display_position in zip(passengers, expected_positions):
+            passenger.draw.assert_called_once_with(
+                self.screen,
+                current_time_ms=None,
+                max_wait_time_ms=None,
+                display_position=display_position.to_tuple(),
+            )
 
         station.remove_passenger(passengers[0])
         self.assertNotIn(passengers[0], station.passengers)
@@ -114,7 +172,9 @@ class TestStation(unittest.TestCase):
         metro = Metro()
         metro.position = Point(100, 100)
         passengers = [Passenger(Circle((0, 0, 0), 1)) for _ in range(6)]
-        for passenger in passengers:
+        original_positions = [Point(idx, -idx) for idx in range(len(passengers))]
+        for passenger, original_position in zip(passengers, original_positions):
+            passenger.position = original_position
             passenger.draw = MagicMock()
             metro.add_passenger(passenger)
 
@@ -138,13 +198,21 @@ class TestStation(unittest.TestCase):
             x_offset = x_start + (col * x_step)
             y_offset = y_start + (row * y_step)
             expected_position = metro.position + Point(x_offset, y_offset).rotate(0)
-            self.assertEqual(passenger.position, expected_position)
+            self.assertEqual(passenger.position, original_positions[idx])
+            passenger.draw.assert_called_once_with(
+                self.screen,
+                current_time_ms=None,
+                max_wait_time_ms=None,
+                rotation_degrees=0,
+                display_position=expected_position.to_tuple(),
+            )
 
     def test_metro_draw_rotates_passenger_grid_with_metro(self):
         metro = Metro()
         metro.position = Point(200, 200)
         metro.shape.set_degrees(90)
         passenger = Passenger(Circle((0, 0, 0), 1))
+        passenger.position = Point(7, 11)
         passenger.draw = MagicMock()
         metro.add_passenger(passenger)
 
@@ -162,13 +230,31 @@ class TestStation(unittest.TestCase):
         x_offset = x_start
         y_offset = y_start
         expected_position = metro.position + Point(x_offset, y_offset).rotate(90)
-        self.assertEqual(passenger.position, expected_position)
+        self.assertEqual(passenger.position, Point(7, 11))
         passenger.draw.assert_called_once_with(
             self.screen,
             current_time_ms=None,
             max_wait_time_ms=None,
             rotation_degrees=90,
+            display_position=expected_position.to_tuple(),
         )
+
+    def test_metro_draw_uses_visual_pose_and_restores_shape_state(self):
+        metro = Metro()
+        metro.position = Point(100, 100)
+        metro.shape.position = metro.position
+        metro.shape.set_degrees(15)
+        display_position = Point(140, 160)
+
+        metro.draw(
+            self.screen,
+            display_position=display_position,
+            rotation_degrees=75,
+        )
+
+        self.assertIs(metro.shape.position, metro.position)
+        self.assertEqual(metro.shape.degrees, 15)
+        self.assertEqual(metro.position, Point(100, 100))
 
     def test_travel_plan_methods(self):
         station = Station(Rect(station_color, station_size, station_size), Point(0, 0))
@@ -244,6 +330,12 @@ class TestStation(unittest.TestCase):
 
         active_late = station.get_active_snap_blips(100 + station_snap_blip_duration_ms)
         self.assertEqual(active_late, [])
+
+        station.draw_snap_blips(self.screen, 100 + station_snap_blip_duration_ms)
+        self.assertEqual(station.snap_blips, [(100, (1, 2, 3))])
+
+        station.prune_visual_effects(100 + station_snap_blip_duration_ms)
+        self.assertEqual(station.snap_blips, [])
 
     def test_station_draw_renders_snap_blip_as_expanding_ring(self):
         station = Station(Circle(station_color, station_size), Point(0, 0))

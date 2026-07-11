@@ -1,7 +1,8 @@
+from shortuuid import uuid  # type: ignore
+
 from geometry.point import Point
 from geometry.polygon import Polygon
 from geometry.type import ShapeType
-from shortuuid import uuid  # type: ignore
 from type import Color
 
 

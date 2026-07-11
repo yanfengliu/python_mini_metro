@@ -1,4 +1,3 @@
-import random
 from typing import Any, Dict, Tuple
 
 import numpy as np
@@ -13,10 +12,7 @@ class MiniMetroEnv:
         self.last_score = self.mediator.score
 
     def reset(self, seed: int | None = None) -> Dict[str, Any]:
-        if seed is not None:
-            random.seed(seed)
-            np.random.seed(seed)
-        self.mediator = Mediator()
+        self.mediator = Mediator(seed=seed)
         self.last_score = self.mediator.score
         return self.observe()
 

@@ -2,16 +2,16 @@ import math
 from typing import List
 
 import pygame
-from config import path_width
+from shortuuid import uuid  # type: ignore
+
+from config import path_order_shift, path_width
 from entity.metro import Metro
 from entity.padding_segment import PaddingSegment
 from entity.path_segment import PathSegment
 from entity.segment import Segment
 from entity.station import Station
-from geometry.line import Line
 from geometry.point import Point
 from geometry.utils import direction, distance
-from shortuuid import uuid  # type: ignore
 from type import Color
 
 
@@ -37,6 +37,23 @@ class Path:
         self.update_segments()
 
     def update_segments(self) -> None:
+        metro_progress: dict[Metro, float] = {}
+        for metro in self.metros:
+            segment = metro.current_segment
+            if segment is None:
+                continue
+            dx = segment.segment_end.left - segment.segment_start.left
+            dy = segment.segment_end.top - segment.segment_start.top
+            length_squared = dx * dx + dy * dy
+            if length_squared <= 0:
+                metro_progress[metro] = 0.0
+                continue
+            projected = (
+                (metro.position.left - segment.segment_start.left) * dx
+                + (metro.position.top - segment.segment_start.top) * dy
+            ) / length_squared
+            metro_progress[metro] = max(0.0, min(1.0, projected))
+
         self.segments = []
         self.path_segments = []
         self.padding_segments = []
@@ -77,21 +94,55 @@ class Path:
             self.padding_segments.append(padding_segment)
             self.segments.append(padding_segment)
 
-    def draw(self, surface: pygame.surface.Surface, path_order: int) -> None:
-        self.path_order = path_order
-        self.update_segments()
+        for metro in self.metros:
+            if not self.segments:
+                metro.current_segment = None
+                metro.current_segment_idx = 0
+                continue
+            metro.current_segment_idx = min(
+                metro.current_segment_idx, len(self.segments) - 1
+            )
+            metro.current_segment = self.segments[metro.current_segment_idx]
+            if metro.current_station is not None:
+                metro.position = metro.current_station.position
+                continue
+            progress = metro_progress.get(metro)
+            if progress is None:
+                continue
+            start = metro.current_segment.segment_start
+            end = metro.current_segment.segment_end
+            metro.position = Point(
+                start.left + (end.left - start.left) * progress,
+                start.top + (end.top - start.top) * progress,
+            )
 
-        for segment in self.segments:
-            segment.draw(surface)
+    def draw(self, surface: pygame.surface.Surface, path_order: int) -> None:
+        # Legacy direct drawing stays observational while honoring its lane.
+        from rendering.layout import build_visual_path
+
+        layout = build_visual_path(self, float(path_order), path_order_shift)
+        for segment in layout.segments:
+            pygame.draw.line(
+                surface,
+                self.color,
+                segment.start,
+                segment.end,
+                path_width,
+            )
 
         if self.temp_point:
-            temp_line = Line(
-                color=self.color,
-                start=self.stations[-1].position,
-                end=self.temp_point,
-                width=path_width,
+            pygame.draw.line(
+                surface,
+                self.color,
+                self.stations[-1].position.to_tuple(),
+                self.temp_point.to_tuple(),
+                path_width,
             )
-            temp_line.draw(surface)
+
+    def rebuild_geometry(self) -> None:
+        """Rebuild logical centerline geometry after a topology/position edit."""
+
+        self.update_segments()
 
     def set_temporary_point(self, temp_point: Point) -> None:
         self.temp_point = temp_point

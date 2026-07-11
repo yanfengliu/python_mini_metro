@@ -27,7 +27,7 @@ class TestMediator(unittest.TestCase):
         original_draw = pygame.draw
         self.addCleanup(setattr, pygame, "draw", original_draw)
         pygame.draw = MagicMock()
-        self.mediator.render(self.screen)
+        self.mediator.prepare_layout(self.width, self.height)
 
     def connect_stations(self, station_idx):
         self.mediator.react(

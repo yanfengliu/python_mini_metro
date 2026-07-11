@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import List, Literal
 
 import pygame
+
 from config import (
     speed_button_active_color,
     speed_button_border_color,
@@ -22,7 +23,9 @@ SpeedAction = Literal["pause", "speed_1", "speed_2", "speed_4"]
 
 class SpeedButton(Button):
     def __init__(self, action: SpeedAction) -> None:
-        super().__init__(Rect(speed_button_border_color, speed_button_width, speed_button_height))
+        super().__init__(
+            Rect(speed_button_border_color, speed_button_width, speed_button_height)
+        )
         self.position = Point(0, 0)
         self.action = action
         self.is_hovered = False
@@ -36,7 +39,9 @@ class SpeedButton(Button):
     def on_click(self) -> None:
         return
 
-    def draw_pause_icon(self, surface: pygame.surface.Surface, rect: pygame.Rect) -> None:
+    def draw_pause_icon(
+        self, surface: pygame.surface.Surface, rect: pygame.Rect
+    ) -> None:
         bar_width = 6
         bar_height = 18
         gap = 6
@@ -95,8 +100,6 @@ class SpeedButton(Button):
             self.draw_play_icons(surface, rect, 2)
         elif self.action == "speed_4":
             self.draw_play_icons(surface, rect, 4)
-        # Keep shape position in sync so shape.contains() stays correct.
-        self.shape.position = self.position
 
 
 def update_speed_button_positions(

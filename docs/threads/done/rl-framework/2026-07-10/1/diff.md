@@ -1,0 +1,5 @@
+# RL framework change under review
+
+The live uncommitted diff is authoritative. It combines the approved deterministic rendering prerequisite with a player-equivalent Gymnasium pixel environment, isolated simulation contexts, an immutable input protocol, a positive-delivery curriculum, a frame-stacked Stable-Baselines3 PPO stack, exact-byte artifact authentication, content/trainer/runtime compatibility checks, deterministic evaluation seed suites, authenticated resume/evaluation CLIs, universal hash locks, Windows CI smoke coverage, and matching architecture/rules/user/progress documentation.
+
+Pre-review validation: 305 Python tests pass with no dependency skips; all 94 Python files pass Ruff lint and format checks; both Python locks audit with zero known vulnerabilities; the repository npm audit is clean; the pinned civ-engine acceptance runs 41 Node tests and an 8/8 exact recursive replay; and real spawned PPO fresh/resume/evaluate runs complete with authenticated parent/model/manifest/index digests.

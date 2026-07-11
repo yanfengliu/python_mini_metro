@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import pygame
-from geometry.point import Point
 from shortuuid import uuid  # type: ignore
+
+from geometry.point import Point
 from type import Color
 
 

@@ -10,8 +10,16 @@ Activate the Python 3.13 environment and install the game dependencies:
 
 ```powershell
 conda activate py313
-python -m pip install -r requirements.txt
+python -m pip install -r requirements-locked.txt
 ```
+
+Gymnasium and the player-equivalent pixel environment are part of the normal install. Training a model also needs PyTorch, Stable-Baselines3, and TensorBoard:
+
+```powershell
+python -m pip install -r requirements-rl-locked.txt
+```
+
+Both lockfiles are universal Python 3.13 resolutions with hashes and platform markers; pip selects the matching Linux or Windows wheels while preserving the same reviewed dependency graph.
 
 The recursive playtest also requires Node.js 20 or newer and a built `civ-engine` sibling at `../civ-engine`. The checked-in package lock expects civ-engine 2.2.0 through that relative link; CI pins the sibling to commit `e0cb614a516c449159a4562c2ac45bd40bffd3df` and verifies the imported engine version before testing.
 
@@ -30,9 +38,10 @@ Set `PYTHON` to a specific interpreter path when `python` is not the intended ex
 
 ## To play manually
 
-* If you are running for the first time, install the requirements using `pip install -r requirements.txt`
+* If you are running for the first time, install the requirements using `python -m pip install -r requirements-locked.txt`
 * Activate the virtual environment by running `conda activate py313`
 * Run `python src/main.py`
+* The window uses a fixed 60 Hz simulation cadence with interpolated metro motion; resizing preserves the 1920x1080 player view without changing game timing.
 * Hold down the mouse left button on a station and drag onto other stations to create a path for the metro.
 * Press SPACE to pause / unpause the game.
 * Press `1`, `2`, or `3` to set game speed to 1x, 2x, or 4x.
@@ -43,7 +52,13 @@ Set `PYTHON` to a specific interpreter path when `python` is not the intended ex
 
 ## To play programmatically
 
-Use the Gym-like environment in `src/env.py`:
+Expose the source directory when importing the environments directly from a repository checkout:
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path src).Path
+```
+
+Then use the Gym-like environment in `src/env.py`:
 
 ```python
 from env import MiniMetroEnv
@@ -62,7 +77,7 @@ obs, reward, done, info = env.step({"type": "remove_path", "path_index": 0})
   - If `dt_ms=None`, time only advances when you pass `dt_ms` to `step(...)`.
 - `reset(seed: int | None = None) -> observation`
   - Resets the game and returns the initial observation.
-  - If `seed` is provided, Python and NumPy RNG are seeded for deterministic runs.
+  - If `seed` is provided, independent session-owned Python and NumPy random streams make gameplay mechanics, array views, and rendered pixels deterministic without changing host-global RNG state. Opaque entity ID strings remain unique per runtime session and should not be compared across resets.
 - `step(action: dict | None = None, dt_ms: int | None = None) -> (observation, reward, done, info)`
   - Applies one action, optionally advances time, then returns:
     - `observation`: latest state
@@ -116,6 +131,55 @@ Any unknown `type`, or malformed action payload, returns `info["action_ok"] == F
 - `observation["arrays"]`: NumPy-friendly arrays/lists
   - includes station positions/types/counts, path station-index sequences, metro positions/path indices, passenger destination types and locations.
 
+# Player-equivalent reinforcement learning
+
+`PlayerPixelEnv` is the official learning boundary. A policy receives only the same rendered game pixels a player can see, including a deterministic software cursor, and acts through low-level mouse motion/button and keyboard events routed through the normal player event path. The older `MiniMetroEnv` remains available for structured debugging and recursive verification; its privileged state is not the learning observation.
+
+```python
+import numpy as np
+
+from rl.player_env import PlayerPixelEnv
+from rl.protocol import ActionKind
+
+env = PlayerPixelEnv(max_episode_steps=36_000)
+observation, info = env.reset(seed=42)
+action = np.asarray([ActionKind.DOWN, 50, 40], dtype=np.int64)
+observation, reward, terminated, truncated, info = env.step(action)
+env.close()
+```
+
+The default observation is channel-first `uint8` RGB with shape `(3, 108, 192)`; the registered `fidelity` profile is `(3, 180, 320)`. The action is `MultiDiscrete([8, width, height])`: `0` no-op, `1` mouse motion, `2` left-button down, `3` left-button up, `4` Space, and `5`/`6`/`7` for the `1`/`2`/`3` speed keys. Pointer coordinates are integer observation-grid locations mapped exactly onto the canonical 1920x1080 player view. Each default decision advances exactly six fixed ticks (100 simulated milliseconds). The default reward is newly delivered passengers; `display_score_delta` is available when line-purchase penalties are intentionally part of the objective.
+
+Live `info` dictionaries contain protocol and pointer bookkeeping, not hidden stations, routes, deliveries, or simulation state. Game-level deliveries and displayed score appear only in terminal episode metrics, after the last action. The deterministic helper in `rl.privileged_oracle` is deliberately separate and is used only by tests and the scripted curriculum demonstrator.
+
+Train PPO with eight spawned environments and evaluate the resulting strict manifest with:
+
+```powershell
+python scripts/train_rl.py --total-timesteps 1000000 --n-envs 8 --device auto
+python scripts/evaluate_rl.py output/rl/ppo-RUN-ID/final_model.zip --episodes 10
+```
+
+Standalone evaluation uses the run manifest's recorded evaluation seed by default; pass `--seed` only when you intentionally want a different deterministic episode suite.
+
+For a quick pipeline smoke test, use a new empty run directory:
+
+```powershell
+python scripts/train_rl.py --total-timesteps 128 --n-envs 1 --max-episode-steps 4 --run-dir output/rl/smoke
+python scripts/evaluate_rl.py output/rl/smoke/final_model.zip --episodes 1
+```
+
+Resume from any authenticated periodic or final checkpoint into a new run directory; repeat any non-default task flags so they match the parent manifest:
+
+```powershell
+python scripts/train_rl.py --resume output/rl/ppo-RUN-ID/checkpoints/mini_metro_ppo_100000_steps.zip --run-dir output/rl/resumed --total-timesteps 500000
+```
+
+Every run immediately writes a recovery checkpoint and `training-manifest.json`, writes each new periodic checkpoint before refreshing the manifest and authenticated index, then saves and authenticates the final model. The manifest authenticates a versioned artifact index, and the evaluator hashes and parses one exact index snapshot before loading the exact model bytes it authenticated; a swapped or partially written model is never reopened by path for SB3. It also records the exact pixel/control protocol, task horizon and reward, frame stack, hyperparameters, callback intervals, requested/resolved device, seeds, gameplay dependency versions, Git state, an environment-content fingerprint, and a separate trainer-source fingerprint that includes both lockfiles. Resumed runs retain parent manifest/model digests and use the newly requested seed consistently in the model and environments.
+
+Resume and evaluation fail closed on protocol, task, content, trainer-source, runtime, or artifact drift. `--allow-content-drift`, `--allow-training-drift`, and `--allow-runtime-drift` are explicit, tagged compatibility overrides; use the content override when intentionally testing an old model against new stations, mechanics, or graphics, and use the other overrides only when the reported implementation/runtime difference is understood.
+
+The default four-frame stack and compact adaptive-pooling CNN are practical baselines, not a claim that a short PPO smoke run learns competent play. Low-level line construction is a sparse multi-action problem, so `rl.demonstrator.run_delivery_demonstration` provides a deterministic curriculum trajectory that creates a route through player actions and reaches a real delivery for the reference seed.
+
 # Recursive self-improvement loop
 
 The deterministic fixture at `scripts/fixtures/recursive-playtest.json` uses seed `42` to create a line, advance time, exercise pause/resume, remove the line, and verify rejected actions. The harness drives `MiniMetroEnv` directly; it does not use the pygame GUI clock or an LLM.
@@ -160,3 +224,5 @@ Pass outcomes are `no-fix-candidate`, `proposal-only`, or `run-failed`. `proposa
 python -m unittest -v
 npm test
 ```
+
+The pygame renderer is also the canonical headless pixel source: it works with software `pygame.Surface` objects without opening a display, emits repeatable pixels for identical state, and does not mutate simulation state. This boundary is intended for player-equivalent reinforcement-learning observations as well as the interactive window.

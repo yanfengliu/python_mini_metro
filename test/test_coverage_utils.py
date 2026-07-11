@@ -13,6 +13,7 @@ from config import (
     path_button_buffer,
     path_button_buy_text_color,
     path_button_buy_text_disabled_color,
+    path_button_buy_text_font_size,
     path_button_dist_to_bottom,
 )
 from event.convert import convert_pygame_event
@@ -104,7 +105,10 @@ class TestCoverageUtils(unittest.TestCase):
         self.assertIsNone(button.draw(self.screen))
 
     def test_path_button_interactions(self):
-        button = PathButton(Circle(button_color, button_size), Point(0, 0))
+        position = Point(50, 60)
+        button = PathButton(Circle(button_color, button_size), position)
+        self.assertEqual(button.shape.position, position)
+        self.assertTrue(button.contains(position))
         button.on_hover()
         self.assertTrue(button.show_cross)
         button.on_exit()
@@ -121,6 +125,19 @@ class TestCoverageUtils(unittest.TestCase):
         with patch("pygame.draw.circle"):
             button.draw(self.screen)
         button.cross.draw.assert_called_once()
+
+    def test_path_button_cross_draw_does_not_create_persistent_hitbox(self):
+        button = PathButton(Circle(button_color, button_size), Point(10, 20))
+        path = MagicMock(color=(10, 20, 30))
+        button.assign_path(path)
+        button.on_hover()
+        assert button.cross is not None
+        self.assertFalse(hasattr(button.cross, "position"))
+
+        with patch("pygame.draw.circle"), patch("pygame.draw.polygon"):
+            button.draw(self.screen)
+
+        self.assertFalse(hasattr(button.cross, "position"))
 
     def test_path_button_keeps_assigned_color_when_unlocked(self):
         button = PathButton(Circle(button_color, button_size), Point(0, 0))
@@ -152,7 +169,8 @@ class TestCoverageUtils(unittest.TestCase):
         fake_surface.get_rect.return_value = pygame.Rect(0, 0, 10, 10)
         fake_font.render = MagicMock(return_value=fake_surface)
         with (
-            patch("pygame.font.SysFont", return_value=fake_font),
+            patch("pygame.font.Font", return_value=fake_font) as font_mock,
+            patch("pygame.font.SysFont") as system_font_mock,
             patch("pygame.draw.circle"),
         ):
             button.draw(
@@ -167,6 +185,8 @@ class TestCoverageUtils(unittest.TestCase):
         fake_font.render.assert_any_call(
             "90", True, path_button_buy_text_disabled_color
         )
+        font_mock.assert_called_once_with(None, path_button_buy_text_font_size)
+        system_font_mock.assert_not_called()
 
     def test_locked_path_button_hover_text_uses_enabled_color_when_affordable(self):
         button = PathButton(Circle(button_color, button_size), Point(0, 0))
@@ -178,7 +198,8 @@ class TestCoverageUtils(unittest.TestCase):
         fake_surface.get_rect.return_value = pygame.Rect(0, 0, 10, 10)
         fake_font.render = MagicMock(return_value=fake_surface)
         with (
-            patch("pygame.font.SysFont", return_value=fake_font),
+            patch("pygame.font.Font", return_value=fake_font) as font_mock,
+            patch("pygame.font.SysFont") as system_font_mock,
             patch("pygame.draw.circle"),
         ):
             button.draw(
@@ -189,6 +210,8 @@ class TestCoverageUtils(unittest.TestCase):
 
         fake_font.render.assert_any_call("Buy", True, path_button_buy_text_color)
         fake_font.render.assert_any_call("90", True, path_button_buy_text_color)
+        font_mock.assert_called_once_with(None, path_button_buy_text_font_size)
+        system_font_mock.assert_not_called()
 
     def test_get_path_buttons_positions(self):
         width = 1000
@@ -208,6 +231,9 @@ class TestCoverageUtils(unittest.TestCase):
         left = buttons[0].position.left
         right = buttons[-1].position.left
         self.assertEqual((left + right) / 2, center_x)
+        for button in buttons:
+            self.assertEqual(button.shape.position, button.position)
+            self.assertTrue(button.contains(button.position))
 
     def test_utils_helpers(self):
         passenger_shape = get_random_passenger_shape()

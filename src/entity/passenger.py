@@ -1,8 +1,9 @@
 import pygame
+from shortuuid import uuid  # type: ignore
+
 from config import passenger_blink_interval_ms, passenger_blink_warning_time_ms
 from geometry.point import Point
 from geometry.shape import Shape
-from shortuuid import uuid  # type: ignore
 
 
 class Passenger:
@@ -43,6 +44,7 @@ class Passenger:
         current_time_ms: int | None = None,
         max_wait_time_ms: int | None = None,
         rotation_degrees: float | None = None,
+        display_position: Point | tuple[float, float] | None = None,
     ):
         if (
             current_time_ms is not None
@@ -51,12 +53,12 @@ class Passenger:
             and not self.is_warning_blink_visible(current_time_ms)
         ):
             return
+        draw_position = self.position if display_position is None else display_position
         if rotation_degrees is None:
-            self.destination_shape.draw(surface, self.position)
+            self.destination_shape.draw(surface, draw_position)
             return
-
-        previous_degrees = getattr(self.destination_shape, "degrees", None)
-        self.destination_shape.set_degrees(rotation_degrees)
-        self.destination_shape.draw(surface, self.position)
-        if previous_degrees is not None:
-            self.destination_shape.set_degrees(previous_degrees)
+        self.destination_shape.draw(
+            surface,
+            draw_position,
+            rotation_degrees=rotation_degrees,
+        )

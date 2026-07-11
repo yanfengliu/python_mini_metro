@@ -6,7 +6,7 @@ framerate = 60
 # screen
 screen_width = 1920
 screen_height = 1080
-screen_color = (255, 255, 255)
+screen_color = (247, 245, 239)
 
 # station
 num_stations = 20
@@ -56,6 +56,8 @@ max_waiting_passengers = 1
 num_metros = 4
 metro_size = 30
 metro_color = (200, 200, 200)
+metro_outline_color = (30, 30, 30)
+metro_outline_width = 2
 metro_capacity = 6
 metro_speed_per_ms = 150 / 1000  # pixels / ms
 metro_accel_time_ms = 1000
@@ -112,3 +114,5 @@ game_over_button_border_width = 2
 game_over_button_padding_x = 30
 game_over_button_padding_y = 12
 game_over_button_spacing = 18
+game_over_button_width = 300
+game_over_button_height = 64

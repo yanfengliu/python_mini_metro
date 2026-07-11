@@ -4,6 +4,7 @@ from abc import ABC
 from typing import List
 
 import pygame
+
 from config import passenger_display_buffer, passenger_size
 from entity.passenger import Passenger
 from geometry.point import Point
@@ -36,21 +37,21 @@ class Holder(ABC):
         row = 0
         col = 0
         for passenger in self.passengers:
-            passenger.position = (
-                self.position
-                + Point(
-                    (-2 * passenger_size - passenger_display_buffer), 1.5 * self.size
-                )
-                + Point(
-                    col * (passenger_size + passenger_display_buffer),
-                    row * (passenger_size + passenger_display_buffer),
-                )
+            display_position = (
+                self.position.left
+                - 2 * passenger_size
+                - passenger_display_buffer
+                + col * (passenger_size + passenger_display_buffer),
+                self.position.top
+                + 1.5 * self.size
+                + row * (passenger_size + passenger_display_buffer),
             )
 
             passenger.draw(
                 surface,
                 current_time_ms=current_time_ms,
                 max_wait_time_ms=passenger_max_wait_time_ms,
+                display_position=display_position,
             )
 
             if col < (self.passengers_per_row - 1):

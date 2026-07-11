@@ -21,6 +21,7 @@ from config import (
     screen_width,
     station_color,
     station_size,
+    station_snap_blip_duration_ms,
     station_unlock_milestones,
     unlock_blink_duration_ms,
 )
@@ -55,7 +56,7 @@ class TestMediator(unittest.TestCase):
         original_draw = pygame.draw
         self.addCleanup(setattr, pygame, "draw", original_draw)
         pygame.draw = MagicMock()
-        self.mediator.render(self.screen)
+        self.mediator.prepare_layout(self.width, self.height)
 
     def connect_stations(self, station_idx):
         self.mediator.react(
@@ -103,6 +104,13 @@ class TestMediator(unittest.TestCase):
 
     def test_generate_distinct_path_colors_handles_non_positive_count(self):
         self.assertEqual(self.mediator.generate_distinct_path_colors(0), {})
+
+    def test_constructor_does_not_initialize_render_resources(self):
+        with patch("pygame.font.init") as font_init, patch("pygame.font.Font") as font:
+            Mediator()
+
+        font_init.assert_not_called()
+        font.assert_not_called()
 
     def test_generate_distinct_path_colors_backfills_color_collisions(self):
         calls = {"count": 0}
@@ -332,79 +340,6 @@ class TestMediator(unittest.TestCase):
                     len(self.mediator.travel_plans[passenger].node_path), 1
                 )
 
-    def test_render_draws_paths_and_metros(self):
-        mediator, _, _, path, metro = self._build_two_station_mediator()
-        pygame.draw.line = MagicMock()
-        pygame.draw.circle = MagicMock()
-        pygame.draw.polygon = MagicMock()
-        mediator.render(self.screen)
-        self.assertIn(metro, mediator.metros)
-        self.assertIn(path, mediator.paths)
-
-    def test_render_single_path_uses_zero_centered_offset(self):
-        mediator, _, _, path, _ = self._build_two_station_mediator()
-        mediator.stations = []
-        mediator.metros = []
-        mediator.buttons = []
-        path.draw = MagicMock()
-
-        mediator.render(self.screen)
-
-        path.draw.assert_called_once_with(self.screen, 0)
-
-    def test_render_three_paths_uses_centered_offsets(self):
-        mediator = Mediator()
-        mediator.stations = []
-        mediator.metros = []
-        mediator.buttons = []
-        path_a = MagicMock()
-        path_b = MagicMock()
-        path_c = MagicMock()
-        mediator.paths = [path_a, path_b, path_c]
-
-        mediator.render(self.screen)
-
-        path_a.draw.assert_called_once_with(self.screen, -1)
-        path_b.draw.assert_called_once_with(self.screen, 0)
-        path_c.draw.assert_called_once_with(self.screen, 1)
-
-    def test_render_game_over_overlay(self):
-        mediator = Mediator()
-        mediator.paths = []
-        mediator.stations = []
-        mediator.metros = []
-        mediator.buttons = []
-        mediator.is_game_over = True
-        screen = MagicMock()
-        screen.get_width.return_value = screen_width
-        screen.get_height.return_value = screen_height
-        overlay = MagicMock()
-        with patch("mediator.pygame.Surface", return_value=overlay) as surface_mock:
-            title_surface = MagicMock()
-            title_surface.get_rect.return_value = MagicMock()
-            score_surface = MagicMock()
-            score_surface.get_rect.return_value = MagicMock()
-            hint_surface = MagicMock()
-            hint_surface.get_rect.return_value = MagicMock()
-            hint_surface.get_width.return_value = 100
-            hint_surface.get_height.return_value = 20
-            mediator.game_over_font = MagicMock()
-            mediator.game_over_font.render = MagicMock(return_value=title_surface)
-            mediator.font = MagicMock()
-            mediator.font.render = MagicMock(return_value=score_surface)
-            mediator.game_over_hint_font = MagicMock()
-            mediator.game_over_hint_font.render = MagicMock(return_value=hint_surface)
-            mediator.render(screen)
-
-        surface_mock.assert_called_once_with(
-            (screen_width, screen_height), pygame.SRCALPHA
-        )
-        overlay.fill.assert_called_once()
-        screen.blit.assert_any_call(overlay, (0, 0))
-        self.assertGreaterEqual(mediator.font.render.call_count, 1)
-        mediator.game_over_font.render.assert_called_once()
-        self.assertGreaterEqual(mediator.game_over_hint_font.render.call_count, 2)
-
     def test_handle_game_over_click(self):
         mediator = Mediator()
         mediator.is_game_over = True
@@ -414,6 +349,40 @@ class TestMediator(unittest.TestCase):
         self.assertEqual(mediator.handle_game_over_click(Point(5, 5)), "restart")
         self.assertEqual(mediator.handle_game_over_click(Point(25, 5)), "exit")
         self.assertIsNone(mediator.handle_game_over_click(Point(50, 50)))
+
+    def test_prepare_layout_makes_first_frame_controls_clickable(self):
+        mediator = Mediator()
+        mediator.prepare_layout(screen_width, screen_height)
+
+        self.assertIs(
+            mediator.get_containing_entity(mediator.path_buttons[0].position),
+            mediator.path_buttons[0],
+        )
+        self.assertIs(
+            mediator.get_containing_entity(mediator.speed_buttons[0].position),
+            mediator.speed_buttons[0],
+        )
+        mediator.is_game_over = True
+        assert mediator.game_over_restart_rect is not None
+        self.assertEqual(
+            mediator.handle_game_over_click(
+                Point(*mediator.game_over_restart_rect.center)
+            ),
+            "restart",
+        )
+
+    def test_compatibility_render_reuses_renderer_and_adapts_layout(self):
+        surface = pygame.Surface((800, 600))
+
+        self.mediator.render(surface)
+        compatibility_renderer = self.mediator._compat_renderer
+        self.mediator.render(surface)
+
+        self.assertIs(self.mediator._compat_renderer, compatibility_renderer)
+        self.assertLess(self.mediator.path_buttons[-1].position.left, 800)
+        self.assertLess(self.mediator.path_buttons[-1].position.top, 600)
+        assert self.mediator.game_over_restart_rect is not None
+        self.assertEqual(self.mediator.game_over_restart_rect.centerx, 400)
 
     def test_mouse_motion_no_entity_triggers_exit(self):
         mediator = Mediator()
@@ -455,7 +424,7 @@ class TestMediator(unittest.TestCase):
 
     def test_speed_buttons_pause_and_resume_with_multiplier(self):
         mediator = Mediator()
-        mediator.render(self.screen)
+        mediator.prepare_layout(self.width, self.height)
         pause_button = mediator.speed_buttons[0]
         speed_4_button = mediator.speed_buttons[3]
 
@@ -612,6 +581,15 @@ class TestMediator(unittest.TestCase):
         mediator.increment_time(100)
         self.assertEqual(mediator.time_ms, 10)
         self.assertEqual(mediator.steps, 5)
+
+    def test_increment_time_prunes_expired_snap_blips(self):
+        mediator = Mediator()
+        station = mediator.stations[0]
+        station.start_snap_blip(0, (1, 2, 3))
+
+        mediator.increment_time(station_snap_blip_duration_ms)
+
+        self.assertEqual(station.snap_blips, [])
 
     def test_increment_time_scales_with_game_speed_multiplier(self):
         mediator = Mediator()

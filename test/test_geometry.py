@@ -49,6 +49,7 @@ class TestGeometry(unittest.TestCase):
 
     def test_circle_contains_point(self):
         circle = self.init_circle()
+        circle.position = self.position
         with patch("pygame.draw.circle"):
             circle.draw(self.screen, self.position)
 
@@ -80,11 +81,23 @@ class TestGeometry(unittest.TestCase):
 
     def test_rect_contains_point(self):
         rect = self.init_rect()
+        rect.position = self.position
         with patch("pygame.draw.polygon"):
             rect.draw(self.screen, self.position)
 
         self.assertTrue(rect.contains(rect.position + Point(1, 1)))
         self.assertFalse(rect.contains(rect.position + Point(rect.width, rect.height)))
+
+    def test_shape_draw_does_not_move_hitbox(self):
+        rect = self.init_rect()
+        hitbox_position = Point(10, 20)
+        rect.position = hitbox_position
+
+        with patch("pygame.draw.polygon"):
+            rect.draw(self.screen, Point(100, 200), rotation_degrees=45)
+
+        self.assertIs(rect.position, hitbox_position)
+        self.assertEqual(rect.degrees, 0)
 
     def test_rect_rotate(self):
         rect = self.init_rect()

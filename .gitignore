@@ -1,7 +1,9 @@
 *.pyc
 __pycache__/
 .pytest_cache/
+.precommit-cache/
 .ruff_cache/
+.uv-cache/
 myenv/
 .coverage
 /node_modules/
