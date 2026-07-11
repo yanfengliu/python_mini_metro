@@ -11,11 +11,48 @@ from rl.evaluation import EpisodeMetrics, evaluate_vector_policy
 
 class FakeModel:
     def __init__(self) -> None:
-        self.calls: list[tuple[object, bool]] = []
+        self.calls: list[tuple[object, object, list[bool], bool]] = []
 
-    def predict(self, observation, *, deterministic):
-        self.calls.append((observation, deterministic))
+    def predict(
+        self,
+        observation,
+        *,
+        state,
+        episode_start,
+        deterministic,
+    ):
+        self.calls.append(
+            (
+                observation,
+                state,
+                [bool(value) for value in episode_start],
+                deterministic,
+            )
+        )
         return "action", None
+
+
+class FakeRecurrentModel:
+    def __init__(self) -> None:
+        self.calls: list[tuple[object, object, list[bool], bool]] = []
+
+    def predict(
+        self,
+        observation,
+        *,
+        state,
+        episode_start,
+        deterministic,
+    ):
+        self.calls.append(
+            (
+                observation,
+                state,
+                [bool(value) for value in episode_start],
+                deterministic,
+            )
+        )
+        return "action", f"state-{len(self.calls)}"
 
 
 class FakeVectorEnv:
@@ -43,7 +80,7 @@ class FakeVectorEnv:
 
 
 class TestEvaluateVectorPolicy(unittest.TestCase):
-    def test_reports_reward_length_and_terminal_game_metrics(self) -> None:
+    def test_feedforward_policy_reports_terminal_game_metrics(self) -> None:
         model = FakeModel()
         env = FakeVectorEnv()
 
@@ -58,7 +95,29 @@ class TestEvaluateVectorPolicy(unittest.TestCase):
         )
         self.assertEqual(metrics[0].to_dict()["deliveries"], 3)
         self.assertEqual(len(model.calls), 4)
-        self.assertTrue(all(deterministic for _, deterministic in model.calls))
+        self.assertTrue(all(state is None for _, state, _, _ in model.calls))
+        self.assertEqual(
+            [episode_start for _, _, episode_start, _ in model.calls],
+            [[True], [False], [True], [False]],
+        )
+        self.assertTrue(all(deterministic for _, _, _, deterministic in model.calls))
+
+    def test_recurrent_policy_threads_state_and_marks_episode_boundaries(self) -> None:
+        model = FakeRecurrentModel()
+        env = FakeVectorEnv()
+
+        metrics = evaluate_vector_policy(model, env, episodes=2)
+
+        self.assertEqual(len(metrics), 2)
+        self.assertEqual(
+            [state for _, state, _, _ in model.calls],
+            [None, "state-1", "state-2", "state-3"],
+        )
+        self.assertEqual(
+            [episode_start for _, _, episode_start, _ in model.calls],
+            [[True], [False], [True], [False]],
+        )
+        self.assertTrue(all(deterministic for _, _, _, deterministic in model.calls))
 
     def test_validates_episode_count_and_single_environment(self) -> None:
         for episodes in (0, -1, True, 1.5):

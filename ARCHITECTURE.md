@@ -5,6 +5,7 @@ python_mini_metro/
 |- .vscode/
 |  \- settings.json
 |- docs/
+|  |- rl-model-selection.md
 |  \- threads/
 |     |- README.md
 |     |- current/
@@ -85,11 +86,13 @@ python_mini_metro/
 |  |- rl/
 |  |  |- __init__.py
 |  |  |- artifacts.py
+|  |  |- dependencies.py
 |  |  |- demonstrator.py
 |  |  |- evaluation.py
 |  |  |- manifest.py
 |  |  |- model.py
 |  |  |- player_env.py
+|  |  |- policy.py
 |  |  |- privileged_oracle.py
 |  |  |- provenance.py
 |  |  |- protocol.py
@@ -128,6 +131,7 @@ python_mini_metro/
 |  |- test_rl_cli.py
 |  |- test_rl_demonstrator.py
 |  |- test_rl_evaluation.py
+|  |- test_rl_legacy_compat.py
 |  |- test_rl_manifest.py
 |  |- test_rl_protocol.py
 |  |- test_rl_training.py
@@ -161,7 +165,7 @@ python_mini_metro/
 - `Mediator.prepare_layout(width, height)` prepares all player hitboxes before input. Rendering consumes those prepared rectangles; drawing primitives never establish or move hitboxes.
 - `src/rl/protocol.py` is the dependency-free, fingerprinted player contract: registered pixel profiles, low-level `MultiDiscrete` action semantics, exact coordinate mapping, cursor pixels, reward modes, fixed ticks, and episode horizon. `src/rl/player_env.py` implements that contract with Gymnasium over the same `GameSession`, player event converter, and `GameRenderer` as the window.
 - `PlayerPixelEnv` exposes live game state only as pixels. Terminal episode metrics are emitted after the final action; `src/rl/privileged_oracle.py` is an explicitly separate validation/curriculum surface and must not be passed to a learning policy. `src/rl/demonstrator.py` uses that oracle only to generate deterministic low-level player actions for a positive-delivery integration case.
-- `src/rl/training.py` owns spawn-safe vector environments, four-frame stacking, PPO defaults, environment/trainer source hashing (including both dependency lockfiles), and checkpoint callbacks; `src/rl/model.py` provides a bounded adaptive-pooling CNN. `scripts/train_rl.py` and `scripts/evaluate_rl.py` are guarded Windows-safe entry points. Core installs include Gymnasium; `requirements-rl.txt` adds Stable-Baselines3, PyTorch transitively, and TensorBoard, while the universal hashed locks resolve platform-specific wheels reproducibly.
+- `src/rl/dependencies.py` owns lazy imports for the optional RL stack. `src/rl/policy.py` owns recurrent/feed-forward hyperparameter contracts plus model construction and loading; fresh runs use SB3-Contrib RecurrentPPO, recurrent minibatches of 64, `src/rl/model.py`'s bounded adaptive-pooling `MiniMetroCNN`, and separate one-layer, 256-unit actor and critic LSTMs, while feed-forward Stable-Baselines3 PPO remains an explicit ablation. `src/rl/training.py` owns spawn-safe vector environments, the eight-frame default stack, environment/trainer source hashing (including both dependency lockfiles), and checkpoint callbacks while retaining the former public training imports as compatibility re-exports. `src/rl/evaluation.py` carries recurrent state across decisions and resets it at episode boundaries. `scripts/train_rl.py` and `scripts/evaluate_rl.py` are guarded Windows-safe entry points; manifests bind algorithm and stack settings across resume/evaluation, and evaluation separates final game-over totals from right-censored horizon totals. Core installs include Gymnasium; `requirements-rl.txt` adds Stable-Baselines3, SB3-Contrib, PyTorch transitively, and TensorBoard, while the universal hashed locks resolve platform-specific wheels reproducibly.
 - `src/rl/artifacts.py` atomically writes versioned artifact indexes, hashes and parses one exact authenticated index snapshot, and captures one exact model byte sequence for SB3 rather than reopening the verified path. Training writes a zero-step recovery model/manifest before learning, refreshes provenance after periodic checkpoints, and uses unique index files so interruption cannot invalidate the previous recovery pair.
 - `src/rl/provenance.py` captures immutable runtime package/Python metadata, including Shapely and shortuuid because they affect player transitions and identity-bearing state, plus Git revision/dirty paths. `src/rl/manifest.py` records those snapshots with protocol/task/content/trainer fingerprints, parent run digests, hyperparameters, and artifact-index authentication. Evaluation reconstructs the manifest-declared task, defaults to the saved evaluation seed, and refuses silent protocol, task, content, trainer, runtime, or model-byte drift; every override is explicit and tagged.
 - `src/recursive_playtest.py` validates a versioned scenario or recorded input document, executes every ordered operation, and writes strict JSON inputs, transcript rows, authored findings, and the run result.

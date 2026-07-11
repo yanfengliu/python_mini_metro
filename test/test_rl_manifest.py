@@ -110,8 +110,10 @@ class TestTrainingManifest(unittest.TestCase):
     def test_runtime_contract_tracks_gameplay_geometry_and_ids(self):
         self.assertIn("shapely", DEFAULT_PACKAGE_NAMES)
         self.assertIn("shortuuid", DEFAULT_PACKAGE_NAMES)
+        self.assertIn("sb3-contrib", DEFAULT_PACKAGE_NAMES)
         self.assertIn("shapely", COMPATIBILITY_PACKAGE_NAMES)
         self.assertIn("shortuuid", COMPATIBILITY_PACKAGE_NAMES)
+        self.assertIn("sb3-contrib", COMPATIBILITY_PACKAGE_NAMES)
 
         saved = RuntimeSnapshot(
             "3.13.10",
@@ -129,6 +131,23 @@ class TestTrainingManifest(unittest.TestCase):
                 "shapely saved='2.1.1' current='2.1.2'",
                 "shortuuid saved='1.0.12' current='1.0.13'",
             ),
+        )
+
+    def test_runtime_contract_detects_recurrent_policy_dependency_drift(self):
+        saved = RuntimeSnapshot(
+            "3.13.10",
+            "Windows-test",
+            {"sb3-contrib": "2.7.0"},
+        )
+        current = RuntimeSnapshot(
+            "3.13.10",
+            "Windows-test",
+            {"sb3-contrib": "2.8.0"},
+        )
+
+        self.assertEqual(
+            runtime_compatibility_differences(saved, current),
+            ("sb3-contrib saved='2.7.0' current='2.8.0'",),
         )
 
     def test_source_collection_records_revision_and_sorted_dirty_paths(self):

@@ -1,4 +1,4 @@
-"""Train a player-equivalent pixel policy with Stable-Baselines3 PPO."""
+"""Train a player-equivalent pixel policy with Stable-Baselines3."""
 
 from __future__ import annotations
 
@@ -20,6 +20,7 @@ from rl.artifacts import (  # noqa: E402
     write_artifact_index,
 )
 from rl.manifest import (  # noqa: E402
+    TrainingManifest,
     collect_runtime_snapshot,
     collect_source_snapshot,
     create_training_manifest,
@@ -38,14 +39,16 @@ from rl.protocol import (  # noqa: E402
     protocol_fingerprint,
 )
 from rl.training import (  # noqa: E402
+    DEFAULT_ALGORITHM,
     DEFAULT_FRAME_STACK,
+    SUPPORTED_ALGORITHMS,
     build_training_callbacks,
     build_vector_env,
     compute_content_fingerprint,
     compute_training_fingerprint,
-    load_ppo_model,
-    make_ppo,
-    ppo_manifest_hyperparameters,
+    load_model,
+    make_model,
+    model_manifest_hyperparameters,
     require_rl_dependencies,
     resolve_render_profile,
     task_spec_from_manifest,
@@ -68,7 +71,7 @@ def _non_negative_int(value: str) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Train PPO from the same pixels and controls used by a player."
+        description="Train a policy from the same pixels and controls used by a player."
     )
     parser.add_argument("--total-timesteps", type=_positive_int, default=1_000_000)
     parser.add_argument("--seed", type=_non_negative_int, default=42)
@@ -79,6 +82,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--n-envs", type=_positive_int, default=8)
     parser.add_argument("--device", default="auto")
+    parser.add_argument("--algorithm", choices=SUPPORTED_ALGORITHMS)
     parser.add_argument(
         "--render-profile",
         choices=[profile.name for profile in RENDER_PROFILES],
@@ -92,9 +96,7 @@ def build_parser() -> argparse.ArgumentParser:
         choices=[mode.value for mode in RewardMode],
         default=RewardMode.DELIVERIES.value,
     )
-    parser.add_argument(
-        "--frame-stack", type=_positive_int, default=DEFAULT_FRAME_STACK
-    )
+    parser.add_argument("--frame-stack", type=_positive_int)
     parser.add_argument(
         "--max-episode-steps",
         type=_positive_int,
@@ -104,7 +106,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--eval-every", type=_positive_int, default=100_000)
     parser.add_argument("--eval-episodes", type=_positive_int, default=5)
     parser.add_argument("--run-dir", type=Path)
-    parser.add_argument("--resume", type=Path, help="PPO zip to continue training")
+    parser.add_argument("--resume", type=Path, help="model zip to continue training")
     parser.add_argument(
         "--resume-manifest",
         type=Path,
@@ -128,9 +130,47 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _default_run_dir(seed: int) -> Path:
+def _default_run_dir(seed: int, algorithm: str) -> Path:
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
-    return REPO_ROOT / "output" / "rl" / f"ppo-{timestamp}-seed-{seed}"
+    return REPO_ROOT / "output" / "rl" / f"{algorithm}-{timestamp}-seed-{seed}"
+
+
+def _resolve_algorithm_and_frame_stack(
+    *,
+    requested_algorithm: str | None,
+    requested_frame_stack: int | None,
+    resume_manifest: TrainingManifest | None,
+) -> tuple[str, int]:
+    """Resolve fresh defaults or require resume settings to match the artifact."""
+
+    if resume_manifest is None:
+        algorithm = requested_algorithm or DEFAULT_ALGORITHM
+        if algorithm not in SUPPORTED_ALGORITHMS:
+            raise ValueError(f"unsupported algorithm: {algorithm!r}")
+        frame_stack = (
+            requested_frame_stack
+            if requested_frame_stack is not None
+            else DEFAULT_FRAME_STACK
+        )
+        return algorithm, frame_stack
+
+    saved_algorithm = resume_manifest.algorithm
+    if saved_algorithm not in SUPPORTED_ALGORITHMS:
+        raise ValueError(
+            f"unsupported algorithm in resume manifest: {saved_algorithm!r}"
+        )
+    if requested_algorithm is not None and requested_algorithm != saved_algorithm:
+        raise ValueError(
+            "resume algorithm mismatch: "
+            f"saved={saved_algorithm}, requested={requested_algorithm}"
+        )
+    saved_frame_stack = resume_manifest.frame_stack
+    if requested_frame_stack is not None and requested_frame_stack != saved_frame_stack:
+        raise ValueError(
+            "resume frame stack mismatch: "
+            f"saved={saved_frame_stack}, requested={requested_frame_stack}"
+        )
+    return saved_algorithm, saved_frame_stack
 
 
 def _resume_manifest_path(model_path: Path, explicit: Path | None) -> Path:
@@ -148,7 +188,6 @@ def _resume_manifest_path(model_path: Path, explicit: Path | None) -> Path:
 
 def run(args: argparse.Namespace) -> Path:
     require_rl_dependencies()
-    run_dir = (args.run_dir or _default_run_dir(args.seed)).resolve()
     eval_seed = args.eval_seed if args.eval_seed is not None else args.seed + 10_000
     spec = TaskSpec(
         resolve_render_profile(args.render_profile),
@@ -166,7 +205,6 @@ def run(args: argparse.Namespace) -> Path:
     parent_manifest_sha256 = None
     parent_model_sha256 = None
     tags: tuple[str, ...] = ()
-    hyperparameters = ppo_manifest_hyperparameters(n_envs=args.n_envs)
 
     if args.resume is not None:
         resume_model_path = args.resume.resolve()
@@ -193,16 +231,19 @@ def run(args: argparse.Namespace) -> Path:
         parent_manifest_sha256 = sha256_hex(manifest_payload)
         parent_model_sha256 = str(verified_parent.metadata["sha256"])
         resume_model_content = verified_parent.content
-        if resume_manifest.algorithm != "ppo":
-            raise ValueError("resume manifest algorithm must be 'ppo'")
-        if resume_manifest.frame_stack != args.frame_stack:
-            raise ValueError(
-                "resume frame stack mismatch: "
-                f"saved={resume_manifest.frame_stack}, requested={args.frame_stack}"
-            )
-        hyperparameters = dict(resume_manifest.hyperparameters)
         tags = tuple(sorted({*resume_manifest.tags, "resumed-training"}))
 
+    algorithm, frame_stack = _resolve_algorithm_and_frame_stack(
+        requested_algorithm=args.algorithm,
+        requested_frame_stack=args.frame_stack,
+        resume_manifest=resume_manifest,
+    )
+    hyperparameters = (
+        dict(resume_manifest.hyperparameters)
+        if resume_manifest is not None
+        else model_manifest_hyperparameters(algorithm, n_envs=args.n_envs)
+    )
+    run_dir = (args.run_dir or _default_run_dir(args.seed, algorithm)).resolve()
     run_dir.mkdir(parents=True, exist_ok=False)
     tensorboard_dir = run_dir / "tensorboard"
     tensorboard_dir.mkdir(parents=True, exist_ok=True)
@@ -213,17 +254,18 @@ def run(args: argparse.Namespace) -> Path:
             spec,
             n_envs=args.n_envs,
             seed=args.seed,
-            frame_stack=args.frame_stack,
+            frame_stack=frame_stack,
         )
         eval_env = build_vector_env(
             spec,
             n_envs=1,
             seed=eval_seed,
-            frame_stack=args.frame_stack,
+            frame_stack=frame_stack,
         )
         if args.resume is None:
-            model = make_ppo(
+            model = make_model(
                 train_env,
+                algorithm=algorithm,
                 seed=args.seed,
                 n_envs=args.n_envs,
                 device=args.device,
@@ -234,8 +276,9 @@ def run(args: argparse.Namespace) -> Path:
         else:
             assert resume_model_path is not None
             assert resume_model_content is not None
-            model = load_ppo_model(
+            model = load_model(
                 io.BytesIO(resume_model_content),
+                algorithm=algorithm,
                 env=train_env,
                 seed=args.seed,
                 device=args.device,
@@ -278,13 +321,13 @@ def run(args: argparse.Namespace) -> Path:
                 task_fingerprint=spec.fingerprint(),
                 content_fingerprint=content_fingerprint,
                 training_fingerprint=training_fingerprint,
-                algorithm="ppo",
+                algorithm=algorithm,
                 status=status,
                 render_profile=spec.render_profile.name,
                 fixed_ticks=spec.fixed_ticks,
                 reward_mode=spec.reward_mode.value,
                 max_episode_steps=spec.max_episode_steps,
-                frame_stack=args.frame_stack,
+                frame_stack=frame_stack,
                 seed=args.seed,
                 n_envs=args.n_envs,
                 timesteps=int(model.num_timesteps),
@@ -308,12 +351,14 @@ def run(args: argparse.Namespace) -> Path:
             checkpoint_every=args.checkpoint_every,
             eval_every=args.eval_every,
             eval_episodes=args.eval_episodes,
+            algorithm=algorithm,
             after_checkpoint=lambda _timesteps: persist_manifest("running"),
         )
+        checkpoint_prefix = f"mini_metro_{algorithm}"
         recovery_model = (
             run_dir
             / "checkpoints"
-            / f"mini_metro_ppo_{int(model.num_timesteps)}_steps.zip"
+            / f"{checkpoint_prefix}_{int(model.num_timesteps)}_steps.zip"
         )
         model.save(recovery_model)
         manifest_path = persist_manifest("running")
@@ -321,7 +366,7 @@ def run(args: argparse.Namespace) -> Path:
             total_timesteps=args.total_timesteps,
             callback=callbacks,
             reset_num_timesteps=reset_num_timesteps,
-            tb_log_name="PPO",
+            tb_log_name=algorithm,
         )
         final_model = run_dir / "final_model.zip"
         model.save(final_model)

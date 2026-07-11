@@ -66,7 +66,7 @@ jobs:
 
   rl-smoke:
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
 
     steps:
       - name: Checkout python_mini_metro
@@ -84,21 +84,50 @@ jobs:
           python -m pip install -r requirements-rl-locked.txt
 
       - name: Run RL contract and library smoke tests
-        run: python -m unittest -v test.test_player_env test.test_rl_demonstrator test.test_rl_artifacts test.test_rl_cli test.test_rl_evaluation test.test_rl_manifest test.test_rl_protocol test.test_rl_training
+        run: python -m unittest -v test.test_player_env test.test_rl_demonstrator test.test_rl_artifacts test.test_rl_cli test.test_rl_evaluation test.test_rl_legacy_compat test.test_rl_manifest test.test_rl_protocol test.test_rl_training
 
-      - name: Run fresh, resumed, and authenticated PPO smoke
+      - name: Run default recurrent PPO and legacy PPO smoke
         run: |
           python scripts/train_rl.py --total-timesteps 256 --n-envs 2 --max-episode-steps 4 --checkpoint-every 128 --eval-every 128 --eval-episodes 1 --device cpu --run-dir output/rl/ci-smoke
           python scripts/evaluate_rl.py output/rl/ci-smoke/final_model.zip --episodes 1 --device cpu --output output/rl/ci-smoke/evaluation-ci.json
           python scripts/train_rl.py --resume output/rl/ci-smoke/final_model.zip --run-dir output/rl/ci-resumed --total-timesteps 128 --seed 77 --n-envs 2 --max-episode-steps 4 --checkpoint-every 128 --eval-every 128 --eval-episodes 1 --device cpu
           python scripts/evaluate_rl.py output/rl/ci-resumed/final_model.zip --episodes 1 --device cpu --output output/rl/ci-resumed/evaluation-ci.json
 
-          $freshEvaluation = Get-Content -Raw output/rl/ci-smoke/evaluation-ci.json | ConvertFrom-Json
-          if ($freshEvaluation.seed -ne 10042 -or $freshEvaluation.episodeMetrics[0].seed -ne 10042) { throw "fresh evaluation seed mismatch" }
+          python scripts/train_rl.py --algorithm ppo --frame-stack 4 --total-timesteps 128 --seed 123 --n-envs 1 --max-episode-steps 4 --checkpoint-every 128 --eval-every 128 --eval-episodes 1 --device cpu --run-dir output/rl/ci-legacy-ppo
+          python scripts/evaluate_rl.py output/rl/ci-legacy-ppo/final_model.zip --episodes 1 --device cpu --output output/rl/ci-legacy-ppo/evaluation-ci.json
+          python scripts/train_rl.py --resume output/rl/ci-legacy-ppo/final_model.zip --run-dir output/rl/ci-legacy-ppo-resumed --total-timesteps 128 --seed 88 --n-envs 1 --max-episode-steps 4 --checkpoint-every 128 --eval-every 128 --eval-episodes 1 --device cpu
+          python scripts/evaluate_rl.py output/rl/ci-legacy-ppo-resumed/final_model.zip --episodes 1 --device cpu --output output/rl/ci-legacy-ppo-resumed/evaluation-ci.json
 
+          $freshManifest = Get-Content -Raw output/rl/ci-smoke/training-manifest.json | ConvertFrom-Json
+          $freshEvaluation = Get-Content -Raw output/rl/ci-smoke/evaluation-ci.json | ConvertFrom-Json
           $resumedManifest = Get-Content -Raw output/rl/ci-resumed/training-manifest.json | ConvertFrom-Json
           $resumedEvaluation = Get-Content -Raw output/rl/ci-resumed/evaluation-ci.json | ConvertFrom-Json
+          foreach ($manifest in @($freshManifest, $resumedManifest)) {
+            if ($manifest.algorithm -ne "recurrent_ppo" -or $manifest.frameStack -ne 8) { throw "default recurrent algorithm or frame stack mismatch" }
+            if ($manifest.hyperparameters.policy -ne "CnnLstmPolicy" -or $manifest.hyperparameters.lstm_hidden_size -ne 256 -or $manifest.hyperparameters.n_lstm_layers -ne 1 -or $manifest.hyperparameters.batch_size -ne 64) { throw "default recurrent policy, LSTM shape, or batch size mismatch" }
+            if ($manifest.hyperparameters.gamma -ne 1.0 -or $manifest.hyperparameters.gae_lambda -ne 0.99) { throw "default recurrent return estimator mismatch" }
+          }
+          foreach ($evaluation in @($freshEvaluation, $resumedEvaluation)) {
+            if ($evaluation.algorithm -ne "recurrent_ppo" -or $evaluation.primaryMetric -ne "meanDeliveries") { throw "default recurrent evaluation contract mismatch" }
+            if ($evaluation.horizonTruncatedEpisodes -ne 1 -or $evaluation.gameOverEpisodes -ne 0 -or $evaluation.primaryMetricCensored -ne $true -or $evaluation.primaryMetricComplete -ne $false -or $evaluation.terminationMetadataComplete -ne $true) { throw "default recurrent censoring summary mismatch" }
+          }
+          if ($freshManifest.seed -ne 42 -or $freshEvaluation.seed -ne 10042 -or $freshEvaluation.episodeMetrics[0].seed -ne 10042) { throw "fresh recurrent seed mismatch" }
           if ($resumedManifest.status -ne "complete") { throw "resumed manifest is not complete" }
           if ($resumedManifest.tags -notcontains "resumed-training") { throw "resumed-training tag is missing" }
           if ([string]::IsNullOrWhiteSpace($resumedManifest.parentManifestSha256) -or [string]::IsNullOrWhiteSpace($resumedManifest.parentModelSha256)) { throw "resumed parent digests are missing" }
-          if ($resumedManifest.seed -ne 77 -or $resumedEvaluation.seed -ne 10077 -or $resumedEvaluation.episodeMetrics[0].seed -ne 10077) { throw "resumed seed mismatch" }
+          if ($resumedManifest.seed -ne 77 -or $resumedEvaluation.seed -ne 10077 -or $resumedEvaluation.episodeMetrics[0].seed -ne 10077) { throw "resumed recurrent seed mismatch" }
+
+          $legacyManifest = Get-Content -Raw output/rl/ci-legacy-ppo/training-manifest.json | ConvertFrom-Json
+          $legacyEvaluation = Get-Content -Raw output/rl/ci-legacy-ppo/evaluation-ci.json | ConvertFrom-Json
+          $legacyResumedManifest = Get-Content -Raw output/rl/ci-legacy-ppo-resumed/training-manifest.json | ConvertFrom-Json
+          $legacyResumedEvaluation = Get-Content -Raw output/rl/ci-legacy-ppo-resumed/evaluation-ci.json | ConvertFrom-Json
+          foreach ($manifest in @($legacyManifest, $legacyResumedManifest)) {
+            if ($manifest.algorithm -ne "ppo" -or $manifest.frameStack -ne 4 -or $manifest.hyperparameters.policy -ne "CnnPolicy") { throw "legacy PPO algorithm, frame stack, or policy mismatch" }
+          }
+          foreach ($evaluation in @($legacyEvaluation, $legacyResumedEvaluation)) {
+            if ($evaluation.algorithm -ne "ppo" -or $evaluation.primaryMetric -ne "meanDeliveries") { throw "legacy PPO evaluation contract mismatch" }
+            if ($evaluation.horizonTruncatedEpisodes -ne 1 -or $evaluation.gameOverEpisodes -ne 0 -or $evaluation.primaryMetricCensored -ne $true -or $evaluation.primaryMetricComplete -ne $false -or $evaluation.terminationMetadataComplete -ne $true) { throw "legacy PPO censoring summary mismatch" }
+          }
+          if ($legacyManifest.seed -ne 123 -or $legacyEvaluation.seed -ne 10123 -or $legacyEvaluation.episodeMetrics[0].seed -ne 10123) { throw "fresh legacy PPO seed mismatch" }
+          if ($legacyResumedManifest.status -ne "complete" -or $legacyResumedManifest.tags -notcontains "resumed-training") { throw "legacy PPO resume contract mismatch" }
+          if ($legacyResumedManifest.seed -ne 88 -or $legacyResumedEvaluation.seed -ne 10088 -or $legacyResumedEvaluation.episodeMetrics[0].seed -ne 10088) { throw "resumed legacy PPO seed mismatch" }

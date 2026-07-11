@@ -1,28 +1,74 @@
-"""Stable-Baselines3 orchestration without making RL packages core imports."""
+"""Vector environments, callbacks, task reconstruction, and fingerprints."""
 
 from __future__ import annotations
 
 import hashlib
-import importlib
 import json
-import math
-from collections.abc import Mapping
+from collections.abc import Callable
 from dataclasses import dataclass
-from functools import lru_cache
 from pathlib import Path
-from types import MappingProxyType, SimpleNamespace
-from typing import Any, Callable
+from typing import Any
 
 from rl.artifacts import sha256_file
+from rl.dependencies import require_rl_dependencies as require_rl_dependencies
 from rl.manifest import ManifestCompatibilityError, TrainingManifest
+from rl.policy import (
+    DEFAULT_ALGORITHM,
+    DEFAULT_FEATURES_DIM,
+    DEFAULT_FRAME_STACK,
+    DEFAULT_LSTM_HIDDEN_SIZE,
+    DEFAULT_N_LSTM_LAYERS,
+    DEFAULT_RECURRENT_BATCH_SIZE,
+    PPO_DEFAULTS,
+    RECURRENT_PPO_DEFAULTS,
+    SUPPORTED_ALGORITHMS,
+    LinearSchedule,
+    _positive_int,
+    _require_supported_algorithm,
+    adjusted_batch_size,
+    load_model,
+    load_ppo_model,
+    make_model,
+    make_ppo,
+    model_manifest_hyperparameters,
+    ppo_manifest_hyperparameters,
+)
 from rl.protocol import (
     TaskSpec,
     protocol_fingerprint,
     resolve_render_profile,
 )
 
-DEFAULT_FRAME_STACK = 4
-DEFAULT_FEATURES_DIM = 256
+__all__ = (
+    "DEFAULT_ALGORITHM",
+    "DEFAULT_FEATURES_DIM",
+    "DEFAULT_FRAME_STACK",
+    "DEFAULT_LSTM_HIDDEN_SIZE",
+    "DEFAULT_N_LSTM_LAYERS",
+    "DEFAULT_RECURRENT_BATCH_SIZE",
+    "PPO_DEFAULTS",
+    "RECURRENT_PPO_DEFAULTS",
+    "SUPPORTED_ALGORITHMS",
+    "LinearSchedule",
+    "PlayerEnvThunk",
+    "adjusted_batch_size",
+    "build_training_callbacks",
+    "build_vector_env",
+    "callback_frequency",
+    "compute_content_fingerprint",
+    "compute_training_fingerprint",
+    "load_model",
+    "load_ppo_model",
+    "make_env_thunks",
+    "make_model",
+    "make_ppo",
+    "model_manifest_hyperparameters",
+    "ppo_manifest_hyperparameters",
+    "require_rl_dependencies",
+    "select_base_vec_env_class",
+    "task_spec_from_manifest",
+)
+
 TRAINING_SOURCE_PATHS = (
     "environment.yml",
     "requirements-locked.txt",
@@ -32,53 +78,14 @@ TRAINING_SOURCE_PATHS = (
     "scripts/evaluate_rl.py",
     "scripts/train_rl.py",
     "src/rl/artifacts.py",
+    "src/rl/dependencies.py",
     "src/rl/evaluation.py",
     "src/rl/manifest.py",
     "src/rl/model.py",
+    "src/rl/policy.py",
     "src/rl/provenance.py",
     "src/rl/training.py",
 )
-PPO_DEFAULTS: Mapping[str, int | float] = MappingProxyType(
-    {
-        "n_steps": 128,
-        "n_epochs": 4,
-        "learning_rate": 2.5e-4,
-        "gamma": 0.999,
-        "gae_lambda": 0.95,
-        "clip_range": 0.1,
-        "ent_coef": 0.01,
-        "vf_coef": 0.5,
-        "max_grad_norm": 0.5,
-    }
-)
-
-
-@lru_cache(maxsize=1)
-def require_rl_dependencies() -> SimpleNamespace:
-    """Import the optional training stack or raise one actionable error."""
-
-    module_names = {
-        "gymnasium": "gymnasium",
-        "stable_baselines3": "stable_baselines3",
-        "callbacks": "stable_baselines3.common.callbacks",
-        "evaluation": "stable_baselines3.common.evaluation",
-        "vec_env": "stable_baselines3.common.vec_env",
-        "torch": "torch",
-    }
-    modules: dict[str, Any] = {}
-    missing: list[str] = []
-    for key, module_name in module_names.items():
-        try:
-            modules[key] = importlib.import_module(module_name)
-        except ImportError:
-            missing.append(module_name)
-    if missing:
-        names = ", ".join(sorted(missing))
-        raise RuntimeError(
-            "RL dependencies are not installed "
-            f"({names}); install requirements-rl-locked.txt or requirements-rl.txt"
-        )
-    return SimpleNamespace(**modules)
 
 
 @dataclass(frozen=True, slots=True)
@@ -171,157 +178,6 @@ def build_vector_env(
         raise
 
 
-def adjusted_batch_size(rollout_size: int, preferred: int = 256) -> int:
-    """Choose the largest useful minibatch divisor near the preferred size."""
-
-    for value, name in ((rollout_size, "rollout_size"), (preferred, "preferred")):
-        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
-            raise ValueError(f"{name} must be a positive integer")
-    if rollout_size < 2:
-        raise ValueError("PPO rollout_size must be at least two")
-    for candidate in range(min(rollout_size, preferred), 1, -1):
-        if rollout_size % candidate == 0:
-            return candidate
-    return rollout_size
-
-
-def _positive_int(value: int, name: str) -> int:
-    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
-        raise ValueError(f"{name} must be a positive integer")
-    return value
-
-
-def _finite_number(value: float, name: str, *, positive: bool = False) -> float:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise TypeError(f"{name} must be numeric")
-    converted = float(value)
-    if not math.isfinite(converted) or (positive and converted <= 0):
-        qualifier = "positive and " if positive else ""
-        raise ValueError(f"{name} must be {qualifier}finite")
-    return converted
-
-
-def ppo_manifest_hyperparameters(
-    *,
-    n_envs: int,
-    n_steps: int = int(PPO_DEFAULTS["n_steps"]),
-    n_epochs: int = int(PPO_DEFAULTS["n_epochs"]),
-    learning_rate: float = float(PPO_DEFAULTS["learning_rate"]),
-    gamma: float = float(PPO_DEFAULTS["gamma"]),
-    gae_lambda: float = float(PPO_DEFAULTS["gae_lambda"]),
-    clip_range: float = float(PPO_DEFAULTS["clip_range"]),
-    ent_coef: float = float(PPO_DEFAULTS["ent_coef"]),
-    vf_coef: float = float(PPO_DEFAULTS["vf_coef"]),
-    max_grad_norm: float = float(PPO_DEFAULTS["max_grad_norm"]),
-    features_dim: int = DEFAULT_FEATURES_DIM,
-) -> dict[str, int | float | str]:
-    n_envs = _positive_int(n_envs, "n_envs")
-    n_steps = _positive_int(n_steps, "n_steps")
-    n_epochs = _positive_int(n_epochs, "n_epochs")
-    features_dim = _positive_int(features_dim, "features_dim")
-    rollout_size = n_envs * n_steps
-    return {
-        "batch_size": adjusted_batch_size(rollout_size),
-        "clip_range": _finite_number(clip_range, "clip_range", positive=True),
-        "ent_coef": _finite_number(ent_coef, "ent_coef"),
-        "features_extractor": "MiniMetroCNN",
-        "features_dim": features_dim,
-        "gae_lambda": _finite_number(gae_lambda, "gae_lambda", positive=True),
-        "gamma": _finite_number(gamma, "gamma", positive=True),
-        "learning_rate": _finite_number(learning_rate, "learning_rate", positive=True),
-        "learning_rate_schedule": "linear",
-        "max_grad_norm": _finite_number(max_grad_norm, "max_grad_norm", positive=True),
-        "n_epochs": n_epochs,
-        "n_steps": n_steps,
-        "policy": "CnnPolicy",
-        "vf_coef": _finite_number(vf_coef, "vf_coef"),
-    }
-
-
-@dataclass(frozen=True, slots=True)
-class LinearSchedule:
-    initial_value: float
-
-    def __call__(self, progress_remaining: float) -> float:
-        return self.initial_value * float(progress_remaining)
-
-
-def make_ppo(
-    env: Any,
-    *,
-    seed: int,
-    n_envs: int,
-    device: str = "auto",
-    tensorboard_log: str | Path | None = None,
-    verbose: int = 0,
-    n_steps: int = int(PPO_DEFAULTS["n_steps"]),
-    n_epochs: int = int(PPO_DEFAULTS["n_epochs"]),
-    learning_rate: float = float(PPO_DEFAULTS["learning_rate"]),
-    gamma: float = float(PPO_DEFAULTS["gamma"]),
-    gae_lambda: float = float(PPO_DEFAULTS["gae_lambda"]),
-    clip_range: float = float(PPO_DEFAULTS["clip_range"]),
-    ent_coef: float = float(PPO_DEFAULTS["ent_coef"]),
-    vf_coef: float = float(PPO_DEFAULTS["vf_coef"]),
-    max_grad_norm: float = float(PPO_DEFAULTS["max_grad_norm"]),
-    features_dim: int = DEFAULT_FEATURES_DIM,
-) -> Any:
-    components = require_rl_dependencies()
-    from rl.model import MiniMetroCNN
-
-    hyperparameters = ppo_manifest_hyperparameters(
-        n_envs=n_envs,
-        n_steps=n_steps,
-        n_epochs=n_epochs,
-        learning_rate=learning_rate,
-        gamma=gamma,
-        gae_lambda=gae_lambda,
-        clip_range=clip_range,
-        ent_coef=ent_coef,
-        vf_coef=vf_coef,
-        max_grad_norm=max_grad_norm,
-        features_dim=features_dim,
-    )
-    return components.stable_baselines3.PPO(
-        "CnnPolicy",
-        env,
-        learning_rate=LinearSchedule(float(hyperparameters["learning_rate"])),
-        n_steps=int(hyperparameters["n_steps"]),
-        batch_size=int(hyperparameters["batch_size"]),
-        n_epochs=int(hyperparameters["n_epochs"]),
-        gamma=float(hyperparameters["gamma"]),
-        gae_lambda=float(hyperparameters["gae_lambda"]),
-        clip_range=float(hyperparameters["clip_range"]),
-        ent_coef=float(hyperparameters["ent_coef"]),
-        vf_coef=float(hyperparameters["vf_coef"]),
-        max_grad_norm=float(hyperparameters["max_grad_norm"]),
-        policy_kwargs={
-            "features_extractor_class": MiniMetroCNN,
-            "features_extractor_kwargs": {
-                "features_dim": int(hyperparameters["features_dim"])
-            },
-        },
-        seed=seed,
-        device=device,
-        tensorboard_log=(str(tensorboard_log) if tensorboard_log else None),
-        verbose=verbose,
-    )
-
-
-def load_ppo_model(
-    source: Any,
-    *,
-    env: Any,
-    seed: int,
-    device: str = "auto",
-) -> Any:
-    return require_rl_dependencies().stable_baselines3.PPO.load(
-        source,
-        env=env,
-        device=device,
-        seed=seed,
-    )
-
-
 def callback_frequency(transitions: int, n_envs: int) -> int:
     transitions = _positive_int(transitions, "transitions")
     n_envs = _positive_int(n_envs, "n_envs")
@@ -337,12 +193,14 @@ def build_training_callbacks(
     checkpoint_every: int,
     eval_every: int,
     eval_episodes: int,
+    algorithm: str = "ppo",
     after_checkpoint: Callable[[int], None] | None = None,
 ) -> Any:
     """Create transition-adjusted checkpoint and deterministic evaluation hooks."""
 
     if isinstance(eval_seed, bool) or not isinstance(eval_seed, int) or eval_seed < 0:
         raise ValueError("eval_seed must be a non-negative integer")
+    algorithm = _require_supported_algorithm(algorithm)
     components = require_rl_dependencies()
     run_path = Path(run_dir)
     checkpoint_path = run_path / "checkpoints"
@@ -353,7 +211,7 @@ def build_training_callbacks(
     checkpoint = components.callbacks.CheckpointCallback(
         save_freq=callback_frequency(checkpoint_every, n_envs),
         save_path=str(checkpoint_path),
-        name_prefix="mini_metro_ppo",
+        name_prefix=f"mini_metro_{algorithm}",
         verbose=1,
     )
 

@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+import numpy as np
+
 
 @dataclass(frozen=True, slots=True)
 class EpisodeMetrics:
@@ -43,12 +45,20 @@ def evaluate_vector_policy(
         raise ValueError("game-metric evaluation requires exactly one environment")
 
     observation = env.reset()
+    state = None
+    episode_starts = np.ones((1,), dtype=bool)
     results: list[EpisodeMetrics] = []
     episode_reward = 0.0
     episode_length = 0
     while len(results) < episodes:
-        action, _ = model.predict(observation, deterministic=deterministic)
+        action, state = model.predict(
+            observation,
+            state=state,
+            episode_start=episode_starts,
+            deterministic=deterministic,
+        )
         observation, rewards, dones, infos = env.step(action)
+        episode_starts = np.asarray(dones, dtype=bool)
         episode_reward += float(rewards[0])
         episode_length += 1
         if not bool(dones[0]):

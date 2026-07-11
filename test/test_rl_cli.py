@@ -11,6 +11,8 @@ from unittest.mock import patch
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
+import rl.training as rl_training
+from rl.evaluation import EpisodeMetrics
 from rl.provenance import RuntimeSnapshot, SourceSnapshot
 
 
@@ -41,6 +43,51 @@ class FakeVectorEnv:
 
 
 class TestTrainingCliLifecycle(unittest.TestCase):
+    def test_algorithm_and_frame_stack_defaults_are_resolved_after_resume_load(
+        self,
+    ) -> None:
+        module = load_train_script()
+
+        self.assertEqual(
+            module._resolve_algorithm_and_frame_stack(
+                requested_algorithm=None,
+                requested_frame_stack=None,
+                resume_manifest=None,
+            ),
+            ("recurrent_ppo", 8),
+        )
+        self.assertEqual(
+            module._resolve_algorithm_and_frame_stack(
+                requested_algorithm=None,
+                requested_frame_stack=None,
+                resume_manifest=SimpleNamespace(algorithm="ppo", frame_stack=4),
+            ),
+            ("ppo", 4),
+        )
+
+    def test_explicit_algorithm_or_frame_stack_cannot_change_a_resumed_model(
+        self,
+    ) -> None:
+        module = load_train_script()
+        resume_manifest = SimpleNamespace(algorithm="ppo", frame_stack=4)
+
+        with self.assertRaisesRegex(ValueError, "algorithm mismatch"):
+            module._resolve_algorithm_and_frame_stack(
+                requested_algorithm="recurrent_ppo",
+                requested_frame_stack=None,
+                resume_manifest=resume_manifest,
+            )
+        with self.assertRaisesRegex(ValueError, "frame stack mismatch"):
+            module._resolve_algorithm_and_frame_stack(
+                requested_algorithm=None,
+                requested_frame_stack=8,
+                resume_manifest=resume_manifest,
+            )
+
+    def test_unknown_algorithm_dispatch_fails_closed(self) -> None:
+        with self.assertRaisesRegex(ValueError, "unsupported algorithm"):
+            rl_training.model_manifest_hyperparameters("unknown", n_envs=1)
+
     def test_partial_vector_construction_closes_started_workers(self) -> None:
         module = load_train_script()
         started = FakeVectorEnv()
@@ -76,6 +123,78 @@ class TestTrainingCliLifecycle(unittest.TestCase):
 
 
 class TestEvaluationCliSafety(unittest.TestCase):
+    def test_objective_metadata_matches_the_saved_reward_contract(self) -> None:
+        module = load_evaluate_script()
+
+        self.assertEqual(
+            module._objective_metadata("deliveries"),
+            (
+                "maximize total passengers delivered before game end",
+                "meanDeliveries",
+            ),
+        )
+        self.assertEqual(
+            module._objective_metadata("display_score_delta"),
+            ("maximize configured episodic reward", "meanReward"),
+        )
+
+    def test_termination_summary_distinguishes_complete_and_censored_deliveries(
+        self,
+    ) -> None:
+        module = load_evaluate_script()
+        metrics = (
+            EpisodeMetrics(10.0, 100, 10, 10, 1, "game_over"),
+            EpisodeMetrics(12.0, 120, 12, 12, 2, "horizon"),
+            EpisodeMetrics(14.0, 120, 14, 14, 3, "horizon"),
+        )
+
+        self.assertEqual(
+            module._summarize_terminations(metrics),
+            {
+                "deliveriesRightCensored": True,
+                "gameOverEpisodes": 1,
+                "gameOverRate": 1 / 3,
+                "horizonTruncatedEpisodes": 2,
+                "horizonTruncationRate": 2 / 3,
+                "meanDeliveriesAmongGameOverEpisodes": 10.0,
+                "otherTerminationEpisodes": 0,
+                "terminationMetadataComplete": True,
+            },
+        )
+
+        complete = module._summarize_terminations(
+            (EpisodeMetrics(7.0, 70, 7, 7, 4, "game_over"),)
+        )
+        self.assertIs(complete["deliveriesRightCensored"], False)
+        self.assertEqual(complete["meanDeliveriesAmongGameOverEpisodes"], 7.0)
+
+        self.assertIn(
+            "partial returns",
+            module._primary_metric_interpretation("meanReward", censored=True),
+        )
+        self.assertIn(
+            "mean final game-over delivery total",
+            module._primary_metric_interpretation(
+                "meanDeliveries",
+                censored=False,
+                termination_metadata_complete=True,
+            ),
+        )
+
+        unknown = module._summarize_terminations(
+            (EpisodeMetrics(3.0, 30, 3, 3, 5, None),)
+        )
+        self.assertEqual(unknown["otherTerminationEpisodes"], 1)
+        self.assertIs(unknown["terminationMetadataComplete"], False)
+        self.assertIn(
+            "indeterminate",
+            module._primary_metric_interpretation(
+                "meanDeliveries",
+                censored=False,
+                termination_metadata_complete=False,
+            ),
+        )
+
     def test_default_seed_comes_from_manifest_and_explicit_seed_wins(self) -> None:
         module = load_evaluate_script()
         manifest = SimpleNamespace(

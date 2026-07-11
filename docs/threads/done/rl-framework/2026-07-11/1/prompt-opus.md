@@ -1,0 +1,11 @@
+You are the final independent Claude reviewer for a high-risk visual-RL architecture, compatibility, and research change in python_mini_metro. Do not modify any file. Read AGENTS.md, ARCHITECTURE.md, README.md, GAME_RULES.md, docs/rl-model-selection.md, docs/threads/current/rl-framework/2026-07-11/1/diff.md, the complete live git diff, every changed test/CI/dependency file, and the new untracked files src/rl/dependencies.py and src/rl/policy.py.
+
+Verify each claim in the plan/diff against the live codebase — grep for the symbols, function signatures, column names, and file paths it references; do not approve based on prompt text alone.
+
+The intended objective is the undiscounted total passengers delivered before true game over. Fresh runs should resolve to eight-frame MiniMetroCNN plus separate 256-unit actor/critic LSTMs in SB3-Contrib RecurrentPPO, carry state only within an episode, bootstrap external time limits, use censoring-aware reports, and preserve authenticated legacy PPO evaluation/resume through explicit drift gates. Recurrent batch 64 is deliberate after live memory profiling; feed-forward PPO's legacy contract should remain unchanged.
+
+Use a compatibility-and-evidence lens while ranging across the whole change. Attempt to falsify state/mask behavior, gamma=1 timeout handling, evaluation semantics, batch/resource claims, pre-recurrent artifact loading, callback naming, re-export/API compatibility, fingerprint completeness, exact-byte authentication, lock/provenance integrity, CI coverage, statistical independence guidance, CNN/LSTM versus ViT/GTrXL/Dreamer recommendations, source citations, file size/architecture, stale docs, process regressions, and validation claims. Recheck every previously fixed finding in diff.md against live code.
+
+Known validation context: exact-lock Python passed 316 tests and current recurrent/legacy fresh-resume-evaluate lifecycles; both hashed locks have zero known CVEs. Live Node tests see unrelated sibling civ-engine drift, while a pinned acceptance layout passed 41/41; no Node source changed.
+
+Return concise findings ordered by severity with exact file/line evidence and a concrete fix. If no substantive issue remains, say APPROVED and state residual limitations. Wrap only the review in ===BEGIN-REVIEW=== and ===END-REVIEW=== markers.

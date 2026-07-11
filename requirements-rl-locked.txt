@@ -494,6 +494,10 @@ pygame-ce==2.5.7 \
     --hash=sha256:f5a7197096ef82d588539f13b0f7ade767f800c7b0b015a94e386f488e1039f6 \
     --hash=sha256:f6439100bdee81da96f5acffb280f20511c93dd67178d8a8cf29d6cfd1aa46dd
     # via -r requirements.txt
+sb3-contrib==2.9.0 \
+    --hash=sha256:6e839c669552ecb3deb616a42ea98ed5e6c599eb5ac5f86232415b87a3873699 \
+    --hash=sha256:b492b2be792f8f8214ff6b984e94812dc877f809ae82302cbe00626442ae316a
+    # via -r requirements-rl.txt
 setuptools==83.0.0 \
     --hash=sha256:025bccbbf0fa05b6192bc64ae1e7b16e001fd6d6d4d5de03c97b1c1ade523bef \
     --hash=sha256:29b23c360f22f414dc7336bb39178cc7bcbf6021ed2733cde173f09dba19abb3
@@ -566,7 +570,9 @@ shortuuid==1.0.13 \
 stable-baselines3==2.9.0 \
     --hash=sha256:92b46c6099a0e8f99163ff09e26729e4d0a68b33dc8598626ca13ade3c0b3a61 \
     --hash=sha256:95f39a473dce081d1abe31acaf7cee446dcf223dcd74093d6ea460bc37e2e748
-    # via -r requirements-rl.txt
+    # via
+    #   -r requirements-rl.txt
+    #   sb3-contrib
 sympy==1.14.0 \
     --hash=sha256:d3d3fe8df1e5a0b42f0e7bdf50541697dbe7d23746e894990c030e2b05e72517 \
     --hash=sha256:e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5

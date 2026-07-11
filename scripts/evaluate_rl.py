@@ -1,4 +1,4 @@
-"""Evaluate a saved player-equivalent PPO run against its strict manifest."""
+"""Evaluate a saved player-equivalent policy against its strict manifest."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from rl.artifacts import (  # noqa: E402
     read_verified_indexed_artifact,
     write_json_atomic,
 )
-from rl.evaluation import evaluate_vector_policy  # noqa: E402
+from rl.evaluation import EpisodeMetrics, evaluate_vector_policy  # noqa: E402
 from rl.manifest import (  # noqa: E402
     RuntimeSnapshot,
     collect_runtime_snapshot,
@@ -32,7 +32,7 @@ from rl.training import (  # noqa: E402
     build_vector_env,
     compute_content_fingerprint,
     compute_training_fingerprint,
-    load_ppo_model,
+    load_model,
     require_rl_dependencies,
     task_spec_from_manifest,
 )
@@ -54,7 +54,7 @@ def _non_negative_int(value: str) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Evaluate a manifest-compatible Mini Metro PPO model."
+        description="Evaluate a manifest-compatible Mini Metro model."
     )
     parser.add_argument("model", type=Path)
     parser.add_argument("--manifest", type=Path)
@@ -97,6 +97,78 @@ def _resolve_evaluation_seed(manifest, explicit_seed: int | None) -> int:
     if isinstance(candidate, bool) or not isinstance(candidate, int) or candidate < 0:
         raise ValueError("manifest eval_seed must be a non-negative integer")
     return candidate
+
+
+def _objective_metadata(reward_mode: str) -> tuple[str, str]:
+    if reward_mode == "deliveries":
+        return (
+            "maximize total passengers delivered before game end",
+            "meanDeliveries",
+        )
+    return "maximize configured episodic reward", "meanReward"
+
+
+def _summarize_terminations(
+    episode_metrics: tuple[EpisodeMetrics, ...],
+) -> dict[str, bool | float | int | None]:
+    """Separate final game-over totals from right-censored horizon totals."""
+
+    if not episode_metrics:
+        raise ValueError("termination summary requires at least one episode")
+    total = len(episode_metrics)
+    game_over = [
+        item for item in episode_metrics if item.termination_reason == "game_over"
+    ]
+    horizon_count = sum(
+        item.termination_reason == "horizon" for item in episode_metrics
+    )
+    other_count = total - len(game_over) - horizon_count
+    return {
+        "deliveriesRightCensored": horizon_count > 0,
+        "gameOverEpisodes": len(game_over),
+        "gameOverRate": len(game_over) / total,
+        "horizonTruncatedEpisodes": horizon_count,
+        "horizonTruncationRate": horizon_count / total,
+        "meanDeliveriesAmongGameOverEpisodes": (
+            statistics.fmean(item.deliveries for item in game_over)
+            if game_over
+            else None
+        ),
+        "otherTerminationEpisodes": other_count,
+        "terminationMetadataComplete": other_count == 0,
+    }
+
+
+def _primary_metric_interpretation(
+    primary_metric: str,
+    *,
+    censored: bool,
+    termination_metadata_complete: bool = True,
+) -> str:
+    if not termination_metadata_complete:
+        return (
+            "termination metadata is missing or unknown for one or more episodes; "
+            "primary-metric completeness and censoring are indeterminate"
+        )
+    if primary_metric == "meanDeliveries":
+        if censored:
+            return (
+                "meanDeliveries is the mean observed delivery count at episode "
+                "boundaries; horizon-truncated rows are right-censored lower bounds, "
+                "so it is not mean final game-over deliveries"
+            )
+        return (
+            "all evaluated episodes reached game over; meanDeliveries is the mean "
+            "final game-over delivery total"
+        )
+    if censored:
+        return (
+            "meanReward includes partial returns from horizon-truncated episodes; "
+            "it is not mean complete-game return"
+        )
+    return (
+        "all evaluated episodes reached game over; meanReward is a complete-game return"
+    )
 
 
 def _validate_output_path(
@@ -160,8 +232,6 @@ def run(args: argparse.Namespace) -> Path:
         expected_runtime=current_runtime,
         allow_runtime_drift=args.allow_runtime_drift,
     )
-    if manifest.algorithm != "ppo":
-        raise ValueError("training manifest algorithm must be 'ppo'")
     verified_model = read_verified_indexed_artifact(
         model_path,
         manifest=manifest,
@@ -184,8 +254,9 @@ def run(args: argparse.Namespace) -> Path:
         frame_stack=manifest.frame_stack,
     )
     try:
-        model = load_ppo_model(
+        model = load_model(
             io.BytesIO(verified_model.content),
+            algorithm=manifest.algorithm,
             env=env,
             seed=evaluation_seed,
             device=args.device,
@@ -206,6 +277,12 @@ def run(args: argparse.Namespace) -> Path:
     lengths = [item.length for item in episode_metrics]
     deliveries = [item.deliveries for item in episode_metrics]
     display_scores = [item.display_score for item in episode_metrics]
+    objective, primary_metric = _objective_metadata(manifest.reward_mode)
+    termination_summary = _summarize_terminations(episode_metrics)
+    primary_metric_censored = bool(termination_summary["horizonTruncatedEpisodes"])
+    primary_metric_complete = bool(
+        termination_summary["gameOverEpisodes"] == len(episode_metrics)
+    )
     result = {
         "schema": "mini-metro-evaluation-v1",
         "algorithm": manifest.algorithm,
@@ -218,6 +295,7 @@ def run(args: argparse.Namespace) -> Path:
         "currentTrainingFingerprint": current_training,
         "currentRuntime": current_runtime.to_dict(),
         "deterministic": True,
+        **termination_summary,
         "episodeLengths": lengths,
         "episodeMetrics": [item.to_dict() for item in episode_metrics],
         "episodeRewards": rewards,
@@ -229,6 +307,17 @@ def run(args: argparse.Namespace) -> Path:
         "meanDisplayScore": statistics.fmean(display_scores),
         "meanReward": statistics.fmean(rewards),
         "model": dict(verified_model.metadata),
+        "objective": objective,
+        "primaryMetric": primary_metric,
+        "primaryMetricCensored": primary_metric_censored,
+        "primaryMetricComplete": primary_metric_complete,
+        "primaryMetricInterpretation": _primary_metric_interpretation(
+            primary_metric,
+            censored=primary_metric_censored,
+            termination_metadata_complete=bool(
+                termination_summary["terminationMetadataComplete"]
+            ),
+        ),
         "protocolFingerprint": manifest.protocol_fingerprint,
         "savedContentFingerprint": manifest.content_fingerprint,
         "runtimeDifferences": list(
