@@ -95,3 +95,4 @@
 ## 2026-07-11
 
 - Researched visual RL architectures and evaluation practice, documented the model-selection rationale, and upgraded fresh training to an eight-frame SB3-Contrib RecurrentPPO policy with separate actor/critic LSTMs, delivery-total-aligned returns, recurrent evaluation state, manifest-bound resume settings, feed-forward PPO/frame-stack ablation controls, a measured lower-memory recurrent batch default, censoring-aware delivery reports, and authenticated pre-recurrent PPO compatibility coverage.
+- Stabilized path-button gameplay tests after Linux CI exposed a global-random station-overlap flake; replacement stations now use each mediator's isolated seeded simulation context.

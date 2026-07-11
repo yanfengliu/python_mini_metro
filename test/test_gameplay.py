@@ -159,7 +159,7 @@ class TestMediator(unittest.TestCase):
         self.assertEqual(self.mediator.game_speed_multiplier, 1)
 
     def test_path_button_removes_path_on_click(self):
-        self.mediator.stations = get_random_stations(5)
+        self.mediator.stations = get_random_stations(5, context=self.mediator.context)
         for station in self.mediator.stations:
             station.draw(self.screen)
         self.connect_stations([0, 1])
@@ -170,7 +170,7 @@ class TestMediator(unittest.TestCase):
         self.assertEqual(len(self.mediator.path_to_button.items()), 0)
 
     def test_path_buttons_get_assigned_upon_path_creation(self):
-        self.mediator.stations = get_random_stations(5)
+        self.mediator.stations = get_random_stations(5, context=self.mediator.context)
         for station in self.mediator.stations:
             station.draw(self.screen)
         self.mediator.purchased_num_paths = self.mediator.num_paths
@@ -189,7 +189,7 @@ class TestMediator(unittest.TestCase):
         self.assertIn(self.mediator.paths[2], self.mediator.path_to_button)
 
     def test_more_paths_can_be_created_after_removing_paths(self):
-        self.mediator.stations = get_random_stations(5)
+        self.mediator.stations = get_random_stations(5, context=self.mediator.context)
         for station in self.mediator.stations:
             station.draw(self.screen)
         self.mediator.purchased_num_paths = self.mediator.num_paths
@@ -205,7 +205,7 @@ class TestMediator(unittest.TestCase):
         self.assertEqual(len(self.mediator.paths), 3)
 
     def test_assigned_path_buttons_bubble_to_left(self):
-        self.mediator.stations = get_random_stations(5)
+        self.mediator.stations = get_random_stations(5, context=self.mediator.context)
         for station in self.mediator.stations:
             station.draw(self.screen)
         self.mediator.purchased_num_paths = self.mediator.num_paths
