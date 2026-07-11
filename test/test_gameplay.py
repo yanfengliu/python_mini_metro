@@ -23,7 +23,7 @@ class TestMediator(unittest.TestCase):
         self.screen = create_autospec(pygame.surface.Surface)
         self.position = get_random_position(self.width, self.height)
         self.color = get_random_color()
-        self.mediator = Mediator()
+        self.mediator = Mediator(seed=0)
         original_draw = pygame.draw
         self.addCleanup(setattr, pygame, "draw", original_draw)
         pygame.draw = MagicMock()
