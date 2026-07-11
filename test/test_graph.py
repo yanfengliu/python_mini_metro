@@ -18,16 +18,16 @@ from geometry.rect import Rect
 from graph.graph_algo import bfs, build_station_nodes_dict
 from graph.node import Node
 from mediator import Mediator
-from utils import get_random_color, get_random_position
+from simulation_context import SimulationContext
+from utils import get_random_position
 
 
 class TestGraph(unittest.TestCase):
     def setUp(self):
         self.width, self.height = screen_width, screen_height
         self.screen = pygame.Surface((self.width, self.height))
-        self.position = get_random_position(self.width, self.height)
-        self.color = get_random_color()
-        self.mediator = Mediator()
+        self.context = SimulationContext(0)
+        self.mediator = Mediator(seed=0)
         for station in self.mediator.stations:
             station.draw(self.screen)
 
@@ -59,14 +59,14 @@ class TestGraph(unittest.TestCase):
                     width=2 * station_size,
                     height=2 * station_size,
                 ),
-                get_random_position(self.width, self.height),
+                get_random_position(self.width, self.height, context=self.context),
             ),
             Station(
                 Circle(
                     color=station_color,
                     radius=station_size,
                 ),
-                get_random_position(self.width, self.height),
+                get_random_position(self.width, self.height, context=self.context),
             ),
         ]
         for station in self.mediator.stations:
@@ -82,7 +82,7 @@ class TestGraph(unittest.TestCase):
             self.assertEqual(node.station, station)
 
     def test_bfs_two_stations(self):
-        self.mediator.stations = get_random_stations(2)
+        self.mediator.stations = get_random_stations(2, context=self.context)
         for station in self.mediator.stations:
             station.draw(self.screen)
 
@@ -102,7 +102,7 @@ class TestGraph(unittest.TestCase):
         )
 
     def test_bfs_five_stations(self):
-        self.mediator.stations = get_random_stations(5)
+        self.mediator.stations = get_random_stations(5, context=self.context)
         for station in self.mediator.stations:
             station.draw(self.screen)
 
