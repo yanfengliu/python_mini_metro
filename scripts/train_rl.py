@@ -19,6 +19,7 @@ from rl.artifacts import (  # noqa: E402
     sha256_file,
     write_artifact_index,
 )
+from rl.history import contiguous_history  # noqa: E402
 from rl.manifest import (  # noqa: E402
     TrainingManifest,
     collect_runtime_snapshot,
@@ -49,6 +50,7 @@ from rl.training import (  # noqa: E402
     load_model,
     make_model,
     model_manifest_hyperparameters,
+    require_contiguous_frame_stack_history,
     require_rl_dependencies,
     resolve_render_profile,
     task_spec_from_manifest,
@@ -214,6 +216,11 @@ def run(args: argparse.Namespace) -> Path:
             read_training_manifest_bytes(manifest_payload),
             expected_protocol_fingerprint=protocol_fingerprint(),
             expected_task_fingerprint=spec.fingerprint(),
+            expected_history_fingerprint=(
+                contiguous_history(args.frame_stack).fingerprint()
+                if args.frame_stack is not None
+                else None
+            ),
             expected_content_fingerprint=content_fingerprint,
             allow_content_drift=args.allow_content_drift,
             expected_training_fingerprint=training_fingerprint,
@@ -223,6 +230,7 @@ def run(args: argparse.Namespace) -> Path:
         )
         if task_spec_from_manifest(resume_manifest) != spec:
             raise ValueError("resume manifest task fields do not match requested task")
+        require_contiguous_frame_stack_history(resume_manifest)
         verified_parent = read_verified_indexed_artifact(
             resume_model_path,
             manifest=resume_manifest,
@@ -327,7 +335,7 @@ def run(args: argparse.Namespace) -> Path:
                 fixed_ticks=spec.fixed_ticks,
                 reward_mode=spec.reward_mode.value,
                 max_episode_steps=spec.max_episode_steps,
-                frame_stack=frame_stack,
+                history=contiguous_history(frame_stack),
                 seed=args.seed,
                 n_envs=args.n_envs,
                 timesteps=int(model.num_timesteps),

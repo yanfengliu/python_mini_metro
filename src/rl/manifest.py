@@ -1,18 +1,23 @@
-"""Immutable, dependency-light provenance for RL training artifacts."""
+"""Atomic provenance persistence and compatibility for RL artifacts."""
 
 from __future__ import annotations
 
 import hashlib
 import json
-import math
 import os
 import tempfile
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from pathlib import Path
-from types import MappingProxyType
-from typing import Any, TypeAlias
+from typing import Any
 
+from rl.history import HistoryDescriptor
+from rl.manifest_schema import (
+    SUPPORTED_TRAINING_MANIFEST_SCHEMAS,
+    TRAINING_MANIFEST_SCHEMA,
+    TRAINING_MANIFEST_SCHEMA_V1,
+    TrainingManifest,
+)
 from rl.provenance import (
     DEFAULT_PACKAGE_NAMES,
     RuntimeSnapshot,
@@ -22,262 +27,35 @@ from rl.provenance import (
     runtime_compatibility_differences,
 )
 
-TRAINING_MANIFEST_SCHEMA = "mini-metro-training-manifest-v1"
 CROSS_CONTENT_TAG = "cross-content-evaluation"
 CROSS_RUNTIME_TAG = "cross-runtime-evaluation"
 CROSS_TRAINING_TAG = "cross-training-implementation"
 
-JsonScalar: TypeAlias = None | bool | int | float | str
-FrozenJson: TypeAlias = (
-    JsonScalar | tuple["FrozenJson", ...] | Mapping[str, "FrozenJson"]
+__all__ = (
+    "CROSS_CONTENT_TAG",
+    "CROSS_RUNTIME_TAG",
+    "CROSS_TRAINING_TAG",
+    "ManifestCompatibilityError",
+    "SUPPORTED_TRAINING_MANIFEST_SCHEMAS",
+    "TRAINING_MANIFEST_SCHEMA",
+    "TRAINING_MANIFEST_SCHEMA_V1",
+    "TrainingManifest",
+    "canonical_json_bytes",
+    "collect_runtime_snapshot",
+    "collect_source_snapshot",
+    "create_training_manifest",
+    "load_training_manifest",
+    "read_training_manifest",
+    "read_training_manifest_bytes",
+    "runtime_compatibility_differences",
+    "sha256_hex",
+    "validate_training_manifest",
+    "write_training_manifest",
 )
 
 
 class ManifestCompatibilityError(ValueError):
     """A saved training run cannot be used with the requested environment."""
-
-
-def _require_nonempty(value: object, name: str) -> str:
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"{name} must be a non-empty string")
-    return value
-
-
-def _require_sha256(value: object, name: str) -> str:
-    text = _require_nonempty(value, name)
-    if len(text) != 64 or any(
-        character not in "0123456789abcdef" for character in text
-    ):
-        raise ValueError(f"{name} must be a lowercase SHA-256 hex digest")
-    return text
-
-
-def _freeze_json(value: Any, name: str = "value") -> FrozenJson:
-    if value is None or isinstance(value, (bool, int, str)):
-        return value
-    if isinstance(value, float):
-        if not math.isfinite(value):
-            raise ValueError(f"{name} numbers must be finite")
-        return value
-    if isinstance(value, Mapping):
-        frozen: dict[str, FrozenJson] = {}
-        for key in sorted(value):
-            if not isinstance(key, str):
-                raise TypeError(f"{name} keys must be strings")
-            frozen[key] = _freeze_json(value[key], f"{name}.{key}")
-        return MappingProxyType(frozen)
-    if isinstance(value, (list, tuple)):
-        return tuple(
-            _freeze_json(item, f"{name}[{index}]") for index, item in enumerate(value)
-        )
-    raise TypeError(f"{name} contains unsupported value {type(value).__name__}")
-
-
-def _thaw_json(value: FrozenJson) -> Any:
-    if isinstance(value, Mapping):
-        return {key: _thaw_json(value[key]) for key in sorted(value)}
-    if isinstance(value, tuple):
-        return [_thaw_json(item) for item in value]
-    return value
-
-
-def _require_exact_keys(
-    document: Mapping[str, Any], expected: set[str], name: str
-) -> None:
-    actual = set(document)
-    if actual != expected:
-        missing = sorted(expected - actual)
-        unknown = sorted(actual - expected)
-        raise ValueError(f"invalid {name} keys: missing={missing}, unknown={unknown}")
-
-
-@dataclass(frozen=True, slots=True)
-class TrainingManifest:
-    schema: str
-    protocol_fingerprint: str
-    task_fingerprint: str
-    content_fingerprint: str
-    training_fingerprint: str
-    algorithm: str
-    status: str
-    render_profile: str
-    fixed_ticks: int
-    reward_mode: str
-    max_episode_steps: int
-    frame_stack: int
-    seed: int
-    n_envs: int
-    timesteps: int
-    hyperparameters: Mapping[str, FrozenJson]
-    runtime: RuntimeSnapshot
-    source: SourceSnapshot
-    command: tuple[str, ...]
-    artifacts: Mapping[str, str]
-    artifact_index_sha256: str
-    parent_manifest_sha256: str | None = None
-    parent_model_sha256: str | None = None
-    tags: tuple[str, ...] = ()
-
-    def __post_init__(self) -> None:
-        if self.schema != TRAINING_MANIFEST_SCHEMA:
-            raise ValueError(f"unsupported training manifest schema: {self.schema!r}")
-        for name in (
-            "protocol_fingerprint",
-            "task_fingerprint",
-            "content_fingerprint",
-            "training_fingerprint",
-            "algorithm",
-            "render_profile",
-            "reward_mode",
-        ):
-            _require_nonempty(getattr(self, name), name)
-        if self.status not in {"running", "complete"}:
-            raise ValueError("status must be 'running' or 'complete'")
-        object.__setattr__(
-            self,
-            "artifact_index_sha256",
-            _require_sha256(self.artifact_index_sha256, "artifact_index_sha256"),
-        )
-        for name in ("parent_manifest_sha256", "parent_model_sha256"):
-            value = getattr(self, name)
-            if value is not None:
-                object.__setattr__(self, name, _require_sha256(value, name))
-
-        for name in (
-            "fixed_ticks",
-            "max_episode_steps",
-            "frame_stack",
-            "n_envs",
-        ):
-            value = getattr(self, name)
-            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
-                raise ValueError(f"{name} must be a positive integer")
-        for name in ("seed", "timesteps"):
-            value = getattr(self, name)
-            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-                raise ValueError(f"{name} must be a non-negative integer")
-
-        frozen_hyperparameters = _freeze_json(self.hyperparameters, "hyperparameters")
-        if not isinstance(frozen_hyperparameters, Mapping):
-            raise TypeError("hyperparameters must be an object")
-        object.__setattr__(self, "hyperparameters", frozen_hyperparameters)
-
-        command = tuple(self.command)
-        if not command:
-            raise ValueError("command must not be empty")
-        for argument in command:
-            _require_nonempty(argument, "command argument")
-        object.__setattr__(self, "command", command)
-
-        artifact_paths: dict[str, str] = {}
-        for name in sorted(self.artifacts):
-            _require_nonempty(name, "artifact name")
-            artifact_paths[name] = _require_nonempty(
-                self.artifacts[name], f"artifact path for {name}"
-            )
-        object.__setattr__(self, "artifacts", MappingProxyType(artifact_paths))
-
-        tags = tuple(sorted({_require_nonempty(tag, "tag") for tag in self.tags}))
-        object.__setattr__(self, "tags", tags)
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "algorithm": self.algorithm,
-            "artifactIndexSha256": self.artifact_index_sha256,
-            "artifacts": dict(self.artifacts),
-            "command": list(self.command),
-            "contentFingerprint": self.content_fingerprint,
-            "fixedTicks": self.fixed_ticks,
-            "frameStack": self.frame_stack,
-            "hyperparameters": _thaw_json(self.hyperparameters),
-            "maxEpisodeSteps": self.max_episode_steps,
-            "nEnvs": self.n_envs,
-            "parentManifestSha256": self.parent_manifest_sha256,
-            "parentModelSha256": self.parent_model_sha256,
-            "protocolFingerprint": self.protocol_fingerprint,
-            "renderProfile": self.render_profile,
-            "rewardMode": self.reward_mode,
-            "runtime": self.runtime.to_dict(),
-            "schema": self.schema,
-            "seed": self.seed,
-            "source": self.source.to_dict(),
-            "status": self.status,
-            "tags": list(self.tags),
-            "taskFingerprint": self.task_fingerprint,
-            "timesteps": self.timesteps,
-            "trainingFingerprint": self.training_fingerprint,
-        }
-
-    @classmethod
-    def from_dict(cls, document: Mapping[str, Any]) -> TrainingManifest:
-        expected = {
-            "algorithm",
-            "artifactIndexSha256",
-            "artifacts",
-            "command",
-            "contentFingerprint",
-            "fixedTicks",
-            "frameStack",
-            "hyperparameters",
-            "maxEpisodeSteps",
-            "nEnvs",
-            "parentManifestSha256",
-            "parentModelSha256",
-            "protocolFingerprint",
-            "renderProfile",
-            "rewardMode",
-            "runtime",
-            "schema",
-            "seed",
-            "source",
-            "status",
-            "tags",
-            "taskFingerprint",
-            "timesteps",
-            "trainingFingerprint",
-        }
-        _require_exact_keys(document, expected, "training manifest")
-        runtime = document["runtime"]
-        source = document["source"]
-        hyperparameters = document["hyperparameters"]
-        artifacts = document["artifacts"]
-        for value, name in (
-            (runtime, "runtime"),
-            (source, "source"),
-            (hyperparameters, "hyperparameters"),
-            (artifacts, "artifacts"),
-        ):
-            if not isinstance(value, Mapping):
-                raise TypeError(f"manifest {name} must be an object")
-        for key in ("command", "tags"):
-            if not isinstance(document[key], list):
-                raise TypeError(f"manifest {key} must be an array")
-        return cls(
-            schema=document["schema"],
-            protocol_fingerprint=document["protocolFingerprint"],
-            task_fingerprint=document["taskFingerprint"],
-            content_fingerprint=document["contentFingerprint"],
-            training_fingerprint=document["trainingFingerprint"],
-            algorithm=document["algorithm"],
-            status=document["status"],
-            render_profile=document["renderProfile"],
-            fixed_ticks=document["fixedTicks"],
-            reward_mode=document["rewardMode"],
-            max_episode_steps=document["maxEpisodeSteps"],
-            frame_stack=document["frameStack"],
-            seed=document["seed"],
-            n_envs=document["nEnvs"],
-            timesteps=document["timesteps"],
-            hyperparameters=hyperparameters,
-            runtime=RuntimeSnapshot.from_dict(runtime),
-            source=SourceSnapshot.from_dict(source),
-            command=tuple(document["command"]),
-            artifacts=artifacts,
-            artifact_index_sha256=document["artifactIndexSha256"],
-            parent_manifest_sha256=document["parentManifestSha256"],
-            parent_model_sha256=document["parentModelSha256"],
-            tags=tuple(document["tags"]),
-        )
 
 
 def create_training_manifest(
@@ -292,7 +70,7 @@ def create_training_manifest(
     fixed_ticks: int,
     reward_mode: str,
     max_episode_steps: int,
-    frame_stack: int,
+    history: HistoryDescriptor,
     seed: int,
     n_envs: int,
     timesteps: int,
@@ -308,8 +86,10 @@ def create_training_manifest(
     parent_manifest_sha256: str | None = None,
     parent_model_sha256: str | None = None,
 ) -> TrainingManifest:
-    """Build a complete immutable training manifest from explicit run inputs."""
+    """Build a complete immutable v2 manifest from explicit run inputs."""
 
+    if not isinstance(history, HistoryDescriptor):
+        raise TypeError("history must be a HistoryDescriptor")
     return TrainingManifest(
         schema=TRAINING_MANIFEST_SCHEMA,
         protocol_fingerprint=protocol_fingerprint,
@@ -322,7 +102,9 @@ def create_training_manifest(
         fixed_ticks=fixed_ticks,
         reward_mode=reward_mode,
         max_episode_steps=max_episode_steps,
-        frame_stack=frame_stack,
+        frame_stack=history.frame_stack,
+        history=history,
+        history_fingerprint=history.fingerprint(),
         seed=seed,
         n_envs=n_envs,
         timesteps=timesteps,
@@ -393,6 +175,7 @@ def validate_training_manifest(
     *,
     expected_protocol_fingerprint: str,
     expected_task_fingerprint: str,
+    expected_history_fingerprint: str | None = None,
     expected_content_fingerprint: str | None = None,
     allow_content_drift: bool = False,
     expected_training_fingerprint: str | None = None,
@@ -413,6 +196,15 @@ def validate_training_manifest(
             "task fingerprint mismatch: "
             f"saved={manifest.task_fingerprint!r}, "
             f"expected={expected_task_fingerprint!r}"
+        )
+    if (
+        expected_history_fingerprint is not None
+        and manifest.history_fingerprint != expected_history_fingerprint
+    ):
+        raise ManifestCompatibilityError(
+            "history fingerprint mismatch: "
+            f"saved={manifest.history_fingerprint!r}, "
+            f"expected={expected_history_fingerprint!r}"
         )
     if (
         expected_content_fingerprint is not None
@@ -458,6 +250,7 @@ def load_training_manifest(
     *,
     expected_protocol_fingerprint: str,
     expected_task_fingerprint: str,
+    expected_history_fingerprint: str | None = None,
     expected_content_fingerprint: str | None = None,
     allow_content_drift: bool = False,
     expected_training_fingerprint: str | None = None,
@@ -471,6 +264,7 @@ def load_training_manifest(
         read_training_manifest(path),
         expected_protocol_fingerprint=expected_protocol_fingerprint,
         expected_task_fingerprint=expected_task_fingerprint,
+        expected_history_fingerprint=expected_history_fingerprint,
         expected_content_fingerprint=expected_content_fingerprint,
         allow_content_drift=allow_content_drift,
         expected_training_fingerprint=expected_training_fingerprint,

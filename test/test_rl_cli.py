@@ -13,6 +13,7 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 import rl.training as rl_training
 from rl.evaluation import EpisodeMetrics
+from rl.manifest import ManifestCompatibilityError
 from rl.provenance import RuntimeSnapshot, SourceSnapshot
 
 
@@ -43,6 +44,82 @@ class FakeVectorEnv:
 
 
 class TestTrainingCliLifecycle(unittest.TestCase):
+    def test_resume_rejects_unsupported_history_before_artifact_open(self) -> None:
+        module = load_train_script()
+        raw_manifest = SimpleNamespace()
+        runtime = RuntimeSnapshot("3.13", "test", {})
+        source = SourceSnapshot(None, ())
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            model = root / "model.zip"
+            manifest = root / "training-manifest.json"
+            model.write_bytes(b"model")
+            manifest.write_bytes(b"manifest")
+            args = module.build_parser().parse_args(
+                [
+                    "--resume",
+                    str(model),
+                    "--resume-manifest",
+                    str(manifest),
+                    "--run-dir",
+                    str(root / "run"),
+                ]
+            )
+            expected_spec = module.TaskSpec(
+                module.resolve_render_profile(args.render_profile),
+                args.fixed_ticks,
+                args.reward_mode,
+                args.max_episode_steps,
+            )
+            guard = patch.object(
+                module,
+                "require_contiguous_frame_stack_history",
+                side_effect=ManifestCompatibilityError("contiguous history required"),
+                create=True,
+            )
+            verifier = patch.object(
+                module,
+                "read_verified_indexed_artifact",
+                side_effect=AssertionError("artifact must not be opened"),
+            )
+            patches = (
+                patch.object(module, "require_rl_dependencies"),
+                patch.object(module, "compute_content_fingerprint", return_value="c"),
+                patch.object(module, "compute_training_fingerprint", return_value="t"),
+                patch.object(module, "collect_runtime_snapshot", return_value=runtime),
+                patch.object(module, "collect_source_snapshot", return_value=source),
+                patch.object(
+                    module,
+                    "read_training_manifest_bytes",
+                    return_value=raw_manifest,
+                ),
+                patch.object(
+                    module, "validate_training_manifest", return_value=raw_manifest
+                ),
+                patch.object(
+                    module, "task_spec_from_manifest", return_value=expected_spec
+                ),
+            )
+            with (
+                patches[0],
+                patches[1],
+                patches[2],
+                patches[3],
+                patches[4],
+                patches[5],
+                patches[6],
+                patches[7],
+                guard as guard_mock,
+                verifier as verifier_mock,
+            ):
+                with self.assertRaisesRegex(
+                    ManifestCompatibilityError, "contiguous history"
+                ):
+                    module.run(args)
+
+        guard_mock.assert_called_once_with(raw_manifest)
+        verifier_mock.assert_not_called()
+
     def test_algorithm_and_frame_stack_defaults_are_resolved_after_resume_load(
         self,
     ) -> None:
@@ -123,6 +200,67 @@ class TestTrainingCliLifecycle(unittest.TestCase):
 
 
 class TestEvaluationCliSafety(unittest.TestCase):
+    def test_evaluation_rejects_unsupported_history_before_artifact_open(
+        self,
+    ) -> None:
+        module = load_evaluate_script()
+        raw_manifest = SimpleNamespace()
+        task = SimpleNamespace(fingerprint=lambda: "task")
+        runtime = RuntimeSnapshot("3.13", "test", {})
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            model = root / "model.zip"
+            manifest = root / "training-manifest.json"
+            model.write_bytes(b"model")
+            manifest.write_bytes(b"manifest")
+            args = module.build_parser().parse_args(
+                [str(model), "--manifest", str(manifest)]
+            )
+            guard = patch.object(
+                module,
+                "require_contiguous_frame_stack_history",
+                side_effect=ManifestCompatibilityError("contiguous history required"),
+                create=True,
+            )
+            verifier = patch.object(
+                module,
+                "read_verified_indexed_artifact",
+                side_effect=AssertionError("artifact must not be opened"),
+            )
+            patches = (
+                patch.object(module, "require_rl_dependencies"),
+                patch.object(
+                    module,
+                    "read_training_manifest_bytes",
+                    return_value=raw_manifest,
+                ),
+                patch.object(module, "task_spec_from_manifest", return_value=task),
+                patch.object(module, "compute_content_fingerprint", return_value="c"),
+                patch.object(module, "compute_training_fingerprint", return_value="t"),
+                patch.object(module, "collect_runtime_snapshot", return_value=runtime),
+                patch.object(
+                    module, "validate_training_manifest", return_value=raw_manifest
+                ),
+            )
+            with (
+                patches[0],
+                patches[1],
+                patches[2],
+                patches[3],
+                patches[4],
+                patches[5],
+                patches[6],
+                guard as guard_mock,
+                verifier as verifier_mock,
+            ):
+                with self.assertRaisesRegex(
+                    ManifestCompatibilityError, "contiguous history"
+                ):
+                    module.run(args)
+
+        guard_mock.assert_called_once_with(raw_manifest)
+        verifier_mock.assert_not_called()
+
     def test_objective_metadata_matches_the_saved_reward_contract(self) -> None:
         module = load_evaluate_script()
 

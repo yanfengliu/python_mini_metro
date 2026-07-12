@@ -103,3 +103,21 @@ For each GM increment append: changed contracts, focused red/green tests, full l
 - Push: `origin/main` advanced from `18ef714` to `648025f`.
 - Remote workflow: [run 29180986088](https://github.com/yanfengliu/python_mini_metro/actions/runs/29180986088) succeeded; `build` passed in 35 seconds, including all 44 Node tests against pinned civ-engine 2.2.0 plus the clean recursive pass and Python suite, and `rl-smoke` passed in 2 minutes 44 seconds.
 - Commit B purpose: durably record A's exact SHA/CI, mark GM-01c complete pending B's own CI, and keep GM-02 behind that remote gate.
+
+## GM-01c Commit B - remote finalization
+
+- Commit: `14050af71df5c6cad8035904da467959767f68bb` (`docs: finalize overdue passenger threshold [GM-01c:B]`).
+- Push: `origin/main` advanced from `648025f` to `14050af`.
+- Remote workflow: [run 29181130841](https://github.com/yanfengliu/python_mini_metro/actions/runs/29181130841) succeeded; `build` passed in 39 seconds and `rl-smoke` passed in 2 minutes 43 seconds.
+- Outcome: GM-01c is remotely finalized. GM-02 starts from this exact baseline with the long multiscale frame-history migration.
+
+## GM-02a local implementation evidence
+
+- Contract: fresh training-manifest v2 stores a canonical history descriptor, derived `frameStack`, and independently recomputed `historyFingerprint`; canonical manifest-v1 bytes remain exact and derive arbitrary positive contiguous offsets in memory. Until GM-02c, train/evaluate reject non-contiguous v2 history before artifact opening and fresh runtime remains eight-contiguous.
+- TDD: descriptor import failed red before `src/rl/history.py`; manifest-v2/v1 tests failed red before schema migration; train/evaluate ordering tests reached artifact opening red before guards. Focused post-fix coverage reached 42/42, then final finder-fix probes passed 3/3.
+- Full Python: core `python -m unittest` passed 389 tests with 8 expected optional-RL skips; `output/venv-rl/Scripts/python.exe -m unittest` passed 389/389 with no skips.
+- Static/hooks/app: changed-file Ruff check and format passed for 11 Python files; pre-commit passed EOF, whitespace, Ruff, and Ruff format for every intended file; dummy-video `src/main.py` completed two frames. One initial app-smoke attempt used the wrong frame-limit variable and was terminated before rerunning successfully with `PYTHON_MINI_METRO_MAX_FRAMES=2`.
+- Artifact smokes: a fresh 128-step recurrent run emitted/evaluated manifest v2 with eight contiguous offsets and history fingerprint `c68f2aeaea62e36cff4d9ab96d73eb02881028d01e50b74267da8a36da2f16b1`. A genuine on-disk v1 recurrent artifact evaluated with explicit historical drift opt-ins and resumed for 128 steps into v2 with authenticated parent manifest/model SHA-256 values and the same derived history identity.
+- Fingerprints: protocol `69c604ac62d46d4a2339b3efad239372c61d0eb52e45ce6c9b6cf8da946dea8f`, default task `719362078a7d98f1e3c944a6a797f7147b29383495f37f417aa9d61e3416016d`, and content `3fa9b5b78750d9a1c113e4da76ea669466f485a14d8df6702705610ed868dd60` remained unchanged; trainer identity intentionally changed to `cb0e6e0f679afb2677760e964aa8acc9adf728548b2128671da0417aee782686`.
+- Review: all three plan lanes approved after corrections. Implementation finders were clean except a medium allowlist-mutation test gap and low v2 top-level exact-key gap; both were fixed, approved by the finder, and independently verified. External Codex/Claude review was unavailable because the platform denied repository-context export to Claude; no bypass was attempted.
+- Node boundary: local `npm test` remained at 25/44 with the same 19 failures caused by live civ-engine 2.4.1 versus pinned 2.2.0. The three public verifier compatibility cases passed. Pinned CI remains authoritative until GM-04 supplies an isolated local engine.

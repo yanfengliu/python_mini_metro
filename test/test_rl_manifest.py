@@ -10,11 +10,17 @@ from unittest.mock import patch
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
+from rl.history import (
+    DECISION_HISTORY_LAYOUT,
+    contiguous_history,
+    history_for_layout,
+)
 from rl.manifest import (
     CROSS_CONTENT_TAG,
     CROSS_RUNTIME_TAG,
     CROSS_TRAINING_TAG,
     TRAINING_MANIFEST_SCHEMA,
+    TRAINING_MANIFEST_SCHEMA_V1,
     ManifestCompatibilityError,
     RuntimeSnapshot,
     SourceSnapshot,
@@ -44,7 +50,7 @@ def make_manifest(**overrides):
         "fixed_ticks": 6,
         "reward_mode": "score-delta-v1",
         "max_episode_steps": 36_000,
-        "frame_stack": 4,
+        "history": contiguous_history(4),
         "seed": 42,
         "n_envs": 8,
         "timesteps": 1_000_000,
@@ -71,6 +77,27 @@ def make_manifest(**overrides):
     return create_training_manifest(**values)
 
 
+LEGACY_V1_MANIFEST_BYTES = (
+    b'{"algorithm":"ppo","artifactIndexSha256":'
+    b'"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",'
+    b'"artifacts":{"final_model":"models/final.zip",'
+    b'"tensorboard":"tensorboard/"},"command":["python",'
+    b'"scripts/train_rl.py","--seed","42"],"contentFingerprint":"content-a",'
+    b'"fixedTicks":6,"frameStack":4,"hyperparameters":{"batch_size":256,'
+    b'"schedule":{"milestones":[0.5,0.25],"name":"linear"}},'
+    b'"maxEpisodeSteps":36000,"nEnvs":8,"parentManifestSha256":null,'
+    b'"parentModelSha256":null,"protocolFingerprint":"protocol-a",'
+    b'"renderProfile":"player-rgb-320x180-v1",'
+    b'"rewardMode":"score-delta-v1","runtime":{"packageVersions":'
+    b'{"gymnasium":null,"stable-baselines3":"2.9.0"},'
+    b'"platform":"Windows-test","pythonVersion":"3.13.10"},'
+    b'"schema":"mini-metro-training-manifest-v1","seed":42,"source":'
+    b'{"dirtyPaths":["a.py","z.py"],"gitRevision":"abc123"},'
+    b'"status":"complete","tags":[],"taskFingerprint":"task-a",'
+    b'"timesteps":1000000,"trainingFingerprint":"training-a"}\n'
+)
+
+
 class TestTrainingManifest(unittest.TestCase):
     def test_creation_freezes_nested_data_and_sorts_source_paths(self):
         manifest = make_manifest()
@@ -79,6 +106,9 @@ class TestTrainingManifest(unittest.TestCase):
         self.assertEqual(manifest.status, "complete")
         self.assertEqual(manifest.fixed_ticks, 6)
         self.assertEqual(manifest.max_episode_steps, 36_000)
+        self.assertEqual(manifest.frame_stack, 4)
+        self.assertEqual(manifest.history, contiguous_history(4))
+        self.assertEqual(manifest.history_fingerprint, manifest.history.fingerprint())
         self.assertEqual(manifest.training_fingerprint, "training-a")
         self.assertEqual(manifest.artifact_index_sha256, "a" * 64)
         self.assertEqual(manifest.source.dirty_paths, ("a.py", "z.py"))
@@ -189,8 +219,110 @@ class TestTrainingManifest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "status"):
             make_manifest(status="finished")
 
+    def test_factory_derives_history_summary_and_rejects_old_dual_source(self):
+        manifest = make_manifest(history=history_for_layout(DECISION_HISTORY_LAYOUT))
+
+        self.assertEqual(manifest.frame_stack, 12)
+        self.assertEqual(
+            manifest.history_fingerprint,
+            history_for_layout(DECISION_HISTORY_LAYOUT).fingerprint(),
+        )
+        with self.assertRaises(TypeError):
+            make_manifest(frame_stack=12)
+
 
 class TestManifestPersistence(unittest.TestCase):
+    def test_v2_requires_exact_authenticated_history(self):
+        manifest = make_manifest()
+        document = manifest.to_dict()
+        self.assertEqual(document["schema"], TRAINING_MANIFEST_SCHEMA)
+        self.assertEqual(document["frameStack"], 4)
+        self.assertEqual(document["history"], contiguous_history(4).to_dict())
+        self.assertEqual(
+            document["historyFingerprint"], contiguous_history(4).fingerprint()
+        )
+
+        malformed = []
+        wrong_digest = dict(document)
+        wrong_digest["historyFingerprint"] = "b" * 64
+        malformed.append(wrong_digest)
+        short_digest = dict(document)
+        short_digest["historyFingerprint"] = "not-a-sha256"
+        malformed.append(short_digest)
+        uppercase_digest = dict(document)
+        uppercase_digest["historyFingerprint"] = "A" * 64
+        malformed.append(uppercase_digest)
+        missing_top_level = dict(document)
+        missing_top_level.pop("history")
+        malformed.append(missing_top_level)
+        unknown_top_level = dict(document)
+        unknown_top_level["future"] = True
+        malformed.append(unknown_top_level)
+        wrong_stack = dict(document)
+        wrong_stack["frameStack"] = 8
+        malformed.append(wrong_stack)
+        wrong_semantics = dict(document)
+        wrong_semantics["history"] = {
+            **document["history"],
+            "sampleOrder": "newest-to-oldest",
+        }
+        malformed.append(wrong_semantics)
+        unknown_nested = dict(document)
+        unknown_nested["history"] = {**document["history"], "future": True}
+        malformed.append(unknown_nested)
+
+        for candidate in malformed:
+            with self.subTest(candidate=candidate):
+                payload = json.dumps(candidate).encode("utf-8")
+                with self.assertRaises((TypeError, ValueError)):
+                    read_training_manifest_bytes(payload)
+
+    def test_literal_v1_bytes_round_trip_and_normalize_arbitrary_stacks(self):
+        legacy = read_training_manifest_bytes(LEGACY_V1_MANIFEST_BYTES)
+
+        self.assertEqual(legacy.schema, TRAINING_MANIFEST_SCHEMA_V1)
+        self.assertEqual(legacy.frame_stack, 4)
+        self.assertEqual(legacy.history, contiguous_history(4))
+        self.assertEqual(legacy.history_fingerprint, legacy.history.fingerprint())
+        self.assertEqual(canonical_json_bytes(legacy), LEGACY_V1_MANIFEST_BYTES)
+        self.assertEqual(
+            sha256_hex(canonical_json_bytes(legacy)),
+            sha256_hex(LEGACY_V1_MANIFEST_BYTES),
+        )
+
+        for frame_stack in (1, 4, 8, 13):
+            with self.subTest(frame_stack=frame_stack):
+                document = json.loads(LEGACY_V1_MANIFEST_BYTES)
+                document["frameStack"] = frame_stack
+                parsed = read_training_manifest_bytes(json.dumps(document).encode())
+                self.assertEqual(parsed.history, contiguous_history(frame_stack))
+
+        injected = json.loads(LEGACY_V1_MANIFEST_BYTES)
+        injected["history"] = contiguous_history(4).to_dict()
+        injected["historyFingerprint"] = contiguous_history(4).fingerprint()
+        with self.assertRaises(ValueError):
+            read_training_manifest_bytes(json.dumps(injected).encode())
+
+    def test_history_compatibility_is_separate_from_task_identity(self):
+        manifest = make_manifest(history=contiguous_history(12))
+        multiscale = history_for_layout(DECISION_HISTORY_LAYOUT)
+        self.assertEqual(manifest.frame_stack, multiscale.frame_stack)
+
+        with self.assertRaisesRegex(ManifestCompatibilityError, "history"):
+            validate_training_manifest(
+                manifest,
+                expected_protocol_fingerprint="protocol-a",
+                expected_task_fingerprint="task-a",
+                expected_history_fingerprint=multiscale.fingerprint(),
+            )
+        validated = validate_training_manifest(
+            manifest,
+            expected_protocol_fingerprint="protocol-a",
+            expected_task_fingerprint="task-a",
+            expected_history_fingerprint=contiguous_history(12).fingerprint(),
+        )
+        self.assertEqual(validated.task_fingerprint, "task-a")
+
     def test_exact_manifest_bytes_are_parsed_and_validated_once(self):
         manifest = make_manifest()
         payload = canonical_json_bytes(manifest)

@@ -100,3 +100,7 @@
 - Separated lifetime passenger deliveries from spendable line credits, aligned structured rewards with the delivery objective, and versioned agent-play/checkpoint/recursive evidence with genuine v1 reconstruction, strict v2 contracts, fail-closed reward-mode checks, fresh-process verifier coverage, and sub-500-line recursive contract/checkpoint modules.
 - Replaced ambiguous score presentation with a canonical deliveries/line-credits HUD and delivery-first game-over result, added compact-layout and pixel-sensitivity regressions with before/after evidence, and corrected the documented passenger cadence using executable 1x/2x/4x, full-station, and quantization tests.
 - Raised the fresh-game overdue-passenger threshold from one to two so the first overdue station passenger warns and the second ends the game, retained writable compatibility aliases, and versioned recursive and agent-play evidence to v3 while replaying genuine v1/v2 records at the historical threshold.
+
+## 2026-07-12
+
+- Added immutable temporal-history descriptors and separately authenticated fingerprints in training-manifest v2, exact manifest-v1 contiguous-stack normalization and byte preservation, fail-closed pre-wrapper train/evaluation guards, and focused schema/legacy coverage while retaining the eight-contiguous-frame runtime default pending the vector-history and resource-profile stages.

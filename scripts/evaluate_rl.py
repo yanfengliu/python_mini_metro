@@ -33,6 +33,7 @@ from rl.training import (  # noqa: E402
     compute_content_fingerprint,
     compute_training_fingerprint,
     load_model,
+    require_contiguous_frame_stack_history,
     require_rl_dependencies,
     task_spec_from_manifest,
 )
@@ -232,6 +233,7 @@ def run(args: argparse.Namespace) -> Path:
         expected_runtime=current_runtime,
         allow_runtime_drift=args.allow_runtime_drift,
     )
+    require_contiguous_frame_stack_history(manifest)
     verified_model = read_verified_indexed_artifact(
         model_path,
         manifest=manifest,

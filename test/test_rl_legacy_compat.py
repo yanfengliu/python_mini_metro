@@ -6,14 +6,17 @@ import os
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 from rl.artifacts import sha256_file, write_artifact_index
+from rl.history import contiguous_history
 from rl.manifest import (
     CROSS_RUNTIME_TAG,
     CROSS_TRAINING_TAG,
+    TRAINING_MANIFEST_SCHEMA_V1,
     ManifestCompatibilityError,
     RuntimeSnapshot,
     SourceSnapshot,
@@ -95,7 +98,7 @@ class TestLegacyPpoCompatibility(unittest.TestCase):
                 fixed_ticks=spec.fixed_ticks,
                 reward_mode=spec.reward_mode.value,
                 max_episode_steps=spec.max_episode_steps,
-                frame_stack=4,
+                history=contiguous_history(4),
                 seed=7,
                 n_envs=1,
                 timesteps=0,
@@ -117,6 +120,7 @@ class TestLegacyPpoCompatibility(unittest.TestCase):
                 },
                 artifact_index_sha256=sha256_file(index_path),
             )
+            manifest = replace(manifest, schema=TRAINING_MANIFEST_SCHEMA_V1)
             manifest_path = write_training_manifest(run_dir, manifest)
             base_arguments = [
                 str(model_path),

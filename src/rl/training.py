@@ -11,6 +11,7 @@ from typing import Any
 
 from rl.artifacts import sha256_file
 from rl.dependencies import require_rl_dependencies as require_rl_dependencies
+from rl.history import HistoryDescriptor, contiguous_history
 from rl.manifest import ManifestCompatibilityError, TrainingManifest
 from rl.policy import (
     DEFAULT_ALGORITHM,
@@ -64,6 +65,7 @@ __all__ = (
     "make_ppo",
     "model_manifest_hyperparameters",
     "ppo_manifest_hyperparameters",
+    "require_contiguous_frame_stack_history",
     "require_rl_dependencies",
     "select_base_vec_env_class",
     "task_spec_from_manifest",
@@ -80,7 +82,9 @@ TRAINING_SOURCE_PATHS = (
     "src/rl/artifacts.py",
     "src/rl/dependencies.py",
     "src/rl/evaluation.py",
+    "src/rl/history.py",
     "src/rl/manifest.py",
+    "src/rl/manifest_schema.py",
     "src/rl/model.py",
     "src/rl/policy.py",
     "src/rl/provenance.py",
@@ -176,6 +180,20 @@ def build_vector_env(
     except BaseException:
         base.close()
         raise
+
+
+def require_contiguous_frame_stack_history(
+    manifest: TrainingManifest,
+) -> HistoryDescriptor:
+    """Fail closed while the runtime still delegates history to VecFrameStack."""
+
+    expected = contiguous_history(manifest.frame_stack)
+    if manifest.history != expected:
+        raise ManifestCompatibilityError(
+            "the current frame-stack runtime supports only contiguous history: "
+            f"saved={manifest.history.layout!r}, expected={expected.layout!r}"
+        )
+    return expected
 
 
 def callback_frequency(transitions: int, n_envs: int) -> int:

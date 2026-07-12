@@ -49,6 +49,10 @@ Use these as the initial controlled configuration, not as permanently fixed hype
 
 SB3-Contrib explicitly supports recurrent policies, multiprocessing, image observations, and `MultiDiscrete` actions. That makes it the smallest reliable implementation step from the current code. It does not prove that LSTM is the final performance ceiling.
 
+### Temporal-history migration status
+
+Training-manifest v2 now gives temporal layout a separate immutable descriptor and `historyFingerprint` while preserving the single-frame task fingerprint. Genuine v1 manifests normalize any positive `frameStack` to their historical contiguous offsets and keep exact v1 bytes. Runtime still uses the eight-contiguous-frame stack at this stage; a self-consistent multiscale v2 manifest is rejected before model loading until the descriptor-driven vector wrapper, terminal/reset tests, and matched resource profile land. The reviewed twelve-frame candidate remains `[128, 64, 32, 16, 7, 6, 5, 4, 3, 2, 1, 0]`, not a promoted default or an efficacy claim.
+
 ### Episode-memory semantics
 
 "Persistent memory" means learned recurrent state that persists **within one episode**, not hidden state that leaks between games:

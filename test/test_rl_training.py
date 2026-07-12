@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
@@ -15,7 +16,9 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 import rl.training as rl_training
 from rl.artifacts import write_artifact_index
 from rl.evaluation import evaluate_vector_policy
+from rl.history import DECISION_HISTORY_LAYOUT, contiguous_history, history_for_layout
 from rl.manifest import (
+    ManifestCompatibilityError,
     RuntimeSnapshot,
     SourceSnapshot,
     create_training_manifest,
@@ -31,6 +34,7 @@ from rl.training import (
     load_ppo_model,
     make_ppo,
     ppo_manifest_hyperparameters,
+    require_contiguous_frame_stack_history,
     select_base_vec_env_class,
     task_spec_from_manifest,
 )
@@ -102,7 +106,7 @@ class TestTrainingConfiguration(unittest.TestCase):
             fixed_ticks=spec.fixed_ticks,
             reward_mode=spec.reward_mode.value,
             max_episode_steps=spec.max_episode_steps,
-            frame_stack=4,
+            history=contiguous_history(4),
             seed=42,
             n_envs=1,
             timesteps=4,
@@ -118,6 +122,23 @@ class TestTrainingConfiguration(unittest.TestCase):
 
         self.assertEqual(reconstructed, spec)
 
+    def test_frame_stack_runtime_rejects_noncontiguous_history_identity(self):
+        contiguous = SimpleNamespace(
+            frame_stack=12,
+            history=contiguous_history(12),
+        )
+        multiscale = SimpleNamespace(
+            frame_stack=12,
+            history=history_for_layout(DECISION_HISTORY_LAYOUT),
+        )
+
+        self.assertEqual(
+            require_contiguous_frame_stack_history(contiguous),
+            contiguous_history(12),
+        )
+        with self.assertRaisesRegex(ManifestCompatibilityError, "contiguous"):
+            require_contiguous_frame_stack_history(multiscale)
+
     def test_content_fingerprint_excludes_training_tooling_and_dependencies(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -131,11 +152,17 @@ class TestTrainingConfiguration(unittest.TestCase):
             )
             training_path = root / "src" / "rl" / "training.py"
             training_path.write_text("TRAINING = 1\n", encoding="utf-8")
+            history_path = root / "src" / "rl" / "history.py"
+            history_path.write_text("HISTORY = 1\n", encoding="utf-8")
+            manifest_schema_path = root / "src" / "rl" / "manifest_schema.py"
+            manifest_schema_path.write_text("SCHEMA = 1\n", encoding="utf-8")
             requirements_path = root / "requirements-rl.txt"
             requirements_path.write_text("tool==1\n", encoding="utf-8")
             baseline = compute_content_fingerprint(root)
 
             training_path.write_text("TRAINING = 2\n", encoding="utf-8")
+            history_path.write_text("HISTORY = 2\n", encoding="utf-8")
+            manifest_schema_path.write_text("SCHEMA = 2\n", encoding="utf-8")
             requirements_path.write_text("tool==2\n", encoding="utf-8")
             self.assertEqual(compute_content_fingerprint(root), baseline)
 
@@ -168,7 +195,9 @@ class TestTrainingConfiguration(unittest.TestCase):
                 "src/rl/artifacts.py",
                 "src/rl/dependencies.py",
                 "src/rl/evaluation.py",
+                "src/rl/history.py",
                 "src/rl/manifest.py",
+                "src/rl/manifest_schema.py",
                 "src/rl/model.py",
                 "src/rl/policy.py",
                 "src/rl/provenance.py",
@@ -188,6 +217,12 @@ class TestTrainingConfiguration(unittest.TestCase):
                 "requirements-rl-locked.txt\n",
                 encoding="utf-8",
             )
+            for relative in ("src/rl/history.py", "src/rl/manifest_schema.py"):
+                with self.subTest(relative=relative):
+                    path = root / relative
+                    path.write_text("changed identity\n", encoding="utf-8")
+                    self.assertNotEqual(compute_training_fingerprint(root), baseline)
+                    path.write_text(f"{relative}\n", encoding="utf-8")
             (root / "src" / "rl" / "model.py").write_text("changed\n", encoding="utf-8")
             self.assertNotEqual(compute_training_fingerprint(root), baseline)
 

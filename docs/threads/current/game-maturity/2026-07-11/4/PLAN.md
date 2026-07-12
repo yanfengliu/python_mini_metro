@@ -1,6 +1,6 @@
 # GM-01c threshold and replay migration plan
 
-Status: Commit A remotely green; Commit B staging in progress
+Status: remotely finalized at Commit B `14050af71df5c6cad8035904da467959767f68bb`
 
 ## Intent
 
