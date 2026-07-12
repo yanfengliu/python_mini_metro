@@ -6,30 +6,30 @@ Active goal thread: `019f5286-dfca-75e1-9e79-58719dbe1efb`
 
 Current increment: GM-01 - Make deliveries canonical and repair baseline rules
 
-Current substep: GM-01b - HUD, game-over presentation, cadence, and docs
+Current substep: GM-01c - threshold-two behavior and persisted replay compatibility
 
-Current status: implementation, adversarial re-review, and all local gates complete; awaiting `[GM-01b:A]` commit/push/CI
+Current status: queued; do not edit GM-01c runtime code until `[GM-01b:B]` CI is green
 
-Durability transaction: GM-01a Commit B is remotely green; GM-01b Commit A is awaiting local finalization
+Durability transaction: GM-01b Commit A is remotely green; this document is GM-01b Commit B awaiting commit/push/CI
 
-Last remotely finalized work unit: GM-01a at Commit B `6c77033fa2af9d1a1913135f7da3d27b7ff4f2a5`, which passed [run 29175470189](https://github.com/yanfengliu/python_mini_metro/actions/runs/29175470189)
+Last remotely finalized work unit: GM-01a until `[GM-01b:B]` CI succeeds; GM-01b Commit A `3523ea412a044d3a4c5f3dd43da913c736d78ed9` passed [run 29177705475](https://github.com/yanfengliu/python_mini_metro/actions/runs/29177705475)
 
-Expected remote implementation baseline: `6c77033fa2af9d1a1913135f7da3d27b7ff4f2a5`
+Expected remote implementation baseline: `3523ea412a044d3a4c5f3dd43da913c736d78ed9`
 
-Current transaction marker: `[GM-01b:A]`
+Current transaction marker: `[GM-01b:B]`; locate it as the newest `STATE.md` commit with that marker after it is pushed
 
 ## Resume here
 
-1. Stage only the reviewed GM-01b runtime/tests/docs/evidence, inspect the complete cached diff, and preserve the pre-existing `.agents/`.
-2. Commit as `[GM-01b:A]`, push, and wait for its GitHub Actions workflow.
-3. If A CI fails, repair GM-01b. If A CI succeeds, record its exact SHA and workflow in `[GM-01b:B]`, push B, and wait for B CI before beginning GM-01c.
+1. Commit and push this finalization metadata as `[GM-01b:B]` without staging the pre-existing `.agents/`.
+2. Locate the pushed B commit by its marker and wait for its GitHub Actions workflow.
+3. If B CI fails, reopen GM-01b and repair it. If B CI succeeds, begin GM-01c from the reviewed threshold/replay migration preflight.
 
 ## Increment ledger
 
 | ID | Status | Commit | Remote CI | Notes |
 | --- | --- | --- | --- | --- |
 | GM-00 | complete | `16a0e73` / `0411e68` | [A run 29172923371](https://github.com/yanfengliu/python_mini_metro/actions/runs/29172923371) and [B run 29173071970](https://github.com/yanfengliu/python_mini_metro/actions/runs/29173071970) succeeded | Durable plan and reviews |
-| GM-01 | in progress | `5e00763` / `6c77033` / GM-01b pending | GM-01a A/B green | Canonical semantics complete; GM-01b awaiting A; then baseline pressure |
+| GM-01 | in progress | `5e00763` / `6c77033` / `3523ea4` | GM-01a A/B and GM-01b A green | GM-01b awaiting B; then baseline pressure |
 | GM-02 | pending | - | - | More than eight strategically spaced visual frames |
 | GM-03 | pending | - | - | Mediator and test decomposition |
 | GM-04 | pending | - | - | Isolated pinned civ-engine local setup |
@@ -52,7 +52,7 @@ Current transaction marker: `[GM-01b:A]`
 | GM-00c | complete | `16a0e73` / run `29172923371` success | - | Plan Commit A passed build and RL smoke |
 | GM-00d | complete | - | `0411e68` / run `29173071970` success | Plan finalization Commit B passed build and RL smoke |
 | GM-01a | complete | `5e00763` / run `29175325493` success | `6c77033` / run `29175470189` success | Canonical semantics and persisted compatibility schemas remotely finalized |
-| GM-01b | complete-local awaiting A | `[GM-01b:A]` / pending | - | HUD, game-over, cadence, docs approved by three re-review lanes |
+| GM-01b | complete pending B CI | `3523ea4` / run `29177705475` success | `[GM-01b:B]` / pending | HUD, game-over, cadence, and docs approved and remotely green at A |
 | GM-01c | pending | - | - | Threshold-two scenario and acceptance |
 | GM-02a | pending | - | - | History descriptor, fingerprints, manifest migration |
 | GM-02b | pending | - | - | Temporal ring and multi-slot lifecycle tests |

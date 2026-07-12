@@ -73,3 +73,7 @@ For each GM increment append: changed contracts, focused red/green tests, full l
 - Node baseline: full local `npm test` passed 23/42 and the same 19 tests failed because the linked civ-engine is 2.4.1 while the repository pin is 2.2.0. No Node file changed; pinned CI remains authoritative until GM-04.
 - Adversarial review: three independent live-code lanes found no High or Medium defect. Four Low gaps were fixed and all three lanes re-approved with no remaining finding; raw output and synthesis are under iteration `3/`.
 - Changed-file pre-commit passed after explicit user approval for its normal cache: check-yaml had no applicable file, and end-of-file, trailing-whitespace, Ruff check/fix, and Ruff format all passed without modifying source.
+- Commit: `3523ea412a044d3a4c5f3dd43da913c736d78ed9` (`feat: clarify passenger objective and cadence [GM-01b:A]`).
+- Push: `origin/main` advanced from `6c77033` to `3523ea4`.
+- Remote workflow: [run 29177705475](https://github.com/yanfengliu/python_mini_metro/actions/runs/29177705475) succeeded; `build` passed in 36 seconds and `rl-smoke` passed in 2 minutes 53 seconds.
+- Commit B purpose: durably record A's exact SHA/CI, mark GM-01b complete pending B's own CI, and queue GM-01c behind that remote gate.
