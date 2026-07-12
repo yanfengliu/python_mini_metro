@@ -65,7 +65,6 @@ __all__ = (
     "make_ppo",
     "model_manifest_hyperparameters",
     "ppo_manifest_hyperparameters",
-    "require_contiguous_frame_stack_history",
     "require_rl_dependencies",
     "select_base_vec_env_class",
     "task_spec_from_manifest",
@@ -153,15 +152,21 @@ def build_vector_env(
     *,
     n_envs: int,
     seed: int,
-    frame_stack: int = DEFAULT_FRAME_STACK,
+    history: HistoryDescriptor | None = None,
+    frame_stack: int | None = None,
 ) -> Any:
-    """Build Dummy/Spawn workers, then monitor and channel-first frame stack."""
+    """Build workers, monitoring, and one exact descriptor-driven history."""
 
-    if isinstance(frame_stack, bool) or not isinstance(frame_stack, int):
-        raise TypeError("frame_stack must be an integer")
-    if frame_stack <= 0:
-        raise ValueError("frame_stack must be positive")
+    if history is not None and frame_stack is not None:
+        raise ValueError("history and frame_stack cannot be combined")
+    if history is not None and not isinstance(history, HistoryDescriptor):
+        raise TypeError("history must be a HistoryDescriptor")
+    selected_history = history or contiguous_history(
+        DEFAULT_FRAME_STACK if frame_stack is None else frame_stack
+    )
     components = require_rl_dependencies()
+    from rl.temporal_history import VecTemporalHistory
+
     thunks = make_env_thunks(
         task_spec,
         n_envs=n_envs,
@@ -175,26 +180,10 @@ def build_vector_env(
     try:
         base.seed(seed)
         monitored = components.vec_env.VecMonitor(base)
-        return components.vec_env.VecFrameStack(
-            monitored, n_stack=frame_stack, channels_order="first"
-        )
+        return VecTemporalHistory(monitored, selected_history)
     except BaseException:
         base.close()
         raise
-
-
-def require_contiguous_frame_stack_history(
-    manifest: TrainingManifest,
-) -> HistoryDescriptor:
-    """Fail closed while the runtime still delegates history to VecFrameStack."""
-
-    expected = contiguous_history(manifest.frame_stack)
-    if manifest.history != expected:
-        raise ManifestCompatibilityError(
-            "the current frame-stack runtime supports only contiguous history: "
-            f"saved={manifest.history.layout!r}, expected={expected.layout!r}"
-        )
-    return expected
 
 
 def callback_frequency(transitions: int, n_envs: int) -> int:

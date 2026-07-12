@@ -26,8 +26,8 @@ from rl.manifest import (
 )
 from rl.protocol import FAST_RENDER_PROFILE, RewardMode, TaskSpec, protocol_fingerprint
 from rl.training import (
-    build_vector_env,
     compute_content_fingerprint,
+    make_env_thunks,
     make_ppo,
     ppo_manifest_hyperparameters,
 )
@@ -71,7 +71,19 @@ class TestLegacyPpoCompatibility(unittest.TestCase):
             run_dir = Path(temp_dir) / "pre-recurrent-ppo"
             run_dir.mkdir()
             model_path = run_dir / "final_model.zip"
-            env = build_vector_env(spec, n_envs=1, seed=7, frame_stack=4)
+            from stable_baselines3.common.vec_env import (
+                DummyVecEnv,
+                VecFrameStack,
+                VecMonitor,
+            )
+
+            base = DummyVecEnv(list(make_env_thunks(spec, n_envs=1, seed=7)))
+            base.seed(7)
+            env = VecFrameStack(
+                VecMonitor(base),
+                n_stack=4,
+                channels_order="first",
+            )
             try:
                 model = make_ppo(
                     env,

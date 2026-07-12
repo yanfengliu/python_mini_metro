@@ -33,7 +33,6 @@ from rl.training import (  # noqa: E402
     compute_content_fingerprint,
     compute_training_fingerprint,
     load_model,
-    require_contiguous_frame_stack_history,
     require_rl_dependencies,
     task_spec_from_manifest,
 )
@@ -233,7 +232,6 @@ def run(args: argparse.Namespace) -> Path:
         expected_runtime=current_runtime,
         allow_runtime_drift=args.allow_runtime_drift,
     )
-    require_contiguous_frame_stack_history(manifest)
     verified_model = read_verified_indexed_artifact(
         model_path,
         manifest=manifest,
@@ -253,7 +251,7 @@ def run(args: argparse.Namespace) -> Path:
         spec,
         n_envs=1,
         seed=evaluation_seed,
-        frame_stack=manifest.frame_stack,
+        history=manifest.history,
     )
     try:
         model = load_model(
@@ -302,6 +300,8 @@ def run(args: argparse.Namespace) -> Path:
         "episodeMetrics": [item.to_dict() for item in episode_metrics],
         "episodeRewards": rewards,
         "episodes": args.episodes,
+        "history": manifest.history.to_dict(),
+        "historyFingerprint": manifest.history_fingerprint,
         "manifest": str(manifest_path),
         "manifestSha256": sha256_hex(manifest_payload),
         "meanEpisodeLength": statistics.fmean(lengths),

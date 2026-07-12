@@ -19,7 +19,12 @@ from rl.artifacts import (  # noqa: E402
     sha256_file,
     write_artifact_index,
 )
-from rl.history import contiguous_history  # noqa: E402
+from rl.history import (  # noqa: E402
+    NAMED_HISTORY_LAYOUTS,
+    HistoryDescriptor,
+    contiguous_history,
+    history_for_layout,
+)
 from rl.manifest import (  # noqa: E402
     TrainingManifest,
     collect_runtime_snapshot,
@@ -50,7 +55,6 @@ from rl.training import (  # noqa: E402
     load_model,
     make_model,
     model_manifest_hyperparameters,
-    require_contiguous_frame_stack_history,
     require_rl_dependencies,
     resolve_render_profile,
     task_spec_from_manifest,
@@ -98,7 +102,17 @@ def build_parser() -> argparse.ArgumentParser:
         choices=[mode.value for mode in RewardMode],
         default=RewardMode.DELIVERIES.value,
     )
-    parser.add_argument("--frame-stack", type=_positive_int)
+    history_group = parser.add_mutually_exclusive_group()
+    history_group.add_argument(
+        "--frame-stack",
+        type=_positive_int,
+        help="contiguous observation frames (default: 8 for fresh runs)",
+    )
+    history_group.add_argument(
+        "--history-layout",
+        choices=NAMED_HISTORY_LAYOUTS,
+        help="reviewed multiscale observation-history layout",
+    )
     parser.add_argument(
         "--max-episode-steps",
         type=_positive_int,
@@ -137,24 +151,34 @@ def _default_run_dir(seed: int, algorithm: str) -> Path:
     return REPO_ROOT / "output" / "rl" / f"{algorithm}-{timestamp}-seed-{seed}"
 
 
-def _resolve_algorithm_and_frame_stack(
+def _requested_history(
+    *,
+    frame_stack: int | None,
+    history_layout: str | None,
+) -> HistoryDescriptor | None:
+    if frame_stack is not None and history_layout is not None:
+        raise ValueError("frame_stack and history_layout cannot be combined")
+    if history_layout is not None:
+        return history_for_layout(history_layout)
+    if frame_stack is not None:
+        return contiguous_history(frame_stack)
+    return None
+
+
+def _resolve_algorithm_and_history(
     *,
     requested_algorithm: str | None,
-    requested_frame_stack: int | None,
+    requested_history: HistoryDescriptor | None,
     resume_manifest: TrainingManifest | None,
-) -> tuple[str, int]:
+) -> tuple[str, HistoryDescriptor]:
     """Resolve fresh defaults or require resume settings to match the artifact."""
 
     if resume_manifest is None:
         algorithm = requested_algorithm or DEFAULT_ALGORITHM
         if algorithm not in SUPPORTED_ALGORITHMS:
             raise ValueError(f"unsupported algorithm: {algorithm!r}")
-        frame_stack = (
-            requested_frame_stack
-            if requested_frame_stack is not None
-            else DEFAULT_FRAME_STACK
-        )
-        return algorithm, frame_stack
+        history = requested_history or contiguous_history(DEFAULT_FRAME_STACK)
+        return algorithm, history
 
     saved_algorithm = resume_manifest.algorithm
     if saved_algorithm not in SUPPORTED_ALGORITHMS:
@@ -166,13 +190,16 @@ def _resolve_algorithm_and_frame_stack(
             "resume algorithm mismatch: "
             f"saved={saved_algorithm}, requested={requested_algorithm}"
         )
-    saved_frame_stack = resume_manifest.frame_stack
-    if requested_frame_stack is not None and requested_frame_stack != saved_frame_stack:
+    saved_history = resume_manifest.history
+    if (
+        requested_history is not None
+        and requested_history.fingerprint() != saved_history.fingerprint()
+    ):
         raise ValueError(
-            "resume frame stack mismatch: "
-            f"saved={saved_frame_stack}, requested={requested_frame_stack}"
+            "resume history mismatch: "
+            f"saved={saved_history.layout!r}, requested={requested_history.layout!r}"
         )
-    return saved_algorithm, saved_frame_stack
+    return saved_algorithm, saved_history
 
 
 def _resume_manifest_path(model_path: Path, explicit: Path | None) -> Path:
@@ -189,6 +216,10 @@ def _resume_manifest_path(model_path: Path, explicit: Path | None) -> Path:
 
 
 def run(args: argparse.Namespace) -> Path:
+    requested_history = _requested_history(
+        frame_stack=args.frame_stack,
+        history_layout=args.history_layout,
+    )
     require_rl_dependencies()
     eval_seed = args.eval_seed if args.eval_seed is not None else args.seed + 10_000
     spec = TaskSpec(
@@ -212,15 +243,17 @@ def run(args: argparse.Namespace) -> Path:
         resume_model_path = args.resume.resolve()
         manifest_path = _resume_manifest_path(resume_model_path, args.resume_manifest)
         manifest_payload = manifest_path.read_bytes()
+        parsed_resume_manifest = read_training_manifest_bytes(manifest_payload)
+        algorithm, history = _resolve_algorithm_and_history(
+            requested_algorithm=args.algorithm,
+            requested_history=requested_history,
+            resume_manifest=parsed_resume_manifest,
+        )
         resume_manifest = validate_training_manifest(
-            read_training_manifest_bytes(manifest_payload),
+            parsed_resume_manifest,
             expected_protocol_fingerprint=protocol_fingerprint(),
             expected_task_fingerprint=spec.fingerprint(),
-            expected_history_fingerprint=(
-                contiguous_history(args.frame_stack).fingerprint()
-                if args.frame_stack is not None
-                else None
-            ),
+            expected_history_fingerprint=history.fingerprint(),
             expected_content_fingerprint=content_fingerprint,
             allow_content_drift=args.allow_content_drift,
             expected_training_fingerprint=training_fingerprint,
@@ -230,7 +263,6 @@ def run(args: argparse.Namespace) -> Path:
         )
         if task_spec_from_manifest(resume_manifest) != spec:
             raise ValueError("resume manifest task fields do not match requested task")
-        require_contiguous_frame_stack_history(resume_manifest)
         verified_parent = read_verified_indexed_artifact(
             resume_model_path,
             manifest=resume_manifest,
@@ -240,12 +272,12 @@ def run(args: argparse.Namespace) -> Path:
         parent_model_sha256 = str(verified_parent.metadata["sha256"])
         resume_model_content = verified_parent.content
         tags = tuple(sorted({*resume_manifest.tags, "resumed-training"}))
-
-    algorithm, frame_stack = _resolve_algorithm_and_frame_stack(
-        requested_algorithm=args.algorithm,
-        requested_frame_stack=args.frame_stack,
-        resume_manifest=resume_manifest,
-    )
+    else:
+        algorithm, history = _resolve_algorithm_and_history(
+            requested_algorithm=args.algorithm,
+            requested_history=requested_history,
+            resume_manifest=None,
+        )
     hyperparameters = (
         dict(resume_manifest.hyperparameters)
         if resume_manifest is not None
@@ -262,13 +294,13 @@ def run(args: argparse.Namespace) -> Path:
             spec,
             n_envs=args.n_envs,
             seed=args.seed,
-            frame_stack=frame_stack,
+            history=history,
         )
         eval_env = build_vector_env(
             spec,
             n_envs=1,
             seed=eval_seed,
-            frame_stack=frame_stack,
+            history=history,
         )
         if args.resume is None:
             model = make_model(
@@ -335,7 +367,7 @@ def run(args: argparse.Namespace) -> Path:
                 fixed_ticks=spec.fixed_ticks,
                 reward_mode=spec.reward_mode.value,
                 max_episode_steps=spec.max_episode_steps,
-                history=contiguous_history(frame_stack),
+                history=history,
                 seed=args.seed,
                 n_envs=args.n_envs,
                 timesteps=int(model.num_timesteps),

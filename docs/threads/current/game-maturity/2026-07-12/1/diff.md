@@ -19,3 +19,10 @@
 - Preserved reset and auto-reset semantics by zero-filling unavailable history, constructing owned terminal stacks before clearing done slots, retaining rewards/dones/infos, and poisoning all history after any failed reset or consumed step until a clean reset succeeds.
 - Added exact chronology through offset-128 wraparound, staggered terminal/truncation and retained-array isolation, malformed lifecycle recovery, candidate allocation accounting, constructor/close cleanup, and byte equivalence with SB3 `VecFrameStack` for N=1/4/8/13.
 - Added the wrapper to the trainer-only fingerprint boundary and documented that train/resume/evaluate deliberately remain on contiguous `VecFrameStack` until GM-02c integrates every runtime path together.
+
+## GM-02c implementation
+
+- Replaced count-only runtime stacking with one exact `HistoryDescriptor` shared by train, evaluation callbacks, resume, evaluation, and manifest persistence; all vector paths now construct `base -> VecMonitor -> VecTemporalHistory` while preserving a legacy Python `frame_stack` alias.
+- Added mutually exclusive `--frame-stack N` contiguous controls and reviewed `--history-layout` names. Fresh omission remains contiguous eight; resume omission inherits the authenticated v1/v2 descriptor; equal-channel semantic mismatch fails before validation/artifact access.
+- Added history identity to evaluation JSON, exact CLI/artifact-order tests, real named-history Subproc/terminal/timeout/mask/save-load coverage, model-space mismatch coverage, and explicit old-`VecFrameStack` v1 mechanism compatibility.
+- Expanded Windows RL CI with the missing history modules plus named twelve-frame fresh/evaluate/resume/evaluate, exact default/named/legacy layout and fingerprint assertions, parent hashes, tags, and seeds. The fresh default remains eight contiguous frames pending GM-02d profiling.

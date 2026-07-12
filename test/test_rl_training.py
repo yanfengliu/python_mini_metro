@@ -6,7 +6,6 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
@@ -18,7 +17,6 @@ from rl.artifacts import write_artifact_index
 from rl.evaluation import evaluate_vector_policy
 from rl.history import DECISION_HISTORY_LAYOUT, contiguous_history, history_for_layout
 from rl.manifest import (
-    ManifestCompatibilityError,
     RuntimeSnapshot,
     SourceSnapshot,
     create_training_manifest,
@@ -34,7 +32,6 @@ from rl.training import (
     load_ppo_model,
     make_ppo,
     ppo_manifest_hyperparameters,
-    require_contiguous_frame_stack_history,
     select_base_vec_env_class,
     task_spec_from_manifest,
 )
@@ -121,23 +118,6 @@ class TestTrainingConfiguration(unittest.TestCase):
         reconstructed = task_spec_from_manifest(manifest)
 
         self.assertEqual(reconstructed, spec)
-
-    def test_frame_stack_runtime_rejects_noncontiguous_history_identity(self):
-        contiguous = SimpleNamespace(
-            frame_stack=12,
-            history=contiguous_history(12),
-        )
-        multiscale = SimpleNamespace(
-            frame_stack=12,
-            history=history_for_layout(DECISION_HISTORY_LAYOUT),
-        )
-
-        self.assertEqual(
-            require_contiguous_frame_stack_history(contiguous),
-            contiguous_history(12),
-        )
-        with self.assertRaisesRegex(ManifestCompatibilityError, "contiguous"):
-            require_contiguous_frame_stack_history(multiscale)
 
     def test_content_fingerprint_excludes_training_tooling_and_dependencies(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -271,9 +251,10 @@ class TestStableBaselinesTraining(unittest.TestCase):
         from stable_baselines3.common.vec_env import (
             DummyVecEnv,
             SubprocVecEnv,
-            VecFrameStack,
             VecMonitor,
         )
+
+        from rl.temporal_history import VecTemporalHistory
 
         spec = TaskSpec(FAST_RENDER_PROFILE, 1, RewardMode.DELIVERIES, 2)
         first = build_vector_env(spec, n_envs=1, seed=123)
@@ -283,7 +264,8 @@ class TestStableBaselinesTraining(unittest.TestCase):
             second_observation = second.reset()
             self.assertTrue((first_observation == second_observation).all())
             self.assertEqual(first_observation.shape, (1, 24, 108, 192))
-            self.assertIsInstance(first, VecFrameStack)
+            self.assertIsInstance(first, VecTemporalHistory)
+            self.assertEqual(first.history, contiguous_history(8))
             self.assertIsInstance(first.venv, VecMonitor)
             self.assertIsInstance(first.venv.venv, DummyVecEnv)
             self.assertIs(select_base_vec_env_class(2), SubprocVecEnv)
@@ -315,7 +297,12 @@ class TestStableBaselinesTraining(unittest.TestCase):
         import torch
 
         spec = TaskSpec(FAST_RENDER_PROFILE, 1, RewardMode.DELIVERIES, 1)
-        env = build_vector_env(spec, n_envs=1, seed=17)
+        env = build_vector_env(
+            spec,
+            n_envs=1,
+            seed=17,
+            history=history_for_layout(DECISION_HISTORY_LAYOUT),
+        )
         try:
             model = rl_training.make_model(
                 env,
@@ -352,7 +339,7 @@ class TestStableBaselinesTraining(unittest.TestCase):
             self.assertEqual(len(terminal_value_observations), 2)
             self.assertTrue(
                 all(
-                    item.shape == (1, 24, 108, 192)
+                    item.shape == (1, 36, 108, 192)
                     for item in terminal_value_observations
                 )
             )
@@ -367,7 +354,12 @@ class TestStableBaselinesTraining(unittest.TestCase):
         from sb3_contrib import RecurrentPPO
 
         spec = TaskSpec(FAST_RENDER_PROFILE, 1, RewardMode.DELIVERIES, 4)
-        env = build_vector_env(spec, n_envs=1, seed=7)
+        env = build_vector_env(
+            spec,
+            n_envs=1,
+            seed=7,
+            history=history_for_layout(DECISION_HISTORY_LAYOUT),
+        )
         try:
             model = rl_training.make_model(
                 env,
@@ -402,7 +394,7 @@ class TestStableBaselinesTraining(unittest.TestCase):
             self.assertIsInstance(loaded, RecurrentPPO)
             self.assertIsNotNone(state)
             self.assertEqual(loaded.seed, 11)
-            self.assertEqual(next_observation.shape, (1, 24, 108, 192))
+            self.assertEqual(next_observation.shape, (1, 36, 108, 192))
         finally:
             env.close()
 

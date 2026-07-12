@@ -12,6 +12,7 @@ from rl.history import (
     CONTIGUOUS_HISTORY_LAYOUT,
     DECISION_HISTORY_LAYOUT,
     EIGHT_MULTISCALE_HISTORY_LAYOUT,
+    NAMED_HISTORY_LAYOUTS,
     TEN_MULTISCALE_HISTORY_LAYOUT,
     HistoryDescriptor,
     canonical_history_bytes,
@@ -42,6 +43,14 @@ class TestHistoryDescriptor(unittest.TestCase):
             history.layout = DECISION_HISTORY_LAYOUT
 
     def test_named_layouts_pin_the_reviewed_offsets(self) -> None:
+        self.assertEqual(
+            NAMED_HISTORY_LAYOUTS,
+            (
+                DECISION_HISTORY_LAYOUT,
+                EIGHT_MULTISCALE_HISTORY_LAYOUT,
+                TEN_MULTISCALE_HISTORY_LAYOUT,
+            ),
+        )
         self.assertEqual(
             history_for_layout(DECISION_HISTORY_LAYOUT).offsets,
             (128, 64, 32, 16, 7, 6, 5, 4, 3, 2, 1, 0),

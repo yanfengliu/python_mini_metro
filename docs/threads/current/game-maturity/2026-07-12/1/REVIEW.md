@@ -46,6 +46,21 @@ Three independent live-code lanes reviewed vector lifecycle/correctness, real SB
 
 Refutation included synthetic exact-byte tests, real `DummyVecEnv -> VecMonitor`, RecurrentPPO timeout bootstrap with a 36-channel terminal stack, and a spawned two-slot `SubprocVecEnv -> VecMonitor` lifecycle probe. Final local validation reached 395 core tests with 8 expected optional-RL skips and 395/395 in the exact RL environment, 8/8 focused wrapper/fingerprint checks, changed-file Ruff/format and pre-commit, diff checks, and a two-frame dummy-video app smoke. Protocol, task, and content fingerprints remain unchanged; trainer identity intentionally changes. Local Node remains at the known 25/44 result because the live sibling is civ-engine 2.4.1 rather than the repository pin 2.2.0.
 
+## GM-02c implementation review
+
+Three independent live-diff lanes covered manifest/CLI ordering and persisted compatibility, real temporal/recurrent runtime behavior, and CI/resource/documentation truth. The only runtime defect was a medium coverage gap: the initial episode-mask regression used a fake prediction policy and could not catch SB3 rollout integration failures. It was replaced with a real RecurrentPPO `policy.forward` probe over a two-step horizon, which records `[[True], [False], [True]]`. CI review also tightened default and legacy exact-history assertions, renamed the expanded workflow step, and required final cursor/evidence reconciliation before Commit A.
+
+| Severity | GM-02c finding | Disposition |
+| --- | --- | --- |
+| Medium | Episode-start mask test used a fake model instead of RecurrentPPO rollout collection | Resolved with real `RecurrentPPO.learn` mask capture and independent refutation |
+| Medium | Default Windows smoke could accept equal-count eight-frame multiscale history | Resolved with exact contiguous layout/offset/fingerprint assertions for default and legacy lanes |
+| Medium/Low | Persistent state/evidence lagged the implemented and reviewed stage | Resolved before Commit A with exact local gates, fingerprints, artifact hashes, and resume actions |
+| Low | Workflow step name omitted the new named-history lifecycle | Resolved by naming the recurrent history and legacy PPO scope |
+
+The manifest reviewer initially questioned the lack of a committed frozen historical model, then retracted the finding after directly authenticating the existing 21,784,628-byte pre-GM-02 v1 recurrent artifact and verifying the driver's evaluate/resume/re-evaluate evidence. The plan requires exercising genuine persisted bytes, not committing a large binary; the repeatable old-`VecFrameStack` unit mechanism test complements that exact-byte smoke. Final refutation passed 29/29 runtime tests and 59/59 manifest/history-focused tests with no remaining substantive finding.
+
+Final local validation reached 399 core tests with 11 expected optional-RL skips and 399/399 in the exact RL environment, changed-file Ruff/format, diff checks, a two-frame dummy-video app smoke, a real named-history two-worker fresh/evaluate/resume/evaluate lifecycle, and a persisted-v1 evaluate/resume/re-evaluate lifecycle. Local Node remained at the known 25/44 result because the live sibling is civ-engine 2.4.1 rather than the repository pin 2.2.0; the expanded pinned Windows CI gate is authoritative.
+
 ## External CLI limitation
 
 The required Codex 0.144.1 and Claude Fable review commands were prepared after reading the canonical runbook. The platform rejected the combined external action because sending repository context to Claude was not an approved third-party data export. No repository context was routed around that control and neither external report was treated as approval. Three independent in-process live-code lanes plus separate refutation compensate for GM-02a/02b coverage; retry the external CLIs in the next high-risk iteration if the platform permits it.

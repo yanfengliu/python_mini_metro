@@ -14,6 +14,11 @@ CONTIGUOUS_HISTORY_LAYOUT = "contiguous-history-v1"
 DECISION_HISTORY_LAYOUT = "decision-history-v1"
 EIGHT_MULTISCALE_HISTORY_LAYOUT = "decision-history-8-control-v1"
 TEN_MULTISCALE_HISTORY_LAYOUT = "decision-history-10-fallback-v1"
+NAMED_HISTORY_LAYOUTS = (
+    DECISION_HISTORY_LAYOUT,
+    EIGHT_MULTISCALE_HISTORY_LAYOUT,
+    TEN_MULTISCALE_HISTORY_LAYOUT,
+)
 
 OFFSET_UNIT = "agent-decisions"
 SAMPLE_ORDER = "oldest-to-newest"
@@ -57,6 +62,7 @@ __all__ = (
     "EIGHT_MULTISCALE_HISTORY_LAYOUT",
     "HISTORY_DESCRIPTOR_SCHEMA",
     "HistoryDescriptor",
+    "NAMED_HISTORY_LAYOUTS",
     "OFFSET_UNIT",
     "PREHISTORY_FILL",
     "RESET_BEHAVIOR",

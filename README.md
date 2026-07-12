@@ -155,11 +155,11 @@ The default observation is channel-first `uint8` RGB with shape `(3, 108, 192)`;
 
 Live `info` dictionaries contain protocol and pointer bookkeeping, not hidden stations, routes, deliveries, or simulation state. Game-level values appear only in terminal episode metrics after the last action: `deliveries` is the lifetime objective, while the legacy `display_score` field means remaining line credits. The deterministic helper in `rl.privileged_oracle` is deliberately separate and is used only by tests and the scripted curriculum demonstrator.
 
-Fresh training currently defaults to SB3-Contrib `recurrent_ppo` with eight spawned environments, an eight-contiguous-frame history, and recurrent minibatches of 64. At the default 10 Hz decision rate, eight RGB frames become 24 input channels and provide a nominal 0.8 seconds of local history (0.7 seconds between the oldest and newest samples). `MiniMetroCNN` extracts 256 visual features, then separate one-layer, 256-unit actor and critic LSTMs carry episode memory across decisions. Feed-forward PPO retains its prior batch size of 256; recurrent batch 64 materially reduced peak process-tree memory in the local one-rollout profile documented in the model-selection note. A strategically spaced greater-than-eight history is under staged implementation and is not the fresh default until its vector lifecycle and measured resource gates pass.
+Fresh training currently defaults to SB3-Contrib `recurrent_ppo` with eight spawned environments, an eight-contiguous-frame history, and recurrent minibatches of 64. At the default 10 Hz decision rate, eight RGB frames become 24 input channels and provide a nominal 0.8 seconds of local history (0.7 seconds between the oldest and newest samples). `MiniMetroCNN` extracts 256 visual features, then separate one-layer, 256-unit actor and critic LSTMs carry episode memory across decisions. Feed-forward PPO retains its prior batch size of 256; recurrent batch 64 materially reduced peak process-tree memory in the local one-rollout profile documented in the model-selection note. Reviewed strategically spaced histories are available as explicit experiments, but none becomes the fresh default until the matched resource gates pass.
 
 The recurrent hidden state persists within one game and resets at the next game's episode boundary; a new training or evaluation process also starts with blank hidden state. Learned network weights are different: authenticated checkpoints persist them across process restarts and resumed training.
 
-Every fresh artifact uses training-manifest v2, which binds a canonical history descriptor and separate `historyFingerprint` without changing the single-frame task fingerprint. Genuine manifest-v1 artifacts derive the historical contiguous offsets `[frameStack-1, ..., 0]` in memory and retain their exact v1 serialized shape. The bounded descriptor-driven vector ring and its reset/terminal lifecycle tests are implemented, but train/resume/evaluation still use Stable-Baselines3 `VecFrameStack` until the next integration stage; meanwhile, any v2 artifact that requests a different equal-channel layout is rejected before its model bytes are opened.
+Every fresh artifact uses training-manifest v2, which binds a canonical history descriptor and separate `historyFingerprint` without changing the single-frame task fingerprint. Genuine manifest-v1 artifacts derive the historical contiguous offsets `[frameStack-1, ..., 0]` in memory and retain their exact v1 serialized shape. Fresh training, resume, and evaluation now build the bounded descriptor-driven vector ring from that exact identity. A mismatched explicit history is rejected before model bytes are opened, including equal-channel layouts whose temporal meaning differs; a different channel count is also rejected by SB3 before learning or evaluation.
 
 The default delivery-delta rewards sum exactly to the episode's terminal total deliveries. Fresh recurrent runs therefore use `gamma=1.0` and `gae_lambda=0.99`, and evaluation reports `meanDeliveries` as the primary metric for the objective of maximizing passengers delivered before the game ends. Evaluation also reports game-over and horizon-truncation counts/rates, marks the primary metric as censored whenever any episode hits the external horizon, and reports `meanDeliveriesAmongGameOverEpisodes` separately. A horizon-truncated delivery count is a right-censored lower bound, not a final game-over delivery result.
 
@@ -172,7 +172,14 @@ python scripts/evaluate_rl.py output/rl/recurrent_ppo-RUN-ID/final_model.zip --e
 
 Standalone evaluation uses the run manifest's recorded evaluation seed by default; pass `--seed` only when you intentionally want a different deterministic episode suite.
 
-Use feed-forward PPO and an explicit frame stack as controlled ablations:
+Opt into the reviewed twelve-frame multiscale candidate while leaving the fresh default unchanged:
+
+```powershell
+python scripts/train_rl.py --history-layout decision-history-v1 --total-timesteps 1000000 --n-envs 8 --run-dir output/rl/recurrent-multiscale-12
+python scripts/evaluate_rl.py output/rl/recurrent-multiscale-12/final_model.zip --episodes 10
+```
+
+Use feed-forward PPO and an explicit contiguous frame stack as controlled ablations. `--frame-stack` and `--history-layout` are mutually exclusive because channel count alone does not identify temporal meaning:
 
 ```powershell
 python scripts/train_rl.py --algorithm ppo --frame-stack 4 --total-timesteps 1000000 --n-envs 8 --run-dir output/rl/ppo-four-frame
@@ -185,7 +192,7 @@ python scripts/train_rl.py --total-timesteps 128 --n-envs 1 --max-episode-steps 
 python scripts/evaluate_rl.py output/rl/smoke/final_model.zip --episodes 1
 ```
 
-Resume from any authenticated periodic or final checkpoint into a new run directory; the saved manifest supplies the algorithm and exact history identity when those flags are omitted, and explicit frame-count or history-fingerprint mismatches are rejected. Repeat any non-default task flags so they match the parent manifest:
+Resume from any authenticated periodic or final checkpoint into a new run directory; the saved manifest supplies the algorithm and exact history identity when those flags are omitted, and explicit frame-count or named-layout mismatches are rejected. Repeat any non-default task flags so they match the parent manifest:
 
 ```powershell
 python scripts/train_rl.py --resume output/rl/recurrent_ppo-RUN-ID/checkpoints/mini_metro_recurrent_ppo_100000_steps.zip --run-dir output/rl/resumed --total-timesteps 500000
