@@ -6,23 +6,23 @@ Active goal thread: `019f5286-dfca-75e1-9e79-58719dbe1efb`
 
 Current increment: GM-02 - Add strategically spaced long visual history
 
-Current substep: GM-02b - vectorized temporal ring and lifecycle tests
+Current substep: GM-02b - remote finalization
 
-Current status: GM-02b implementation, local gates, and adversarial review are green; stage Commit A without `.agents/`
+Current status: GM-02b Commit A is remotely green; Commit B staging is in progress
 
-Durability transaction: GM-02a Commit B `ab8e6eb1d9a4006b514d113e6ad2b93c3f6d9b48` is remotely green; GM-02b Commit A is locally ready
+Durability transaction: GM-02b Commit A `a5744c0e97832b296f5a02cef7fa40317d11f1e4` is green in run `29209101298`; Commit B is in progress
 
 Last remotely finalized work unit: GM-02a at Commit B `ab8e6eb1d9a4006b514d113e6ad2b93c3f6d9b48`, which passed [run 29207697382](https://github.com/yanfengliu/python_mini_metro/actions/runs/29207697382)
 
-Expected remote implementation baseline: `ab8e6eb1d9a4006b514d113e6ad2b93c3f6d9b48`
+Expected remote implementation baseline: `a5744c0e97832b296f5a02cef7fa40317d11f1e4`
 
-Current transaction marker: `[GM-02b:A]`
+Current transaction marker: `[GM-02b:B]`
 
 ## Resume here
 
-1. Inspect and stage only the GM-02b implementation, tests, docs, review artifacts, and cursor; never stage the pre-existing `.agents/` tree.
-2. Commit `[GM-02b:A]`, push, and wait for pinned build plus RL-smoke success.
-3. Record A's exact SHA and remote run in Commit B, push, and wait for B's remote success before beginning GM-02c runtime integration.
+1. Stage only the GM-02b A evidence and persistent cursor updates; never stage the pre-existing `.agents/` tree.
+2. Commit `[GM-02b:B]`, push, and wait for pinned build plus RL-smoke success.
+3. After B is remotely green, record its exact SHA/run and begin GM-02c test-first runtime integration from that exact baseline.
 
 ## Increment ledger
 
@@ -30,7 +30,7 @@ Current transaction marker: `[GM-02b:A]`
 | --- | --- | --- | --- | --- |
 | GM-00 | complete | `16a0e73` / `0411e68` | [A run 29172923371](https://github.com/yanfengliu/python_mini_metro/actions/runs/29172923371) and [B run 29173071970](https://github.com/yanfengliu/python_mini_metro/actions/runs/29173071970) succeeded | Durable plan and reviews |
 | GM-01 | complete | `5e00763` / `6c77033` / `3523ea4` / `18ef714` / `648025f` / `14050af` | GM-01a/GM-01b/GM-01c A/B green | Canonical objective and baseline rules remotely finalized |
-| GM-02 | in progress | `bab6b15` / `ab8e6eb` | GM-02a A/B green | GM-02b temporal ring locally green; A/B pending |
+| GM-02 | in progress | `bab6b15` / `ab8e6eb` / `a5744c0` | GM-02a A/B and GM-02b A green | GM-02b Commit B pending |
 | GM-03 | pending | - | - | Mediator and test decomposition |
 | GM-04 | pending | - | - | Isolated pinned civ-engine local setup |
 | GM-05 | pending | - | - | Route editing |
@@ -55,7 +55,7 @@ Current transaction marker: `[GM-02b:A]`
 | GM-01b | complete | `3523ea4` / run `29177705475` success | `18ef714` / run `29177848669` success | HUD, game-over, cadence, and docs remotely finalized |
 | GM-01c | complete | `648025f` / run `29180986088` success | `14050af` / run `29181130841` success | Threshold-two runtime and v3 replay migration remotely finalized |
 | GM-02a | complete | `bab6b15` / run `29207490781` success | `ab8e6eb` / run `29207697382` success | History identity and manifest migration remotely finalized |
-| GM-02b | local green | `[GM-02b:A]` / pending | - | Temporal ring, lifecycle/resource tests, and adversarial refutation pass |
+| GM-02b | Commit A green | `a5744c0` / run `29209101298` success | `[GM-02b:B]` / pending | Temporal ring, lifecycle/resource tests, and adversarial refutation pass |
 | GM-02c | pending | - | - | CLI/train/eval/legacy integration |
 | GM-02d | pending | - | - | Resource profile and default promotion |
 | GM-03a | pending | - | - | Split mediator tests |
@@ -116,7 +116,7 @@ Before GM-12c starts, replace its placeholder with one row per configuration and
 
 ## Known external state
 
-- `main` and `origin/main` are equal at GM-02a Commit B `ab8e6eb1d9a4006b514d113e6ad2b93c3f6d9b48` before GM-02b Commit A.
+- `main` and `origin/main` are equal at GM-02b Commit A `a5744c0e97832b296f5a02cef7fa40317d11f1e4` before GM-02b Commit B.
 - The only pre-existing untracked path is `.agents/`; preserve it.
 - The live sibling `../civ-engine` is 2.4.1 while this repository pins 2.2.0, so unisolated local `npm test` fails by design. GM-04 owns the durable setup fix.
 - The fleet `loop-ops/DIRECTIVES.md` does not list this repository as an active scheduled shift. Use repo-local persistent state and bare verified passes unless the owner later activates it there.

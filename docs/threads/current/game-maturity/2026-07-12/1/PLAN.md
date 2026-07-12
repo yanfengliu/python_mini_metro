@@ -1,6 +1,6 @@
 # GM-02 strategically spaced visual-history plan
 
-Status: GM-02a remotely finalized at Commit B `ab8e6eb1d9a4006b514d113e6ad2b93c3f6d9b48`; GM-02b implementation, local gates, and adversarial review green with Commit A pending
+Status: GM-02a remotely finalized; GM-02b Commit A `a5744c0e97832b296f5a02cef7fa40317d11f1e4` is green in run `29209101298`, with Commit B pending
 
 Baseline: GM-01c Commit B `14050af71df5c6cad8035904da467959767f68bb`, green in GitHub Actions run `29181130841`
 

@@ -146,3 +146,10 @@ For each GM increment append: changed contracts, focused red/green tests, full l
 - Fingerprints: protocol `69c604ac62d46d4a2339b3efad239372c61d0eb52e45ce6c9b6cf8da946dea8f`, default task `719362078a7d98f1e3c944a6a797f7147b29383495f37f417aa9d61e3416016d`, and content `3fa9b5b78750d9a1c113e4da76ea669466f485a14d8df6702705610ed868dd60` remain unchanged; trainer identity intentionally changes from `cb0e6e0f679afb2677760e964aa8acc9adf728548b2128671da0417aee782686` to `a435f8d354967880e29bedd525f6ca48faced801ac4eed3f469aa82e23f765d8`.
 - Adversarial review: three independent lanes found and refuted pre-reset dispatch, stale history after consumed invalid data, reset-assembly initialization, resource accounting, cleanup, and stale docs. Every confirmed finding was fixed test-first; real Dummy/VecMonitor, 36-channel RecurrentPPO timeout bootstrap, and spawned two-slot Subproc/VecMonitor probes passed, and all lanes returned clean. External Codex/Claude review remains unavailable because the platform denied repository-context export to Claude; no bypass was attempted.
 - Node boundary: local `npm test` reproduced the known 25/44 result with the same 19 civ-engine 2.4.1-versus-pinned-2.2.0 failures; pinned CI remains authoritative until GM-04 supplies an isolated local engine.
+
+## GM-02b Commit A - remote implementation gate
+
+- Commit: `a5744c0e97832b296f5a02cef7fa40317d11f1e4` (`feat: add vectorized temporal history [GM-02b:A]`).
+- Push: `origin/main` advanced from `ab8e6eb` to `a5744c0`.
+- Remote workflow: [run 29209101298](https://github.com/yanfengliu/python_mini_metro/actions/runs/29209101298) succeeded; `build` passed in 41 seconds, including all 44 Node tests against pinned civ-engine 2.2.0 plus the clean recursive pass and 395-test Python suite, and `rl-smoke` passed in 2 minutes 42 seconds including the exact temporal-history and recurrent artifact paths.
+- Commit B purpose: durably record A's exact SHA/CI, mark GM-02b complete pending B's own CI, and keep GM-02c behind that remote gate.
