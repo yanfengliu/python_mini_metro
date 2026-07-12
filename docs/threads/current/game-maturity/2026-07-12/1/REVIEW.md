@@ -1,4 +1,4 @@
-# GM-02 plan review synthesis
+# GM-02 plan and implementation review synthesis
 
 Status: APPROVED for test-first implementation after correction and re-review
 
@@ -22,7 +22,7 @@ Status: APPROVED for test-first implementation after correction and re-review
 
 All three lanes re-read the corrected plan and returned APPROVED with no remaining substantive finding.
 
-## Implementation review
+## GM-02a implementation review
 
 Three independent live-diff finders covered manifest trust/schema, train/evaluate/legacy ordering, and architecture/docs/resource boundaries. The manifest and CLI lanes were clean. The architecture lane found two test-coverage defects: the new trainer-identity modules were not each mutation-tested, and the v2 exact-key branch lacked top-level missing/unknown cases. Both were fixed. The original finder approved the corrections, and an independent refuter verified them with focused tests plus direct parser probes. No substantive implementation finding remains.
 
@@ -33,6 +33,19 @@ Three independent live-diff finders covered manifest trust/schema, train/evaluat
 
 Implementation validation reached 389 core tests with 8 expected optional-RL skips and 389/389 in the exact RL environment, changed-file Ruff/format and pre-commit, a two-frame dummy-video app smoke, fresh v2 train/evaluate, genuine v1 evaluate/resume into v2, and unchanged protocol/task/content fingerprints. Local Node remained at the known 25/44 result because the live sibling is civ-engine 2.4.1 rather than the repository pin 2.2.0; pinned CI remains authoritative until GM-04.
 
+## GM-02b implementation review
+
+Three independent live-code lanes reviewed vector lifecycle/correctness, real SB3/RecurrentPPO compatibility, and allocation/cleanup/documentation. The finders independently reproduced two medium fail-closed defects: stepping before reset dispatched work before rejection, and validation failures after an underlying transition left stale history usable. After those fixes, a refuter forced reset output assembly to fail and found the wrapper initialized despite `reset()` never returning. The final implementation rejects before `step_async` delegation, poisons all history on any reset/step failure, marks reset successful only after owned output assembly, and closes the base on failed construction. All three lanes then returned clean.
+
+| Severity | GM-02b finding | Disposition |
+| --- | --- | --- |
+| Medium | Pre-reset `step()` dispatched an action before rejecting in `step_wait()` | Resolved with a pre-delegation `step_async()` guard and no-dispatch regression |
+| Medium | Malformed consumed step or reset data left stale/cross-episode history usable | Resolved with zeroing poison state that requires a successful explicit reset |
+| Medium | Reset output-assembly failure initialized a wrapper whose reset never completed | Resolved by assembling inside the failure guard and setting initialized only after success |
+| Low | Candidate-size allocation, construction cleanup, and intermediate docs were incomplete | Resolved with exact 64,198,656-byte ring and 5,971,968-byte output assertions, failed-construction close coverage, and explicit dormant-runtime documentation |
+
+Refutation included synthetic exact-byte tests, real `DummyVecEnv -> VecMonitor`, RecurrentPPO timeout bootstrap with a 36-channel terminal stack, and a spawned two-slot `SubprocVecEnv -> VecMonitor` lifecycle probe. Final local validation reached 395 core tests with 8 expected optional-RL skips and 395/395 in the exact RL environment, 8/8 focused wrapper/fingerprint checks, changed-file Ruff/format and pre-commit, diff checks, and a two-frame dummy-video app smoke. Protocol, task, and content fingerprints remain unchanged; trainer identity intentionally changes. Local Node remains at the known 25/44 result because the live sibling is civ-engine 2.4.1 rather than the repository pin 2.2.0.
+
 ## External CLI limitation
 
-The required Codex 0.144.1 and Claude Fable plan-review commands were prepared after reading the canonical runbook. The platform rejected the combined external action because sending repository context to Claude was not an approved third-party data export. No repository context was routed around that control and neither external report was treated as approval. The three independent in-process live-code lanes compensate for plan coverage; retry the external CLIs in the next high-risk iteration if the platform permits it.
+The required Codex 0.144.1 and Claude Fable review commands were prepared after reading the canonical runbook. The platform rejected the combined external action because sending repository context to Claude was not an approved third-party data export. No repository context was routed around that control and neither external report was treated as approval. Three independent in-process live-code lanes plus separate refutation compensate for GM-02a/02b coverage; retry the external CLIs in the next high-risk iteration if the platform permits it.

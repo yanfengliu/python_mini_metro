@@ -104,3 +104,4 @@
 ## 2026-07-12
 
 - Added immutable temporal-history descriptors and separately authenticated fingerprints in training-manifest v2, exact manifest-v1 contiguous-stack normalization and byte preservation, fail-closed pre-wrapper train/evaluation guards, and focused schema/legacy coverage while retaining the eight-contiguous-frame runtime default pending the vector-history and resource-profile stages.
+- Added a bounded per-environment `uint8` temporal-history ring with exact multiscale chronology, zero pre-history, isolated terminal/reset stacks, fail-closed recovery, contiguous `VecFrameStack` equivalence, and pinned candidate memory accounting; runtime integration remains staged for GM-02c.

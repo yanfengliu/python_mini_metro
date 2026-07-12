@@ -128,3 +128,21 @@ For each GM increment append: changed contracts, focused red/green tests, full l
 - Push: `origin/main` advanced from `14050af` to `bab6b15`.
 - Remote workflow: [run 29207490781](https://github.com/yanfengliu/python_mini_metro/actions/runs/29207490781) succeeded; `build` passed in 36 seconds, including all 44 Node tests against pinned civ-engine 2.2.0 plus the clean recursive pass and Python suite, and `rl-smoke` passed in 2 minutes 47 seconds including fresh recurrent and legacy PPO artifact paths.
 - Commit B purpose: durably record A's exact SHA/CI, mark GM-02a complete pending B's own CI, and keep GM-02b behind that remote gate.
+
+## GM-02a Commit B - remote finalization
+
+- Commit: `ab8e6eb1d9a4006b514d113e6ad2b93c3f6d9b48` (`docs: finalize RL history identity [GM-02a:B]`).
+- Push: `origin/main` advanced from `bab6b15` to `ab8e6eb`.
+- Remote workflow: [run 29207697382](https://github.com/yanfengliu/python_mini_metro/actions/runs/29207697382) succeeded; `build` passed in 34 seconds and `rl-smoke` passed in 2 minutes 37 seconds.
+- Outcome: GM-02a is remotely finalized. GM-02b starts from this exact baseline with the bounded vectorized temporal-history ring.
+
+## GM-02b local implementation evidence
+
+- Contract: `VecTemporalHistory` stores one isolated `(max_offset + 1)` `uint8` ring per vector slot, samples exact oldest-to-newest offsets into owned channel-first outputs, constructs an ending-episode terminal stack before clearing an auto-reset slot, and requires a clean reset after any reset/consumed-step failure. Train/resume/evaluate remain honestly on contiguous `VecFrameStack` until GM-02c integrates all paths.
+- TDD: the wrapper import initially failed red; later fail-closed expansion produced 13 expected failures for stale-state continuation and constructor cleanup; a forced reset-output `MemoryError` then failed because the wrapper became initialized. Each defect was implemented only after its red regression, and final focused wrapper plus fingerprint coverage passed 8/8.
+- Exact lifecycle/resource coverage: chronology is byte-pinned through decision 130 and offset-128 wraparound; staggered termination/truncation, zero pre-history, repeated reset, retained output ownership, malformed terminal/batch/metadata poisoning, and N=1/4/8/13 SB3 equivalence pass. The eight-slot candidate ring is exactly 64,198,656 bytes with output space `(36, 108, 192)` and a 5,971,968-byte vector output.
+- Full Python: core `python -m unittest -v` passed 395 tests with 8 expected optional-RL skips; `output/venv-rl/Scripts/python.exe -m unittest -v` passed 395/395 with no skips.
+- Static/hooks/app: changed-file Ruff check and format, `git diff --check`, and changed-file pre-commit all passed; dummy-video `src/main.py` completed two frames.
+- Fingerprints: protocol `69c604ac62d46d4a2339b3efad239372c61d0eb52e45ce6c9b6cf8da946dea8f`, default task `719362078a7d98f1e3c944a6a797f7147b29383495f37f417aa9d61e3416016d`, and content `3fa9b5b78750d9a1c113e4da76ea669466f485a14d8df6702705610ed868dd60` remain unchanged; trainer identity intentionally changes from `cb0e6e0f679afb2677760e964aa8acc9adf728548b2128671da0417aee782686` to `a435f8d354967880e29bedd525f6ca48faced801ac4eed3f469aa82e23f765d8`.
+- Adversarial review: three independent lanes found and refuted pre-reset dispatch, stale history after consumed invalid data, reset-assembly initialization, resource accounting, cleanup, and stale docs. Every confirmed finding was fixed test-first; real Dummy/VecMonitor, 36-channel RecurrentPPO timeout bootstrap, and spawned two-slot Subproc/VecMonitor probes passed, and all lanes returned clean. External Codex/Claude review remains unavailable because the platform denied repository-context export to Claude; no bypass was attempted.
+- Node boundary: local `npm test` reproduced the known 25/44 result with the same 19 civ-engine 2.4.1-versus-pinned-2.2.0 failures; pinned CI remains authoritative until GM-04 supplies an isolated local engine.

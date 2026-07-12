@@ -88,6 +88,7 @@ TRAINING_SOURCE_PATHS = (
     "src/rl/model.py",
     "src/rl/policy.py",
     "src/rl/provenance.py",
+    "src/rl/temporal_history.py",
     "src/rl/training.py",
 )
 

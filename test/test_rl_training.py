@@ -156,6 +156,8 @@ class TestTrainingConfiguration(unittest.TestCase):
             history_path.write_text("HISTORY = 1\n", encoding="utf-8")
             manifest_schema_path = root / "src" / "rl" / "manifest_schema.py"
             manifest_schema_path.write_text("SCHEMA = 1\n", encoding="utf-8")
+            temporal_path = root / "src" / "rl" / "temporal_history.py"
+            temporal_path.write_text("TEMPORAL = 1\n", encoding="utf-8")
             requirements_path = root / "requirements-rl.txt"
             requirements_path.write_text("tool==1\n", encoding="utf-8")
             baseline = compute_content_fingerprint(root)
@@ -163,6 +165,7 @@ class TestTrainingConfiguration(unittest.TestCase):
             training_path.write_text("TRAINING = 2\n", encoding="utf-8")
             history_path.write_text("HISTORY = 2\n", encoding="utf-8")
             manifest_schema_path.write_text("SCHEMA = 2\n", encoding="utf-8")
+            temporal_path.write_text("TEMPORAL = 2\n", encoding="utf-8")
             requirements_path.write_text("tool==2\n", encoding="utf-8")
             self.assertEqual(compute_content_fingerprint(root), baseline)
 
@@ -201,6 +204,7 @@ class TestTrainingConfiguration(unittest.TestCase):
                 "src/rl/model.py",
                 "src/rl/policy.py",
                 "src/rl/provenance.py",
+                "src/rl/temporal_history.py",
                 "src/rl/training.py",
             ):
                 path = root / relative
@@ -217,7 +221,11 @@ class TestTrainingConfiguration(unittest.TestCase):
                 "requirements-rl-locked.txt\n",
                 encoding="utf-8",
             )
-            for relative in ("src/rl/history.py", "src/rl/manifest_schema.py"):
+            for relative in (
+                "src/rl/history.py",
+                "src/rl/manifest_schema.py",
+                "src/rl/temporal_history.py",
+            ):
                 with self.subTest(relative=relative):
                     path = root / relative
                     path.write_text("changed identity\n", encoding="utf-8")
