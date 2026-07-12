@@ -1,7 +1,6 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 2,
   "environmentRewardContract": "deliveries",
-  "overduePassengerThreshold": 2,
   "seed": 42,
   "defaultDtMs": 16,
   "operations": [

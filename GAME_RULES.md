@@ -80,7 +80,8 @@ This document summarizes the game rules currently implemented in code.
 ## Game Over
 
 - A passenger is considered over-waiting at 40 seconds or more of station wait time.
-- Game over occurs when 1 or more passengers are over-waiting.
+- Only passengers waiting at stations count toward overload; passengers already riding metros do not.
+- A fresh game uses an overdue-passenger threshold of 2. The first over-waiting station passenger is a warning and the second ends the game. Programmatic callers may set `Mediator.overdue_passenger_threshold`; the deprecated writable `max_waiting_passengers` alias controls the same value, and explicit threshold `1` preserves the historical one-passenger rule.
 - On game over:
   - Simulation time and gameplay updates stop.
   - `MiniMetroEnv.step(...)` calls become stable no-ops until reset; `PlayerPixelEnv.step(...)` rejects further actions until its required reset.

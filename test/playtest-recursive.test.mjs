@@ -23,6 +23,12 @@ const defaultScenario = path.join(
   'fixtures',
   'recursive-playtest.json',
 );
+const historicalV2Scenario = path.join(
+  repoRoot,
+  'scripts',
+  'fixtures',
+  'recursive-playtest-v2.json',
+);
 const testOutputBase = path.join(repoRoot, 'output', 'node-tests');
 
 test('default recursive pass writes verified evidence and complete ledgers', async () => {
@@ -53,9 +59,15 @@ test('default recursive pass writes verified evidence and complete ledgers', asy
     const sourceState = JSON.parse(
       await readFile(path.join(runDir, 'source-state.json'), 'utf8'),
     );
-    assert.equal(inputs.schemaVersion, 2);
+    assert.equal(inputs.schemaVersion, 3);
     assert.equal(inputs.environmentRewardContract, 'deliveries');
+    assert.equal(inputs.overduePassengerThreshold, 2);
     assert.equal(transcriptRows.length, inputs.operations.length);
+    assert.ok(transcriptRows.every((row) => (
+      row.checkpoint.schemaVersion === 2
+      && row.checkpoint.progression.limits.overdue_passenger_threshold === 2
+      && row.checkpoint.progression.limits.max_waiting_passengers === 2
+    )));
     assert.equal(verification.ok, true);
     assert.equal(verification.finalStateMatches, true);
     assert.equal(verification.findingsMatch, true);
@@ -250,6 +262,29 @@ test('public verifier replays genuine v1 inputs without a reward-contract field'
     const inputs = JSON.parse(await readFile(path.join(runDir, 'inputs.json'), 'utf8'));
     assert.equal(inputs.schemaVersion, 1);
     assert.equal('environmentRewardContract' in inputs, false);
+
+    const verification = await runVerifier(runDir);
+    assert.equal(verification.exitCode, 0, verification.stderr || verification.stdout);
+    const result = JSON.parse(verification.stdout);
+    assert.equal(result.ok, true);
+    assert.equal(result.inputsMatch, true);
+  });
+});
+
+test('public verifier replays literal v2 inputs at the historical threshold', async () => {
+  await withOutputRoot(async (outputRoot) => {
+    const runDir = path.join(outputRoot, 'literal-v2-drive');
+    const drive = await runDrive(runDir, historicalV2Scenario, 'literal-v2-drive');
+    assert.equal(drive.exitCode, 0, drive.stderr || drive.stdout);
+    const inputs = JSON.parse(await readFile(path.join(runDir, 'inputs.json'), 'utf8'));
+    const transcriptRows = await jsonlRows(path.join(runDir, 'transcript.jsonl'));
+    assert.equal(inputs.schemaVersion, 2);
+    assert.equal(inputs.environmentRewardContract, 'deliveries');
+    assert.equal('overduePassengerThreshold' in inputs, false);
+    assert.equal(
+      transcriptRows[0].checkpoint.progression.limits.overdue_passenger_threshold,
+      1,
+    );
 
     const verification = await runVerifier(runDir);
     assert.equal(verification.exitCode, 0, verification.stderr || verification.stdout);

@@ -3,7 +3,10 @@ import test from 'node:test';
 
 import { assertImprovementFinding, stateDigest } from 'civ-engine';
 
-import { compareEvidence } from '../scripts/playtest-verify.mjs';
+import {
+  compareEvidence,
+  replayableInputs,
+} from '../scripts/playtest-verify.mjs';
 
 function finding(overrides = {}) {
   return {
@@ -152,4 +155,38 @@ test('stateDigest changes for every determinism-critical checkpoint family', () 
     mutate(changed);
     assert.notEqual(stateDigest(changed), baseline);
   }
+});
+
+test('replay input projection preserves immutable v2 and v3 environment contracts', () => {
+  const base = {
+    runId: 'original-run',
+    sourcePath: 'scenario.json',
+    seed: 42,
+    defaultDtMs: 16,
+    pythonExecutable: 'python',
+    pythonHashSeed: '42',
+    operations: [{
+      name: 'noop',
+      action: { type: 'noop' },
+      expectedActionOk: true,
+    }],
+  };
+  const v2 = replayableInputs({
+    ...base,
+    schemaVersion: 2,
+    environmentRewardContract: 'deliveries',
+  });
+  const v3 = replayableInputs({
+    ...base,
+    schemaVersion: 3,
+    environmentRewardContract: 'deliveries',
+    overduePassengerThreshold: 2,
+  });
+
+  assert.equal(v2.environmentRewardContract, 'deliveries');
+  assert.equal('overduePassengerThreshold' in v2, false);
+  assert.equal(v3.environmentRewardContract, 'deliveries');
+  assert.equal(v3.overduePassengerThreshold, 2);
+  assert.equal('runId' in v3, false);
+  assert.equal('sourcePath' in v3, false);
 });

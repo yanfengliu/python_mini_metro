@@ -10,6 +10,7 @@ from agent_play import (
     LEGACY_PLAYTHROUGH_RECORD_SCHEMA,
     LINE_CREDITS_REWARD_CONTRACT,
     PLAYTHROUGH_RECORD_SCHEMA,
+    PLAYTHROUGH_RECORD_SCHEMA_V2,
     PlaythroughRecord,
     iter_playthrough_observations,
     replay_playthrough,
@@ -39,6 +40,7 @@ class MetricEnv:
             line_credits=9,
             total_travels_handled=2,
             score=9,
+            max_waiting_passengers=1,
         )
         type(self).created_reward_modes.append(reward_mode)
 
@@ -109,6 +111,7 @@ class TestAgentPlay(unittest.TestCase):
             actions=[{"type": "noop"}],
             schema=PLAYTHROUGH_RECORD_SCHEMA,
             reward_contract="deliveries",
+            overdue_passenger_threshold=2,
         )
         legacy_record = PlaythroughRecord(
             seed=1,
@@ -172,7 +175,7 @@ class TestAgentPlay(unittest.TestCase):
         v2_without_reward_contract = SimpleNamespace(
             seed=4,
             dt_ms=5,
-            schema=PLAYTHROUGH_RECORD_SCHEMA,
+            schema=PLAYTHROUGH_RECORD_SCHEMA_V2,
             actions=[],
         )
 

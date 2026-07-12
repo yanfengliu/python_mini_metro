@@ -9,13 +9,17 @@ from env import MiniMetroEnv
 
 Action = Dict[str, Any]
 
-LEGACY_PLAYTHROUGH_RECORD_SCHEMA = "mini-metro-agent-play-v1"
-PLAYTHROUGH_RECORD_SCHEMA = "mini-metro-agent-play-v2"
+PLAYTHROUGH_RECORD_SCHEMA_V1 = "mini-metro-agent-play-v1"
+PLAYTHROUGH_RECORD_SCHEMA_V2 = "mini-metro-agent-play-v2"
+PLAYTHROUGH_RECORD_SCHEMA_V3 = "mini-metro-agent-play-v3"
+LEGACY_PLAYTHROUGH_RECORD_SCHEMA = PLAYTHROUGH_RECORD_SCHEMA_V1
+PLAYTHROUGH_RECORD_SCHEMA = PLAYTHROUGH_RECORD_SCHEMA_V3
 DELIVERIES_REWARD_CONTRACT = "deliveries"
 LINE_CREDITS_REWARD_CONTRACT = "line_credits_delta"
 _SUPPORTED_RECORD_SCHEMAS = {
-    LEGACY_PLAYTHROUGH_RECORD_SCHEMA,
-    PLAYTHROUGH_RECORD_SCHEMA,
+    PLAYTHROUGH_RECORD_SCHEMA_V1,
+    PLAYTHROUGH_RECORD_SCHEMA_V2,
+    PLAYTHROUGH_RECORD_SCHEMA_V3,
 }
 _SUPPORTED_REWARD_CONTRACTS = {
     DELIVERIES_REWARD_CONTRACT,
@@ -70,6 +74,7 @@ class PlaythroughRecord:
     reward_contract: str = LINE_CREDITS_REWARD_CONTRACT
     final_deliveries: int = 0
     final_line_credits: int = 0
+    overdue_passenger_threshold: int | None = None
 
 
 def _coerce_contract(value: object) -> str | None:
@@ -96,33 +101,86 @@ def _record_reward_contract(record: PlaythroughRecord) -> str:
     schema = getattr(record, "schema", LEGACY_PLAYTHROUGH_RECORD_SCHEMA)
     if schema not in _SUPPORTED_RECORD_SCHEMAS:
         raise ValueError(f"unsupported playthrough record schema: {schema!r}")
-    if schema == LEGACY_PLAYTHROUGH_RECORD_SCHEMA:
+    if schema == PLAYTHROUGH_RECORD_SCHEMA_V1:
         contract = getattr(record, "reward_contract", LINE_CREDITS_REWARD_CONTRACT)
         if contract != LINE_CREDITS_REWARD_CONTRACT:
             raise ValueError("legacy playthrough records require line_credits_delta")
         return LINE_CREDITS_REWARD_CONTRACT
     if not hasattr(record, "reward_contract"):
-        raise ValueError("v2 playthrough records require reward_contract")
+        raise ValueError(f"{schema} records require reward_contract")
     contract = record.reward_contract
     if contract not in _SUPPORTED_REWARD_CONTRACTS:
         raise ValueError(f"unsupported playthrough reward contract: {contract!r}")
     return contract
 
 
+def _record_overdue_passenger_threshold(record: PlaythroughRecord) -> int:
+    schema = getattr(record, "schema", PLAYTHROUGH_RECORD_SCHEMA_V1)
+    if schema not in _SUPPORTED_RECORD_SCHEMAS:
+        raise ValueError(f"unsupported playthrough record schema: {schema!r}")
+    if schema in {PLAYTHROUGH_RECORD_SCHEMA_V1, PLAYTHROUGH_RECORD_SCHEMA_V2}:
+        return 1
+    if not hasattr(record, "overdue_passenger_threshold"):
+        raise ValueError("v3 records require overdue_passenger_threshold")
+    threshold = record.overdue_passenger_threshold
+    if type(threshold) is not int or threshold <= 0:
+        raise ValueError("v3 overdue_passenger_threshold must be a positive integer")
+    return threshold
+
+
+def _environment_overdue_passenger_threshold(env: MiniMetroEnv) -> int:
+    mediator = env.mediator
+    if hasattr(mediator, "overdue_passenger_threshold"):
+        threshold = mediator.overdue_passenger_threshold
+    elif hasattr(mediator, "max_waiting_passengers"):
+        threshold = mediator.max_waiting_passengers
+    else:
+        raise ValueError("environment does not expose an overdue passenger threshold")
+    if type(threshold) is not int or threshold <= 0:
+        raise ValueError("environment overdue passenger threshold must be positive")
+    return threshold
+
+
+def _apply_overdue_passenger_threshold(env: MiniMetroEnv, threshold: int) -> None:
+    mediator = env.mediator
+    if hasattr(mediator, "overdue_passenger_threshold"):
+        mediator.overdue_passenger_threshold = threshold
+    elif hasattr(mediator, "max_waiting_passengers"):
+        mediator.max_waiting_passengers = threshold
+    else:
+        raise ValueError("environment does not expose an overdue passenger threshold")
+
+
 def _new_environment(
     dt_ms: int | None, reward_contract: str
 ) -> tuple[MiniMetroEnv, str]:
-    parameters = signature(MiniMetroEnv).parameters.values()
-    accepts_reward_mode = "reward_mode" in signature(MiniMetroEnv).parameters or any(
-        parameter.kind is Parameter.VAR_KEYWORD for parameter in parameters
+    parameters = signature(MiniMetroEnv).parameters
+    accepts_keywords = any(
+        parameter.kind is Parameter.VAR_KEYWORD for parameter in parameters.values()
     )
-    if accepts_reward_mode:
-        return (
-            MiniMetroEnv(dt_ms=dt_ms, reward_mode=reward_contract),
-            reward_contract,
+
+    def accepts_keyword(name: str) -> bool:
+        parameter = parameters.get(name)
+        return accepts_keywords or (
+            parameter is not None
+            and parameter.kind
+            in {Parameter.POSITIONAL_OR_KEYWORD, Parameter.KEYWORD_ONLY}
         )
+
+    accepts_reward_mode = accepts_keyword("reward_mode")
+    kwargs: dict[str, Any] = {}
+    if accepts_keyword("dt_ms"):
+        kwargs["dt_ms"] = dt_ms
+    if accepts_reward_mode:
+        kwargs["reward_mode"] = reward_contract
+    env = MiniMetroEnv(**kwargs)
+    if accepts_reward_mode:
+        return env, reward_contract
+    if hasattr(env, "reward_mode"):
+        env.reward_mode = reward_contract
+        return env, reward_contract
     # Compatibility with MiniMetroEnv versions from before explicit reward modes.
-    return MiniMetroEnv(dt_ms=dt_ms), LINE_CREDITS_REWARD_CONTRACT
+    return env, LINE_CREDITS_REWARD_CONTRACT
 
 
 def _observation_metrics(
@@ -173,6 +231,7 @@ def run_agent_playthrough(
         agent = SimpleAgent()
 
     observation = env.reset(seed=seed)
+    overdue_threshold = _environment_overdue_passenger_threshold(env)
     agent.reset(observation)
     effective_dt_ms = (
         dt_ms
@@ -186,6 +245,7 @@ def run_agent_playthrough(
         max_steps=max_steps,
         schema=PLAYTHROUGH_RECORD_SCHEMA,
         reward_contract=reward_contract,
+        overdue_passenger_threshold=overdue_threshold,
     )
 
     for _ in range(max_steps):
@@ -241,11 +301,12 @@ def iter_playthrough_observations(
     env: MiniMetroEnv | None = None,
     max_steps: int | None = None,
 ) -> Iterable[Dict[str, Any]]:
+    reward_contract = _record_reward_contract(record)
+    overdue_threshold = _record_overdue_passenger_threshold(record)
     if env is None:
-        env, _ = _new_environment(record.dt_ms, _record_reward_contract(record))
-    else:
-        _record_reward_contract(record)
+        env, _ = _new_environment(record.dt_ms, reward_contract)
     observation = env.reset(seed=record.seed)
+    _apply_overdue_passenger_threshold(env, overdue_threshold)
     yield observation
 
     actions = record.actions

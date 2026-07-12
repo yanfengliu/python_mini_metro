@@ -54,6 +54,10 @@ class TestCheckpoint(unittest.TestCase):
             checkpoint["progression"]["limits"]["overdue_passenger_threshold"],
             checkpoint["progression"]["limits"]["max_waiting_passengers"],
         )
+        self.assertEqual(
+            checkpoint["progression"]["limits"]["overdue_passenger_threshold"],
+            2,
+        )
         self.assertIn("last_deliveries", checkpoint["environment"])
         self.assertIn("last_line_credits", checkpoint["environment"])
         self.assertIn("last_score", checkpoint["environment"])
@@ -62,6 +66,7 @@ class TestCheckpoint(unittest.TestCase):
     def test_genuine_v1_checkpoint_normalizes_without_mutating_legacy_shape(self):
         legacy_env = MiniMetroEnv(reward_mode=LINE_CREDITS_REWARD_CONTRACT)
         legacy_env.reset(seed=77)
+        legacy_env.mediator.max_waiting_passengers = 1
         legacy = canonical_checkpoint(legacy_env, schema_version=1)
         encoded = json.dumps(legacy, allow_nan=False, sort_keys=True)
 
@@ -95,6 +100,17 @@ class TestCheckpoint(unittest.TestCase):
             normalized["environment"]["reward_mode"],
             LINE_CREDITS_REWARD_CONTRACT,
         )
+        self.assertEqual(
+            normalized["progression"]["limits"]["overdue_passenger_threshold"],
+            1,
+        )
+
+    def test_v2_checkpoint_rejects_threshold_alias_disagreement(self):
+        checkpoint = self.checkpoint()
+        checkpoint["progression"]["limits"]["overdue_passenger_threshold"] = 3
+
+        with self.assertRaisesRegex(ValueError, "threshold.*disagrees"):
+            normalize_checkpoint(checkpoint)
 
     def test_v1_checkpoint_rejects_a_delivery_reward_environment(self):
         with self.assertRaisesRegex(ValueError, "checkpoint v1"):

@@ -10,10 +10,10 @@ from config import (
     game_over_button_width,
     game_over_font_size,
     initial_num_stations,
-    max_waiting_passengers,
     num_metros,
     num_paths,
     num_stations,
+    overdue_passenger_threshold,
     passenger_color,
     passenger_max_wait_time_ms,
     passenger_size,
@@ -114,7 +114,7 @@ class Mediator:
         self.update_path_button_lock_states()
         self.is_game_over = False
         self.passenger_max_wait_time_ms = passenger_max_wait_time_ms
-        self.max_waiting_passengers = max_waiting_passengers
+        self.overdue_passenger_threshold = overdue_passenger_threshold
         self.prepare_layout(screen_width, screen_height)
 
     @property
@@ -136,6 +136,16 @@ class Mediator:
     @score.setter
     def score(self, value: int) -> None:
         self.line_credits = value
+
+    @property
+    def max_waiting_passengers(self) -> int:
+        """Deprecated writable alias for the overdue-passenger threshold."""
+
+        return self.overdue_passenger_threshold
+
+    @max_waiting_passengers.setter
+    def max_waiting_passengers(self, value: int) -> None:
+        self.overdue_passenger_threshold = value
 
     def prepare_layout(self, width: int, height: int) -> None:
         """Prepare every interactive hitbox before input is dispatched."""
@@ -952,7 +962,7 @@ class Mediator:
                 if passenger.wait_ms >= self.passenger_max_wait_time_ms:
                     waiting_over_limit += 1
 
-        if waiting_over_limit >= self.max_waiting_passengers:
+        if waiting_over_limit >= self.overdue_passenger_threshold:
             self.is_game_over = True
 
     def get_stations_for_shape_type(self, shape_type: ShapeType) -> List[Station]:

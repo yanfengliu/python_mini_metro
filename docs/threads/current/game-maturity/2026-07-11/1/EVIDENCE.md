@@ -77,3 +77,22 @@ For each GM increment append: changed contracts, focused red/green tests, full l
 - Push: `origin/main` advanced from `6c77033` to `3523ea4`.
 - Remote workflow: [run 29177705475](https://github.com/yanfengliu/python_mini_metro/actions/runs/29177705475) succeeded; `build` passed in 36 seconds and `rl-smoke` passed in 2 minutes 53 seconds.
 - Commit B purpose: durably record A's exact SHA/CI, mark GM-01b complete pending B's own CI, and queue GM-01c behind that remote gate.
+
+## GM-01b Commit B - remote finalization
+
+- Commit: `18ef714badc510df044198381d80e22aa3bf0c09` (`docs: finalize objective presentation and cadence [GM-01b:B]`).
+- Push: `origin/main` advanced from `3523ea4` to `18ef714`.
+- Remote workflow: [run 29177848669](https://github.com/yanfengliu/python_mini_metro/actions/runs/29177848669) succeeded; `build` passed in 33 seconds and `rl-smoke` passed in 2 minutes 53 seconds.
+- Outcome: GM-01b is remotely finalized. GM-01c starts from this exact baseline with the threshold and persisted-replay migration contract in iteration `4/PLAN.md`.
+
+## GM-01c candidate - threshold and persisted replay migration
+
+- TDD red: runtime coverage ran 10 tests with 4 failures and 3 errors; recursive v3 coverage ran 7 tests with 2 failures and 5 errors; agent-play v3 coverage ran 7 tests with 16 subtest failures and 3 errors. All failures were attributable to the absent canonical default or v3 routing, while explicit historical threshold-one characterization remained green.
+- Focused green: the final combined runtime, pixel termination, recursive v1/v2/v3, agent-play v1/v2/v3, and checkpoint surface passed 55/55 after review regressions were added.
+- Persisted compatibility: recursive and agent-play formats retain immutable v1/v2/v3 identifiers. V1/v2 reconstruct threshold `1`; v3 records a strict positive non-boolean threshold and applies it after reset. Recursive scenario v1 maps to checkpoint v1, while v2/v3 map to checkpoint v2. The default fixture is v3 and a checked-in literal v2 fixture remains available for fresh-process verification.
+- Node boundary: verifier unit tests passed 6/6, literal-v2 public replay passed 1/1, and a direct v3 fresh-process replay matched inputs, findings, and all eight checkpoint digests. Full local `npm test` passed 25/44 and failed exactly the same 19 civ-engine 2.4.1-versus-pinned-2.2.0 cases; pinned CI remains authoritative.
+- Balance evidence: the 12-seed thresholds 1/2/3 aggregates reproduced exactly, and default threshold two matched explicit threshold two on all 12 seeds. This remains directional fixed-route evidence only.
+- Fingerprints: protocol remains `69c604ac62d46d4a2339b3efad239372c61d0eb52e45ce6c9b6cf8da946dea8f`; task remains `719362078a7d98f1e3c944a6a797f7147b29383495f37f417aa9d61e3416016d`; environment content intentionally changes from `feb81d5d64e8304318c54cffc44cc105d6c16e9ef06cbe24c45d9ba3f01958cf` to `3fa9b5b78750d9a1c113e4da76ea669466f485a14d8df6702705610ed868dd60`.
+- Full gates: core and exact-RL suites passed 377 tests (8 expected optional-RL skips only in core); full Ruff and format passed across 103 Python files; `git diff --check` and the two-frame dummy-video app smoke passed.
+- Changed-file pre-commit passed across the complete GM-01c file set: end-of-file, trailing-whitespace, Ruff check/fix, and Ruff format hooks made no source changes; the YAML hook had no applicable file.
+- Adversarial review: one HIGH strict-v3 defect, one MEDIUM fail-open capability defect, and one MEDIUM stale-cursor defect were independently confirmed and fixed. Three in-process lanes and the targeted Opus fallback approved the final diff. Fable hit its usage limit, Codex CLI failed twice with HTTP 401, and Opus could not execute shell gates; raw output and compensating driver verification are under iteration `4/`.

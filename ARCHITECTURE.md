@@ -19,6 +19,7 @@ python_mini_metro/
 |- scripts/
 |  |- evaluate_rl.py
 |  |- fixtures/
+|  |  |- recursive-playtest-v2.json
 |  |  \- recursive-playtest.json
 |  |- playtest-recursive.mjs
 |  |- playtest-verify.mjs
@@ -112,6 +113,7 @@ python_mini_metro/
 |  |- recursive-fixtures.mjs
 |  |- source-provenance.test.mjs
 |  |- test_agent_play.py
+|  |- test_agent_play_threshold.py
 |  |- test_coverage_utils.py
 |  |- test_env.py
 |  |- test_gameplay.py
@@ -122,11 +124,13 @@ python_mini_metro/
 |  |- test_headless_render.py
 |  |- test_main.py
 |  |- test_mediator.py
+|  |- test_overdue_threshold.py
 |  |- test_path.py
 |  |- test_player_env.py
 |  |- test_recursive_checkpoint.py
 |  |- test_recursive_oracles.py
 |  |- test_recursive_playtest.py
+|  |- test_recursive_threshold_schema.py
 |  |- test_render_layout.py
 |  |- test_render_purity.py
 |  |- test_rl_artifacts.py
@@ -159,7 +163,7 @@ python_mini_metro/
 
 ## Runtime boundaries
 
-- `src/env.py` remains the public Gym-like drive surface over `Mediator`; its default reward is the delta in lifetime passenger `deliveries`, while explicit `line_credits_delta` mode reconstructs the legacy spendable-credit reward. Structured observations name both values and retain `score` as a line-credit compatibility alias. The recursive loop uses `MiniMetroEnv.reset(seed)` and `MiniMetroEnv.step(action, dt_ms)` without driving the pygame GUI clock.
+- `src/env.py` remains the public Gym-like drive surface over `Mediator`; its default reward is the delta in lifetime passenger `deliveries`, while explicit `line_credits_delta` mode reconstructs the legacy spendable-credit reward. Structured observations name both values and retain `score` as a line-credit compatibility alias. `Mediator.overdue_passenger_threshold` is the canonical overload field with repository default `2`; the writable `max_waiting_passengers` compatibility property addresses the same value. The recursive loop uses `MiniMetroEnv.reset(seed)` and `MiniMetroEnv.step(action, dt_ms)` without driving the pygame GUI clock.
 - `src/simulation_context.py` gives every `Mediator` independent Python and NumPy random streams. Interactive, structured, and pixel environments share the same gameplay code without sharing host-global RNG state, so gameplay mechanics, normalized checkpoints, array views, and pixels are reproducible when same-process or spawned environments are interleaved. Opaque shortuuid entity IDs remain session-unique and are intentionally excluded from deterministic checkpoint comparison.
 - `src/game_clock.py` owns the bounded deterministic `17, 17, 16` millisecond cadence, while `src/game_session.py` provides the shared player-event and fixed-update driver. The pygame window handles input before updates and uses one `Clock.tick(60)` pacing authority.
 - `src/entity/path.py` owns logical centerline segments used by metro movement. `src/rendering/layout.py` derives immutable, symmetric visual lanes without rebuilding or re-identifying those simulation segments.
@@ -170,8 +174,8 @@ python_mini_metro/
 - `src/rl/dependencies.py` owns lazy imports for the optional RL stack. `src/rl/policy.py` owns recurrent/feed-forward hyperparameter contracts plus model construction and loading; fresh runs use SB3-Contrib RecurrentPPO, recurrent minibatches of 64, `src/rl/model.py`'s bounded adaptive-pooling `MiniMetroCNN`, and separate one-layer, 256-unit actor and critic LSTMs, while feed-forward Stable-Baselines3 PPO remains an explicit ablation. `src/rl/training.py` owns spawn-safe vector environments, the eight-frame default stack, environment/trainer source hashing (including both dependency lockfiles), and checkpoint callbacks while retaining the former public training imports as compatibility re-exports. `src/rl/evaluation.py` carries recurrent state across decisions and resets it at episode boundaries. `scripts/train_rl.py` and `scripts/evaluate_rl.py` are guarded Windows-safe entry points; manifests bind algorithm and stack settings across resume/evaluation, and evaluation separates final game-over totals from right-censored horizon totals. Core installs include Gymnasium; `requirements-rl.txt` adds Stable-Baselines3, SB3-Contrib, PyTorch transitively, and TensorBoard, while the universal hashed locks resolve platform-specific wheels reproducibly.
 - `src/rl/artifacts.py` atomically writes versioned artifact indexes, hashes and parses one exact authenticated index snapshot, and captures one exact model byte sequence for SB3 rather than reopening the verified path. Training writes a zero-step recovery model/manifest before learning, refreshes provenance after periodic checkpoints, and uses unique index files so interruption cannot invalidate the previous recovery pair.
 - `src/rl/provenance.py` captures immutable runtime package/Python metadata, including Shapely and shortuuid because they affect player transitions and identity-bearing state, plus Git revision/dirty paths. `src/rl/manifest.py` records those snapshots with protocol/task/content/trainer fingerprints, parent run digests, hyperparameters, and artifact-index authentication. Evaluation reconstructs the manifest-declared task, defaults to the saved evaluation seed, and refuses silent protocol, task, content, trainer, runtime, or model-byte drift; every override is explicit and tagged.
-- `src/agent_play.py` writes v2 playthrough records with explicit per-step/final deliveries, line credits, and reward contract. Its legacy return and `score`/`final_score` fields continue to mean line credits; separately named delivery-returning helpers expose the canonical objective, and schema-less/v1 records replay with the old credit-delta contract.
-- `src/recursive_contract.py` owns strict v1/v2 scenario and recorded-input validation plus reward-contract selection. `src/recursive_playtest.py` preserves its existing public validation imports as compatibility re-exports, executes every ordered operation, and writes strict JSON inputs, transcript rows, authored findings, and the run result. V1 replay reconstructs `line_credits_delta`; v2 requires the explicit `deliveries` environment reward contract, which the checked-in fixture uses.
+- `src/agent_play.py` writes v3 playthrough records with explicit per-step/final deliveries, line credits, reward contract, and the post-reset overdue threshold. Its legacy return and `score`/`final_score` fields continue to mean line credits; separately named delivery-returning helpers expose the canonical objective. Schema-less/v1 and literal v2 records remain supported and reconstruct historical threshold `1`; v3 validates and applies its recorded threshold after reset replaces the mediator.
+- `src/recursive_contract.py` owns strict immutable v1/v2/v3 scenario and recorded-input validation plus reward/threshold reconstruction. `src/recursive_playtest.py` preserves its existing public validation/version imports as compatibility re-exports, executes every ordered operation, and writes strict JSON inputs, transcript rows, authored findings, and the run result. V1 reconstructs `line_credits_delta` and threshold `1`; v2 preserves the explicit `deliveries` contract and threshold `1`; v3 requires deliveries plus a positive non-boolean threshold. Scenario v1 emits checkpoint v1, while scenarios v2/v3 emit checkpoint v2 after applying the selected threshold to the mediator created by reset.
 - `src/recursive_checkpoint.py` converts observations and latent simulation state into UUID-free canonical JSON. Checkpoint v2 names deliveries, line credits, reward mode, their environment baselines, and the overdue threshold while retaining legacy aliases; the public normalizer projects genuine v1 checkpoints into that comparison shape without mutating recorded evidence, and v1 emission rejects a delivery-mode environment. Checkpoints also cover topology, passengers and travel plans, progression and unlocks, spawning counters, metro motion and dwell state, and Python/NumPy RNG state.
 - `src/recursive_oracles.py` checks reference integrity and non-finite values; `src/recursive_playtest.py` combines those checks with action-result, selected-contract reward, rejected-action, pause, terminal-state, topology, and transcript-cardinality oracles. Findings are born unverified and carry a stable class in `data.class`.
 
@@ -187,7 +191,7 @@ The Node boundary depends on the live sibling `civ-engine` through `file:../civ-
 
 ## Recursive-loop tests
 
-- `test/test_recursive_playtest.py` covers strict scenario/input validation, one transcript row per operation, and recorded-input replay; `test/test_recursive_checkpoint.py` covers UUID-free checkpoint construction, schema normalization, reward-contract identity, and latent-state observability.
+- `test/test_recursive_playtest.py` covers strict scenario/input validation, one transcript row per operation, and recorded-input replay; `test/test_recursive_threshold_schema.py` pins immutable v1/v2/v3 threshold reconstruction and checkpoint mapping; `test/test_recursive_checkpoint.py` covers UUID-free checkpoint construction, schema normalization, alias agreement, reward-contract identity, and latent-state observability. `test/test_overdue_threshold.py` and `test/test_agent_play_threshold.py` cover default runtime overload semantics and agent evidence migration without enlarging the pre-existing oversized mediator test.
 - `test/test_recursive_oracles.py` covers cross-view topology and the remaining environment-contract oracle classes.
 - `test/source-provenance.test.mjs`, `test/recursive-ledger.test.mjs`, `test/playtest-verify.test.mjs`, `test/recursive-pass.test.mjs`, and `test/playtest-recursive.test.mjs` cover local and linked-engine inventory, ignored-runtime mismatch rejection, start/end recapture, token-safe concurrent/crash reconciliation, torn-tail repair, exact fresh-process verification, strict evidence promotion, manifest contracts, public verifier retries, and end-to-end success/failure outcomes. `test/recursive-fixtures.mjs` supplies strict shared manifest fixtures without registering another test entry point.
 

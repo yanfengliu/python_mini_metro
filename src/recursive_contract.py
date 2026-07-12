@@ -5,13 +5,22 @@ import math
 from pathlib import Path
 from typing import Any
 
-LEGACY_SCHEMA_VERSION = 1
-SCHEMA_VERSION = 2
+SCHEMA_VERSION_V1 = 1
+SCHEMA_VERSION_V2 = 2
+SCHEMA_VERSION_V3 = 3
+LEGACY_SCHEMA_VERSION = SCHEMA_VERSION_V1
+SCHEMA_VERSION = SCHEMA_VERSION_V3
+_SUPPORTED_SCHEMA_VERSIONS = {
+    SCHEMA_VERSION_V1,
+    SCHEMA_VERSION_V2,
+    SCHEMA_VERSION_V3,
+}
 DELIVERIES_REWARD_CONTRACT = "deliveries"
 LINE_CREDITS_REWARD_CONTRACT = "line_credits_delta"
 
 _SCENARIO_KEYS_V1 = {"schemaVersion", "seed", "defaultDtMs", "operations"}
 _SCENARIO_KEYS_V2 = {*_SCENARIO_KEYS_V1, "environmentRewardContract"}
+_SCENARIO_KEYS_V3 = {*_SCENARIO_KEYS_V2, "overduePassengerThreshold"}
 _INPUT_KEYS_V1 = {
     "schemaVersion",
     "runId",
@@ -23,6 +32,7 @@ _INPUT_KEYS_V1 = {
     "operations",
 }
 _INPUT_KEYS_V2 = {*_INPUT_KEYS_V1, "environmentRewardContract"}
+_INPUT_KEYS_V3 = {*_INPUT_KEYS_V2, "overduePassengerThreshold"}
 _OPERATION_KEYS = {"name", "action", "expectedActionOk"}
 
 
@@ -43,6 +53,12 @@ def _exact_keys(
 def _nonnegative_int(value: object, label: str) -> int:
     if type(value) is not int or value < 0:
         raise ValueError(f"{label} must be a nonnegative integer")
+    return value
+
+
+def _positive_int(value: object, label: str) -> int:
+    if type(value) is not int or value <= 0:
+        raise ValueError(f"{label} must be a positive integer")
     return value
 
 
@@ -67,11 +83,8 @@ def _hash_seed(value: object) -> str:
 
 
 def _schema_version(value: object, label: str) -> int:
-    if type(value) is not int or value not in {
-        LEGACY_SCHEMA_VERSION,
-        SCHEMA_VERSION,
-    }:
-        raise ValueError(f"{label} schemaVersion must be 1 or 2")
+    if type(value) is not int or value not in _SUPPORTED_SCHEMA_VERSIONS:
+        raise ValueError(f"{label} schemaVersion must be 1, 2, or 3")
     return value
 
 
@@ -85,10 +98,19 @@ def _environment_reward_contract(value: object, label: str) -> str:
 
 
 def _reward_contract_for_document(document: dict[str, Any]) -> str:
-    if document["schemaVersion"] == LEGACY_SCHEMA_VERSION:
+    if document["schemaVersion"] == SCHEMA_VERSION_V1:
         return LINE_CREDITS_REWARD_CONTRACT
     return _environment_reward_contract(
         document["environmentRewardContract"], "document"
+    )
+
+
+def _overdue_threshold_for_document(document: dict[str, Any]) -> int:
+    if document["schemaVersion"] in {SCHEMA_VERSION_V1, SCHEMA_VERSION_V2}:
+        return 1
+    return _positive_int(
+        document["overduePassengerThreshold"],
+        "document.overduePassengerThreshold",
     )
 
 
@@ -144,9 +166,12 @@ def validate_scenario(value: object) -> dict[str, Any]:
     if type(value) is not dict:
         raise ValueError("scenario must be an object")
     version = _schema_version(value.get("schemaVersion"), "scenario")
-    required = (
-        _SCENARIO_KEYS_V1 if version == LEGACY_SCHEMA_VERSION else _SCENARIO_KEYS_V2
-    )
+    required_by_version = {
+        SCHEMA_VERSION_V1: _SCENARIO_KEYS_V1,
+        SCHEMA_VERSION_V2: _SCENARIO_KEYS_V2,
+        SCHEMA_VERSION_V3: _SCENARIO_KEYS_V3,
+    }
+    required = required_by_version[version]
     document = _exact_keys(value, required, set(), "scenario")
     result = {
         "schemaVersion": version,
@@ -156,9 +181,14 @@ def validate_scenario(value: object) -> dict[str, Any]:
         ),
         "operations": _validate_operations(document["operations"]),
     }
-    if version == SCHEMA_VERSION:
+    if version in {SCHEMA_VERSION_V2, SCHEMA_VERSION_V3}:
         result["environmentRewardContract"] = _environment_reward_contract(
             document["environmentRewardContract"], "scenario"
+        )
+    if version == SCHEMA_VERSION_V3:
+        result["overduePassengerThreshold"] = _positive_int(
+            document["overduePassengerThreshold"],
+            "scenario.overduePassengerThreshold",
         )
     return _json_copy(result, "scenario")
 
@@ -167,7 +197,12 @@ def validate_inputs(value: object) -> dict[str, Any]:
     if type(value) is not dict:
         raise ValueError("inputs must be an object")
     version = _schema_version(value.get("schemaVersion"), "inputs")
-    required = _INPUT_KEYS_V1 if version == LEGACY_SCHEMA_VERSION else _INPUT_KEYS_V2
+    required_by_version = {
+        SCHEMA_VERSION_V1: _INPUT_KEYS_V1,
+        SCHEMA_VERSION_V2: _INPUT_KEYS_V2,
+        SCHEMA_VERSION_V3: _INPUT_KEYS_V3,
+    }
+    required = required_by_version[version]
     document = _exact_keys(value, required, set(), "inputs")
     result = {
         "schemaVersion": version,
@@ -181,9 +216,14 @@ def validate_inputs(value: object) -> dict[str, Any]:
         "pythonHashSeed": _hash_seed(document["pythonHashSeed"]),
         "operations": _validate_operations(document["operations"]),
     }
-    if version == SCHEMA_VERSION:
+    if version in {SCHEMA_VERSION_V2, SCHEMA_VERSION_V3}:
         result["environmentRewardContract"] = _environment_reward_contract(
             document["environmentRewardContract"], "inputs"
+        )
+    if version == SCHEMA_VERSION_V3:
+        result["overduePassengerThreshold"] = _positive_int(
+            document["overduePassengerThreshold"],
+            "inputs.overduePassengerThreshold",
         )
     return _json_copy(result, "inputs")
 

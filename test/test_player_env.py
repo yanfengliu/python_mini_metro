@@ -124,6 +124,7 @@ class TestPlayerPixelEnv(unittest.TestCase):
         self.env.reset(seed=14)
         mediator = self.env._mediator
         assert mediator is not None
+        mediator.overdue_passenger_threshold = 1
         passenger = Passenger(mediator.stations[1].shape)
         passenger.wait_ms = mediator.passenger_max_wait_time_ms - 1
         mediator.stations[0].add_passenger(passenger)
@@ -136,6 +137,25 @@ class TestPlayerPixelEnv(unittest.TestCase):
         self.assertEqual(info["game_episode"]["seed"], 14)
         with self.assertRaisesRegex(RuntimeError, "reset"):
             self.env.step(self.action(ActionKind.NOOP))
+
+    def test_default_two_game_over_takes_precedence_over_horizon(self) -> None:
+        self.env.close()
+        self.env = PlayerPixelEnv(max_episode_steps=1)
+        self.env.reset(seed=140)
+        mediator = self.env._mediator
+        assert mediator is not None
+        self.assertEqual(mediator.overdue_passenger_threshold, 2)
+        for station_index in (0, 1):
+            passenger = Passenger(mediator.stations[2].shape)
+            passenger.wait_ms = mediator.passenger_max_wait_time_ms - 1
+            mediator.stations[station_index].add_passenger(passenger)
+
+        _, _, terminated, truncated, info = self.env.step(self.action(ActionKind.NOOP))
+
+        self.assertTrue(terminated)
+        self.assertFalse(truncated)
+        self.assertEqual(info["termination_reason"], "game_over")
+        self.assertEqual(info["game_episode"]["seed"], 140)
 
     def test_mouse_actions_dispatch_exact_player_event_sequence(self) -> None:
         self.env.reset(seed=15)

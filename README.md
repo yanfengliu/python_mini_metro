@@ -79,6 +79,7 @@ obs, reward, done, info = env.step({"type": "remove_path", "path_index": 0})
 - `reset(seed: int | None = None) -> observation`
   - Resets the game and returns the initial observation.
   - If `seed` is provided, independent session-owned Python and NumPy random streams make gameplay mechanics, array views, and rendered pixels deterministic without changing host-global RNG state. Opaque entity ID strings remain unique per runtime session and should not be compared across resets.
+  - A fresh game uses `env.mediator.overdue_passenger_threshold == 2`: the first station passenger at the 40-second limit warns without ending the game, and the second ends it. The deprecated writable `max_waiting_passengers` mediator alias controls the same value for older callers.
 - `step(action: dict | None = None, dt_ms: int | None = None) -> (observation, reward, done, info)`
   - Applies one action, optionally advances time, then returns:
     - `observation`: latest state
@@ -196,7 +197,7 @@ The recurrent default is a research-backed production baseline, not a claim that
 
 # Recursive self-improvement loop
 
-The deterministic fixture at `scripts/fixtures/recursive-playtest.json` uses seed `42` to create a line, advance time, exercise pause/resume, remove the line, and verify rejected actions. The harness drives `MiniMetroEnv` directly; it does not use the pygame GUI clock or an LLM.
+The deterministic v3 fixture at `scripts/fixtures/recursive-playtest.json` records the deliveries reward and overdue-passenger threshold `2`, then uses seed `42` to create a line, advance time, exercise pause/resume, remove the line, and verify rejected actions. `scripts/fixtures/recursive-playtest-v2.json` preserves the pre-threshold schema for fresh-process compatibility checks; v1/v2 evidence reconstructs historical threshold `1`. The harness drives `MiniMetroEnv` directly; it does not use the pygame GUI clock or an LLM.
 
 Run the Node contract tests and one proposal-only recursive pass with:
 

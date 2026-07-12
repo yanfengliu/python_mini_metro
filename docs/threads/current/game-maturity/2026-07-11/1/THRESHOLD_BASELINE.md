@@ -63,3 +63,16 @@ Independently reproduced output:
 ```
 
 Interpretation: threshold two is the minimum tested change that removes single-passenger failure, raises median delivery and survival outcomes, and still ends every scripted run naturally. The fixed route does not exercise human rerouting, fleet management, later progression, or learned policy behavior; GM-11 must retest the final game before balance promotion.
+
+## GM-01c candidate verification
+
+The same command was rerun after making threshold `2` the repository default, with the assignment changed to the canonical `overdue_passenger_threshold` field. All three 12-seed aggregates reproduced exactly. A second 12-seed pass omitted the threshold assignment entirely and compared each final `(deliveries, simulated seconds, game-over flag, update count)` tuple with the explicit-threshold-2 row; all 12 matched.
+
+```text
+{'threshold': 1, 'seeds': 12, 'game_overs': 12, 'median_deliveries': 16.0, 'mean_deliveries': 16.42, 'median_seconds': 95.47, 'mean_seconds': 95.82, 'min_max_deliveries': (14, 18)}
+{'threshold': 2, 'seeds': 12, 'game_overs': 12, 'median_deliveries': 19.5, 'mean_deliveries': 18.5, 'median_seconds': 108.15, 'mean_seconds': 107.39, 'min_max_deliveries': (15, 21)}
+{'threshold': 3, 'seeds': 12, 'game_overs': 12, 'median_deliveries': 22.5, 'mean_deliveries': 20.75, 'median_seconds': 118.61, 'mean_seconds': 119.26, 'min_max_deliveries': (15, 24)}
+{'default_threshold': 2, 'matches_explicit_two': True, 'matching_seeds': 12, 'seeds': 12}
+```
+
+This confirms implementation equivalence and the original directional comparison; it does not broaden the balance claim beyond the fixed scripted route.

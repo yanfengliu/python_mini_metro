@@ -267,7 +267,7 @@ function stableJson(value) {
   return JSON.stringify(sortJson(value));
 }
 
-function replayableInputs(inputs) {
+export function replayableInputs(inputs) {
   const replayable = {
     schemaVersion: inputs.schemaVersion,
     seed: inputs.seed,
@@ -276,8 +276,11 @@ function replayableInputs(inputs) {
     pythonHashSeed: inputs.pythonHashSeed,
     operations: inputs.operations,
   };
-  if (inputs.schemaVersion === 2) {
+  if (inputs.schemaVersion === 2 || inputs.schemaVersion === 3) {
     replayable.environmentRewardContract = inputs.environmentRewardContract;
+  }
+  if (inputs.schemaVersion === 3) {
+    replayable.overduePassengerThreshold = inputs.overduePassengerThreshold;
   }
   return replayable;
 }

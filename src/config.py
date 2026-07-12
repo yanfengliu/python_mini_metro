@@ -50,7 +50,9 @@ passenger_display_buffer = 3 * passenger_size
 passenger_max_wait_time_ms = 40_000
 passenger_blink_warning_time_ms = 10_000
 passenger_blink_interval_ms = 250
-max_waiting_passengers = 1
+overdue_passenger_threshold = 2
+# Deprecated value alias retained for callers importing the former config name.
+max_waiting_passengers = overdue_passenger_threshold
 
 # metro
 num_metros = 4

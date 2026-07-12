@@ -15,9 +15,12 @@ from recursive_checkpoint import canonical_checkpoint, normalize_checkpoint
 from recursive_contract import (
     DELIVERIES_REWARD_CONTRACT,
     LINE_CREDITS_REWARD_CONTRACT,
-    SCHEMA_VERSION,
+    SCHEMA_VERSION_V1,
+    SCHEMA_VERSION_V2,
+    SCHEMA_VERSION_V3,
     _json_copy,
     _nonempty_string,
+    _overdue_threshold_for_document,
     _reward_contract_for_document,
     validate_inputs,
     validate_scenario,
@@ -26,6 +29,7 @@ from recursive_oracles import nonfinite_paths, reference_errors
 
 # Compatibility re-exports retained after extracting the document contract.
 LEGACY_SCHEMA_VERSION = _recursive_contract.LEGACY_SCHEMA_VERSION
+SCHEMA_VERSION = _recursive_contract.SCHEMA_VERSION
 load_inputs = _recursive_contract.load_inputs
 
 _ARTIFACT_NAMES = (
@@ -230,8 +234,10 @@ def _build_inputs(
         "pythonHashSeed": os.environ.get("PYTHONHASHSEED"),
         "operations": scenario["operations"],
     }
-    if scenario["schemaVersion"] == SCHEMA_VERSION:
+    if scenario["schemaVersion"] in {SCHEMA_VERSION_V2, SCHEMA_VERSION_V3}:
         document["environmentRewardContract"] = scenario["environmentRewardContract"]
+    if scenario["schemaVersion"] == SCHEMA_VERSION_V3:
+        document["overduePassengerThreshold"] = scenario["overduePassengerThreshold"]
     return validate_inputs(document)
 
 
@@ -250,11 +256,30 @@ def _make_environment(
             env.reward_mode = reward_contract
         elif reward_contract == DELIVERIES_REWARD_CONTRACT:
             raise ValueError(
-                "v2 environment factories must support the deliveries reward contract"
+                "v2/v3 environment factories must support the deliveries reward contract"
             )
     if hasattr(env, "reward_mode") and env.reward_mode != reward_contract:
         raise ValueError("environment factory returned the wrong reward contract")
     return env
+
+
+def _apply_overdue_threshold(env: MiniMetroEnv, threshold: int) -> None:
+    mediator = env.mediator
+    if hasattr(mediator, "overdue_passenger_threshold"):
+        mediator.overdue_passenger_threshold = threshold
+        return
+    if hasattr(mediator, "max_waiting_passengers"):
+        mediator.max_waiting_passengers = threshold
+        return
+    raise ValueError("environment mediator does not expose an overdue threshold")
+
+
+def _checkpoint_version_for_schema(schema_version: int) -> int:
+    if schema_version == SCHEMA_VERSION_V1:
+        return 1
+    if schema_version in {SCHEMA_VERSION_V2, SCHEMA_VERSION_V3}:
+        return 2
+    raise ValueError("unsupported recursive schema version")
 
 
 def run_scenario(
@@ -267,12 +292,15 @@ def run_scenario(
     scenario = validate_scenario(scenario)
     inputs = _build_inputs(scenario, run_id, source_path)
     reward_contract = _reward_contract_for_document(inputs)
+    overdue_threshold = _overdue_threshold_for_document(inputs)
+    checkpoint_version = _checkpoint_version_for_schema(inputs["schemaVersion"])
     env = _make_environment(env_factory, reward_contract)
     initial_observation = env.reset(seed=inputs["seed"])
+    _apply_overdue_threshold(env, overdue_threshold)
     initial_checkpoint = canonical_checkpoint(
         env,
         initial_observation,
-        schema_version=inputs["schemaVersion"],
+        schema_version=checkpoint_version,
     )
     transcript: list[dict[str, Any]] = []
     for index, operation in enumerate(inputs["operations"]):
@@ -296,7 +324,7 @@ def run_scenario(
                 "checkpoint": canonical_checkpoint(
                     env,
                     observation,
-                    schema_version=inputs["schemaVersion"],
+                    schema_version=checkpoint_version,
                 ),
             }
         )
@@ -368,9 +396,13 @@ def drive_from_file(
             "defaultDtMs": previous["defaultDtMs"],
             "operations": previous["operations"],
         }
-        if previous["schemaVersion"] == SCHEMA_VERSION:
+        if previous["schemaVersion"] in {SCHEMA_VERSION_V2, SCHEMA_VERSION_V3}:
             scenario["environmentRewardContract"] = previous[
                 "environmentRewardContract"
+            ]
+        if previous["schemaVersion"] == SCHEMA_VERSION_V3:
+            scenario["overduePassengerThreshold"] = previous[
+                "overduePassengerThreshold"
             ]
         source_path = previous["sourcePath"]
     else:
