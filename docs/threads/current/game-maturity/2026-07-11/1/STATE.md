@@ -6,23 +6,23 @@ Active goal thread: `019f5286-dfca-75e1-9e79-58719dbe1efb`
 
 Current increment: GM-01 - Make deliveries canonical and repair baseline rules
 
-Current substep: GM-01a - Canonical semantics and persisted compatibility schemas
+Current substep: GM-01b - HUD, game-over presentation, cadence, and docs
 
-Current status: local implementation, adversarial review, and gates complete; `[GM-01a:A]` is ready to commit and push
+Current status: queued; do not edit GM-01b runtime code until `[GM-01a:B]` CI is green
 
-Durability transaction: GM-00 is remotely finalized; GM-01a Commit A is locally green and awaiting remote validation
+Durability transaction: GM-01a Commit A is remotely green; this document is GM-01a Commit B awaiting commit/push/CI
 
-Last remotely finalized work unit: GM-00 at `0411e68f1a4fa83e6777480059ce5dce80a82774`; [run 29173071970](https://github.com/yanfengliu/python_mini_metro/actions/runs/29173071970) succeeded
+Last remotely finalized work unit: GM-00 until `[GM-01a:B]` CI succeeds; GM-01a Commit A `5e0076318b87b745e8f6ad75586b4c1ff24989ee` passed [run 29175325493](https://github.com/yanfengliu/python_mini_metro/actions/runs/29175325493)
 
-Expected remote implementation baseline: `0411e68f1a4fa83e6777480059ce5dce80a82774`
+Expected remote implementation baseline: `5e0076318b87b745e8f6ad75586b4c1ff24989ee`
 
-Current transaction marker: `[GM-01a:A]`; locate it as the newest `STATE.md` commit with that marker after it is pushed
+Current transaction marker: `[GM-01a:B]`; locate it as the newest `STATE.md` commit with that marker after it is pushed
 
 ## Resume here
 
-1. Stage every GM-01a file except the pre-existing `.agents/`, inspect the exact staged diff, then commit and push `[GM-01a:A]`.
-2. Locate and wait for the pushed A commit's GitHub Actions workflow.
-3. If A CI fails, repair GM-01a. If A CI succeeds, record the exact A SHA/run in `[GM-01a:B]`, advance this cursor to GM-01b, push B, and require B CI to succeed before changing HUD behavior.
+1. Commit and push this finalization metadata as `[GM-01a:B]` without staging the pre-existing `.agents/`.
+2. Locate the pushed B commit by its marker and wait for its GitHub Actions workflow.
+3. If B CI fails, reopen GM-01a and repair it. If B CI succeeds, begin GM-01b with failing renderer/game-over/cadence regressions in the working tree.
 
 ## Increment ledger
 
@@ -51,7 +51,7 @@ Current transaction marker: `[GM-01a:A]`; locate it as the newest `STATE.md` com
 | GM-00b | complete-local | - | - | Codex findings resolved; three compensating re-review lanes approved |
 | GM-00c | complete | `16a0e73` / run `29172923371` success | - | Plan Commit A passed build and RL smoke |
 | GM-00d | complete | - | `0411e68` / run `29173071970` success | Plan finalization Commit B passed build and RL smoke |
-| GM-01a | awaiting CI | `[GM-01a:A]` locally green, commit pending | - | Canonical semantics and persisted compatibility schemas approved by three review lanes |
+| GM-01a | complete pending B CI | `5e00763` / run `29175325493` success | `[GM-01a:B]` / pending | Canonical semantics and persisted compatibility schemas approved by three review lanes |
 | GM-01b | pending | - | - | HUD, game-over, cadence, docs |
 | GM-01c | pending | - | - | Threshold-two scenario and acceptance |
 | GM-02a | pending | - | - | History descriptor, fingerprints, manifest migration |
