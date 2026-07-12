@@ -4,33 +4,32 @@ Last updated: 2026-07-11
 
 Active goal thread: `019f5286-dfca-75e1-9e79-58719dbe1efb`
 
-Current increment: GM-00 - Persist and review the roadmap
+Current increment: GM-01 - Make deliveries canonical and repair baseline rules
 
-Current substep: GM-00c - Push reviewed plan Commit A
+Current substep: GM-01a - Canonical semantics and persisted compatibility schemas
 
-Current status: ready for Commit A
+Current status: queued; do not edit runtime code until `[GM-00:B]` CI is green
 
-Durability transaction: reviewed plan working tree ready for `[GM-00:A]`
+Durability transaction: GM-00 Commit A is green; this document is GM-00 Commit B awaiting push/CI
 
-Last remotely finalized substep: none
+Last remotely finalized work unit: none until `[GM-00:B]` CI succeeds
 
-Expected remote baseline: `7d5304ad79b6054f85a1c48f3c1bc0b2475bf9fd`
+Expected remote implementation baseline: `16a0e73f3becafacaf8b903530a4801c949f7434`
 
-Current transaction marker: `[GM-00:A]` after review convergence; no transaction commit exists yet
+Current transaction marker: `[GM-00:B]`; locate it as the newest `STATE.md` commit with that marker
 
 ## Resume here
 
-1. Run documentation checks and self-review the staged diff.
-2. Commit/push GM-00 implementation as `[GM-00:A]` and wait for its CI.
-3. Record Commit A's exact SHA and CI in this file and `EVIDENCE.md`, mark GM-00 complete, advance to GM-01a, then commit/push `[GM-00:B]`.
-4. Wait for Commit B's CI before beginning GM-01a implementation.
+1. Commit/push this finalization metadata as `[GM-00:B]`.
+2. Locate the pushed B commit by its marker and wait for its GitHub Actions workflow.
+3. If B CI fails, reopen GM-00 and repair it. If B CI passes, begin GM-01a with failing compatibility/reward tests in the working tree.
 
 ## Increment ledger
 
 | ID | Status | Commit | Remote CI | Notes |
 | --- | --- | --- | --- | --- |
-| GM-00 | in progress | - | - | Durable plan and reviews |
-| GM-01 | pending | - | - | Deliveries, credits, cadence, baseline game-over pressure |
+| GM-00 | complete pending B CI | `16a0e73` | [run 29172923371](https://github.com/yanfengliu/python_mini_metro/actions/runs/29172923371) success | Durable plan and reviews |
+| GM-01 | queued | - | - | Deliveries, credits, cadence, baseline game-over pressure |
 | GM-02 | pending | - | - | More than eight strategically spaced visual frames |
 | GM-03 | pending | - | - | Mediator and test decomposition |
 | GM-04 | pending | - | - | Isolated pinned civ-engine local setup |
@@ -50,8 +49,8 @@ Current transaction marker: `[GM-00:A]` after review convergence; no transaction
 | --- | --- | --- | --- | --- |
 | GM-00a | complete-local | - | - | Independent live-code plan design incorporated |
 | GM-00b | complete-local | - | - | Codex findings resolved; three compensating re-review lanes approved |
-| GM-00c | in progress | - | - | Plan Commit A and remote CI |
-| GM-00d | pending | - | - | Plan finalization Commit B and remote CI |
+| GM-00c | complete | `16a0e73` / run `29172923371` success | - | Plan Commit A passed build and RL smoke |
+| GM-00d | awaiting CI | - | `[GM-00:B]` / pending | Plan finalization Commit B and remote CI |
 | GM-01a | pending | - | - | TDD then green canonical semantics and all persisted compatibility schemas |
 | GM-01b | pending | - | - | HUD, game-over, cadence, docs |
 | GM-01c | pending | - | - | Threshold-two scenario and acceptance |
