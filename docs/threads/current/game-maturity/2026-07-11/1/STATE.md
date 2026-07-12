@@ -8,28 +8,28 @@ Current increment: GM-01 - Make deliveries canonical and repair baseline rules
 
 Current substep: GM-01c - threshold-two behavior and persisted replay compatibility
 
-Current status: GM-01c local implementation, review, and gates complete; stage and inspect Commit A
+Current status: GM-01c Commit A is remotely green; stage and inspect Commit B finalization evidence
 
-Durability transaction: GM-01b Commit B is remotely green; GM-01c Commit A is in progress
+Durability transaction: GM-01c Commit A `648025f299adec6fb907357339310923d375c4f4` is green in run `29180986088`; Commit B is in progress
 
 Last remotely finalized work unit: GM-01b at Commit B `18ef714badc510df044198381d80e22aa3bf0c09`, which passed [run 29177848669](https://github.com/yanfengliu/python_mini_metro/actions/runs/29177848669)
 
-Expected remote implementation baseline: `18ef714badc510df044198381d80e22aa3bf0c09`
+Expected remote implementation baseline: `648025f299adec6fb907357339310923d375c4f4`
 
-Current transaction marker: `[GM-01c:A]`
+Current transaction marker: `[GM-01c:B]`
 
 ## Resume here
 
-1. Stage only the GM-01c files listed by iteration `4/diff.md`; preserve the pre-existing untracked `.agents/` directory.
-2. Inspect `git diff --cached --stat` and the complete staged diff, then create/push `[GM-01c:A]`.
-3. Wait for green pinned CI, create/push `[GM-01c:B]` with exact A evidence, wait for its green CI, then start GM-02.
+1. Stage only the A SHA/CI and Commit-B cursor updates; preserve the pre-existing untracked `.agents/` directory.
+2. Inspect the complete staged diff, create/push `[GM-01c:B]`, and wait for its green pinned CI.
+3. Mark GM-01c remotely finalized, then start GM-02 from the exact Commit B baseline.
 
 ## Increment ledger
 
 | ID | Status | Commit | Remote CI | Notes |
 | --- | --- | --- | --- | --- |
 | GM-00 | complete | `16a0e73` / `0411e68` | [A run 29172923371](https://github.com/yanfengliu/python_mini_metro/actions/runs/29172923371) and [B run 29173071970](https://github.com/yanfengliu/python_mini_metro/actions/runs/29173071970) succeeded | Durable plan and reviews |
-| GM-01 | in progress | `5e00763` / `6c77033` / `3523ea4` / `18ef714` | GM-01a and GM-01b A/B green | GM-01c Commit A staging |
+| GM-01 | in progress | `5e00763` / `6c77033` / `3523ea4` / `18ef714` / `648025f` | GM-01a/GM-01b A/B and GM-01c A green | GM-01c Commit B staging |
 | GM-02 | pending | - | - | More than eight strategically spaced visual frames |
 | GM-03 | pending | - | - | Mediator and test decomposition |
 | GM-04 | pending | - | - | Isolated pinned civ-engine local setup |
@@ -53,7 +53,7 @@ Current transaction marker: `[GM-01c:A]`
 | GM-00d | complete | - | `0411e68` / run `29173071970` success | Plan finalization Commit B passed build and RL smoke |
 | GM-01a | complete | `5e00763` / run `29175325493` success | `6c77033` / run `29175470189` success | Canonical semantics and persisted compatibility schemas remotely finalized |
 | GM-01b | complete | `3523ea4` / run `29177705475` success | `18ef714` / run `29177848669` success | HUD, game-over, cadence, and docs remotely finalized |
-| GM-01c | Commit A staging | `[GM-01c:A]` / pending | - | Implementation/review/full gates/pre-commit green |
+| GM-01c | complete pending B CI | `648025f` / run `29180986088` success | `[GM-01c:B]` / pending | Threshold-two runtime and v3 replay migration remotely green at A |
 | GM-02a | pending | - | - | History descriptor, fingerprints, manifest migration |
 | GM-02b | pending | - | - | Temporal ring and multi-slot lifecycle tests |
 | GM-02c | pending | - | - | CLI/train/eval/legacy integration |

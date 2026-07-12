@@ -96,3 +96,10 @@ For each GM increment append: changed contracts, focused red/green tests, full l
 - Full gates: core and exact-RL suites passed 377 tests (8 expected optional-RL skips only in core); full Ruff and format passed across 103 Python files; `git diff --check` and the two-frame dummy-video app smoke passed.
 - Changed-file pre-commit passed across the complete GM-01c file set: end-of-file, trailing-whitespace, Ruff check/fix, and Ruff format hooks made no source changes; the YAML hook had no applicable file.
 - Adversarial review: one HIGH strict-v3 defect, one MEDIUM fail-open capability defect, and one MEDIUM stale-cursor defect were independently confirmed and fixed. Three in-process lanes and the targeted Opus fallback approved the final diff. Fable hit its usage limit, Codex CLI failed twice with HTTP 401, and Opus could not execute shell gates; raw output and compensating driver verification are under iteration `4/`.
+
+## GM-01c Commit A - threshold and persisted replay migration
+
+- Commit: `648025f299adec6fb907357339310923d375c4f4` (`feat: raise overdue passenger threshold [GM-01c:A]`).
+- Push: `origin/main` advanced from `18ef714` to `648025f`.
+- Remote workflow: [run 29180986088](https://github.com/yanfengliu/python_mini_metro/actions/runs/29180986088) succeeded; `build` passed in 35 seconds, including all 44 Node tests against pinned civ-engine 2.2.0 plus the clean recursive pass and Python suite, and `rl-smoke` passed in 2 minutes 44 seconds.
+- Commit B purpose: durably record A's exact SHA/CI, mark GM-01c complete pending B's own CI, and keep GM-02 behind that remote gate.
