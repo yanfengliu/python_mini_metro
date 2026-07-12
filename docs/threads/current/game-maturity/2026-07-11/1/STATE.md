@@ -8,28 +8,28 @@ Current increment: GM-01 - Make deliveries canonical and repair baseline rules
 
 Current substep: GM-01b - HUD, game-over presentation, cadence, and docs
 
-Current status: queued; do not edit GM-01b runtime code until `[GM-01a:B]` CI is green
+Current status: implementation, adversarial re-review, and all local gates complete; awaiting `[GM-01b:A]` commit/push/CI
 
-Durability transaction: GM-01a Commit A is remotely green; this document is GM-01a Commit B awaiting commit/push/CI
+Durability transaction: GM-01a Commit B is remotely green; GM-01b Commit A is awaiting local finalization
 
-Last remotely finalized work unit: GM-00 until `[GM-01a:B]` CI succeeds; GM-01a Commit A `5e0076318b87b745e8f6ad75586b4c1ff24989ee` passed [run 29175325493](https://github.com/yanfengliu/python_mini_metro/actions/runs/29175325493)
+Last remotely finalized work unit: GM-01a at Commit B `6c77033fa2af9d1a1913135f7da3d27b7ff4f2a5`, which passed [run 29175470189](https://github.com/yanfengliu/python_mini_metro/actions/runs/29175470189)
 
-Expected remote implementation baseline: `5e0076318b87b745e8f6ad75586b4c1ff24989ee`
+Expected remote implementation baseline: `6c77033fa2af9d1a1913135f7da3d27b7ff4f2a5`
 
-Current transaction marker: `[GM-01a:B]`; locate it as the newest `STATE.md` commit with that marker after it is pushed
+Current transaction marker: `[GM-01b:A]`
 
 ## Resume here
 
-1. Commit and push this finalization metadata as `[GM-01a:B]` without staging the pre-existing `.agents/`.
-2. Locate the pushed B commit by its marker and wait for its GitHub Actions workflow.
-3. If B CI fails, reopen GM-01a and repair it. If B CI succeeds, begin GM-01b with failing renderer/game-over/cadence regressions in the working tree.
+1. Stage only the reviewed GM-01b runtime/tests/docs/evidence, inspect the complete cached diff, and preserve the pre-existing `.agents/`.
+2. Commit as `[GM-01b:A]`, push, and wait for its GitHub Actions workflow.
+3. If A CI fails, repair GM-01b. If A CI succeeds, record its exact SHA and workflow in `[GM-01b:B]`, push B, and wait for B CI before beginning GM-01c.
 
 ## Increment ledger
 
 | ID | Status | Commit | Remote CI | Notes |
 | --- | --- | --- | --- | --- |
 | GM-00 | complete | `16a0e73` / `0411e68` | [A run 29172923371](https://github.com/yanfengliu/python_mini_metro/actions/runs/29172923371) and [B run 29173071970](https://github.com/yanfengliu/python_mini_metro/actions/runs/29173071970) succeeded | Durable plan and reviews |
-| GM-01 | in progress | - | - | GM-01a local implementation/review; then HUD, cadence, and baseline pressure |
+| GM-01 | in progress | `5e00763` / `6c77033` / GM-01b pending | GM-01a A/B green | Canonical semantics complete; GM-01b awaiting A; then baseline pressure |
 | GM-02 | pending | - | - | More than eight strategically spaced visual frames |
 | GM-03 | pending | - | - | Mediator and test decomposition |
 | GM-04 | pending | - | - | Isolated pinned civ-engine local setup |
@@ -51,8 +51,8 @@ Current transaction marker: `[GM-01a:B]`; locate it as the newest `STATE.md` com
 | GM-00b | complete-local | - | - | Codex findings resolved; three compensating re-review lanes approved |
 | GM-00c | complete | `16a0e73` / run `29172923371` success | - | Plan Commit A passed build and RL smoke |
 | GM-00d | complete | - | `0411e68` / run `29173071970` success | Plan finalization Commit B passed build and RL smoke |
-| GM-01a | complete pending B CI | `5e00763` / run `29175325493` success | `[GM-01a:B]` / pending | Canonical semantics and persisted compatibility schemas approved by three review lanes |
-| GM-01b | pending | - | - | HUD, game-over, cadence, docs |
+| GM-01a | complete | `5e00763` / run `29175325493` success | `6c77033` / run `29175470189` success | Canonical semantics and persisted compatibility schemas remotely finalized |
+| GM-01b | complete-local awaiting A | `[GM-01b:A]` / pending | - | HUD, game-over, cadence, docs approved by three re-review lanes |
 | GM-01c | pending | - | - | Threshold-two scenario and acceptance |
 | GM-02a | pending | - | - | History descriptor, fingerprints, manifest migration |
 | GM-02b | pending | - | - | Temporal ring and multi-slot lifecycle tests |
@@ -116,7 +116,7 @@ Before GM-12c starts, replace its placeholder with one row per configuration and
 
 ## Known external state
 
-- `main` and `origin/main` were equal at `0411e68f1a4fa83e6777480059ce5dce80a82774` before GM-01a edits.
+- `main` and `origin/main` were equal at `6c77033fa2af9d1a1913135f7da3d27b7ff4f2a5` before GM-01b edits.
 - The only pre-existing untracked path is `.agents/`; preserve it.
 - The live sibling `../civ-engine` is 2.4.1 while this repository pins 2.2.0, so unisolated local `npm test` fails by design. GM-04 owns the durable setup fix.
 - The fleet `loop-ops/DIRECTIVES.md` does not list this repository as an active scheduled shift. Use repo-local persistent state and bare verified passes unless the owner later activates it there.

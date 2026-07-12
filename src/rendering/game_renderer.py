@@ -134,7 +134,7 @@ class GameRenderer:
             self._draw_metro(surface, metro, pose, current_time_ms, max_wait_ms)
 
         self._draw_buttons(surface, state, current_time_ms)
-        self._draw_score(surface, state)
+        self._draw_hud(surface, state)
         if bool(getattr(state, "is_game_over", False)):
             self._draw_game_over(surface, state)
 
@@ -199,13 +199,29 @@ class GameRenderer:
                 )
             _call_flexibly(button.draw, surface, **kwargs)
 
-    def _draw_score(self, surface: pygame.Surface, state: Any) -> None:
+    @staticmethod
+    def _metric(state: Any, canonical_name: str, legacy_name: str) -> Any:
+        if hasattr(state, canonical_name):
+            return getattr(state, canonical_name)
+        return getattr(state, legacy_name, 0)
+
+    def _draw_hud(self, surface: pygame.Surface, state: Any) -> None:
         config = _config()
-        font = self.resources.font(config.font_name, config.score_font_size)
-        text_surface = font.render(
-            f"Score: {getattr(state, 'score', 0)}", True, (0, 0, 0)
+        font = self.resources.font(config.font_name, config.hud_font_size)
+        deliveries = self._metric(state, "deliveries", "total_travels_handled")
+        line_credits = self._metric(state, "line_credits", "score")
+        x, y = config.hud_display_coords
+        delivery_surface = font.render(
+            f"Passengers Delivered: {deliveries}", True, (0, 0, 0)
         )
-        surface.blit(text_surface, config.score_display_coords)
+        credit_surface = font.render(f"Line Credits: {line_credits}", True, (0, 0, 0))
+        surface.blit(delivery_surface, (x, y))
+        surface.blit(credit_surface, (x, y + config.hud_line_spacing))
+
+    def _draw_score(self, surface: pygame.Surface, state: Any) -> None:
+        """Deprecated private compatibility wrapper for the canonical HUD."""
+
+        self._draw_hud(surface, state)
 
     def _draw_game_over(self, surface: pygame.Surface, state: Any) -> None:
         config = _config()
@@ -214,7 +230,7 @@ class GameRenderer:
         overlay.fill(config.game_over_overlay_color)
         surface.blit(overlay, (0, 0))
 
-        score_font = self.resources.font(config.font_name, config.score_font_size)
+        metric_font = self.resources.font(config.font_name, config.hud_font_size)
         title_font = self.resources.font(config.font_name, config.game_over_font_size)
         hint_font = self.resources.font(
             config.font_name, config.game_over_hint_font_size
@@ -222,20 +238,51 @@ class GameRenderer:
         title_surface = title_font.render(
             "Game Over", True, config.game_over_text_color
         )
-        title_rect = title_surface.get_rect(
-            center=(width // 2, height // 2 - config.game_over_font_size // 3)
-        )
-        surface.blit(title_surface, title_rect)
-
-        score_surface = score_font.render(
-            f"Final Score: {getattr(state, 'score', 0)}",
+        deliveries = self._metric(state, "deliveries", "total_travels_handled")
+        line_credits = self._metric(state, "line_credits", "score")
+        delivery_surface = metric_font.render(
+            f"Passengers Delivered: {deliveries}",
             True,
             config.game_over_text_color,
         )
-        score_rect = score_surface.get_rect(
-            center=(width // 2, height // 2 + config.game_over_font_size // 3)
+        credit_surface = metric_font.render(
+            f"Line Credits Remaining: {line_credits}",
+            True,
+            config.game_over_text_color,
         )
-        surface.blit(score_surface, score_rect)
+
+        restart_rect = getattr(state, "game_over_restart_rect", None)
+        button_top = (
+            restart_rect.top if isinstance(restart_rect, pygame.Rect) else height
+        )
+        content_height = (
+            title_surface.get_height()
+            + config.game_over_title_metric_spacing
+            + delivery_surface.get_height()
+            + config.game_over_metric_spacing
+            + credit_surface.get_height()
+        )
+        content_bottom = button_top - config.game_over_content_button_gap
+        content_top = max(
+            config.game_over_content_top_margin,
+            content_bottom - content_height,
+        )
+        title_rect = title_surface.get_rect(midtop=(width // 2, content_top))
+        delivery_rect = delivery_surface.get_rect(
+            midtop=(
+                width // 2,
+                title_rect.bottom + config.game_over_title_metric_spacing,
+            )
+        )
+        credit_rect = credit_surface.get_rect(
+            midtop=(
+                width // 2,
+                delivery_rect.bottom + config.game_over_metric_spacing,
+            )
+        )
+        surface.blit(title_surface, title_rect)
+        surface.blit(delivery_surface, delivery_rect)
+        surface.blit(credit_surface, credit_rect)
 
         buttons = (
             (

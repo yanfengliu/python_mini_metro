@@ -45,10 +45,10 @@ Set `PYTHON` to a specific interpreter path when `python` is not the intended ex
 * Hold down the mouse left button on a station and drag onto other stations to create a path for the metro.
 * Press SPACE to pause / unpause the game.
 * Press `1`, `2`, or `3` to set game speed to 1x, 2x, or 4x.
-* View the score on the top left corner of the screen.
-* The number of grey circles on bottom of the screen is the number of available metro lines left.
+* The top-left HUD shows lifetime passengers delivered and currently spendable line credits as separate values.
+* Each filled grey circle at the bottom is an unused unlocked metro line slot.
 * Click on the colored circle at the bottom to cancel an established line.
-* Click on the empty circles at the bottom to buy new lines with scores.
+* Empty rings are locked line slots; hover to see their price and click the next one to buy it with line credits when affordable.
 
 ## To play programmatically
 
@@ -152,13 +152,13 @@ env.close()
 
 The default observation is channel-first `uint8` RGB with shape `(3, 108, 192)`; the registered `fidelity` profile is `(3, 180, 320)`. The action is `MultiDiscrete([8, width, height])`: `0` no-op, `1` mouse motion, `2` left-button down, `3` left-button up, `4` Space, and `5`/`6`/`7` for the `1`/`2`/`3` speed keys. Pointer coordinates are integer observation-grid locations mapped exactly onto the canonical 1920x1080 player view. Each default decision advances exactly six fixed ticks (100 simulated milliseconds). The default reward is newly delivered passengers; `display_score_delta` is available when line-purchase penalties are intentionally part of the objective.
 
-Live `info` dictionaries contain protocol and pointer bookkeeping, not hidden stations, routes, deliveries, or simulation state. Game-level deliveries and displayed score appear only in terminal episode metrics, after the last action. The deterministic helper in `rl.privileged_oracle` is deliberately separate and is used only by tests and the scripted curriculum demonstrator.
+Live `info` dictionaries contain protocol and pointer bookkeeping, not hidden stations, routes, deliveries, or simulation state. Game-level values appear only in terminal episode metrics after the last action: `deliveries` is the lifetime objective, while the legacy `display_score` field means remaining line credits. The deterministic helper in `rl.privileged_oracle` is deliberately separate and is used only by tests and the scripted curriculum demonstrator.
 
 Fresh training defaults to SB3-Contrib `recurrent_ppo` with eight spawned environments, an eight-frame stack, and recurrent minibatches of 64. At the default 10 Hz decision rate, eight RGB frames become 24 input channels and provide a nominal 0.8 seconds of local history (0.7 seconds between the oldest and newest samples). `MiniMetroCNN` extracts 256 visual features, then separate one-layer, 256-unit actor and critic LSTMs carry episode memory across decisions. Feed-forward PPO retains its prior batch size of 256; recurrent batch 64 materially reduced peak process-tree memory in the local one-rollout profile documented in the model-selection note.
 
 The recurrent hidden state persists within one game and resets at the next game's episode boundary; a new training or evaluation process also starts with blank hidden state. Learned network weights are different: authenticated checkpoints persist them across process restarts and resumed training.
 
-The default delivery-delta rewards sum exactly to the episode's terminal total deliveries. Fresh recurrent runs therefore use `gamma=1.0` and `gae_lambda=0.99`, and evaluation reports `meanDeliveries` as the primary metric for the objective of maximizing passengers delivered before the game ends. Evaluation also reports game-over and horizon-truncation counts/rates, marks the primary metric as censored whenever any episode hits the external horizon, and reports `meanDeliveriesAmongGameOverEpisodes` separately. A horizon-truncated delivery count is a right-censored lower bound, not a final game-over score.
+The default delivery-delta rewards sum exactly to the episode's terminal total deliveries. Fresh recurrent runs therefore use `gamma=1.0` and `gae_lambda=0.99`, and evaluation reports `meanDeliveries` as the primary metric for the objective of maximizing passengers delivered before the game ends. Evaluation also reports game-over and horizon-truncation counts/rates, marks the primary metric as censored whenever any episode hits the external horizon, and reports `meanDeliveriesAmongGameOverEpisodes` separately. A horizon-truncated delivery count is a right-censored lower bound, not a final game-over delivery result.
 
 Train the default recurrent policy and evaluate the resulting strict manifest with:
 

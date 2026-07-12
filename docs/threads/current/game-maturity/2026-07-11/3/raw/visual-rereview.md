@@ -1,0 +1,1 @@
+APPROVED. The compact-layout test now asserts horizontal containment for all three game-over labels at [test_game_renderer.py:420](C:\Users\38909\Documents\github\python_mini_metro\test\test_game_renderer.py:420), in addition to its vertical ordering and button-bound checks. No remaining concrete findings.

@@ -11,6 +11,7 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 import pygame
 
+from mediator import Mediator
 from rendering.game_renderer import GameRenderer, LazyRenderResources
 from rendering.interpolation import MetroInterpolator, interpolate_heading
 from rendering.layout import build_visual_path
@@ -106,6 +107,44 @@ class FakeDrawable:
         self.event_log.append(self.label)
 
 
+class RecordingFont:
+    def __init__(self, resources, size: int) -> None:
+        self.resources = resources
+        self.size = size
+
+    def render(self, text, antialias, color):
+        del antialias, color
+        width = max(1, len(text) * max(1, self.size // 2))
+        height = max(1, int(self.size * 0.7))
+        rendered = pygame.Surface((width, height), pygame.SRCALPHA, 32)
+        self.resources.rendered_text.append(text)
+        self.resources.labels[id(rendered)] = text
+        return rendered
+
+
+class RecordingResources:
+    def __init__(self) -> None:
+        self.rendered_text: list[str] = []
+        self.labels: dict[int, str] = {}
+
+    def font(self, name, size):
+        del name
+        return RecordingFont(self, size)
+
+
+class RecordingSurface:
+    def __init__(self, size) -> None:
+        self.size = size
+        self.blits = []
+
+    def get_size(self):
+        return self.size
+
+    def blit(self, source, destination):
+        self.blits.append((source, destination))
+        return destination
+
+
 class TestMetroInterpolator(unittest.TestCase):
     def setUp(self) -> None:
         self.path = FakePath()
@@ -190,7 +229,9 @@ class TestGameRenderer(unittest.TestCase):
             buttons=[self.path_button, self.speed_button],
             time_ms=100,
             passenger_max_wait_time_ms=40_000,
-            score=7,
+            deliveries=23,
+            line_credits=4,
+            score=999,
             is_game_over=True,
             game_over_restart_rect=pygame.Rect(10, 120, 300, 64),
             game_over_exit_rect=pygame.Rect(10, 202, 300, 64),
@@ -203,8 +244,8 @@ class TestGameRenderer(unittest.TestCase):
         with (
             patch.object(
                 self.renderer,
-                "_draw_score",
-                side_effect=lambda *args: self.event_log.append("score"),
+                "_draw_hud",
+                side_effect=lambda *args: self.event_log.append("hud"),
             ),
             patch.object(
                 self.renderer,
@@ -222,7 +263,7 @@ class TestGameRenderer(unittest.TestCase):
                 "metro-passengers",
                 "path-button",
                 "speed-button",
-                "score",
+                "hud",
                 "game-over",
             ],
         )
@@ -236,7 +277,7 @@ class TestGameRenderer(unittest.TestCase):
         original_position = (self.metro.position.left, self.metro.position.top)
 
         with (
-            patch.object(self.renderer, "_draw_score"),
+            patch.object(self.renderer, "_draw_hud"),
             patch.object(self.renderer, "_draw_game_over"),
         ):
             self.renderer.draw(self.surface, self.state, alpha=0.5)
@@ -255,7 +296,7 @@ class TestGameRenderer(unittest.TestCase):
         self.path_button.is_locked = True
         self.path_button.show_cross = True
 
-        with patch.object(self.renderer, "_draw_score"):
+        with patch.object(self.renderer, "_draw_hud"):
             self.renderer.draw(self.surface, self.state)
             assert self.path_button.observed_kwargs is not None
             first_font = self.path_button.observed_kwargs["buy_text_font"]
@@ -275,6 +316,129 @@ class TestGameRenderer(unittest.TestCase):
         self.assertEqual(self.state.game_over_restart_rect, restart_before)
         self.assertEqual(self.state.game_over_exit_rect, exit_before)
         self.assertGreaterEqual(self.renderer.resources.font_count, 3)
+
+    def test_hud_names_deliveries_and_line_credits(self) -> None:
+        resources = RecordingResources()
+        renderer = GameRenderer(network_renderer=self.network, resources=resources)
+        surface = RecordingSurface((1920, 1080))
+
+        renderer._draw_hud(surface, self.state)
+
+        self.assertEqual(
+            resources.rendered_text,
+            ["Passengers Delivered: 23", "Line Credits: 4"],
+        )
+        self.assertNotIn("999", " ".join(resources.rendered_text))
+
+    def test_hud_falls_back_to_legacy_metric_aliases(self) -> None:
+        resources = RecordingResources()
+        renderer = GameRenderer(network_renderer=self.network, resources=resources)
+        surface = RecordingSurface((1920, 1080))
+        legacy_state = SimpleNamespace(total_travels_handled=7, score=2)
+
+        renderer._draw_hud(surface, legacy_state)
+
+        self.assertEqual(
+            resources.rendered_text,
+            ["Passengers Delivered: 7", "Line Credits: 2"],
+        )
+
+    def test_hud_pixels_track_each_canonical_metric(self) -> None:
+        def render(deliveries: int, line_credits: int) -> bytes:
+            surface = pygame.Surface((800, 600), pygame.SRCALPHA, 32)
+            state = SimpleNamespace(
+                deliveries=deliveries,
+                line_credits=line_credits,
+                total_travels_handled=999,
+                score=999,
+            )
+            self.renderer._draw_hud(surface, state)
+            return pygame.image.tobytes(surface, "RGBA")
+
+        baseline = render(23, 4)
+
+        self.assertNotEqual(render(24, 4), baseline)
+        self.assertNotEqual(render(23, 5), baseline)
+
+    def test_game_over_presents_deliveries_before_remaining_credits(self) -> None:
+        resources = RecordingResources()
+        renderer = GameRenderer(network_renderer=self.network, resources=resources)
+        surface = RecordingSurface((1920, 1080))
+        layout_state = Mediator(seed=1)
+        layout_state.prepare_layout(1920, 1080)
+        self.state.game_over_restart_rect = layout_state.game_over_restart_rect
+        self.state.game_over_exit_rect = layout_state.game_over_exit_rect
+
+        with patch("pygame.draw.rect"):
+            renderer._draw_game_over(surface, self.state)
+
+        self.assertEqual(
+            resources.rendered_text,
+            [
+                "Game Over",
+                "Passengers Delivered: 23",
+                "Line Credits Remaining: 4",
+                "Restart (R)",
+                "Exit (Esc)",
+            ],
+        )
+        text_rects = {
+            resources.labels[id(source)]: destination
+            for source, destination in surface.blits
+            if id(source) in resources.labels
+        }
+        self.assertLess(
+            text_rects["Game Over"].bottom,
+            text_rects["Passengers Delivered: 23"].top,
+        )
+        self.assertLess(
+            text_rects["Passengers Delivered: 23"].bottom,
+            text_rects["Line Credits Remaining: 4"].top,
+        )
+        self.assertLess(
+            text_rects["Line Credits Remaining: 4"].bottom,
+            self.state.game_over_restart_rect.top,
+        )
+
+    def test_game_over_content_fits_compact_layout(self) -> None:
+        resources = RecordingResources()
+        renderer = GameRenderer(network_renderer=self.network, resources=resources)
+        surface = RecordingSurface((800, 600))
+        layout_state = Mediator(seed=1)
+        layout_state.prepare_layout(800, 600)
+        self.state.game_over_restart_rect = layout_state.game_over_restart_rect
+        self.state.game_over_exit_rect = layout_state.game_over_exit_rect
+
+        with patch("pygame.draw.rect"):
+            renderer._draw_game_over(surface, self.state)
+
+        text_rects = {
+            resources.labels[id(source)]: destination
+            for source, destination in surface.blits
+            if id(source) in resources.labels
+        }
+        for label in (
+            "Game Over",
+            "Passengers Delivered: 23",
+            "Line Credits Remaining: 4",
+        ):
+            with self.subTest(label=label):
+                self.assertGreaterEqual(text_rects[label].left, 0)
+                self.assertLessEqual(text_rects[label].right, 800)
+        self.assertGreaterEqual(text_rects["Game Over"].top, 0)
+        self.assertLess(
+            text_rects["Game Over"].bottom,
+            text_rects["Passengers Delivered: 23"].top,
+        )
+        self.assertLess(
+            text_rects["Passengers Delivered: 23"].bottom,
+            text_rects["Line Credits Remaining: 4"].top,
+        )
+        self.assertLess(
+            text_rects["Line Credits Remaining: 4"].bottom,
+            self.state.game_over_restart_rect.top,
+        )
+        self.assertLessEqual(self.state.game_over_exit_rect.bottom, 600)
 
 
 if __name__ == "__main__":

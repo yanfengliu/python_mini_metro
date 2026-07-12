@@ -52,3 +52,24 @@ For each GM increment append: changed contracts, focused red/green tests, full l
 - Push: `origin/main` advanced from `0411e68` to `5e00763`.
 - Remote workflow: [run 29175325493](https://github.com/yanfengliu/python_mini_metro/actions/runs/29175325493) succeeded; both `build` and `rl-smoke` passed, including the pinned 42-test Node boundary, clean recursive pass, Python suite, RL contracts, and recurrent/legacy PPO smoke.
 - Commit B purpose: durably record A's exact SHA/CI, mark GM-01a complete pending B's own CI, and queue GM-01b behind that remote gate.
+
+## GM-01a Commit B - remote finalization
+
+- Commit: `6c77033fa2af9d1a1913135f7da3d27b7ff4f2a5` (`docs: finalize canonical delivery semantics [GM-01a:B]`).
+- Push: `origin/main` advanced from `5e00763` to `6c77033`.
+- Remote workflow: [run 29175470189](https://github.com/yanfengliu/python_mini_metro/actions/runs/29175470189) succeeded; both `build` and `rl-smoke` passed.
+- Outcome: GM-01a is remotely finalized and GM-01b began from this exact baseline.
+
+## GM-01b Commit A candidate - objective presentation and verified cadence
+
+- Presentation contract: the HUD now names lifetime `Passengers Delivered` and spendable `Line Credits` separately. Game over presents deliveries first and remaining credits second, while retaining canonical-first legacy fallbacks and the deprecated private `_draw_score` wrapper.
+- Geometry and visual evidence: overlay content flows above unchanged prepared input rectangles and is regression-tested for horizontal and vertical containment at 1920x1080 and 800x600. Matching deterministic seed-42 before/after captures with 23 deliveries and 4 credits are checked in under iteration `3/visual/`; each PNG is 46 KiB or less.
+- Cadence contract: a new 141-line focused test module pins the 900-step base, inclusive 630-1,170 per-station sampling, sample-once state, first-update attempts at 1x/2x/4x, reset after a due full-station attempt, 15-second speed-invariant simulated cadence, and the 1,170-step 4x quantized endpoint at wall tick 293.
+- TDD evidence: the initial renderer run failed with one assertion failure and four missing-method errors because the old surface rendered only `Score`/`Final Score`; after implementation and review fixes the combined renderer/cadence surface passed 19/19.
+- Fingerprint boundary: protocol remains `69c604ac62d46d4a2339b3efad239372c61d0eb52e45ce6c9b6cf8da946dea8f`; the default task remains `719362078a7d98f1e3c944a6a797f7147b29383495f37f417aa9d61e3416016d`; environment content intentionally changed from `390a9fbbd60b479b2957f89c99b5c01f699836a0bd2ecf8bc80de01591f50682` to `feb81d5d64e8304318c54cffc44cc105d6c16e9ef06cbe24c45d9ba3f01958cf`.
+- Compatibility boundary: terminal-metrics v1 remains exactly `{deliveries, display_score, seed, simulation_time_ms}`, with `display_score` still meaning remaining line credits. No RL protocol, task, reward, manifest, checkpoint, or persisted schema changed.
+- Full Python gates: the final core `python -m unittest -v` passed 352 tests with 8 expected optional-RL skips; the exact `output/venv-rl` environment passed 352/352 with no skips.
+- Static and app gates: full-repo Ruff check passed; full-repo Ruff format reported all 100 Python files formatted; `git diff --check` passed; a two-frame dummy-video `src/main.py` smoke passed.
+- Node baseline: full local `npm test` passed 23/42 and the same 19 tests failed because the linked civ-engine is 2.4.1 while the repository pin is 2.2.0. No Node file changed; pinned CI remains authoritative until GM-04.
+- Adversarial review: three independent live-code lanes found no High or Medium defect. Four Low gaps were fixed and all three lanes re-approved with no remaining finding; raw output and synthesis are under iteration `3/`.
+- Changed-file pre-commit passed after explicit user approval for its normal cache: check-yaml had no applicable file, and end-of-file, trailing-whitespace, Ruff check/fix, and Ruff format all passed without modifying source.

@@ -14,11 +14,11 @@ initial_num_stations = 3
 station_unlock_first_increment = 10
 station_unlock_increment_step = 20
 station_unlock_milestones = []
-_total_station_unlock_travels = 0
+_total_station_unlock_deliveries = 0
 _next_station_unlock_increment = station_unlock_first_increment
 for _ in range(initial_num_stations, num_stations):
-    _total_station_unlock_travels += _next_station_unlock_increment
-    station_unlock_milestones.append(_total_station_unlock_travels)
+    _total_station_unlock_deliveries += _next_station_unlock_increment
+    station_unlock_milestones.append(_total_station_unlock_deliveries)
     _next_station_unlock_increment += station_unlock_increment_step
 station_size = 30
 station_capacity = 12
@@ -102,10 +102,18 @@ speed_button_hover_color = (235, 235, 235)
 
 # text
 font_name = "courier"
-score_font_size = 50
-score_display_coords = (20, 20)
+hud_font_size = 50
+hud_display_coords = (20, 20)
+hud_line_spacing = 50
+# Deprecated renderer configuration aliases retained for compatibility.
+score_font_size = hud_font_size
+score_display_coords = hud_display_coords
 game_over_font_size = 120
 game_over_hint_font_size = 40
+game_over_title_metric_spacing = 24
+game_over_metric_spacing = 12
+game_over_content_button_gap = 24
+game_over_content_top_margin = 20
 game_over_text_color = (20, 20, 20)
 game_over_overlay_color = (0, 0, 0, 140)
 game_over_button_color = (230, 230, 230)

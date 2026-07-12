@@ -17,7 +17,7 @@ This document summarizes the game rules currently implemented in code.
 
 ## Stations and Passengers
 
-- The map starts with 3 stations and unlocks up to 20 as you handle more travels.
+- The map starts with 3 stations and unlocks up to 20 as lifetime passenger deliveries increase.
 - Station shapes are from: rectangle, circle, triangle, and cross.
 - New station positions are sampled randomly but weighted to be more likely near the
   current center of existing stations, so very far placements are less common.
@@ -55,9 +55,8 @@ This document summarizes the game rules currently implemented in code.
   - These costs are incremental amounts derived from milestones [0, 90, 300, 650].
 - Unlocked stations are based on lifetime deliveries:
   - Start with 3 stations.
-  - Unlock the 4th station at 10 travels.
-  - Then each next station requires +20 more travels than the previous unlock
-    (5th at 40, 6th at 90, 7th at 160, ...), up to 20 stations.
+  - Unlock the 4th station at 10 deliveries.
+  - Then each next station requires 20 more deliveries than the previous gap (5th at 40, 6th at 90, 7th at 160, ...), up to 20 stations.
 - Line colors are randomized at runtime each run, using a less saturated palette for softer visuals.
 
 ## Passenger Routing and Transfers
@@ -73,10 +72,10 @@ This document summarizes the game rules currently implemented in code.
 ## Timing and Spawning
 
 - Game updates at 60 FPS.
-- Passenger spawning starts at step 1.
-- Each station has its own spawn interval, randomized once per station between 70% and
-  130% of 600 steps (about 420-780 steps, or 7-13 seconds at 60 FPS).
-- On each station spawn tick, that station attempts to spawn 1 passenger if it has room.
+- Each active station is initialized ready to spawn and attempts its first passenger on the first unpaused fixed update.
+- Each station samples its own recurring spawn interval once, uniformly and inclusively from 70% to 130% of the 900-step base: 630-1,170 simulated steps, or 10.5-19.5 simulated seconds at 60 Hz.
+- On each station spawn tick, that station attempts to spawn 1 passenger if it has room and then resets its counter even when full.
+- The 2x and 4x controls advance counters by 2 and 4 per fixed update, reducing wall-clock time between attempts while preserving approximately the same simulated-time interval (subject to whole-tick quantization).
 
 ## Game Over
 
@@ -85,14 +84,14 @@ This document summarizes the game rules currently implemented in code.
 - On game over:
   - Simulation time and gameplay updates stop.
   - `MiniMetroEnv.step(...)` calls become stable no-ops until reset; `PlayerPixelEnv.step(...)` rejects further actions until its required reset.
-  - A game-over overlay appears with final score.
+  - The game-over overlay presents lifetime passengers delivered as the primary result and remaining line credits as a secondary value.
 
 ## Controls
 
 - Mouse:
   - Click and drag from station to station to create a line.
   - Hover a locked line button to see a two-line buy hint (`Buy` + price).
-  - Click a locked line button (empty ring) to purchase that slot if score is enough.
+  - Click a locked line button (empty ring) to purchase that slot if enough line credits remain.
   - Click a line color button at the bottom to remove that line.
   - On game-over screen, click Restart or Exit buttons.
 - Keyboard:
