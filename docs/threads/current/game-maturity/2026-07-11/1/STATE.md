@@ -8,21 +8,21 @@ Current increment: GM-02 - Add strategically spaced long visual history
 
 Current substep: GM-02a - history descriptor, fingerprints, and manifest migration
 
-Current status: GM-02a implementation, review convergence, and local gates green; Commit A staging in progress
+Current status: GM-02a Commit A remotely green; Commit B staging in progress
 
-Durability transaction: GM-01c Commit B `14050af71df5c6cad8035904da467959767f68bb` is remotely green; GM-02a Commit A is in progress
+Durability transaction: GM-02a Commit A `bab6b15442b0f23303e87667668b9d35df7c9552` is green in run `29207490781`; Commit B is in progress
 
 Last remotely finalized work unit: GM-01c at Commit B `14050af71df5c6cad8035904da467959767f68bb`, which passed [run 29181130841](https://github.com/yanfengliu/python_mini_metro/actions/runs/29181130841)
 
-Expected remote implementation baseline: `14050af71df5c6cad8035904da467959767f68bb`
+Expected remote implementation baseline: `bab6b15442b0f23303e87667668b9d35df7c9552`
 
-Current transaction marker: `[GM-02a:A]`
+Current transaction marker: `[GM-02a:B]`
 
 ## Resume here
 
-1. Record the final local evidence, inspect the complete intended diff, and stage only the coherent GM-02a unit while preserving `.agents/`.
-2. Create and push `[GM-02a:A]`, wait for pinned build/RL-smoke CI, then record the exact SHA/run in Commit B and wait for B's CI.
-3. Only after GM-02a Commit B is remotely green, continue through GM-02b/c/d transactions without starting GM-03.
+1. Stage only the Commit-A SHA/CI and cursor finalization updates while preserving `.agents/`.
+2. Inspect the complete staged diff, create and push `[GM-02a:B]`, and wait for pinned build/RL-smoke CI.
+3. Mark GM-02a remotely finalized, then start GM-02b from the exact Commit B baseline.
 
 ## Increment ledger
 
@@ -54,7 +54,7 @@ Current transaction marker: `[GM-02a:A]`
 | GM-01a | complete | `5e00763` / run `29175325493` success | `6c77033` / run `29175470189` success | Canonical semantics and persisted compatibility schemas remotely finalized |
 | GM-01b | complete | `3523ea4` / run `29177705475` success | `18ef714` / run `29177848669` success | HUD, game-over, cadence, and docs remotely finalized |
 | GM-01c | complete | `648025f` / run `29180986088` success | `14050af` / run `29181130841` success | Threshold-two runtime and v3 replay migration remotely finalized |
-| GM-02a | Commit A staging | `[GM-02a:A]` / pending | - | Review converged; all applicable local gates green |
+| GM-02a | complete pending B CI | `bab6b15` / run `29207490781` success | `[GM-02a:B]` / pending | History identity and manifest migration remotely green at A |
 | GM-02b | pending | - | - | Temporal ring and multi-slot lifecycle tests |
 | GM-02c | pending | - | - | CLI/train/eval/legacy integration |
 | GM-02d | pending | - | - | Resource profile and default promotion |

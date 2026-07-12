@@ -121,3 +121,10 @@ For each GM increment append: changed contracts, focused red/green tests, full l
 - Fingerprints: protocol `69c604ac62d46d4a2339b3efad239372c61d0eb52e45ce6c9b6cf8da946dea8f`, default task `719362078a7d98f1e3c944a6a797f7147b29383495f37f417aa9d61e3416016d`, and content `3fa9b5b78750d9a1c113e4da76ea669466f485a14d8df6702705610ed868dd60` remained unchanged; trainer identity intentionally changed to `cb0e6e0f679afb2677760e964aa8acc9adf728548b2128671da0417aee782686`.
 - Review: all three plan lanes approved after corrections. Implementation finders were clean except a medium allowlist-mutation test gap and low v2 top-level exact-key gap; both were fixed, approved by the finder, and independently verified. External Codex/Claude review was unavailable because the platform denied repository-context export to Claude; no bypass was attempted.
 - Node boundary: local `npm test` remained at 25/44 with the same 19 failures caused by live civ-engine 2.4.1 versus pinned 2.2.0. The three public verifier compatibility cases passed. Pinned CI remains authoritative until GM-04 supplies an isolated local engine.
+
+## GM-02a Commit A - remote implementation gate
+
+- Commit: `bab6b15442b0f23303e87667668b9d35df7c9552` (`feat: bind RL observation history identity [GM-02a:A]`).
+- Push: `origin/main` advanced from `14050af` to `bab6b15`.
+- Remote workflow: [run 29207490781](https://github.com/yanfengliu/python_mini_metro/actions/runs/29207490781) succeeded; `build` passed in 36 seconds, including all 44 Node tests against pinned civ-engine 2.2.0 plus the clean recursive pass and Python suite, and `rl-smoke` passed in 2 minutes 47 seconds including fresh recurrent and legacy PPO artifact paths.
+- Commit B purpose: durably record A's exact SHA/CI, mark GM-02a complete pending B's own CI, and keep GM-02b behind that remote gate.

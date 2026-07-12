@@ -1,6 +1,6 @@
 # GM-02 strategically spaced visual-history plan
 
-Status: GM-02a implementation, adversarial review, and local validation green; Commit A staging in progress
+Status: Commit A `bab6b15442b0f23303e87667668b9d35df7c9552` remotely green; Commit B staging in progress
 
 Baseline: GM-01c Commit B `14050af71df5c6cad8035904da467959767f68bb`, green in GitHub Actions run `29181130841`
 
