@@ -173,3 +173,10 @@ For each GM increment append: changed contracts, focused red/green tests, full l
 - Fingerprints: protocol `69c604ac62d46d4a2339b3efad239372c61d0eb52e45ce6c9b6cf8da946dea8f`, default task `719362078a7d98f1e3c944a6a797f7147b29383495f37f417aa9d61e3416016d`, and content `3fa9b5b78750d9a1c113e4da76ea669466f485a14d8df6702705610ed868dd60` remain unchanged; trainer identity intentionally changes from `a435f8d354967880e29bedd525f6ca48faced801ac4eed3f469aa82e23f765d8` to `dfc7e9b5430e518d92a62d9509ac14b84a9607d007d27680386bafde326f9699`.
 - Adversarial review: manifest/CLI, runtime/recurrent, and CI/resource/docs lanes independently refuted the corrected implementation and returned clean. External Codex/Claude review remains unavailable because the platform denied repository-context export to Claude; no bypass was attempted.
 - Node boundary: local `npm test` reproduced the known 25/44 result with the same 19 civ-engine 2.4.1-versus-pinned-2.2.0 failures; pinned CI now runs exact default, named multiscale, and legacy lifecycle assertions until GM-04 supplies an isolated local engine.
+
+## GM-02c Commit A - remote implementation gate
+
+- Commit: `9b75f3728bebadb6d8f3816dcfea6ef697f3ae0f` (`feat: integrate descriptor-driven RL history [GM-02c:A]`).
+- Push: `origin/main` advanced from `53bc510` to `9b75f37`.
+- Remote workflow: [run 29211060401](https://github.com/yanfengliu/python_mini_metro/actions/runs/29211060401) succeeded; `build` passed in 41 seconds, including all 44 Node tests against pinned civ-engine 2.2.0 plus the clean recursive pass and 399-test Python suite, and `rl-smoke` passed in 3 minutes 28 seconds including exact default recurrent, named multiscale fresh/resume/evaluate, and legacy PPO lifecycle paths.
+- Commit B purpose: durably record A's exact SHA/CI, mark GM-02c complete pending B's own CI, and keep GM-02d behind that remote gate.
