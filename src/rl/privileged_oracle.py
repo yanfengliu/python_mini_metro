@@ -19,9 +19,15 @@ class PrivilegedSnapshot:
     station_positions: tuple[tuple[int, int], ...]
     path_station_indices: tuple[tuple[int | None, ...], ...]
     deliveries: int
-    display_score: int
+    line_credits: int
     simulation_time_ms: int
     is_paused: bool
+
+    @property
+    def display_score(self) -> int:
+        """Legacy alias for the spendable line-credit balance."""
+
+        return self.line_credits
 
 
 def capture_privileged_snapshot(env: _PlayerEnvInternals) -> PrivilegedSnapshot:
@@ -45,8 +51,20 @@ def capture_privileged_snapshot(env: _PlayerEnvInternals) -> PrivilegedSnapshot:
             tuple(station_indices.get(id(station)) for station in path.stations)
             for path in mediator.paths
         ),
-        deliveries=int(mediator.total_travels_handled),
-        display_score=int(mediator.score),
+        deliveries=int(
+            getattr(
+                mediator,
+                "deliveries",
+                getattr(mediator, "total_travels_handled", 0),
+            )
+        ),
+        line_credits=int(
+            getattr(
+                mediator,
+                "line_credits",
+                getattr(mediator, "score", 0),
+            )
+        ),
         simulation_time_ms=int(mediator.time_ms),
         is_paused=bool(mediator.is_paused),
     )

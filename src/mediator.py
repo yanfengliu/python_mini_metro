@@ -106,8 +106,8 @@ class Mediator:
         self.travel_plans: TravelPlans = {}
         self.is_paused = False
         self.game_speed_multiplier = 1
-        self.score = 0
-        self.total_travels_handled = 0
+        self.deliveries = 0
+        self.line_credits = 0
         self.purchased_num_paths = 1
         self.unlocked_num_paths = self.get_unlocked_num_paths()
         self.unlocked_num_stations = self.get_unlocked_num_stations()
@@ -116,6 +116,26 @@ class Mediator:
         self.passenger_max_wait_time_ms = passenger_max_wait_time_ms
         self.max_waiting_passengers = max_waiting_passengers
         self.prepare_layout(screen_width, screen_height)
+
+    @property
+    def total_travels_handled(self) -> int:
+        """Deprecated writable alias for cumulative passenger deliveries."""
+
+        return self.deliveries
+
+    @total_travels_handled.setter
+    def total_travels_handled(self, value: int) -> None:
+        self.deliveries = value
+
+    @property
+    def score(self) -> int:
+        """Deprecated writable alias for spendable line credits."""
+
+        return self.line_credits
+
+    @score.setter
+    def score(self, value: int) -> None:
+        self.line_credits = value
 
     def prepare_layout(self, width: int, height: int) -> None:
         """Prepare every interactive hitbox before input is dispatched."""
@@ -175,7 +195,7 @@ class Mediator:
         unlocked = self.initial_num_stations + sum(
             1
             for milestone in self.station_unlock_milestones
-            if self.total_travels_handled >= milestone
+            if self.deliveries >= milestone
         )
         return min(unlocked, self.num_stations)
 
@@ -223,7 +243,7 @@ class Mediator:
         if next_button_idx is None or next_button_idx != button_idx:
             return False
         price = self.get_purchase_price_for_path_button_idx(button_idx)
-        return price is not None and self.score >= price
+        return price is not None and self.line_credits >= price
 
     def try_purchase_path_button(self, button: PathButton) -> bool:
         if not button.is_locked:
@@ -237,7 +257,7 @@ class Mediator:
         price = self.get_purchase_price_for_path_button_idx(button_idx)
         if price is None:
             return False
-        self.score -= price
+        self.line_credits -= price
         self.purchased_num_paths += 1
         self.update_unlocked_num_paths()
         return True
@@ -876,8 +896,8 @@ class Mediator:
                         self.passengers.remove(passenger)
                         if passenger in self.travel_plans:
                             del self.travel_plans[passenger]
-                        self.score += 1
-                        self.total_travels_handled += 1
+                        self.deliveries += 1
+                        self.line_credits += 1
                         self.update_unlocked_num_paths()
                         self.update_unlocked_num_stations()
                         boarding_slots -= 1

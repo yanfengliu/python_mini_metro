@@ -5,7 +5,7 @@ This document summarizes the game rules currently implemented in code.
 ## Objective
 
 - Build and manage metro lines to deliver passengers to stations that match their destination shape.
-- Maximize the score (total successful passenger deliveries) before game over.
+- Maximize lifetime passenger deliveries before game over.
 
 ## Timing and Presentation
 
@@ -43,17 +43,17 @@ This document summarizes the game rules currently implemented in code.
 - Maximum metros in the game is 4 total.
 - When a new line is completed, one metro is added to it if the global metro limit is not reached.
 
-## Scoring and Progression
+## Deliveries, Line Credits, and Progression
 
-- Score increases by 1 for each delivered passenger.
-- The game tracks cumulative travels handled (delivered passengers).
-- Line slot unlocks are purchased using score by clicking locked (empty ring) line buttons:
+- Each delivered passenger increases lifetime deliveries by 1 and awards 1 spendable line credit.
+- Spending line credits never reduces lifetime deliveries.
+- Line slot unlocks are purchased using line credits by clicking locked (empty ring) line buttons:
   - Start with 1 available line.
-  - 2nd line costs 90 score.
-  - 3rd line costs 210 score.
-  - 4th line costs 350 score.
+  - 2nd line costs 90 line credits.
+  - 3rd line costs 210 line credits.
+  - 4th line costs 350 line credits.
   - These costs are incremental amounts derived from milestones [0, 90, 300, 650].
-- Unlocked stations are based on cumulative travels:
+- Unlocked stations are based on lifetime deliveries:
   - Start with 3 stations.
   - Unlock the 4th station at 10 travels.
   - Then each next station requires +20 more travels than the previous unlock
@@ -117,5 +117,5 @@ This document summarizes the game rules currently implemented in code.
 - The policy observes only RGB pixels with a rendered software cursor. The default `fast` profile is 192x108 and the registered `fidelity` profile is 320x180; both are downsampled from the canonical player render.
 - One action contains a kind plus a pointer coordinate. Supported kinds are no-op, mouse motion, left-button down, left-button up, Space, and the `1`/`2`/`3` speed keys. Mouse coordinates span the selected observation grid and map exactly to the edges of the canonical view.
 - The default decision advances six fixed ticks, or 100 simulated milliseconds at 1x speed. Pause consumes decisions without accumulating simulation backlog; speed keys apply the same 1x/2x/4x gameplay multipliers as manual play.
-- An episode terminates at game over and truncates at its configured decision horizon. The default learning reward is newly delivered passengers; the optional display-score-delta reward includes score spent purchasing line slots.
+- An episode terminates at game over and truncates at its configured decision horizon. The default learning reward is newly delivered passengers; the legacy pixel `display_score_delta` mode and structured `line_credits_delta` mode include line credits spent purchasing line slots.
 - Adding mouse-driven stations, buttons, routes, passengers, or other visible content does not require a new action schema. Adding another keyboard control, changing action meanings, changing registered pixel profiles, or changing cursor pixels requires an explicit protocol update so saved models cannot silently receive a different task.

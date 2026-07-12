@@ -2,11 +2,25 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass, field
+from inspect import Parameter, signature
 from typing import Any, Dict, Iterable, List, Protocol
 
 from env import MiniMetroEnv
 
 Action = Dict[str, Any]
+
+LEGACY_PLAYTHROUGH_RECORD_SCHEMA = "mini-metro-agent-play-v1"
+PLAYTHROUGH_RECORD_SCHEMA = "mini-metro-agent-play-v2"
+DELIVERIES_REWARD_CONTRACT = "deliveries"
+LINE_CREDITS_REWARD_CONTRACT = "line_credits_delta"
+_SUPPORTED_RECORD_SCHEMAS = {
+    LEGACY_PLAYTHROUGH_RECORD_SCHEMA,
+    PLAYTHROUGH_RECORD_SCHEMA,
+}
+_SUPPORTED_REWARD_CONTRACTS = {
+    DELIVERIES_REWARD_CONTRACT,
+    LINE_CREDITS_REWARD_CONTRACT,
+}
 
 
 class Agent(Protocol):
@@ -40,6 +54,8 @@ class PlaythroughStep:
     score: int
     time_ms: int
     is_done: bool
+    deliveries: int = 0
+    line_credits: int = 0
 
 
 @dataclass
@@ -50,6 +66,95 @@ class PlaythroughRecord:
     steps: List[PlaythroughStep] = field(default_factory=list)
     final_score: int = 0
     max_steps: int = 0
+    schema: str = LEGACY_PLAYTHROUGH_RECORD_SCHEMA
+    reward_contract: str = LINE_CREDITS_REWARD_CONTRACT
+    final_deliveries: int = 0
+    final_line_credits: int = 0
+
+
+def _coerce_contract(value: object) -> str | None:
+    if hasattr(value, "value"):
+        value = getattr(value, "value")
+    if isinstance(value, str) and value in _SUPPORTED_REWARD_CONTRACTS:
+        return value
+    return None
+
+
+def _environment_reward_contract(env: MiniMetroEnv) -> str:
+    for attribute in ("reward_contract", "reward_mode"):
+        if not hasattr(env, attribute):
+            continue
+        value = getattr(env, attribute)
+        contract = _coerce_contract(value)
+        if contract is not None:
+            return contract
+        raise ValueError(f"unsupported environment reward contract: {value!r}")
+    return LINE_CREDITS_REWARD_CONTRACT
+
+
+def _record_reward_contract(record: PlaythroughRecord) -> str:
+    schema = getattr(record, "schema", LEGACY_PLAYTHROUGH_RECORD_SCHEMA)
+    if schema not in _SUPPORTED_RECORD_SCHEMAS:
+        raise ValueError(f"unsupported playthrough record schema: {schema!r}")
+    if schema == LEGACY_PLAYTHROUGH_RECORD_SCHEMA:
+        contract = getattr(record, "reward_contract", LINE_CREDITS_REWARD_CONTRACT)
+        if contract != LINE_CREDITS_REWARD_CONTRACT:
+            raise ValueError("legacy playthrough records require line_credits_delta")
+        return LINE_CREDITS_REWARD_CONTRACT
+    if not hasattr(record, "reward_contract"):
+        raise ValueError("v2 playthrough records require reward_contract")
+    contract = record.reward_contract
+    if contract not in _SUPPORTED_REWARD_CONTRACTS:
+        raise ValueError(f"unsupported playthrough reward contract: {contract!r}")
+    return contract
+
+
+def _new_environment(
+    dt_ms: int | None, reward_contract: str
+) -> tuple[MiniMetroEnv, str]:
+    parameters = signature(MiniMetroEnv).parameters.values()
+    accepts_reward_mode = "reward_mode" in signature(MiniMetroEnv).parameters or any(
+        parameter.kind is Parameter.VAR_KEYWORD for parameter in parameters
+    )
+    if accepts_reward_mode:
+        return (
+            MiniMetroEnv(dt_ms=dt_ms, reward_mode=reward_contract),
+            reward_contract,
+        )
+    # Compatibility with MiniMetroEnv versions from before explicit reward modes.
+    return MiniMetroEnv(dt_ms=dt_ms), LINE_CREDITS_REWARD_CONTRACT
+
+
+def _observation_metrics(
+    observation: Dict[str, Any], env: MiniMetroEnv
+) -> tuple[int, int]:
+    structured = observation.get("structured", {})
+    mediator = env.mediator
+    deliveries = structured.get(
+        "deliveries",
+        getattr(mediator, "deliveries", getattr(mediator, "total_travels_handled", 0)),
+    )
+    line_credits = structured.get(
+        "line_credits",
+        structured.get(
+            "score", getattr(mediator, "line_credits", getattr(mediator, "score", 0))
+        ),
+    )
+    return int(deliveries), int(line_credits)
+
+
+def _mediator_deliveries(env: MiniMetroEnv) -> int:
+    return int(
+        getattr(
+            env.mediator,
+            "deliveries",
+            getattr(env.mediator, "total_travels_handled", 0),
+        )
+    )
+
+
+def _mediator_line_credits(env: MiniMetroEnv) -> int:
+    return int(getattr(env.mediator, "line_credits", getattr(env.mediator, "score", 0)))
 
 
 def run_agent_playthrough(
@@ -61,34 +166,73 @@ def run_agent_playthrough(
     env: MiniMetroEnv | None = None,
 ) -> tuple[int, PlaythroughRecord]:
     if env is None:
-        env = MiniMetroEnv(dt_ms=dt_ms)
+        env, reward_contract = _new_environment(dt_ms, DELIVERIES_REWARD_CONTRACT)
+    else:
+        reward_contract = _environment_reward_contract(env)
     if agent is None:
         agent = SimpleAgent()
 
     observation = env.reset(seed=seed)
     agent.reset(observation)
+    effective_dt_ms = (
+        dt_ms
+        if dt_ms is not None
+        else getattr(env, "dt_ms_default", getattr(env, "dt_ms", None))
+    )
 
-    record = PlaythroughRecord(seed=seed, dt_ms=dt_ms, max_steps=max_steps)
+    record = PlaythroughRecord(
+        seed=seed,
+        dt_ms=effective_dt_ms,
+        max_steps=max_steps,
+        schema=PLAYTHROUGH_RECORD_SCHEMA,
+        reward_contract=reward_contract,
+    )
 
     for _ in range(max_steps):
         action = agent.act(observation)
         action_snapshot = deepcopy(action)
         observation, reward, done, _ = env.step(action, dt_ms=dt_ms)
+        deliveries, line_credits = _observation_metrics(observation, env)
         record.actions.append(action_snapshot)
         record.steps.append(
             PlaythroughStep(
                 action=deepcopy(action_snapshot),
                 reward=reward,
-                score=observation["structured"]["score"],
+                score=line_credits,
                 time_ms=observation["structured"]["time_ms"],
                 is_done=done,
+                deliveries=deliveries,
+                line_credits=line_credits,
             )
         )
         if done:
             break
 
-    record.final_score = env.mediator.score
+    record.final_deliveries, record.final_line_credits = _observation_metrics(
+        observation, env
+    )
+    record.final_score = record.final_line_credits
     return record.final_score, record
+
+
+def run_agent_playthrough_deliveries(
+    agent: Agent | None = None,
+    *,
+    seed: int | None = None,
+    max_steps: int = 100,
+    dt_ms: int | None = None,
+    env: MiniMetroEnv | None = None,
+) -> tuple[int, PlaythroughRecord]:
+    """Run a playthrough and return its canonical delivered-passenger total."""
+
+    _, record = run_agent_playthrough(
+        agent,
+        seed=seed,
+        max_steps=max_steps,
+        dt_ms=dt_ms,
+        env=env,
+    )
+    return record.final_deliveries, record
 
 
 def iter_playthrough_observations(
@@ -98,7 +242,9 @@ def iter_playthrough_observations(
     max_steps: int | None = None,
 ) -> Iterable[Dict[str, Any]]:
     if env is None:
-        env = MiniMetroEnv(dt_ms=record.dt_ms)
+        env, _ = _new_environment(record.dt_ms, _record_reward_contract(record))
+    else:
+        _record_reward_contract(record)
     observation = env.reset(seed=record.seed)
     yield observation
 
@@ -120,7 +266,22 @@ def replay_playthrough(
     max_steps: int | None = None,
 ) -> int:
     if env is None:
-        env = MiniMetroEnv(dt_ms=record.dt_ms)
+        env, _ = _new_environment(record.dt_ms, _record_reward_contract(record))
     for _ in iter_playthrough_observations(record, env=env, max_steps=max_steps):
         pass
-    return env.mediator.score
+    return _mediator_line_credits(env)
+
+
+def replay_playthrough_deliveries(
+    record: PlaythroughRecord,
+    *,
+    env: MiniMetroEnv | None = None,
+    max_steps: int | None = None,
+) -> int:
+    """Replay a record and return its canonical delivered-passenger total."""
+
+    if env is None:
+        env, _ = _new_environment(record.dt_ms, _record_reward_contract(record))
+    for _ in iter_playthrough_observations(record, env=env, max_steps=max_steps):
+        pass
+    return _mediator_deliveries(env)

@@ -11,16 +11,18 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 from env import MiniMetroEnv
 from recursive_playtest import (
-    canonical_checkpoint,
+    DELIVERIES_REWARD_CONTRACT,
+    LINE_CREDITS_REWARD_CONTRACT,
     main,
+    run_scenario,
     validate_inputs,
     validate_scenario,
 )
 
 
-def scenario(*operations):
-    return {
-        "schemaVersion": 1,
+def scenario(*operations, schema_version=1, reward_contract=None):
+    document = {
+        "schemaVersion": schema_version,
         "seed": 123,
         "defaultDtMs": 7,
         "operations": list(operations)
@@ -32,6 +34,11 @@ def scenario(*operations):
             }
         ],
     }
+    if reward_contract is not None:
+        document["environmentRewardContract"] = reward_contract
+    elif schema_version == 2:
+        document["environmentRewardContract"] = DELIVERIES_REWARD_CONTRACT
+    return document
 
 
 def operation(name="noop", action=None, expected=True, **extra):
@@ -59,9 +66,33 @@ class TestScenarioValidation(unittest.TestCase):
         self.assertEqual(validated["operations"][0]["action"]["stations"], [0, 1])
         self.assertIsNot(validated, original)
 
+    def test_v2_scenario_requires_the_delivery_reward_contract(self):
+        document = scenario(schema_version=2)
+
+        self.assertEqual(validate_scenario(document), document)
+        for invalid in (
+            {
+                key: value
+                for key, value in document.items()
+                if key != "environmentRewardContract"
+            },
+            {**document, "environmentRewardContract": LINE_CREDITS_REWARD_CONTRACT},
+            {**document, "environmentRewardContract": True},
+        ):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                validate_scenario(invalid)
+
+        with self.assertRaises(ValueError):
+            validate_scenario(
+                scenario(
+                    schema_version=1,
+                    reward_contract=LINE_CREDITS_REWARD_CONTRACT,
+                )
+            )
+
     def test_scenario_contract_is_strict(self):
         invalid_documents = {
-            "wrong version": {**scenario(), "schemaVersion": 2},
+            "wrong version": {**scenario(), "schemaVersion": 3},
             "boolean version": {**scenario(), "schemaVersion": True},
             "negative seed": {**scenario(), "seed": -1},
             "oversized seed": {**scenario(), "seed": 4_294_967_296},
@@ -115,111 +146,30 @@ class TestScenarioValidation(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     validate_inputs({**document, "pythonHashSeed": invalid_hash_seed})
 
+    def test_v2_recorded_inputs_require_the_delivery_reward_contract(self):
+        document = {
+            "schemaVersion": 2,
+            "runId": "v2-run",
+            "sourcePath": "scenario-v2.json",
+            "seed": 4,
+            "defaultDtMs": 3,
+            "pythonExecutable": "python",
+            "pythonHashSeed": "4",
+            "environmentRewardContract": DELIVERIES_REWARD_CONTRACT,
+            "operations": [operation()],
+        }
 
-class TestCheckpoint(unittest.TestCase):
-    def setUp(self):
-        self.env = MiniMetroEnv()
-        self.env.reset(seed=77)
-
-    def checkpoint(self):
-        return canonical_checkpoint(self.env)
-
-    def test_checkpoint_is_strict_json_and_uuid_free(self):
-        self.env.step(
-            {"type": "create_path", "stations": [0, 1, 2], "loop": False},
-            dt_ms=1,
-        )
-        checkpoint = self.checkpoint()
-        encoded = json.dumps(checkpoint, allow_nan=False, sort_keys=True)
-
-        for entity in (
-            *self.env.mediator.all_stations,
-            *self.env.mediator.paths,
-            *self.env.mediator.metros,
-            *self.env.mediator.passengers,
+        self.assertEqual(validate_inputs(document), document)
+        for invalid in (
+            {
+                key: value
+                for key, value in document.items()
+                if key != "environmentRewardContract"
+            },
+            {**document, "environmentRewardContract": LINE_CREDITS_REWARD_CONTRACT},
         ):
-            self.assertNotIn(entity.id, encoded)
-        self.assertNotIn("_id_to_index", encoded)
-        self.assertEqual(checkpoint["schemaVersion"], 1)
-        self.assertIn("structured", checkpoint)
-        self.assertIn("arrays", checkpoint)
-        self.assertIn("rng", checkpoint)
-
-    def test_checkpoint_changes_for_each_latent_state_family(self):
-        def assert_perturbed(mutator):
-            before = self.checkpoint()
-            mutator()
-            after = self.checkpoint()
-            self.assertNotEqual(before, after)
-
-        with self.subTest(family="station spawn counter"):
-            station = self.env.mediator.all_stations[0]
-            assert_perturbed(
-                lambda: self.env.mediator.station_steps_since_last_spawn.__setitem__(
-                    station,
-                    self.env.mediator.station_steps_since_last_spawn[station] + 1,
-                )
-            )
-        with self.subTest(family="station spawn interval"):
-            station = self.env.mediator.all_stations[1]
-            assert_perturbed(
-                lambda: self.env.mediator.station_spawn_interval_steps.__setitem__(
-                    station,
-                    self.env.mediator.station_spawn_interval_steps[station] + 1,
-                )
-            )
-        with self.subTest(family="progression and unlocks"):
-            assert_perturbed(
-                lambda: setattr(
-                    self.env.mediator,
-                    "total_travels_handled",
-                    self.env.mediator.total_travels_handled + 1,
-                )
-            )
-        with self.subTest(family="station pool"):
-            assert_perturbed(
-                lambda: setattr(
-                    self.env.mediator.all_stations[-1].position,
-                    "left",
-                    self.env.mediator.all_stations[-1].position.left + 1,
-                )
-            )
-        with self.subTest(family="environment reward baseline"):
-            assert_perturbed(lambda: setattr(self.env, "last_score", 1))
-        with self.subTest(family="environment default timing"):
-            assert_perturbed(lambda: setattr(self.env, "dt_ms_default", 16))
-
-    def test_checkpoint_changes_for_topology_travel_plans_and_metro_motion(self):
-        self.env.step(
-            {"type": "create_path", "stations": [0, 1, 2], "loop": False},
-            dt_ms=1,
-        )
-        baseline = self.checkpoint()
-
-        metro = self.env.mediator.metros[0]
-        metro.stop_time_remaining_ms += 1
-        self.assertNotEqual(baseline, self.checkpoint())
-        metro.stop_time_remaining_ms -= 1
-
-        path = self.env.mediator.paths[0]
-        path.stations[0], path.stations[1] = path.stations[1], path.stations[0]
-        self.assertNotEqual(baseline, self.checkpoint())
-        path.stations[0], path.stations[1] = path.stations[1], path.stations[0]
-
-        self.assertTrue(self.env.mediator.travel_plans)
-        plan = next(iter(self.env.mediator.travel_plans.values()))
-        plan.next_station_idx += 1
-        self.assertNotEqual(baseline, self.checkpoint())
-
-    def test_checkpoint_changes_for_python_and_numpy_rng(self):
-        initial = self.checkpoint()
-        self.env.mediator.context.python_random.random()
-        after_python = self.checkpoint()
-        self.assertNotEqual(initial, after_python)
-
-        self.env.mediator.context.numpy_random.random()
-        after_numpy = self.checkpoint()
-        self.assertNotEqual(after_python, after_numpy)
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                validate_inputs(invalid)
 
 
 class TestDrive(unittest.TestCase):
@@ -318,6 +268,118 @@ class TestDrive(unittest.TestCase):
             replay_inputs = json.loads(Path(out_dir, "inputs.json").read_text("utf-8"))
             self.assertEqual(replay_inputs["sourcePath"], recorded["sourcePath"])
             self.assertEqual(replay_inputs["runId"], "replay-run")
+
+    def test_v2_inputs_mode_preserves_the_delivery_reward_contract(self):
+        recorded = {
+            "schemaVersion": 2,
+            "runId": "first-v2-run",
+            "sourcePath": "missing-v2-scenario.json",
+            "seed": 18,
+            "defaultDtMs": 1,
+            "pythonExecutable": sys.executable,
+            "pythonHashSeed": "18",
+            "environmentRewardContract": DELIVERIES_REWARD_CONTRACT,
+            "operations": [operation()],
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            input_path = Path(temp_dir, "recorded-v2.json")
+            out_dir = Path(temp_dir, "replay-v2")
+            input_path.write_text(json.dumps(recorded), encoding="utf-8")
+
+            with patch.dict(os.environ, {"PYTHONHASHSEED": "18"}):
+                result = main(
+                    [
+                        "--inputs",
+                        str(input_path),
+                        "--out",
+                        str(out_dir),
+                        "--run-id",
+                        "replay-v2-run",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            replay_inputs = json.loads(Path(out_dir, "inputs.json").read_text("utf-8"))
+            self.assertEqual(replay_inputs["schemaVersion"], 2)
+            self.assertEqual(
+                replay_inputs["environmentRewardContract"],
+                DELIVERIES_REWARD_CONTRACT,
+            )
+            row = json.loads(
+                Path(out_dir, "transcript.jsonl").read_text("utf-8").splitlines()[0]
+            )
+            self.assertEqual(row["checkpoint"]["schemaVersion"], 2)
+
+    def test_reward_contract_preserves_v1_purchase_penalty_and_v2_delivery_reward(self):
+        class FundedEnv(MiniMetroEnv):
+            def __init__(self, *, reward_mode):
+                super().__init__(reward_mode=reward_mode)
+
+            def reset(self, seed=None):
+                super().reset(seed=seed)
+                self.mediator.score = 100
+                self.last_score = 100
+                self.last_line_credits = 100
+                self.last_deliveries = self.mediator.total_travels_handled
+                return self.observe()
+
+        purchase = operation("buy-line", {"type": "buy_line"})
+        with patch.dict(os.environ, {"PYTHONHASHSEED": "0"}):
+            legacy = run_scenario(
+                scenario(purchase),
+                run_id="legacy-buy",
+                source_path="legacy-v1.json",
+                env_factory=FundedEnv,
+            )
+            current = run_scenario(
+                scenario(purchase, schema_version=2),
+                run_id="deliveries-buy",
+                source_path="current-v2.json",
+                env_factory=FundedEnv,
+            )
+
+        legacy_inputs, legacy_rows, legacy_findings, legacy_result = legacy
+        current_inputs, current_rows, current_findings, current_result = current
+        self.assertNotIn("environmentRewardContract", legacy_inputs)
+        self.assertEqual(legacy_rows[0]["reward"], -90)
+        self.assertEqual(legacy_rows[0]["checkpoint"]["schemaVersion"], 1)
+        self.assertEqual(legacy_findings, [])
+        self.assertEqual(legacy_result["schemaVersion"], 1)
+        self.assertEqual(
+            current_inputs["environmentRewardContract"],
+            DELIVERIES_REWARD_CONTRACT,
+        )
+        self.assertEqual(current_rows[0]["reward"], 0)
+        self.assertEqual(current_rows[0]["checkpoint"]["schemaVersion"], 2)
+        self.assertEqual(current_findings, [])
+        self.assertEqual(current_result["schemaVersion"], 2)
+
+    def test_run_scenario_preserves_zero_argument_environment_factories(self):
+        created = []
+
+        def factory():
+            env = MiniMetroEnv()
+            created.append(env)
+            return env
+
+        with patch.dict(os.environ, {"PYTHONHASHSEED": "0"}):
+            run_scenario(
+                scenario(),
+                run_id="legacy-zero-argument-factory",
+                source_path="legacy-zero-argument-factory.json",
+                env_factory=factory,
+            )
+            run_scenario(
+                scenario(schema_version=2),
+                run_id="v2-zero-argument-factory",
+                source_path="v2-zero-argument-factory.json",
+                env_factory=factory,
+            )
+
+        self.assertEqual(
+            [env.reward_mode for env in created],
+            [LINE_CREDITS_REWARD_CONTRACT, DELIVERIES_REWARD_CONTRACT],
+        )
 
 
 if __name__ == "__main__":

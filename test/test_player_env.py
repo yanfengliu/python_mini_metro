@@ -263,12 +263,43 @@ class TestPlayerPixelEnv(unittest.TestCase):
 
         self.assertEqual(default_env.task_spec, TaskSpec())
 
+    def test_privileged_snapshot_names_line_credits_and_keeps_display_score_alias(
+        self,
+    ) -> None:
+        self.env.reset(seed=13)
+        mediator = self.env._mediator
+        assert mediator is not None
+        mediator.line_credits = 7
+
+        snapshot = capture_privileged_snapshot(self.env)
+
+        self.assertEqual(snapshot.line_credits, 7)
+        self.assertEqual(snapshot.display_score, 7)
+
+    def test_terminal_metrics_v1_remain_exact_for_legacy_artifacts(self) -> None:
+        self.env.close()
+        self.env = PlayerPixelEnv(max_episode_steps=1)
+        self.env.reset(seed=13)
+        mediator = self.env._mediator
+        assert mediator is not None
+        mediator.line_credits = 9
+
+        _, _, _, truncated, info = self.env.step(self.action(ActionKind.NOOP))
+
+        self.assertTrue(truncated)
+        game_episode = info["game_episode"]
+        self.assertEqual(
+            set(game_episode),
+            {"deliveries", "display_score", "seed", "simulation_time_ms"},
+        )
+        self.assertEqual(game_episode["display_score"], 9)
+
     def test_delivery_and_display_score_reward_modes(self) -> None:
         self.env.reset(seed=13)
         mediator = self.env._mediator
         assert mediator is not None
-        mediator.total_travels_handled += 3
-        mediator.score += 2
+        mediator.deliveries += 3
+        mediator.line_credits += 2
         _, reward, _, _, info = self.env.step(self.action(ActionKind.NOOP))
         self.assertEqual(reward, 3.0)
         self.assertNotIn("deliveries_delta", info)
@@ -282,8 +313,8 @@ class TestPlayerPixelEnv(unittest.TestCase):
         score_env.reset(seed=13)
         score_mediator = score_env._mediator
         assert score_mediator is not None
-        score_mediator.total_travels_handled += 3
-        score_mediator.score += 2
+        score_mediator.deliveries += 3
+        score_mediator.line_credits += 2
         _, score_reward, _, _, _ = score_env.step(self.action(ActionKind.NOOP))
         self.assertEqual(score_reward, 2.0)
 

@@ -8,7 +8,11 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 from env import MiniMetroEnv
 from recursive_oracles import reference_errors
-from recursive_playtest import canonical_checkpoint, evaluate_oracles
+from recursive_playtest import (
+    DELIVERIES_REWARD_CONTRACT,
+    canonical_checkpoint,
+    evaluate_oracles,
+)
 
 
 def operation(name="noop", action=None, expected=True, **extra):
@@ -61,9 +65,9 @@ class TestRecursiveOracles(unittest.TestCase):
         self.assertNotIn("run", json.dumps(finding).lower())
 
     def test_contract_oracles_cover_all_required_classes(self):
-        env = MiniMetroEnv()
+        env = MiniMetroEnv(reward_mode="line_credits_delta")
         env.reset(seed=9)
-        initial = canonical_checkpoint(env)
+        initial = canonical_checkpoint(env, schema_version=1)
         broken = deepcopy(initial)
         broken["structured"]["score"] = 2
         broken["structured"]["time_ms"] = 10
@@ -100,6 +104,90 @@ class TestRecursiveOracles(unittest.TestCase):
                 "invalid-reference",
                 "non-finite-coordinate",
             }.issubset(classes)
+        )
+        legacy_reward_finding = next(
+            finding
+            for finding in evaluate_oracles([row], [op, operation("missing")], initial)
+            if finding["data"]["class"] == "reward-score-mismatch"
+        )
+        self.assertEqual(
+            legacy_reward_finding["observed"],
+            "reward 0 differs from score delta 2",
+        )
+
+    def test_delivery_reward_oracle_uses_explicit_checkpoint_deliveries(self):
+        env = MiniMetroEnv()
+        env.reset(seed=16)
+        initial = canonical_checkpoint(env)
+        changed = deepcopy(initial)
+        changed["progression"]["deliveries"] += 1
+        changed["progression"]["total_travels_handled"] += 1
+        operation_row = operation("delivery")
+        row = {
+            "index": 0,
+            "name": operation_row["name"],
+            "action": deepcopy(operation_row["action"]),
+            "requestedDtMs": None,
+            "effectiveDtMs": 7,
+            "actionOk": True,
+            "reward": 0,
+            "done": False,
+            "checkpoint": changed,
+        }
+
+        findings = evaluate_oracles(
+            [row],
+            [operation_row],
+            initial,
+            environment_reward_contract=DELIVERIES_REWARD_CONTRACT,
+        )
+
+        self.assertIn(
+            "reward-deliveries-mismatch",
+            {finding["data"]["class"] for finding in findings},
+        )
+
+    def test_reward_oracle_defaults_to_checkpoint_contract_and_rejects_drift(self):
+        env = MiniMetroEnv(reward_mode="line_credits_delta")
+        env.reset(seed=16)
+        initial = canonical_checkpoint(env)
+        changed = deepcopy(initial)
+        changed["structured"]["score"] += 1
+        changed["progression"]["score"] += 1
+        changed["progression"]["line_credits"] += 1
+        operation_row = operation("credit")
+        row = {
+            "index": 0,
+            "name": operation_row["name"],
+            "action": deepcopy(operation_row["action"]),
+            "requestedDtMs": None,
+            "effectiveDtMs": 7,
+            "actionOk": True,
+            "reward": 1,
+            "done": False,
+            "checkpoint": changed,
+        }
+
+        findings = evaluate_oracles([row], [operation_row], initial)
+
+        self.assertNotIn(
+            "reward-deliveries-mismatch",
+            {finding["data"]["class"] for finding in findings},
+        )
+        with self.assertRaisesRegex(ValueError, "disagrees"):
+            evaluate_oracles(
+                [row],
+                [operation_row],
+                initial,
+                environment_reward_contract=DELIVERIES_REWARD_CONTRACT,
+            )
+
+        changed_mode = deepcopy(row)
+        changed_mode["checkpoint"]["environment"]["reward_mode"] = "deliveries"
+        drift_findings = evaluate_oracles([changed_mode], [operation_row], initial)
+        self.assertIn(
+            "environment-reward-contract-changed",
+            {finding["data"]["class"] for finding in drift_findings},
         )
 
     def test_paused_time_and_terminal_mutation_oracles(self):

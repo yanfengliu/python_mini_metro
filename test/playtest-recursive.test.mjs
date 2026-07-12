@@ -53,6 +53,8 @@ test('default recursive pass writes verified evidence and complete ledgers', asy
     const sourceState = JSON.parse(
       await readFile(path.join(runDir, 'source-state.json'), 'utf8'),
     );
+    assert.equal(inputs.schemaVersion, 2);
+    assert.equal(inputs.environmentRewardContract, 'deliveries');
     assert.equal(transcriptRows.length, inputs.operations.length);
     assert.equal(verification.ok, true);
     assert.equal(verification.finalStateMatches, true);
@@ -228,6 +230,35 @@ test('public verifier recovers append-only after a failed first attempt', async 
   });
 });
 
+test('public verifier replays genuine v1 inputs without a reward-contract field', async () => {
+  await withOutputRoot(async (outputRoot) => {
+    const legacyScenario = path.join(outputRoot, 'legacy-v1-scenario.json');
+    const runDir = path.join(outputRoot, 'legacy-v1-drive');
+    await writeFile(legacyScenario, JSON.stringify({
+      schemaVersion: 1,
+      seed: 42,
+      defaultDtMs: 16,
+      operations: [{
+        name: 'legacy-noop',
+        action: { type: 'noop' },
+        expectedActionOk: true,
+      }],
+    }), 'utf8');
+
+    const drive = await runDrive(runDir, legacyScenario, 'legacy-v1-drive');
+    assert.equal(drive.exitCode, 0, drive.stderr || drive.stdout);
+    const inputs = JSON.parse(await readFile(path.join(runDir, 'inputs.json'), 'utf8'));
+    assert.equal(inputs.schemaVersion, 1);
+    assert.equal('environmentRewardContract' in inputs, false);
+
+    const verification = await runVerifier(runDir);
+    assert.equal(verification.exitCode, 0, verification.stderr || verification.stdout);
+    const result = JSON.parse(verification.stdout);
+    assert.equal(result.ok, true);
+    assert.equal(result.inputsMatch, true);
+  });
+});
+
 async function assertSingleRunFailed(outputRoot, expectedPhase) {
   const passRows = await ledgerRows(path.join(outputRoot, 'passes.jsonl'));
   const runRows = await ledgerRows(path.join(outputRoot, 'ledger.jsonl'));
@@ -253,7 +284,12 @@ async function withOutputRoot(callback) {
   try {
     await callback(outputRoot);
   } finally {
-    await rm(outputRoot, { recursive: true, force: true });
+    await rm(outputRoot, {
+      recursive: true,
+      force: true,
+      maxRetries: 5,
+      retryDelay: 100,
+    });
   }
 }
 
@@ -308,17 +344,17 @@ function runRecursive({ outputRoot, scenario, env = {}, allowDirty = true }) {
   });
 }
 
-function runDrive(runDir) {
+function runDrive(runDir, scenario = defaultScenario, runId = 'public-verifier-partial-probe') {
   return runChild(
     process.env.PYTHON || 'python',
     [
       path.join(repoRoot, 'src', 'recursive_playtest.py'),
       '--scenario',
-      defaultScenario,
+      scenario,
       '--out',
       runDir,
       '--run-id',
-      'public-verifier-partial-probe',
+      runId,
     ],
     { PYTHONHASHSEED: '0' },
   );

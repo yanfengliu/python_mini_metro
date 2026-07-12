@@ -4,25 +4,68 @@ import numpy as np
 
 from mediator import Mediator
 
+DELIVERIES_REWARD_MODE = "deliveries"
+LINE_CREDITS_DELTA_REWARD_MODE = "line_credits_delta"
+_REWARD_MODES = (DELIVERIES_REWARD_MODE, LINE_CREDITS_DELTA_REWARD_MODE)
+
 
 class MiniMetroEnv:
-    def __init__(self, dt_ms: int | None = None) -> None:
+    def __init__(
+        self,
+        dt_ms: int | None = None,
+        *,
+        reward_mode: str = DELIVERIES_REWARD_MODE,
+    ) -> None:
         self.dt_ms_default = dt_ms
+        self.reward_mode = reward_mode
         self.mediator = Mediator()
-        self.last_score = self.mediator.score
+        self.last_deliveries = self.mediator.deliveries
+        self.last_line_credits = self.mediator.line_credits
+
+    @property
+    def reward_mode(self) -> str:
+        return self._reward_mode
+
+    @reward_mode.setter
+    def reward_mode(self, value: str) -> None:
+        if value not in _REWARD_MODES:
+            choices = ", ".join(_REWARD_MODES)
+            raise ValueError(f"reward_mode must be one of: {choices}")
+        self._reward_mode = value
+
+    @property
+    def last_score(self) -> int:
+        """Deprecated writable alias for the line-credit reward baseline."""
+
+        return self.last_line_credits
+
+    @last_score.setter
+    def last_score(self, value: int) -> None:
+        self.last_line_credits = value
 
     def reset(self, seed: int | None = None) -> Dict[str, Any]:
         self.mediator = Mediator(seed=seed)
-        self.last_score = self.mediator.score
+        self.last_deliveries = self.mediator.deliveries
+        self.last_line_credits = self.mediator.line_credits
         return self.observe()
+
+    def _reward_delta(self) -> int:
+        deliveries_delta = self.mediator.deliveries - self.last_deliveries
+        line_credits_delta = self.mediator.line_credits - self.last_line_credits
+        self.last_deliveries = self.mediator.deliveries
+        self.last_line_credits = self.mediator.line_credits
+        if self.reward_mode == DELIVERIES_REWARD_MODE:
+            return deliveries_delta
+        if self.reward_mode == LINE_CREDITS_DELTA_REWARD_MODE:
+            return line_credits_delta
+        raise RuntimeError(f"unsupported reward mode: {self.reward_mode!r}")
 
     def step(
         self, action: Dict[str, Any] | None = None, dt_ms: int | None = None
     ) -> Tuple[Dict[str, Any], int, bool, Dict[str, Any]]:
         if self.mediator.is_game_over:
             obs = self.observe()
-            reward = self.mediator.score - self.last_score
-            self.last_score = self.mediator.score
+            reward = self._reward_delta()
             return obs, reward, True, {"action_ok": False}
 
         if action is None:
@@ -35,8 +78,7 @@ class MiniMetroEnv:
             self.mediator.step_time(dt_ms)
 
         obs = self.observe()
-        reward = self.mediator.score - self.last_score
-        self.last_score = self.mediator.score
+        reward = self._reward_delta()
         done = self.mediator.is_game_over
         info = {"action_ok": action_ok}
         return obs, reward, done, info
@@ -110,6 +152,8 @@ class MiniMetroEnv:
                 }
                 for passenger in self.mediator.passengers
             ],
+            "deliveries": self.mediator.deliveries,
+            "line_credits": self.mediator.line_credits,
             "score": self.mediator.score,
             "time_ms": self.mediator.time_ms,
             "steps": self.mediator.steps,

@@ -1,5 +1,6 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "environmentRewardContract": "deliveries",
   "seed": 42,
   "defaultDtMs": 16,
   "operations": [

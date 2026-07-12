@@ -268,7 +268,7 @@ function stableJson(value) {
 }
 
 function replayableInputs(inputs) {
-  return {
+  const replayable = {
     schemaVersion: inputs.schemaVersion,
     seed: inputs.seed,
     defaultDtMs: inputs.defaultDtMs,
@@ -276,6 +276,10 @@ function replayableInputs(inputs) {
     pythonHashSeed: inputs.pythonHashSeed,
     operations: inputs.operations,
   };
+  if (inputs.schemaVersion === 2) {
+    replayable.environmentRewardContract = inputs.environmentRewardContract;
+  }
+  return replayable;
 }
 
 async function readJson(filePath) {

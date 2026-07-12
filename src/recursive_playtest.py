@@ -2,167 +2,38 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import os
 import sys
 from copy import deepcopy
+from inspect import Parameter, signature
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
+import recursive_contract as _recursive_contract
 from env import MiniMetroEnv
-from recursive_checkpoint import canonical_checkpoint
+from recursive_checkpoint import canonical_checkpoint, normalize_checkpoint
+from recursive_contract import (
+    DELIVERIES_REWARD_CONTRACT,
+    LINE_CREDITS_REWARD_CONTRACT,
+    SCHEMA_VERSION,
+    _json_copy,
+    _nonempty_string,
+    _reward_contract_for_document,
+    validate_inputs,
+    validate_scenario,
+)
 from recursive_oracles import nonfinite_paths, reference_errors
 
-SCHEMA_VERSION = 1
-_SCENARIO_KEYS = {"schemaVersion", "seed", "defaultDtMs", "operations"}
-_INPUT_KEYS = {
-    "schemaVersion",
-    "runId",
-    "sourcePath",
-    "seed",
-    "defaultDtMs",
-    "pythonExecutable",
-    "pythonHashSeed",
-    "operations",
-}
-_OPERATION_KEYS = {"name", "action", "expectedActionOk"}
+# Compatibility re-exports retained after extracting the document contract.
+LEGACY_SCHEMA_VERSION = _recursive_contract.LEGACY_SCHEMA_VERSION
+load_inputs = _recursive_contract.load_inputs
+
 _ARTIFACT_NAMES = (
     "inputs.json",
     "transcript.jsonl",
     "findings.authored.json",
     "run-result.json",
 )
-
-
-def _exact_keys(
-    value: object, required: set[str], optional: set[str], label: str
-) -> dict[str, Any]:
-    if type(value) is not dict:
-        raise ValueError(f"{label} must be an object")
-    keys = set(value)
-    if keys - required - optional or required - keys:
-        raise ValueError(
-            f"{label} keys must be exactly {sorted(required)}"
-            + (f" plus optional {sorted(optional)}" if optional else "")
-        )
-    return value
-
-
-def _nonnegative_int(value: object, label: str) -> int:
-    if type(value) is not int or value < 0:
-        raise ValueError(f"{label} must be a nonnegative integer")
-    return value
-
-
-def _uint32(value: object, label: str) -> int:
-    integer = _nonnegative_int(value, label)
-    if integer > 4_294_967_295:
-        raise ValueError(f"{label} must be a uint32 integer")
-    return integer
-
-
-def _nonempty_string(value: object, label: str) -> str:
-    if not isinstance(value, str) or not value.strip() or value != value.strip():
-        raise ValueError(f"{label} must be a nonempty trimmed string")
-    return value
-
-
-def _hash_seed(value: object) -> str:
-    seed = _nonempty_string(value, "inputs.pythonHashSeed")
-    if not seed.isdecimal() or not 0 <= int(seed) <= 4_294_967_295:
-        raise ValueError("inputs.pythonHashSeed must be a uint32 string")
-    return seed
-
-
-def _validate_json(value: object, label: str, seen: set[int] | None = None) -> None:
-    if value is None or type(value) in (bool, int, str):
-        return
-    if type(value) is float:
-        if not math.isfinite(value):
-            raise ValueError(f"{label} must not contain non-finite numbers")
-        return
-    if seen is None:
-        seen = set()
-    if type(value) in (list, dict):
-        if id(value) in seen:
-            raise ValueError(f"{label} must not contain cycles")
-        seen.add(id(value))
-        children = enumerate(value) if isinstance(value, list) else value.items()
-        for key, item in children:
-            if isinstance(value, dict) and not isinstance(key, str):
-                raise ValueError(f"{label} keys must be strings")
-            _validate_json(item, f"{label}.{key}", seen)
-        seen.remove(id(value))
-        return
-    raise ValueError(f"{label} must contain only JSON values")
-
-
-def _json_copy(value: Any, label: str = "value") -> Any:
-    _validate_json(value, label)
-    return json.loads(json.dumps(value, allow_nan=False, sort_keys=True))
-
-
-def _validate_operations(value: object) -> list[dict[str, Any]]:
-    if type(value) is not list or not value:
-        raise ValueError("operations must be a nonempty array")
-    result: list[dict[str, Any]] = []
-    names: set[str] = set()
-    for index, raw in enumerate(value):
-        operation = _exact_keys(raw, _OPERATION_KEYS, {"dtMs"}, f"operations[{index}]")
-        name = _nonempty_string(operation["name"], f"operations[{index}].name")
-        if name in names:
-            raise ValueError("operation names must be unique")
-        names.add(name)
-        if type(operation["expectedActionOk"]) is not bool:
-            raise ValueError(f"operations[{index}].expectedActionOk must be boolean")
-        if "dtMs" in operation:
-            _nonnegative_int(operation["dtMs"], f"operations[{index}].dtMs")
-        _validate_json(operation["action"], f"operations[{index}].action")
-        result.append(_json_copy(operation, f"operations[{index}]"))
-    return result
-
-
-def validate_scenario(value: object) -> dict[str, Any]:
-    document = _exact_keys(value, _SCENARIO_KEYS, set(), "scenario")
-    if (
-        type(document["schemaVersion"]) is not int
-        or document["schemaVersion"] != SCHEMA_VERSION
-    ):
-        raise ValueError("scenario schemaVersion must be 1")
-    return {
-        "schemaVersion": SCHEMA_VERSION,
-        "seed": _uint32(document["seed"], "scenario.seed"),
-        "defaultDtMs": _nonnegative_int(
-            document["defaultDtMs"], "scenario.defaultDtMs"
-        ),
-        "operations": _validate_operations(document["operations"]),
-    }
-
-
-def validate_inputs(value: object) -> dict[str, Any]:
-    document = _exact_keys(value, _INPUT_KEYS, set(), "inputs")
-    if (
-        type(document["schemaVersion"]) is not int
-        or document["schemaVersion"] != SCHEMA_VERSION
-    ):
-        raise ValueError("inputs schemaVersion must be 1")
-    result = {
-        "schemaVersion": SCHEMA_VERSION,
-        "runId": _nonempty_string(document["runId"], "inputs.runId"),
-        "sourcePath": _nonempty_string(document["sourcePath"], "inputs.sourcePath"),
-        "seed": _uint32(document["seed"], "inputs.seed"),
-        "defaultDtMs": _nonnegative_int(document["defaultDtMs"], "inputs.defaultDtMs"),
-        "pythonExecutable": _nonempty_string(
-            document["pythonExecutable"], "inputs.pythonExecutable"
-        ),
-        "pythonHashSeed": _hash_seed(document["pythonHashSeed"]),
-        "operations": _validate_operations(document["operations"]),
-    }
-    return _json_copy(result, "inputs")
-
-
-def load_inputs(path: str | Path) -> dict[str, Any]:
-    return validate_inputs(json.loads(Path(path).read_text(encoding="utf-8")))
 
 
 def _finding(
@@ -216,7 +87,25 @@ def evaluate_oracles(
     transcript: list[dict[str, Any]],
     operations: list[dict[str, Any]],
     initial_checkpoint: dict[str, Any],
+    *,
+    environment_reward_contract: str | None = None,
 ) -> list[dict[str, Any]]:
+    normalized_initial = normalize_checkpoint(initial_checkpoint)
+    checkpoint_reward_contract = normalized_initial["environment"]["reward_mode"]
+    if environment_reward_contract is None:
+        environment_reward_contract = checkpoint_reward_contract
+    if environment_reward_contract not in {
+        DELIVERIES_REWARD_CONTRACT,
+        LINE_CREDITS_REWARD_CONTRACT,
+    }:
+        raise ValueError("unsupported environment reward contract")
+    if environment_reward_contract != checkpoint_reward_contract:
+        raise ValueError(
+            "environment reward contract disagrees with initial checkpoint"
+        )
+    normalized_checkpoints = [
+        normalize_checkpoint(row["checkpoint"]) for row in transcript
+    ]
     findings: list[dict[str, Any]] = []
     if len(transcript) != len(operations):
         findings.append(
@@ -228,9 +117,9 @@ def evaluate_oracles(
     for index, row in enumerate(transcript):
         operation = operations[index] if index < len(operations) else None
         name = row.get("name")
-        checkpoint = row["checkpoint"]
+        checkpoint = normalized_checkpoints[index]
         previous = (
-            initial_checkpoint if index == 0 else transcript[index - 1]["checkpoint"]
+            normalized_initial if index == 0 else normalized_checkpoints[index - 1]
         )
 
         def add(finding_class: str, *details: str) -> None:
@@ -244,13 +133,33 @@ def evaluate_oracles(
                 "expected-action-result-mismatch",
                 f"expected actionOk {expected}, observed {row['actionOk']}",
             )
-        score_delta = (
-            checkpoint["structured"]["score"] - previous["structured"]["score"]
-        )
-        if row["reward"] != score_delta:
+        if checkpoint["environment"]["reward_mode"] != environment_reward_contract:
             add(
-                "reward-score-mismatch",
-                f"reward {row['reward']} differs from score delta {score_delta}",
+                "environment-reward-contract-changed",
+                "checkpoint reward mode changed within the transcript",
+            )
+        if environment_reward_contract == DELIVERIES_REWARD_CONTRACT:
+            reward_field = "deliveries"
+            expected_reward = (
+                checkpoint["progression"][reward_field]
+                - previous["progression"][reward_field]
+            )
+        else:
+            reward_field = "score"
+            expected_reward = (
+                checkpoint["structured"][reward_field]
+                - previous["structured"][reward_field]
+            )
+        if row["reward"] != expected_reward:
+            finding_class = (
+                "reward-deliveries-mismatch"
+                if environment_reward_contract == DELIVERIES_REWARD_CONTRACT
+                else "reward-score-mismatch"
+            )
+            reward_label = f"{reward_field} delta"
+            add(
+                finding_class,
+                f"reward {row['reward']} differs from {reward_label} {expected_reward}",
             )
         was_terminal = previous["structured"]["is_game_over"]
         if not row["actionOk"] and not was_terminal and checkpoint != previous:
@@ -311,18 +220,41 @@ def evaluate_oracles(
 def _build_inputs(
     scenario: dict[str, Any], run_id: str, source_path: str
 ) -> dict[str, Any]:
-    return validate_inputs(
-        {
-            "schemaVersion": SCHEMA_VERSION,
-            "runId": _nonempty_string(run_id, "run id"),
-            "sourcePath": _nonempty_string(source_path, "source path"),
-            "seed": scenario["seed"],
-            "defaultDtMs": scenario["defaultDtMs"],
-            "pythonExecutable": sys.executable,
-            "pythonHashSeed": os.environ.get("PYTHONHASHSEED"),
-            "operations": scenario["operations"],
-        }
+    document = {
+        "schemaVersion": scenario["schemaVersion"],
+        "runId": _nonempty_string(run_id, "run id"),
+        "sourcePath": _nonempty_string(source_path, "source path"),
+        "seed": scenario["seed"],
+        "defaultDtMs": scenario["defaultDtMs"],
+        "pythonExecutable": sys.executable,
+        "pythonHashSeed": os.environ.get("PYTHONHASHSEED"),
+        "operations": scenario["operations"],
+    }
+    if scenario["schemaVersion"] == SCHEMA_VERSION:
+        document["environmentRewardContract"] = scenario["environmentRewardContract"]
+    return validate_inputs(document)
+
+
+def _make_environment(
+    env_factory: Callable[..., MiniMetroEnv], reward_contract: str
+) -> MiniMetroEnv:
+    parameters = signature(env_factory).parameters
+    accepts_reward_mode = "reward_mode" in parameters or any(
+        parameter.kind is Parameter.VAR_KEYWORD for parameter in parameters.values()
     )
+    if accepts_reward_mode:
+        env = env_factory(reward_mode=reward_contract)
+    else:
+        env = env_factory()
+        if hasattr(env, "reward_mode"):
+            env.reward_mode = reward_contract
+        elif reward_contract == DELIVERIES_REWARD_CONTRACT:
+            raise ValueError(
+                "v2 environment factories must support the deliveries reward contract"
+            )
+    if hasattr(env, "reward_mode") and env.reward_mode != reward_contract:
+        raise ValueError("environment factory returned the wrong reward contract")
+    return env
 
 
 def run_scenario(
@@ -330,13 +262,18 @@ def run_scenario(
     *,
     run_id: str,
     source_path: str,
-    env_factory: Callable[[], MiniMetroEnv] = MiniMetroEnv,
+    env_factory: Callable[..., MiniMetroEnv] = MiniMetroEnv,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
     scenario = validate_scenario(scenario)
     inputs = _build_inputs(scenario, run_id, source_path)
-    env = env_factory()
+    reward_contract = _reward_contract_for_document(inputs)
+    env = _make_environment(env_factory, reward_contract)
     initial_observation = env.reset(seed=inputs["seed"])
-    initial_checkpoint = canonical_checkpoint(env, initial_observation)
+    initial_checkpoint = canonical_checkpoint(
+        env,
+        initial_observation,
+        schema_version=inputs["schemaVersion"],
+    )
     transcript: list[dict[str, Any]] = []
     for index, operation in enumerate(inputs["operations"]):
         requested_dt = operation.get("dtMs")
@@ -356,12 +293,21 @@ def run_scenario(
                 "actionOk": info["action_ok"],
                 "reward": reward,
                 "done": done,
-                "checkpoint": canonical_checkpoint(env, observation),
+                "checkpoint": canonical_checkpoint(
+                    env,
+                    observation,
+                    schema_version=inputs["schemaVersion"],
+                ),
             }
         )
-    findings = evaluate_oracles(transcript, inputs["operations"], initial_checkpoint)
+    findings = evaluate_oracles(
+        transcript,
+        inputs["operations"],
+        initial_checkpoint,
+        environment_reward_contract=reward_contract,
+    )
     result = {
-        "schemaVersion": SCHEMA_VERSION,
+        "schemaVersion": inputs["schemaVersion"],
         "runId": inputs["runId"],
         "seed": inputs["seed"],
         "operationCount": len(inputs["operations"]),
@@ -417,11 +363,15 @@ def drive_from_file(
     if recorded_inputs:
         previous = validate_inputs(document)
         scenario = {
-            "schemaVersion": SCHEMA_VERSION,
+            "schemaVersion": previous["schemaVersion"],
             "seed": previous["seed"],
             "defaultDtMs": previous["defaultDtMs"],
             "operations": previous["operations"],
         }
+        if previous["schemaVersion"] == SCHEMA_VERSION:
+            scenario["environmentRewardContract"] = previous[
+                "environmentRewardContract"
+            ]
         source_path = previous["sourcePath"]
     else:
         scenario = validate_scenario(document)

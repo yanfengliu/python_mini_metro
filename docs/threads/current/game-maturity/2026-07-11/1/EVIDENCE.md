@@ -28,3 +28,24 @@ For each GM increment append: changed contracts, focused red/green tests, full l
 - Remote workflow: [run 29172923371](https://github.com/yanfengliu/python_mini_metro/actions/runs/29172923371) succeeded; `build` passed in 30 seconds and `rl-smoke` passed in 2 minutes 41 seconds.
 - Review: external Codex found three High and seven Medium plan defects; all were fixed. Three independent in-process re-review lanes approved the final plan. External Claude and targeted Codex re-review limitations are recorded in `REVIEW.md`.
 - Commit B purpose: durably record this evidence, mark GM-00 complete, and queue GM-01a behind Commit B's own CI.
+
+## GM-00 Commit B - remote finalization
+
+- Commit: `0411e68f1a4fa83e6777480059ce5dce80a82774` (`docs: finalize game maturity roadmap [GM-00:B]`).
+- Push: `origin/main` advanced from `16a0e73` to `0411e68`.
+- Remote workflow: [run 29173071970](https://github.com/yanfengliu/python_mini_metro/actions/runs/29173071970) succeeded; `build` passed in 34 seconds and `rl-smoke` passed in 2 minutes 39 seconds.
+- Outcome: GM-00 is the last remotely finalized work unit and GM-01a began from this exact baseline.
+
+## GM-01a Commit A - canonical semantics and persisted compatibility
+
+- Runtime contracts: lifetime `deliveries` and spendable `line_credits` are independent canonical mediator fields; delivery increments both and line purchase spends only credits. Writable `total_travels_handled` and `score` aliases preserve old callers.
+- Reward contracts: structured `MiniMetroEnv` defaults to delivery delta and exposes explicit `line_credits_delta` legacy mode; both modes fail closed on invalid mutation. Pixel learning reads canonical fields while retaining terminal-metrics-v1 `display_score` bytes.
+- Persisted contracts: agent-play v2 names per-step/final deliveries, line credits, effective timestep, and reward contract while retaining old currency returns/fields. Checkpoint v2 records explicit counters, reward mode, reward baselines, and overdue-threshold alias; v1 normalization and emission are fail-closed. Recursive input v1 reconstructs credit-delta rewards and strict v2 requires `deliveries`.
+- Fresh-process evidence: the checked-in recursive fixture now uses v2 delivery reward. Targeted Node verifier tests passed 5/5, public verifier v1/v2 tests passed 2/2, a generated v2 drive reverified all eight checkpoint digests, and an independent adversarial probe reverified a genuine pre-change v1 artifact exactly across checkpoints, transcript fields, findings, and inputs.
+- TDD evidence: the initial semantic tests produced 3 failures and 5 errors across 84 focused tests before canonical fields/modes existed; recursive tests initially failed imports for the new schema symbols; privileged snapshot tests initially failed on missing canonical fields. The merged focused Python surface later passed 150/150 before the organization-only split, and the final recursive split surface passed 27/27.
+- Full Python gates: `C:/Users/38909/miniconda3/envs/py313/python.exe -m unittest -v` and the concise repeat passed 341 tests with 8 expected optional-RL skips; `output/venv-rl/Scripts/python.exe -m unittest -v` and the concise repeat passed 341 tests with no skips.
+- Static/hook gates: full-repo Ruff check passed; full-repo Ruff format reported all 99 files formatted; changed-file pre-commit hooks passed for all 26 files (`end-of-file-fixer`, trailing whitespace, Ruff, Ruff format). A two-frame dummy-video `src/main.py` smoke passed.
+- Node boundary: full `npm test` passed 23/42 and the same 19 tests failed only because the live linked civ-engine is 2.4.1 while the repository pins 2.2.0. The two changed verifier paths pass locally, and pinned CI remains the authoritative full Node gate until GM-04 installs an isolated local pin.
+- Size guard: extraction of `src/recursive_contract.py` and `test/test_recursive_checkpoint.py` leaves the five touched recursive source/test modules at 192, 498, 407, 208, and 386 lines. The pre-existing oversized mediator and mediator test remain explicitly owned by GM-03.
+- Adversarial review: three independent live-code lanes converged on APPROVED after all High/Medium findings in iteration `2/REVIEW.md` were fixed. Multi-CLI transfer remained unavailable under the environment policy already recorded in GM-00; no bypass was attempted.
+- Commit/push/remote workflow: pending `[GM-01a:A]`.

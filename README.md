@@ -72,16 +72,17 @@ obs, reward, done, info = env.step({"type": "remove_path", "path_index": 0})
 ```
 
 ### API
-- `MiniMetroEnv(dt_ms: int | None = None)`
+- `MiniMetroEnv(dt_ms: int | None = None, *, reward_mode: str = "deliveries")`
   - `dt_ms` is the default simulated milliseconds advanced after each `step(...)`.
   - If `dt_ms=None`, time only advances when you pass `dt_ms` to `step(...)`.
+  - `reward_mode="deliveries"` rewards newly delivered passengers and is the default objective. `reward_mode="line_credits_delta"` explicitly reconstructs the legacy spendable-credit delta, including negative rewards when credits buy a line.
 - `reset(seed: int | None = None) -> observation`
   - Resets the game and returns the initial observation.
   - If `seed` is provided, independent session-owned Python and NumPy random streams make gameplay mechanics, array views, and rendered pixels deterministic without changing host-global RNG state. Opaque entity ID strings remain unique per runtime session and should not be compared across resets.
 - `step(action: dict | None = None, dt_ms: int | None = None) -> (observation, reward, done, info)`
   - Applies one action, optionally advances time, then returns:
     - `observation`: latest state
-    - `reward` (`int`): score delta since previous step
+    - `reward` (`int`): delta for the selected reward mode; under the default this is newly delivered passengers
     - `done` (`bool`): `True` when game is over
     - `info` (`dict`): currently contains `{"action_ok": bool}`
   - Once `done` is `True`, later `step(...)` calls are stable no-ops: actions are rejected, time does not advance, and `info["action_ok"]` is `False` until `reset(...)`.
@@ -127,7 +128,8 @@ Any unknown `type`, or malformed action payload, returns `info["action_ok"] == F
 ### Observation shape
 `observation` is:
 - `observation["structured"]`: Python dict/list representation
-  - includes `stations`, `paths`, `metros`, `passengers`, `score`, `time_ms`, `steps`, `is_paused`, `is_game_over`, and ID-to-index maps in `index`.
+  - includes `stations`, `paths`, `metros`, `passengers`, lifetime `deliveries`, spendable `line_credits`, `time_ms`, `steps`, `is_paused`, `is_game_over`, and ID-to-index maps in `index`.
+  - deprecated structured `score` mirrors `line_credits`; on `Mediator`, writable `score` and `total_travels_handled` compatibility properties alias `line_credits` and `deliveries` respectively.
 - `observation["arrays"]`: NumPy-friendly arrays/lists
   - includes station positions/types/counts, path station-index sequences, metro positions/path indices, passenger destination types and locations.
 

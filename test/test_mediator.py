@@ -720,11 +720,27 @@ class TestMediator(unittest.TestCase):
         mediator.travel_plans[passenger_one] = TravelPlan([Node(station_a)])
         mediator.travel_plans[passenger_two] = TravelPlan([Node(station_a)])
 
-        self.assertEqual(mediator.total_travels_handled, 0)
+        self.assertEqual(mediator.deliveries, 0)
+        self.assertEqual(mediator.line_credits, 0)
         mediator.move_passengers(1000)
 
-        self.assertEqual(mediator.score, 2)
+        self.assertEqual(mediator.deliveries, 2)
+        self.assertEqual(mediator.line_credits, 2)
         self.assertEqual(mediator.total_travels_handled, 2)
+        self.assertEqual(mediator.score, 2)
+
+    def test_progress_counters_keep_writable_legacy_aliases(self):
+        mediator = Mediator()
+
+        mediator.deliveries = 7
+        self.assertEqual(mediator.total_travels_handled, 7)
+        mediator.total_travels_handled = 8
+        self.assertEqual(mediator.deliveries, 8)
+
+        mediator.line_credits = 11
+        self.assertEqual(mediator.score, 11)
+        mediator.score = 12
+        self.assertEqual(mediator.line_credits, 12)
 
     def test_initial_path_button_locks_match_unlocked_lines(self):
         mediator = Mediator()
@@ -774,14 +790,17 @@ class TestMediator(unittest.TestCase):
         second_button = mediator.path_buttons[1]
         self.assertTrue(second_button.is_locked)
         self.assertEqual(mediator.unlocked_num_paths, 1)
-        self.assertEqual(mediator.score, 0)
+        mediator.deliveries = 125
 
-        mediator.score = mediator.path_purchase_prices[0]
+        mediator.line_credits = mediator.path_purchase_prices[0]
         purchased = mediator.try_purchase_path_button(second_button)
 
         self.assertTrue(purchased)
         self.assertEqual(mediator.unlocked_num_paths, 2)
         self.assertFalse(second_button.is_locked)
+        self.assertEqual(mediator.deliveries, 125)
+        self.assertEqual(mediator.total_travels_handled, 125)
+        self.assertEqual(mediator.line_credits, 0)
         self.assertEqual(mediator.score, 0)
 
     def test_try_purchase_path_button_requires_enough_score(self):

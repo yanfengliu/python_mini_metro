@@ -205,6 +205,18 @@ class TestEnv(unittest.TestCase):
             len(structured["paths"]),
         )
 
+    def test_observation_names_deliveries_and_line_credits_explicitly(self):
+        env = MiniMetroEnv()
+        env.reset(seed=24)
+        env.mediator.deliveries = 9
+        env.mediator.line_credits = 4
+
+        structured = env.observe()["structured"]
+
+        self.assertEqual(structured["deliveries"], 9)
+        self.assertEqual(structured["line_credits"], 4)
+        self.assertEqual(structured["score"], 4)
+
     def test_observation_path_topology_views_preserve_the_same_station_order(self):
         env = MiniMetroEnv()
         env.reset(seed=23)
@@ -360,14 +372,50 @@ class TestEnv(unittest.TestCase):
     def test_step_buy_line_purchases_next_locked_line(self):
         env = MiniMetroEnv()
         env.reset(seed=17)
-        env.mediator.score = env.mediator.path_purchase_prices[0]
+        env.mediator.line_credits = env.mediator.path_purchase_prices[0]
 
-        _, _, _, info = env.step({"type": "buy_line"})
+        observation, reward, _, info = env.step({"type": "buy_line"})
 
         self.assertTrue(info["action_ok"])
         self.assertEqual(env.mediator.unlocked_num_paths, 2)
         self.assertFalse(env.mediator.path_buttons[1].is_locked)
-        self.assertEqual(env.mediator.score, 0)
+        self.assertEqual(reward, 0)
+        self.assertEqual(observation["structured"]["deliveries"], 0)
+        self.assertEqual(observation["structured"]["line_credits"], 0)
+        self.assertEqual(observation["structured"]["score"], 0)
+
+    def test_legacy_line_credit_delta_reward_reconstructs_purchase_penalty(self):
+        env = MiniMetroEnv(reward_mode="line_credits_delta")
+        env.reset(seed=17)
+        price = env.mediator.path_purchase_prices[0]
+        env.mediator.line_credits = price
+        env.last_score = price
+
+        _, reward, _, info = env.step({"type": "buy_line"})
+
+        self.assertTrue(info["action_ok"])
+        self.assertEqual(reward, -price)
+        self.assertEqual(env.last_score, 0)
+
+    def test_reward_mode_rejects_unknown_values(self):
+        with self.assertRaisesRegex(ValueError, "reward_mode"):
+            MiniMetroEnv(reward_mode="score")
+
+        env = MiniMetroEnv()
+        with self.assertRaisesRegex(ValueError, "reward_mode"):
+            env.reward_mode = "score"
+
+    def test_reward_baselines_keep_writable_legacy_score_alias(self):
+        env = MiniMetroEnv()
+        env.reset(seed=25)
+
+        env.last_deliveries = 3
+        env.last_line_credits = 4
+        self.assertEqual(env.last_score, 4)
+        env.last_score = 5
+
+        self.assertEqual(env.last_deliveries, 3)
+        self.assertEqual(env.last_line_credits, 5)
 
     def test_step_buy_line_supports_path_index(self):
         env = MiniMetroEnv()
@@ -431,8 +479,11 @@ class TestEnv(unittest.TestCase):
 
         self.assertTrue(info["action_ok"])
         self.assertEqual(reward, 1)
+        self.assertEqual(env.mediator.deliveries, 1)
+        self.assertEqual(env.mediator.line_credits, 1)
         self.assertEqual(env.mediator.score, 1)
         self.assertEqual(env.mediator.total_travels_handled, 1)
+        self.assertEqual(env.observe()["structured"]["deliveries"], 1)
         self.assertEqual(len(env.mediator.passengers), 0)
 
     def test_observation_passenger_locations(self):

@@ -6,7 +6,14 @@ from typing import Any, Sequence
 
 import numpy as np
 
-from env import MiniMetroEnv
+from env import (
+    DELIVERIES_REWARD_MODE,
+    LINE_CREDITS_DELTA_REWARD_MODE,
+    MiniMetroEnv,
+)
+
+CHECKPOINT_SCHEMA_VERSION = 2
+LEGACY_CHECKPOINT_SCHEMA_VERSION = 1
 
 
 def _safe(value: Any) -> Any:
@@ -45,6 +52,75 @@ def _unique(objects: Sequence[Any]) -> list[Any]:
             seen.add(id(item))
             result.append(item)
     return result
+
+
+def normalize_checkpoint(checkpoint: dict[str, Any]) -> dict[str, Any]:
+    """Return one schema-v2 checkpoint view without mutating recorded evidence."""
+
+    if type(checkpoint) is not dict:
+        raise ValueError("checkpoint must be an object")
+    normalized = _safe(checkpoint)
+    version = normalized.get("schemaVersion")
+    if type(version) is not int or version not in {
+        LEGACY_CHECKPOINT_SCHEMA_VERSION,
+        CHECKPOINT_SCHEMA_VERSION,
+    }:
+        raise ValueError("checkpoint schemaVersion must be 1 or 2")
+    try:
+        environment = normalized["environment"]
+        progression = normalized["progression"]
+        limits = progression["limits"]
+        last_score = environment["last_score"]
+        score = progression["score"]
+        deliveries = progression["total_travels_handled"]
+        overdue_threshold = limits["max_waiting_passengers"]
+    except (KeyError, TypeError) as error:
+        raise ValueError("checkpoint is missing legacy compatibility fields") from error
+
+    if version == LEGACY_CHECKPOINT_SCHEMA_VERSION:
+        normalized["schemaVersion"] = CHECKPOINT_SCHEMA_VERSION
+        environment["reward_mode"] = LINE_CREDITS_DELTA_REWARD_MODE
+        environment["last_deliveries"] = deliveries
+        environment["last_line_credits"] = last_score
+        progression["deliveries"] = deliveries
+        progression["line_credits"] = score
+        limits["overdue_passenger_threshold"] = overdue_threshold
+        return normalized
+
+    required = (
+        (environment, "reward_mode", "environment.reward_mode"),
+        (environment, "last_deliveries", "environment.last_deliveries"),
+        (environment, "last_line_credits", "environment.last_line_credits"),
+        (progression, "deliveries", "progression.deliveries"),
+        (progression, "line_credits", "progression.line_credits"),
+        (
+            limits,
+            "overdue_passenger_threshold",
+            "progression.limits.overdue_passenger_threshold",
+        ),
+    )
+    for container, key, label in required:
+        if key not in container:
+            raise ValueError(f"checkpoint is missing {label}")
+    if environment["reward_mode"] not in {
+        DELIVERIES_REWARD_MODE,
+        LINE_CREDITS_DELTA_REWARD_MODE,
+    }:
+        raise ValueError("checkpoint environment.reward_mode is unsupported")
+    compatibility_pairs = (
+        (environment["last_line_credits"], last_score, "environment line credits"),
+        (progression["deliveries"], deliveries, "progression deliveries"),
+        (progression["line_credits"], score, "progression line credits"),
+        (
+            limits["overdue_passenger_threshold"],
+            overdue_threshold,
+            "overdue passenger threshold",
+        ),
+    )
+    for explicit, legacy, label in compatibility_pairs:
+        if explicit != legacy:
+            raise ValueError(f"checkpoint {label} disagrees with its legacy alias")
+    return normalized
 
 
 def _normalize_observation(observation: dict[str, Any]) -> tuple[dict, dict]:
@@ -120,8 +196,22 @@ def _normalize_observation(observation: dict[str, Any]) -> tuple[dict, dict]:
 
 
 def canonical_checkpoint(
-    env: MiniMetroEnv, observation: dict[str, Any] | None = None
+    env: MiniMetroEnv,
+    observation: dict[str, Any] | None = None,
+    *,
+    schema_version: int = CHECKPOINT_SCHEMA_VERSION,
 ) -> dict[str, Any]:
+    if type(schema_version) is not int or schema_version not in {
+        LEGACY_CHECKPOINT_SCHEMA_VERSION,
+        CHECKPOINT_SCHEMA_VERSION,
+    }:
+        raise ValueError("checkpoint schema_version must be 1 or 2")
+    if (
+        schema_version == LEGACY_CHECKPOINT_SCHEMA_VERSION
+        and hasattr(env, "reward_mode")
+        and env.reward_mode != LINE_CREDITS_DELTA_REWARD_MODE
+    ):
+        raise ValueError("checkpoint v1 requires line_credits_delta reward mode")
     mediator = env.mediator
     observation = env.observe() if observation is None else observation
     structured, arrays = _normalize_observation(observation)
@@ -292,12 +382,68 @@ def canonical_checkpoint(
                 "just_arrived_and_stopped": metro.just_arrived_and_stopped,
             }
         )
+    environment_state = {
+        "dt_ms_default": env.dt_ms_default,
+        "last_score": env.last_score,
+    }
+    limits = {
+        "num_paths": mediator.num_paths,
+        "num_metros": mediator.num_metros,
+        "num_stations": mediator.num_stations,
+        "initial_num_stations": mediator.initial_num_stations,
+        "passenger_max_wait_time_ms": mediator.passenger_max_wait_time_ms,
+        "max_waiting_passengers": mediator.max_waiting_passengers,
+    }
+    progression = {
+        "score": mediator.score,
+        "total_travels_handled": mediator.total_travels_handled,
+        "purchased_num_paths": mediator.purchased_num_paths,
+        "unlocked_num_paths": mediator.unlocked_num_paths,
+        "unlocked_num_stations": mediator.unlocked_num_stations,
+        "path_purchase_prices": mediator.path_purchase_prices,
+        "path_unlock_milestones": mediator.path_unlock_milestones,
+        "station_unlock_milestones": mediator.station_unlock_milestones,
+        "time_ms": mediator.time_ms,
+        "steps": mediator.steps,
+        "is_paused": mediator.is_paused,
+        "is_game_over": mediator.is_game_over,
+        "game_speed_multiplier": mediator.game_speed_multiplier,
+        "limits": limits,
+        "path_buttons": [
+            {
+                "is_locked": button.is_locked,
+                "path_index": ref(path_index, button.path),
+                "unlock_blink_start_time_ms": button.unlock_blink_start_time_ms,
+            }
+            for button in mediator.path_buttons
+        ],
+    }
+    if schema_version == CHECKPOINT_SCHEMA_VERSION:
+        deliveries = getattr(mediator, "deliveries", mediator.total_travels_handled)
+        line_credits = getattr(mediator, "line_credits", mediator.score)
+        overdue_threshold = getattr(
+            mediator,
+            "overdue_passenger_threshold",
+            mediator.max_waiting_passengers,
+        )
+        environment_state.update(
+            {
+                "reward_mode": env.reward_mode,
+                "last_deliveries": getattr(env, "last_deliveries", deliveries),
+                "last_line_credits": getattr(env, "last_line_credits", env.last_score),
+            }
+        )
+        progression.update(
+            {
+                "deliveries": deliveries,
+                "line_credits": line_credits,
+            }
+        )
+        limits["overdue_passenger_threshold"] = overdue_threshold
+
     checkpoint = {
-        "schemaVersion": 1,
-        "environment": {
-            "dt_ms_default": env.dt_ms_default,
-            "last_score": env.last_score,
-        },
+        "schemaVersion": schema_version,
+        "environment": environment_state,
         "structured": structured,
         "arrays": arrays,
         "stationPool": station_pool,
@@ -326,37 +472,7 @@ def canonical_checkpoint(
         },
         "passengers": passenger_state,
         "travelPlans": travel_plans,
-        "progression": {
-            "score": mediator.score,
-            "total_travels_handled": mediator.total_travels_handled,
-            "purchased_num_paths": mediator.purchased_num_paths,
-            "unlocked_num_paths": mediator.unlocked_num_paths,
-            "unlocked_num_stations": mediator.unlocked_num_stations,
-            "path_purchase_prices": mediator.path_purchase_prices,
-            "path_unlock_milestones": mediator.path_unlock_milestones,
-            "station_unlock_milestones": mediator.station_unlock_milestones,
-            "time_ms": mediator.time_ms,
-            "steps": mediator.steps,
-            "is_paused": mediator.is_paused,
-            "is_game_over": mediator.is_game_over,
-            "game_speed_multiplier": mediator.game_speed_multiplier,
-            "limits": {
-                "num_paths": mediator.num_paths,
-                "num_metros": mediator.num_metros,
-                "num_stations": mediator.num_stations,
-                "initial_num_stations": mediator.initial_num_stations,
-                "passenger_max_wait_time_ms": mediator.passenger_max_wait_time_ms,
-                "max_waiting_passengers": mediator.max_waiting_passengers,
-            },
-            "path_buttons": [
-                {
-                    "is_locked": button.is_locked,
-                    "path_index": ref(path_index, button.path),
-                    "unlock_blink_start_time_ms": button.unlock_blink_start_time_ms,
-                }
-                for button in mediator.path_buttons
-            ],
-        },
+        "progression": progression,
         "spawning": {
             "start_step": mediator.passenger_spawning_step,
             "base_interval_steps": mediator.passenger_spawning_interval_step,

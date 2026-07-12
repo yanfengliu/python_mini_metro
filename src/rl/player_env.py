@@ -93,7 +93,7 @@ class PlayerPixelEnv(gym.Env[np.ndarray, np.ndarray]):
         self._decision = 0
         self._seed: int | None = None
         self._last_deliveries = 0
-        self._last_display_score = 0
+        self._last_line_credits = 0
         self._episode_ended = False
 
     def _require_mediator(self) -> Mediator:
@@ -132,8 +132,8 @@ class PlayerPixelEnv(gym.Env[np.ndarray, np.ndarray]):
         self._pointer_down = False
         self._decision = 0
         self._seed = actual_seed
-        self._last_deliveries = self._mediator.total_travels_handled
-        self._last_display_score = self._mediator.score
+        self._last_deliveries = self._mediator.deliveries
+        self._last_line_credits = self._mediator.line_credits
         self._episode_ended = False
         observation = self._observe()
         return observation, self._info(terminated=False, truncated=False)
@@ -160,16 +160,16 @@ class PlayerPixelEnv(gym.Env[np.ndarray, np.ndarray]):
         self._session.advance_exact(self.task_spec.fixed_ticks)
         self._decision += 1
 
-        deliveries = mediator.total_travels_handled
-        display_score = mediator.score
+        deliveries = mediator.deliveries
+        line_credits = mediator.line_credits
         deliveries_delta = deliveries - self._last_deliveries
-        display_score_delta = display_score - self._last_display_score
+        line_credits_delta = line_credits - self._last_line_credits
         self._last_deliveries = deliveries
-        self._last_display_score = display_score
+        self._last_line_credits = line_credits
         reward = (
             float(deliveries_delta)
             if self.task_spec.reward_mode is RewardMode.DELIVERIES
-            else float(display_score_delta)
+            else float(line_credits_delta)
         )
         terminated = bool(mediator.is_game_over)
         truncated = self._decision >= self.max_episode_steps and not terminated
@@ -315,8 +315,8 @@ class PlayerPixelEnv(gym.Env[np.ndarray, np.ndarray]):
         if terminated or truncated:
             mediator = self._require_mediator()
             info["game_episode"] = {
-                "deliveries": mediator.total_travels_handled,
-                "display_score": mediator.score,
+                "deliveries": mediator.deliveries,
+                "display_score": mediator.line_credits,
                 "seed": self._seed,
                 "simulation_time_ms": mediator.time_ms,
             }
