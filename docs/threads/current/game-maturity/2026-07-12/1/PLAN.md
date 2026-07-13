@@ -1,6 +1,6 @@
 # GM-02 strategically spaced visual-history plan
 
-Status: GM-02a through GM-02c remotely finalized through Commit B `812e426f3d0d816dc0050930b3f948cf8ec1fe9a`; the GM-02d1 benchmark harness is locally green and adversarially reviewed, with Commit A pending
+Status: GM-02a through GM-02c are remotely finalized; GM-02d1 Commit A `02ceb543f251e4a84eba37d3818838f012527536` is green in run `29293092427`, with evidence-only Commit B pending
 
 Baseline: GM-01c Commit B `14050af71df5c6cad8035904da467959767f68bb`, green in GitHub Actions run `29181130841`
 

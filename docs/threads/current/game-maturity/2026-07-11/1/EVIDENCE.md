@@ -197,3 +197,10 @@ For each GM increment append: changed contracts, focused red/green tests, full l
 - Node boundary: local `npm test` remained at 25/44 with the same 19 failures caused by live civ-engine 2.4.1 versus pinned 2.2.0. No Node behavior changed; pinned GitHub Actions remains authoritative until GM-04 supplies the isolated local pin.
 - Adversarial review: three final independent in-process lanes returned clean after source-attestation, tensor/rate validation, process cleanup, log-drain, descendant-lifetime, and nonfatal-race findings were fixed and refuted. External Codex/Claude review remains unavailable because the platform denied repository-context export to Claude; no bypass was attempted.
 - Durability boundary: no candidate benchmark result has been observed. GM-02d1 Commit A has not been created or pushed, and no remote CI result exists yet; Commit A is the next action.
+
+## GM-02d1 Commit A - remote implementation gate
+
+- Commit: `02ceb543f251e4a84eba37d3818838f012527536` (`feat: add matched RL history profiler [GM-02d1:A]`), based on the separately green headless-workflow commit `bd1f228c2011e75c1d057ddea9e800b70c5a28f8`.
+- Push: `origin/main` advanced from `bd1f228` to `02ceb54`.
+- Remote workflow: [run 29293092427](https://github.com/yanfengliu/python_mini_metro/actions/runs/29293092427) succeeded; `build` passed in 32 seconds and `rl-smoke` passed in 3 minutes 26 seconds, including the expanded resource-profile, Windows process-tree, recurrent history, and legacy lifecycle coverage.
+- Commit B purpose: durably record A's exact SHA/CI, mark GM-02d1 complete pending B's own CI, and keep all GM-02d2 candidate measurements behind that exact remote gate.
