@@ -180,3 +180,20 @@ For each GM increment append: changed contracts, focused red/green tests, full l
 - Push: `origin/main` advanced from `53bc510` to `9b75f37`.
 - Remote workflow: [run 29211060401](https://github.com/yanfengliu/python_mini_metro/actions/runs/29211060401) succeeded; `build` passed in 41 seconds, including all 44 Node tests against pinned civ-engine 2.2.0 plus the clean recursive pass and 399-test Python suite, and `rl-smoke` passed in 3 minutes 28 seconds including exact default recurrent, named multiscale fresh/resume/evaluate, and legacy PPO lifecycle paths.
 - Commit B purpose: durably record A's exact SHA/CI, mark GM-02c complete pending B's own CI, and keep GM-02d behind that remote gate.
+
+## GM-02c Commit B - remote finalization
+
+- Commit: `812e426f3d0d816dc0050930b3f948cf8ec1fe9a` (`docs: finalize descriptor-driven RL history [GM-02c:B]`).
+- Push: `origin/main` advanced from `9b75f37` to `812e426`.
+- Remote workflow: [run 29211292517](https://github.com/yanfengliu/python_mini_metro/actions/runs/29211292517) succeeded; `build` passed in 32 seconds and `rl-smoke` passed in 3 minutes 36 seconds.
+- Outcome: GM-02c is remotely finalized. GM-02d1 starts from this exact baseline with the preregistered benchmark harness and Windows process-tree supervisor.
+
+## GM-02d1 local implementation evidence
+
+- Contract and TDD: implementation began with the expected red failures for missing benchmark modules and interfaces, then added the dependency-light campaign and promotion contracts, exact RecurrentPPO worker, source-provenance validation, and Windows process-tree supervisor without observing any benchmark candidate result. Final focused coverage passed 35 core tests plus 4 exact-RL integration tests.
+- Full Python gates: the authoritative sequential core suite passed 436 tests with 12 expected optional-RL skips in 5.724 seconds; the authoritative sequential exact-RL suite passed 439/439 in 10.492 seconds. An earlier parallel full-suite attempt was invalid because host contention tripped two synthetic 100 ms sampler-gap tests; the sequential reruns removed that measurement interference and are the recorded gate results.
+- Static, workflow, and app gates: changed-file Ruff check and format passed; the GitHub Actions YAML and embedded PowerShell parsed successfully; the two-frame dummy-video app smoke passed. Every new source and test file remains below 500 physical lines: the worker is 499 lines, the largest test is 496 lines, and `resource_profile.py` is 476 lines.
+- Fingerprints: protocol remains `69c604ac62d46d4a2339b3efad239372c61d0eb52e45ce6c9b6cf8da946dea8f`, default task remains `719362078a7d98f1e3c944a6a797f7147b29383495f37f417aa9d61e3416016d`, and environment content remains `3fa9b5b78750d9a1c113e4da76ea669466f485a14d8df6702705610ed868dd60`; trainer identity intentionally changes to `8bd0b9068d8b32a3ffed105eb43983a77bf773ec04e90b1f6b3fd6b99af092a4`.
+- Node boundary: local `npm test` remained at 25/44 with the same 19 failures caused by live civ-engine 2.4.1 versus pinned 2.2.0. No Node behavior changed; pinned GitHub Actions remains authoritative until GM-04 supplies the isolated local pin.
+- Adversarial review: three final independent in-process lanes returned clean after source-attestation, tensor/rate validation, process cleanup, log-drain, descendant-lifetime, and nonfatal-race findings were fixed and refuted. External Codex/Claude review remains unavailable because the platform denied repository-context export to Claude; no bypass was attempted.
+- Durability boundary: no candidate benchmark result has been observed. GM-02d1 Commit A has not been created or pushed, and no remote CI result exists yet; Commit A is the next action.

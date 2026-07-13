@@ -179,6 +179,14 @@ python scripts/train_rl.py --history-layout decision-history-v1 --total-timestep
 python scripts/evaluate_rl.py output/rl/recurrent-multiscale-12/final_model.zip --episodes 10
 ```
 
+Profile the primary history campaign only from a committed source tree with no tracked/staged changes or unexpected untracked files. The pre-existing `.agents/` tree and ignored `output/` evidence are declared exclusions. This launches nine fresh worker processes in a cyclically balanced order, each running one warm-up and one measured 8-environment x 128-step recurrent update. Pin both Torch thread counts explicitly; `24/24` is the reviewed setting for the current Windows machine:
+
+```powershell
+python scripts/profile_rl_history.py --campaign primary --torch-threads 24 --torch-interop-threads 24 --output-dir output/rl-profile/gm02d-primary
+```
+
+The supervisor attaches before each worker imports NumPy/Torch, samples the launcher and all discovered descendants at an absolute 50 ms cadence, and invalidates a repeat on incomplete process queries or timing gaps/acquisitions over 100 ms. Full JSONL samples, worker logs, and run summaries stay under ignored `output/`; each compact summary records their SHA-256 values, exact command/source commit, history identity, actual padded recurrent minibatches, parameter/MAC accounting, and full-lifecycle and measured-window working-set peaks. The promotion decision tests engineering safety only; matched passenger-delivery efficacy remains a separate multi-seed experiment.
+
 Use feed-forward PPO and an explicit contiguous frame stack as controlled ablations. `--frame-stack` and `--history-layout` are mutually exclusive because channel count alone does not identify temporal meaning:
 
 ```powershell

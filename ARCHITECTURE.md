@@ -23,6 +23,8 @@ python_mini_metro/
 |  |  \- recursive-playtest.json
 |  |- playtest-recursive.mjs
 |  |- playtest-verify.mjs
+|  |- profile_rl_history.py
+|  |- profile_rl_history_worker.py
 |  |- recursive-ledger.mjs
 |  |- recursive-ledger-lock.mjs
 |  |- recursive-pass.mjs
@@ -100,7 +102,12 @@ python_mini_metro/
 |  |  |- privileged_oracle.py
 |  |  |- provenance.py
 |  |  |- protocol.py
+|  |  |- profile_supervisor.py
+|  |  |- profile_validation.py
+|  |  |- resource_profile.py
 |  |  |- temporal_history.py
+|  |  |- windows_api.py
+|  |  |- windows_resources.py
 |  |  \- training.py
 |  \- ui/
 |     |- button.py
@@ -146,8 +153,13 @@ python_mini_metro/
 |  |- test_rl_legacy_compat.py
 |  |- test_rl_manifest.py
 |  |- test_rl_protocol.py
+|  |- test_rl_resource_profile.py
+|  |- test_rl_resource_profile_cli.py
+|  |- test_rl_resource_profile_integration.py
 |  |- test_rl_temporal_history.py
 |  |- test_rl_training.py
+|  |- test_rl_windows_api.py
+|  |- test_rl_windows_resources.py
 |  |- test_simulation_context.py
 |  |- test_station.py
 |  \- test_viewport.py
@@ -179,6 +191,7 @@ python_mini_metro/
 - `src/rl/protocol.py` is the dependency-free, fingerprinted player contract: registered pixel profiles, low-level `MultiDiscrete` action semantics, exact coordinate mapping, cursor pixels, reward modes, fixed ticks, and episode horizon. `src/rl/player_env.py` implements that contract with Gymnasium over the same `GameSession`, player event converter, and `GameRenderer` as the window.
 - `PlayerPixelEnv` exposes live game state only as pixels. Its implementation reads canonical deliveries and line credits, while terminal-metrics v1 deliberately retains the serialized `display_score` key for old manifests. Terminal episode metrics are emitted after the final action; `src/rl/privileged_oracle.py` is an explicitly separate validation/curriculum surface and must not be passed to a learning policy. `src/rl/demonstrator.py` uses that oracle only to generate deterministic low-level player actions for a positive-delivery integration case.
 - `src/rl/dependencies.py` owns lazy imports for the optional RL stack. `src/rl/policy.py` owns recurrent/feed-forward hyperparameter contracts plus model construction and loading; fresh runs use SB3-Contrib RecurrentPPO, recurrent minibatches of 64, `src/rl/model.py`'s bounded adaptive-pooling `MiniMetroCNN`, and separate one-layer, 256-unit actor and critic LSTMs, while feed-forward Stable-Baselines3 PPO remains an explicit ablation. `src/rl/history.py` owns dependency-light immutable temporal descriptors and fingerprints; `src/rl/temporal_history.py` owns the optional-dependency bounded vector ring, terminal-copy, and fail-closed reset lifecycle. `src/rl/training.py` owns spawn-safe `base -> VecMonitor -> VecTemporalHistory` construction, the still-active eight-contiguous-frame fresh default, environment/trainer source hashing (including both dependency lockfiles and history/manifest/temporal modules), and checkpoint callbacks while retaining the former public training imports as compatibility re-exports. `src/rl/evaluation.py` carries recurrent state across decisions and resets it at episode boundaries. `scripts/train_rl.py` resolves `--frame-stack` contiguous controls or reviewed `--history-layout` names to one descriptor shared by train/eval/persistence, while `scripts/evaluate_rl.py` reconstructs only the authenticated saved descriptor; both are guarded Windows-safe entry points. Manifests bind algorithm and exact history identity across resume/evaluation, and evaluation separates final game-over totals from right-censored horizon totals. Core installs include Gymnasium; `requirements-rl.txt` adds Stable-Baselines3, SB3-Contrib, PyTorch transitively, and TensorBoard, while the universal hashed locks resolve platform-specific wheels reproducibly.
+- `src/rl/resource_profile.py` owns dependency-light candidate, storage, MAC, cyclic-order, and promotion-gate contracts; `src/rl/profile_validation.py` independently recomputes the exact task/trainer/history/tensor/rate contract before a worker can count as valid. `src/rl/windows_api.py` isolates the pinned `ctypes` Toolhelp32/PSAPI ABI, while `src/rl/windows_resources.py` owns retained process identities, descendant discovery, full-tree current-working-set samples, system commit/physical metadata, cadence failures, and scoped cleanup. `src/rl/profile_supervisor.py` owns pre/post clean-source attestation, bounded handshake and log draining, launcher/worker supervision, raw sample hashing, and bounded summary metadata. The stdlib-only top of `scripts/profile_rl_history_worker.py` blocks at a pre-import handshake; after release it constructs the real temporal wrapper and RecurrentPPO, drives two explicit production-horizon collect/train iterations, and measures actual padded recurrent batches. `scripts/profile_rl_history.py` counterbalances fresh workers and applies the preregistered engineering-safety gates. Raw profile evidence is ignored under `output/`; compact committed evidence records its digests when GM-02d2 runs.
 - `src/rl/artifacts.py` atomically writes versioned artifact indexes, hashes and parses one exact authenticated index snapshot, and captures one exact model byte sequence for SB3 rather than reopening the verified path. Training writes a zero-step recovery model/manifest before learning, refreshes provenance after periodic checkpoints, and uses unique index files so interruption cannot invalidate the previous recovery pair.
 - `src/rl/provenance.py` captures immutable runtime package/Python metadata, including Shapely and shortuuid because they affect player transitions and identity-bearing state, plus Git revision/dirty paths. `src/rl/manifest_schema.py` owns the immutable v1/v2 record and strict JSON key migration; `src/rl/manifest.py` owns atomic I/O and compatibility validation. Manifest v2 records the descriptor plus an independently recomputed `historyFingerprint`, while genuine v1 bytes normalize their positive `frameStack` to contiguous offsets and reserialize without v2 keys. Fresh, resumed, and evaluated environments now consume that exact descriptor through the temporal ring; an explicit equal-channel but semantically different request is rejected by history fingerprint before artifact access, and SB3 separately rejects observation-shape mismatches before learning or evaluation. Evaluation reconstructs the manifest-declared task, defaults to the saved evaluation seed, and refuses silent protocol, task, history, content, trainer, runtime, or model-byte drift; every supported override is explicit and tagged.
 - `src/agent_play.py` writes v3 playthrough records with explicit per-step/final deliveries, line credits, reward contract, and the post-reset overdue threshold. Its legacy return and `score`/`final_score` fields continue to mean line credits; separately named delivery-returning helpers expose the canonical objective. Schema-less/v1 and literal v2 records remain supported and reconstruct historical threshold `1`; v3 validates and applies its recorded threshold after reset replaces the mediator.

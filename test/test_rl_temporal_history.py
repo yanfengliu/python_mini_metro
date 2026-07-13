@@ -153,6 +153,7 @@ class TestVecTemporalHistory(unittest.TestCase):
         self.assertEqual(observation.shape, (1, 36, 2, 2))
         self.assertEqual(observation.dtype, np.uint8)
         self.assertEqual(env.history_buffer_nbytes, 129 * 3 * 2 * 2)
+        self.assertEqual(env.maximum_valid_ages, (0,))
 
         checkpoints = {1, 7, 16, 64, 128, 129, 130}
         for decision in range(1, 131):
@@ -164,6 +165,7 @@ class TestVecTemporalHistory(unittest.TestCase):
             self.assertIs(actual_dones, dones)
             self.assertIs(actual_infos, infos)
             if decision in checkpoints:
+                self.assertEqual(env.maximum_valid_ages, (min(decision, 128),))
                 blocks = sample_blocks(observation)
                 for index, offset in enumerate(history.offsets):
                     expected = (
@@ -180,8 +182,10 @@ class TestVecTemporalHistory(unittest.TestCase):
         base = ScriptedVecEnv(batch(10, 110))
         env = VecTemporalHistory(base, history)
         env.reset()
+        self.assertEqual(env.maximum_valid_ages, (0, 0))
         base.queue_step(batch(11, 111))
         retained_previous, _, _, _ = env.step(np.asarray([0, 0]))
+        self.assertEqual(env.maximum_valid_ages, (1, 1))
         expected_previous = retained_previous.copy()
 
         rewards = np.asarray([2.0, 3.0], dtype=np.float32)
@@ -198,6 +202,7 @@ class TestVecTemporalHistory(unittest.TestCase):
         observation, actual_rewards, actual_dones, actual_infos = env.step(
             np.asarray([0, 0])
         )
+        self.assertEqual(env.maximum_valid_ages, (0, 2))
 
         self.assertIs(actual_rewards, rewards)
         self.assertIs(actual_dones, dones)

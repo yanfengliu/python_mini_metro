@@ -64,3 +64,33 @@ Final local validation reached 399 core tests with 11 expected optional-RL skips
 ## External CLI limitation
 
 The required Codex 0.144.1 and Claude Fable review commands were prepared after reading the canonical runbook. The platform rejected the combined external action because sending repository context to Claude was not an approved third-party data export. No repository context was routed around that control and neither external report was treated as approval. Three independent in-process live-code lanes plus separate refutation compensate for GM-02a/02b coverage; retry the external CLIs in the next high-risk iteration if the platform permits it.
+
+## GM-02d benchmark and promotion plan review
+
+Three independent live-code lanes reviewed the GM-02d harness, installed SB3/SB3-Contrib 2.9.0 timing and recurrent-buffer semantics, Windows process-tree measurement, promotion gates, and default-history ownership. The first pass found one high default-selection defect, one high schedule-horizon defect, and several medium measurement/provenance ambiguities. The plan was split into GM-02d1 harness A/B and GM-02d2 clean-commit campaign A/B so measured workers can name one remotely verified source commit. All findings were corrected and all three lanes approved the final plan.
+
+| Severity | GM-02d plan finding | Disposition |
+| --- | --- | --- |
+| High | Changing only `DEFAULT_FRAME_STACK` would promote contiguous twelve rather than the reviewed multiscale descriptor | Resolved with one shared default-history descriptor/factory used by fresh CLI and default environment construction |
+| High | `learn(total_timesteps=2048)` would drive the measured update's linear learning rate to zero | Resolved with production-horizon `_setup_learn()` and two explicit collect/progress/train iterations |
+| Medium | Nominal batch bytes and `4096` rows ignored recurrent padding | Resolved by recording every actual padded minibatch, valid and padded rows, normalized inputs, and separately named rates |
+| Medium | Full-lifecycle process-tree completeness, PID reuse, cadence, and dirty-tree semantics were incomplete | Resolved with retained handles/creation times, 50 ms absolute cadence, gap/acquisition failure gates, explicit `.agents/**` exclusion, and source/script digests |
+| Medium | MAC scope omitted live post-LSTM MLPs and lacked a defensible unit | Resolved as one-row inference MACs covering CNN, actor/critic LSTMs, both MLP stacks, and action/value heads |
+| Medium | Ten-frame fallback eligibility was ambiguous | Resolved with a fresh interleaved baseline campaign and the same preregistered gates |
+
+The historical 3.909 GiB cap remains an explicitly rounded, non-method-equivalent guardrail; the freshly matched eight-contiguous relative control is primary. GM-02d proves only engineering safety, while delivery efficacy remains GM-12. Raw plan reviews are preserved as `raw/gm02d-plan-resource.md`, `raw/gm02d-plan-harness.md`, and `raw/gm02d-plan-windows.md`.
+
+## GM-02d1 implementation review
+
+Three independent live-diff lanes reviewed the completed benchmark harness from contract/campaign, Windows supervision, and resource/math perspectives, then re-read the fixes and returned clean. The review confirmed that the campaign now distinguishes a valid non-promotion result from an operationally invalid or incomplete run, durably records and aborts on source drift, validates the exact production workload and every evidence-bearing allocation/rate, and cleans supervised process trees across startup and exception paths.
+
+| Severity | GM-02d1 implementation finding | Disposition |
+| --- | --- | --- |
+| High | Operationally invalid or incomplete campaigns could finish with exit code zero | Resolved with an explicit `operationallyValid` aggregate contract and nonzero CLI exit while preserving the written decision artifact |
+| High/Medium | Source state was checked only at campaign start, leaving post-worker drift and script-provenance races | Resolved with clean-commit checks before every worker, post-worker source and profile/worker-script hashes, durable drift evidence, and immediate campaign abort |
+| Medium | Worker validation accepted incomplete workload, storage, MAC, tensor, timing, and rate evidence | Resolved with exact seed/task/protocol/training fingerprints, batch/epoch/horizon/thread settings, history ages, actual storage shapes/dtypes/bytes, live MAC components, recurrent padding/masks/normalized inputs, measurement windows, and recomputed rates |
+| Medium | The supervisor could block before readiness, deadlock on child pipes, or leave processes behind on pre-ready and exception failures | Resolved with a bounded ready timeout, concurrent stdout/stderr draining, tracked-tree termination before launcher cleanup, and explicit cleanup regressions |
+| Medium | PID reuse, descendant lifetime, and ordinary exit races could invalidate or undercount process-tree evidence incorrectly | Resolved with retained creation-time identities, continued tracking after the root exits, fatal live-query failures, and a separately recorded nonfatal exit-between-snapshot-and-working-set warning |
+| Low | The first surviving-descendant regression exercised only root to child despite claiming a grandchild | Corrected to a true root to intermediate to grandchild topology before final refutation |
+
+Final refutation passed 46/46 focused contract checks, 36/36 resource/campaign/Windows checks, and 4/4 exact-RL resource integration checks. A real twelve-frame, 128-step worker probe populated offset age 128 and confirmed exact `uint8` ring, one-step, and rollout storage; independent live-model introspection matched the analytical one-row inference estimate at 110,226,752 MACs. All final review lanes were clean, every changed source and test file remained below 500 lines, and the external Codex/Claude review limitation described above still applies because repository-context export was not approved.

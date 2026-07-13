@@ -68,6 +68,12 @@ class VecTemporalHistory(VecEnvWrapper):
     def history_buffer_nbytes(self) -> int:
         return int(self._ring.nbytes)
 
+    @property
+    def maximum_valid_ages(self) -> tuple[int, ...]:
+        """Return an immutable per-slot snapshot of retained history ages."""
+
+        return tuple(int(value) for value in self._maximum_valid_ages)
+
     def reset(self) -> np.ndarray:
         self._poison()
         try:

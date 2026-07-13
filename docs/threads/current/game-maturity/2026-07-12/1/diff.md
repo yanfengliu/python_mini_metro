@@ -26,3 +26,10 @@
 - Added mutually exclusive `--frame-stack N` contiguous controls and reviewed `--history-layout` names. Fresh omission remains contiguous eight; resume omission inherits the authenticated v1/v2 descriptor; equal-channel semantic mismatch fails before validation/artifact access.
 - Added history identity to evaluation JSON, exact CLI/artifact-order tests, real named-history Subproc/terminal/timeout/mask/save-load coverage, model-space mismatch coverage, and explicit old-`VecFrameStack` v1 mechanism compatibility.
 - Expanded Windows RL CI with the missing history modules plus named twelve-frame fresh/evaluate/resume/evaluate, exact default/named/legacy layout and fingerprint assertions, parent hashes, tags, and seeds. The fresh default remains eight contiguous frames pending GM-02d profiling.
+
+## GM-02d1 benchmark harness
+
+- Added dependency-light candidate, cyclic-order, analytical storage/MAC, and preregistered promotion contracts plus strict independent worker-result validation.
+- Added a stdlib-first RecurrentPPO worker that blocks before heavy imports, then performs one warm-up and one measured production-horizon rollout/update while recording actual recurrent padding, tensor storage, rates, history ages, parameter counts, and one-row inference MACs.
+- Added a Windows supervisor that retains PID/creation-time identities, follows the full descendant tree across root exit, samples aggregate working set at an absolute cadence, drains worker pipes concurrently, records bounded diagnostics and artifact hashes, and cleans up its owned process tree on every exit path.
+- Added clean-source campaign orchestration, durable invalid-run summaries, post-worker drift detection, primary/fallback schedules, exact CLI exit semantics, focused core/exact-RL tests, CI coverage, public profiling guidance, and three-lane plan/implementation review evidence. No candidate measurement was observed before this harness transaction.

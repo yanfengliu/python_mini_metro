@@ -84,7 +84,7 @@ jobs:
           python -m pip install -r requirements-rl-locked.txt
 
       - name: Run RL contract and library smoke tests
-        run: python -m unittest -v test.test_player_env test.test_rl_demonstrator test.test_rl_artifacts test.test_rl_cli test.test_rl_evaluation test.test_rl_history test.test_rl_history_cli test.test_rl_history_integration test.test_rl_legacy_compat test.test_rl_manifest test.test_rl_protocol test.test_rl_temporal_history test.test_rl_training
+        run: python -m unittest -v test.test_player_env test.test_rl_demonstrator test.test_rl_artifacts test.test_rl_cli test.test_rl_evaluation test.test_rl_history test.test_rl_history_cli test.test_rl_history_integration test.test_rl_legacy_compat test.test_rl_manifest test.test_rl_protocol test.test_rl_resource_profile test.test_rl_resource_profile_cli test.test_rl_resource_profile_integration test.test_rl_temporal_history test.test_rl_training test.test_rl_windows_api test.test_rl_windows_resources
 
       - name: Run recurrent history and legacy PPO smoke
         run: |
