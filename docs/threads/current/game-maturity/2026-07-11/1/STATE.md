@@ -8,21 +8,21 @@ Current increment: GM-03 - Decompose mediator and its test boundaries
 
 Current substep: GM-03c - extract pure route planning
 
-Current status: GM-03c Commit A is locally ready after implementation, adversarial convergence, full gates, hooks, and staged audit
+Current status: GM-03c Commit A is remotely green; evidence-only Commit B is next
 
-Durability transaction: GM-03b Commit B `00ea38c2dbee3fd51985ae9c52377ae404502e29` passed run `29311017088`; GM-03c Commit A is the active transaction
+Durability transaction: GM-03c Commit A `1b751e47cd3edce3556b32880a26851db3a072d2` passed run `29351838271`; evidence-only Commit B is next
 
 Last remotely finalized work unit: GM-03b at Commit B `00ea38c2dbee3fd51985ae9c52377ae404502e29`, which passed [run 29311017088](https://github.com/yanfengliu/python_mini_metro/actions/runs/29311017088)
 
-Expected remote implementation baseline: `00ea38c2dbee3fd51985ae9c52377ae404502e29`
+Expected remote implementation baseline: `1b751e47cd3edce3556b32880a26851db3a072d2`
 
-Current transaction marker: `[GM-03c:A]`
+Current transaction marker: `[GM-03c:B]`
 
 ## Resume here
 
-1. Create and push the locally ready 37-file GM-03c Commit A, then wait for its exact pinned build and RL-smoke jobs.
-2. Record A's SHA/run in the evidence-only Commit B, push B, and verify B's exact CI.
-3. Open GM-03d only after B is remotely green; GM-03d remains responsible for taking Mediator below 1,000 lines.
+1. Reconfirm the evidence-only GM-03c diff, run hooks, and stage only the updated persistent/thread documents; preserve `.agents/` and ignored `output/`.
+2. Create and push GM-03c Commit B, then wait for its exact pinned `build` and `rl-smoke` jobs.
+3. Start GM-03d from the remotely green Commit B baseline, first recording B's exact SHA/run; GM-03d remains responsible for taking Mediator below 1,000 lines.
 
 ## Increment ledger
 
@@ -31,7 +31,7 @@ Current transaction marker: `[GM-03c:A]`
 | GM-00 | complete | `16a0e73` / `0411e68` | [A run 29172923371](https://github.com/yanfengliu/python_mini_metro/actions/runs/29172923371) and [B run 29173071970](https://github.com/yanfengliu/python_mini_metro/actions/runs/29173071970) succeeded | Durable plan and reviews |
 | GM-01 | complete | `5e00763` / `6c77033` / `3523ea4` / `18ef714` / `648025f` / `14050af` | GM-01a/GM-01b/GM-01c A/B green | Canonical objective and baseline rules remotely finalized |
 | GM-02 | complete | `bab6b15` / `ab8e6eb` / `a5744c0` / `53bc510` / `9b75f37` / `812e426` / `02ceb54` / `3c68472` / `36cf058` / `dc35cd6` / `27a0304` / `60b4174` | GM-02a through GM-02e A/B green | Long-history baseline and hybrid-memory research remotely finalized |
-| GM-03 | in progress | `83d02d4` / `fbcb31d` / `36e89d9` / `00ea38c` | GM-03a and GM-03b A/B green | GM-03c Commit A locally green; hook/staging audit active |
+| GM-03 | in progress | `83d02d4` / `fbcb31d` / `36e89d9` / `00ea38c` / `1b751e4` | GM-03a and GM-03b A/B green; GM-03c A green | GM-03c evidence-only Commit B pending |
 | GM-04 | pending | - | - | Isolated pinned civ-engine local setup |
 | GM-05 | pending | - | - | Route editing |
 | GM-06 | pending | - | - | Fleet and carriages |
@@ -62,7 +62,7 @@ Current transaction marker: `[GM-03c:A]`
 | GM-02e | complete | `27a0304` / run `29299216859` success | `60b4174` / run `29302064550` success | Hybrid/semantic memory research remotely finalized |
 | GM-03a | complete | `83d02d4` / run `29303936139` success | `fbcb31d` / run `29304181859` success | Behavior-neutral mediator test partition remotely finalized |
 | GM-03b | complete | `36e89d9` / run `29310175226` success | `00ea38c` / run `29311017088` success | Network progression ownership remotely finalized |
-| GM-03c | in progress | `[GM-03c:A]` / pending | - | Planner/facade plus all adversarial corrections pass 144 focused, 509 core, and 512 exact-RL tests; hook/staging audit is next |
+| GM-03c | in progress | `1b751e4` / run `29351838271` success | `[GM-03c:B]` / pending | Planner/facade extraction and exact local/remote implementation gates are green; evidence-only finalization remains |
 | GM-03d | pending | - | - | Extract topology/path lifecycle |
 | GM-03e | pending | - | - | Extract passenger flow |
 | GM-03f | pending | - | - | Extract input/layout facade |
@@ -118,7 +118,7 @@ Before GM-12c starts, replace its placeholder with one row per configuration and
 
 ## Known external state
 
-- `main` and `origin/main` are equal at GM-03b Commit B `00ea38c2dbee3fd51985ae9c52377ae404502e29`; current tracked and untracked planner/facade/tests/docs/iteration-4 changes are the owned GM-03c Commit-A unit. The separate pre-existing untracked `.agents/` tree remains excluded.
+- `main` and `origin/main` are equal at GM-03c Commit A `1b751e47cd3edce3556b32880a26851db3a072d2`; the evidence-only persistent/thread document edits are the owned GM-03c Commit-B unit. The separate pre-existing untracked `.agents/` tree remains excluded.
 - The only pre-existing untracked path is `.agents/`; preserve it.
 - The live sibling `../civ-engine` is 2.4.1 while this repository pins 2.2.0, so unisolated local `npm test` fails by design. GM-04 owns the durable setup fix.
 - The fleet `loop-ops/DIRECTIVES.md` does not list this repository as an active scheduled shift. Use repo-local persistent state and bare verified passes unless the owner later activates it there.

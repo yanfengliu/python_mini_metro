@@ -1,6 +1,6 @@
 # GM-03c - Extract pure route planning
 
-Status: implemented and locally green; Commit A pending
+Status: Commit A remotely green; evidence-only Commit B pending
 
 Baseline: `00ea38c2dbee3fd51985ae9c52377ae404502e29` (`docs: finalize mediator progression extraction [GM-03b:B]`), remotely green in [run 29311017088](https://github.com/yanfengliu/python_mini_metro/actions/runs/29311017088).
 

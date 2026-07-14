@@ -2,7 +2,7 @@
 
 Baseline: `00ea38c2dbee3fd51985ae9c52377ae404502e29`
 
-Status: implementation, final in-process review, and changed-path hooks green; Commit-A staged audit pending.
+Status: implementation, final in-process review, changed-path hooks, and exact Commit-A remote CI green; evidence-only Commit B pending.
 
 ## Production boundary
 
@@ -32,4 +32,8 @@ Status: implementation, final in-process review, and changed-path hooks green; C
 
 ## Staging boundary
 
-Changed-path pre-commit passed all hooks across the 37-file intended unit without rewrites. The complete cached stat is 37 files changed, 2,955 insertions, and 152 deletions: six tracked modifications and 31 additions, with no deletion or rename. `git diff --cached --check` passed; the staged high-confidence credential scan found zero hits; no dependency declaration is staged; and staged paths contain zero `.agents/` or `output/` entries. Worktree status contains only this staged unit plus the pre-existing untracked `.agents/` tree. Ignored `output/` evidence is excluded.
+Changed-path pre-commit passed all hooks across the 37-file Commit-A unit without rewrites. The complete cached stat was 37 files changed, 2,955 insertions, and 152 deletions: six tracked modifications and 31 additions, with no deletion or rename. `git diff --cached --check` passed; the staged high-confidence credential scan found zero hits; no dependency declaration was staged; and staged paths contained zero `.agents/` or `output/` entries. Ignored `output/` evidence remained excluded.
+
+## Remote implementation gate
+
+Commit A `1b751e47cd3edce3556b32880a26851db3a072d2` advanced `origin/main` from `00ea38c` and passed exact [run 29351838271](https://github.com/yanfengliu/python_mini_metro/actions/runs/29351838271): `build` succeeded in 34 seconds and `rl-smoke` in 3 minutes 43 seconds. Commit B changes only persistent/thread evidence.

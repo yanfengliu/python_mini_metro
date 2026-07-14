@@ -48,4 +48,8 @@ The in-frame bulk loop intentionally repeats the small selection kernel used by 
 - API/import/identity: all nine public Mediator route signatures match; fresh `route_planner` import remains pygame/domain-free; protocol/task/training fingerprints are unchanged and final content fingerprint is `548d2fbd7a28abeec2ae45ef1c64e5239bc6ff5c7e2d1540336a12ee7c813394`.
 - Size: Mediator is 1,110 lines, RoutePlanner is 231, and every changed test is below 500.
 
-Changed-path pre-commit passed all hooks across the 37-file intended unit without rewrites. The complete cached audit covers 37 files with 2,955 insertions and 152 deletions; cached diff check, high-confidence credential scan, dependency-declaration scan, and `.agents/`/`output/` exclusion checks all pass. Commit A is locally ready. No commit or push has occurred; baseline remains `00ea38c`.
+Changed-path pre-commit passed all hooks across the 37-file intended unit without rewrites. The complete cached audit covered 37 files with 2,955 insertions and 152 deletions; cached diff check, high-confidence credential scan, dependency-declaration scan, and `.agents/`/`output/` exclusion checks all passed.
+
+## Remote implementation gate
+
+Commit A `1b751e47cd3edce3556b32880a26851db3a072d2` passed exact [run 29351838271](https://github.com/yanfengliu/python_mini_metro/actions/runs/29351838271): `build` completed successfully in 34 seconds and `rl-smoke` in 3 minutes 43 seconds. Evidence-only Commit B is the remaining GM-03c transaction.
