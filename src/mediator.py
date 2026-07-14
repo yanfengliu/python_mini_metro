@@ -38,6 +38,7 @@ from geometry.type import ShapeType
 from graph.graph_algo import bfs, build_station_nodes_dict
 from graph.node import Node
 from progression import NetworkProgression
+from route_planner import RoutePlanner
 from simulation_context import SimulationContext
 from travel_plan import TravelPlan
 from type import Color
@@ -64,6 +65,7 @@ class Mediator:
         if seed is not None and context is not None:
             raise ValueError("seed and context are mutually exclusive")
         self.context = context if context is not None else SimulationContext(seed)
+        self._router = RoutePlanner()
 
         # configs
         self.passenger_spawning_step = passenger_spawning_start_step
@@ -837,26 +839,17 @@ class Mediator:
             return []
 
         candidates: List[Passenger] = []
-        for passenger in station.passengers:
-            current_travel_plan = self.travel_plans.get(passenger)
-            if (
-                current_travel_plan
-                and current_travel_plan.next_path
-                and current_travel_plan.next_path.id == metro.path_id
-            ):
-                candidates.append(passenger)
-                continue
-
-            travel_plan_for_arriving_metro = self.get_travel_plan_starting_with_path(
-                passenger,
-                station,
-                metro_path,
-                station_nodes_dict,
-            )
-            if travel_plan_for_arriving_metro is not None:
-                if mutate_travel_plans:
-                    self.travel_plans[passenger] = travel_plan_for_arriving_metro
-                candidates.append(passenger)
+        for passenger, travel_plan in self._router.iter_boarding_candidates(
+            station.passengers,
+            get_required_path_id=lambda: metro.path_id,
+            get_current_plan=lambda item: self.travel_plans.get(item),
+            get_constrained_plan=lambda item: self.get_travel_plan_starting_with_path(
+                item, station, metro_path, station_nodes_dict
+            ),
+        ):
+            if travel_plan is not None and mutate_travel_plans:
+                self.travel_plans[passenger] = travel_plan
+            candidates.append(passenger)
         return candidates
 
     def get_unloading_candidates_for_metro(
@@ -1047,41 +1040,30 @@ class Mediator:
             self.is_game_over = True
 
     def get_stations_for_shape_type(self, shape_type: ShapeType) -> List[Station]:
-        stations = [
-            station for station in self.stations if station.shape.type == shape_type
-        ]
+        stations = self._router.get_stations_for_shape_type(self.stations, shape_type)
         self.context.python_random.shuffle(stations)
-
         return stations
 
     def find_shared_path(self, station_a: Station, station_b: Station) -> Path | None:
-        for path in self.paths:
-            stations = path.stations
-            if (station_a in stations) and (station_b in stations):
-                return path
-        return None
+        return self._router.find_shared_path(self.paths, station_a, station_b)
 
     def passenger_has_travel_plan(self, passenger: Passenger) -> bool:
-        return (
-            passenger in self.travel_plans
-            and self.travel_plans[passenger].next_path is not None
+        return self._router.passenger_has_travel_plan(
+            contains_travel_plan=lambda: passenger in self.travel_plans,
+            get_travel_plan=lambda: self.travel_plans[passenger],
         )
 
     def find_next_path_for_passenger_at_station(
         self, passenger: Passenger, station: Station
     ):
-        next_station = self.travel_plans[passenger].get_next_station()
-        assert next_station is not None
-        next_path = self.find_shared_path(station, next_station)
-        self.travel_plans[passenger].next_path = next_path
-        if next_path is None:
-            self.travel_plans[passenger].next_station = None
+        self._router.update_next_path_for_plan(
+            station,
+            get_plan=lambda: self.travel_plans[passenger],
+            find_shared_path=lambda start, end: self.find_shared_path(start, end),
+        )
 
     def get_path_by_id(self, path_id: str) -> Path | None:
-        for path in self.paths:
-            if path.id == path_id:
-                return path
-        return None
+        return self._router.get_path_by_id(self.paths, path_id)
 
     def get_travel_plan_starting_with_path(
         self,
@@ -1090,104 +1072,39 @@ class Mediator:
         required_first_path: Path,
         station_nodes_dict: Dict[Station, Node],
     ) -> TravelPlan | None:
-        possible_dst_stations = self.get_stations_for_shape_type(
-            passenger.destination_shape.type
+        return self._router.get_travel_plan_starting_with_path(
+            station,
+            self.get_stations_for_shape_type(passenger.destination_shape.type),
+            station_nodes_dict,
+            get_required_first_path_id=lambda: required_first_path.id,
+            find_node_path=lambda start, end: bfs(start, end),
+            get_reduce_node_path=lambda: self.skip_stations_on_same_path,
+            get_find_shared_path=lambda: self.find_shared_path,
+            get_plan_factory=lambda: TravelPlan,
         )
-        best_node_path: List[Node] | None = None
-        best_path_cost: tuple[int, int] | None = None
-        start = station_nodes_dict[station]
-        for possible_dst_station in possible_dst_stations:
-            end = station_nodes_dict[possible_dst_station]
-            node_path = bfs(start, end)
-            if len(node_path) <= 1:
-                continue
-            reduced_node_path = self.skip_stations_on_same_path(list(node_path))
-            if len(reduced_node_path) <= 1:
-                continue
-            first_hop_path = self.find_shared_path(
-                station, reduced_node_path[1].station
-            )
-            if first_hop_path is None or first_hop_path.id != required_first_path.id:
-                continue
-            candidate_cost = (len(node_path), len(reduced_node_path))
-            if best_path_cost is None or candidate_cost < best_path_cost:
-                best_path_cost = candidate_cost
-                best_node_path = reduced_node_path
-
-        if best_node_path is None:
-            return None
-        travel_plan = TravelPlan(best_node_path[1:])
-        next_station = travel_plan.get_next_station()
-        if next_station is None:
-            return None
-        travel_plan.next_path = self.find_shared_path(station, next_station)
-        return travel_plan
 
     def skip_stations_on_same_path(self, node_path: List[Node]):
-        assert len(node_path) >= 2
-        if len(node_path) == 2:
-            return node_path
-        else:
-            nodes_to_remove = []
-            i = 0
-            j = 1
-            path_set_list = [x.paths for x in node_path]
-            path_set_list.append(set())
-            while j <= len(path_set_list) - 1:
-                set_a = path_set_list[i]
-                set_b = path_set_list[j]
-                if set_a & set_b:
-                    j += 1
-                else:
-                    for k in range(i + 1, j - 1):
-                        nodes_to_remove.append(node_path[k])
-                    i = j - 1
-                    j += 1
-            for node in nodes_to_remove:
-                node_path.remove(node)
-        return node_path
+        return self._router.skip_stations_on_same_path(node_path)
 
     def find_travel_plan_for_passengers(self) -> None:
         station_nodes_dict = build_station_nodes_dict(self.stations, self.paths)
-        for station in self.stations:
-            for passenger in station.passengers:
-                if not self.passenger_has_travel_plan(passenger):
-                    possible_dst_stations = self.get_stations_for_shape_type(
-                        passenger.destination_shape.type
-                    )
-                    best_node_path: List[Node] | None = None
-                    best_path_cost: tuple[int, int] | None = None
-                    for possible_dst_station in possible_dst_stations:
-                        start = station_nodes_dict[station]
-                        end = station_nodes_dict[possible_dst_station]
-                        node_path = bfs(start, end)
-                        if len(node_path) == 1:
-                            # passenger arrived at destination
-                            station.remove_passenger(passenger)
-                            self.passengers.remove(passenger)
-                            passenger.is_at_destination = True
-                            del self.travel_plans[passenger]
-                            best_node_path = None
-                            break
-                        elif len(node_path) > 1:
-                            # Prefer the shortest reachable destination route so
-                            # passengers board metros that can deliver them sooner.
-                            reduced_node_path = self.skip_stations_on_same_path(
-                                list(node_path)
-                            )
-                            candidate_cost = (len(node_path), len(reduced_node_path))
-                            if (
-                                best_path_cost is None
-                                or candidate_cost < best_path_cost
-                            ):
-                                best_path_cost = candidate_cost
-                                best_node_path = reduced_node_path
-
-                    if best_node_path is not None:
-                        self.travel_plans[passenger] = TravelPlan(best_node_path[1:])
-                        self.find_next_path_for_passenger_at_station(passenger, station)
-                    elif (
-                        not passenger.is_at_destination
-                        and passenger not in self.travel_plans
-                    ):
-                        self.travel_plans[passenger] = TravelPlan([])
+        for station, rider, route, kind in self._router.iter_bulk_route_proposals(
+            self.stations,
+            has_travel_plan=lambda item: self.passenger_has_travel_plan(item),
+            get_destination_stations=lambda item: self.get_stations_for_shape_type(
+                item.destination_shape.type
+            ),
+            node_map=station_nodes_dict,
+            find_node_path=lambda start, end: bfs(start, end),
+            get_reduce_node_path=lambda: self.skip_stations_on_same_path,
+        ):
+            if kind == "arrival":
+                station.remove_passenger(rider)
+                self.passengers.remove(rider)
+                rider.is_at_destination = True
+                del self.travel_plans[rider]
+            elif kind == "route":
+                self.travel_plans[rider] = TravelPlan(route[1:])
+                self.find_next_path_for_passenger_at_station(rider, station)
+            elif not rider.is_at_destination and rider not in self.travel_plans:
+                self.travel_plans[rider] = TravelPlan([])

@@ -1,0 +1,3 @@
+# External Claude implementation-review limitation
+
+Not launched. Claude is not used to reroute the same repository-context transfer prohibited for the external Codex review. No approval is inferred.

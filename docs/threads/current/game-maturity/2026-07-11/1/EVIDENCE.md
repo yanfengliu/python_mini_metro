@@ -322,3 +322,54 @@ For each GM increment append: changed contracts, focused red/green tests, full l
 - Push: `origin/main` advanced from `fbcb31d` to `36e89d9`.
 - Remote workflow: [run 29310175226](https://github.com/yanfengliu/python_mini_metro/actions/runs/29310175226) succeeded for the exact commit; `build` passed in 4 minutes and `rl-smoke` passed in 3 minutes 59 seconds. The pinned jobs covered the full Python/recursive/Node contract gate plus the exact RL library and recurrent-history/legacy-PPO smoke.
 - Commit B purpose: durably bind the progression extraction and its local compatibility proofs to A's exact green remote result before GM-03c begins.
+
+## GM-03b Commit B - remote finalization
+
+- Commit: `00ea38c2dbee3fd51985ae9c52377ae404502e29` (`docs: finalize mediator progression extraction [GM-03b:B]`).
+- Push: `origin/main` advanced from `36e89d9` to `00ea38c`.
+- Remote workflow: [run 29311017088](https://github.com/yanfengliu/python_mini_metro/actions/runs/29311017088) succeeded for the exact commit; both `build` and `rl-smoke` ran from 06:19:41Z through 06:20:19Z, 38 seconds each by the API timestamps.
+- Outcome: GM-03b is remotely finalized. GM-03c starts from this exact baseline and must reduce `src/mediator.py` below its original 1,112-line pre-GM-03b baseline without public-dispatch or route-selection drift.
+
+## GM-03c frozen baseline
+
+- Source boundary: `src/mediator.py` is 1,193 physical lines at `00ea38c`; route planning occupies the tail cluster beginning with destination-station selection at line 1,049 and includes eight public methods through line 1,193. `travel_plans` remains a mutable mediator-owned passenger/entity mapping.
+- Local baseline: routing, passenger flow, path lifecycle, simulation, graph, recursive checkpoint, and structured environment coverage passed 80/80 tests in 0.409 seconds.
+- Durability boundary: no GM-03c production or test edit has started. Three independent live-code lanes are mapping the pure planning boundary, compatibility seams, test obligations, and feasible below-1,112 size recovery before the implementation plan is frozen.
+
+## GM-03c plan review
+
+- Boundary: one stateless pygame-free `RoutePlanner` owns deterministic queries/search/compression and lazy boarding/bulk proposals. Mediator keeps RNG, fresh graph creation, every public method, plan-map and entity mutation, topology, movement, and passenger effects.
+- Review findings closed: search-only size insufficiency; callback and plan-map rebinding; exact boarding plan yield; lazy bulk apply-before-resume; constrained-unowned versus bulk-installed hook visibility; empty/non-empty graph lookup order; adjacent-arrival and unreachable-sentinel identity; absent-path no-RNG short-circuit; fingerprint/oracle/import proof; worktree/artifact/prompt accuracy.
+- Size contract: the 178 in-scope mediator lines have a 95-line target and 96-line hard replacement ceiling, yielding a target of 1,110 and hard maximum of 1,111. No unrelated topology or passenger ownership moves merely to meet the gate.
+- Convergence: all three independent live-code lanes returned `APPROVED`; no substantive plan finding remains. External pinned plan review remains unlaunched under the unchanged repository-context transfer boundary, with no reroute.
+- Durability boundary: no production or behavior-test edit has started. Baseline-green facade characterization is next, followed by the expected-red missing direct planner contract.
+
+## GM-03c baseline-green facade characterization
+
+- Nine new behavior-level tests pass against untouched baseline production in 0.050 seconds. They freeze dynamic BFS/compression and constrained-plan rebinding, constrained versus bulk station-node lookup timing, same-list compression identity, absent-path no-passenger/no-RNG short-circuit, unreachable retry RNG plus empty-sentinel identity, adjacent-arrival live-list timing, and constrained-unowned versus bulk-installed hook visibility.
+- `test/test_mediator_route_contract.py` is 348 physical lines and passes Ruff check/format. No production file changed. Split direct planner query/selection/iterator contracts are being added next; their first isolated run must fail only because `route_planner` does not yet exist.
+
+## GM-03c expected-red direct contract
+
+- `test/test_route_planner_queries.py` was added before production and its isolated unittest run produced one loader error with exactly `ModuleNotFoundError: No module named 'route_planner'`. No implementation failure or unrelated error was present.
+- The query module is 162 physical lines and passes Ruff check/format. Selection and lazy-iterator contracts are being completed before the smallest planner implementation is added.
+
+## GM-03c implementation and adversarial correction evidence
+
+- Direct TDD: query, selection, and iterator modules each produced the expected isolated `ModuleNotFoundError: route_planner` before production existed. The stateless `RoutePlanner` then made all direct contracts green and imports in a fresh process without loading pygame, mediator, travel-plan, entity, or graph modules.
+- First implementation review: independent live-code reviewers found two mutable path-ID snapshots and one captured `travel_plans` mapping that differed from baseline attribute-load timing. Six new direct/facade tests reproduced the regressions before fixes. The planner now accepts fresh ID and map resolver thunks invoked only at the original short-circuited comparison/read points; all six tests and the full 40-test direct/facade slice pass.
+- Focused compatibility: direct planner, mediator route facade, routing, passenger flow, path lifecycle, simulation, graph, recursive checkpoint/oracles, and structured environment coverage passes 129/129 tests in 0.405 seconds after the fixes.
+- Differential proof: baseline `00ea38c` and current mediators ran the same seeded 2,400-step three-station route scenario. All reward/action/done results matched, 44 canonical checkpoints matched exactly, and both produced four deliveries without game over.
+- First-correction size and identity snapshot: `src/mediator.py` was 1,110 physical lines, meeting the target and below the 1,111 hard ceiling; `src/route_planner.py` was 192 lines and every changed test remained below 500. All nine public route-facade AST signatures matched baseline. Protocol remained `69c604ac62d46d4a2339b3efad239372c61d0eb52e45ce6c9b6cf8da946dea8f`, task remained `719362078a7d98f1e3c944a6a797f7147b29383495f37f417aa9d61e3416016d`, training remained `b195946ef62db7058b5ff8c295045d285019cce10b2a12d8b86d28f180670f93`, and the then-current content fingerprint was `6095ec0dd2d446673b4fa6546865e72f56f3183ab187b4f968b4061b5c0748d0`.
+- Boundary at that checkpoint: three post-fix in-process re-review lanes and the final post-fix core/exact-RL/hook/staging gates remained in progress. No GM-03c commit or push had occurred; `main` and `origin/main` remained at `00ea38c`.
+
+## GM-03c final correction and local validation
+
+- Second expected-red contract: five facade observability tests and three direct resolution-order tests initially produced eight errors. They proved facade route remeasurement, false arrival after compression, missing post-arrival fallback, arrival effects after destination-iterator finalization, and reducer/shared/factory lookup after argument effects. Explicit `arrival`/`route`/`fallback` proposals plus callable getters made all eight green.
+- Lifetime refutation: later live-HEAD reviewers proved that closing a nested selector released yielded destinations and prior reduced routes before the fallback guard, and that storing resolved reducer/shared/factory callables extended their lifetime beyond the original call. Two destination/route-local tests and four callable-lifetime tests reproduced those state-changing differences red. Bulk selection now stays in the proposal generator frame, while direct getter-call composition resolves each callable before its arguments and releases it immediately after invocation.
+- Review convergence: the final arrival/finalizer lane, resolution/map/callable lane, and broad code/test lane independently returned `CLEAN`. The reviewers re-ran the actual prior HEAD/current differentials, which now match, and found no unresolved substantive defect. External Codex/Claude review remains unlaunched under the recorded repository-context transfer boundary.
+- Final local gates: the route-planning compatibility slice passed 144/144 in 1.066 seconds; the sequential py313 core suite passed 509 tests with 12 expected optional-RL skips in 6.972 seconds; the sequential exact-RL suite passed 512/512 in 12.845 seconds. Ruff check and format passed across all nine changed Python files.
+- Differential and identity proof: baseline `00ea38c` and current code again matched all 2,400 action/reward/done outcomes and all 44 canonical checkpoints in the seeded three-station scenario, ending with four deliveries and no game over. All nine public route-facade AST signatures still match. A fresh import of `route_planner` loads none of pygame, mediator, travel-plan, entity, or graph modules.
+- Final fingerprints: protocol is unchanged at `69c604ac62d46d4a2339b3efad239372c61d0eb52e45ce6c9b6cf8da946dea8f`; default task is unchanged at `719362078a7d98f1e3c944a6a797f7147b29383495f37f417aa9d61e3416016d`; training is unchanged at `b195946ef62db7058b5ff8c295045d285019cce10b2a12d8b86d28f180670f93`; the intentional final content fingerprint is `548d2fbd7a28abeec2ae45ef1c64e5239bc6ff5c7e2d1540336a12ee7c813394`.
+- Final size boundary: `src/mediator.py` is 1,110 lines, meeting the GM-03c target and hard gate; `src/route_planner.py` is 231. The largest changed test is `test_route_planner_selection.py` at 462 lines; all changed tests remain below 500. GM-03d still owns the next reduction below the repository-wide 1,000-line ceiling.
+- Commit-A local boundary: changed-path pre-commit passed all end-of-file, trailing-whitespace, Ruff check, and Ruff format hooks across the 37-file intended unit without rewrites. The cached stat is 37 files with 2,955 insertions and 152 deletions; cached diff check, high-confidence credential scan, dependency-declaration scan, and `.agents/`/`output/` exclusion checks all pass. Commit A is locally ready; commit, push, and exact remote CI remain pending. `main` and `origin/main` remain at `00ea38c`.
