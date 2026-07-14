@@ -37,6 +37,7 @@ from geometry.point import Point
 from geometry.type import ShapeType
 from graph.graph_algo import bfs, build_station_nodes_dict
 from graph.node import Node
+from progression import NetworkProgression
 from simulation_context import SimulationContext
 from travel_plan import TravelPlan
 from type import Color
@@ -67,13 +68,15 @@ class Mediator:
         # configs
         self.passenger_spawning_step = passenger_spawning_start_step
         self.passenger_spawning_interval_step = passenger_spawning_interval_step
-        self.num_paths = num_paths
-        self.path_unlock_milestones = sorted(path_unlock_milestones)
+        self._progression = NetworkProgression(
+            num_paths=num_paths,
+            path_unlock_milestones=path_unlock_milestones,
+            num_stations=num_stations,
+            initial_num_stations=initial_num_stations,
+            station_unlock_milestones=station_unlock_milestones,
+        )
         self.path_purchase_prices = self.get_path_purchase_prices()
         self.num_metros = num_metros
-        self.num_stations = num_stations
-        self.initial_num_stations = initial_num_stations
-        self.station_unlock_milestones = sorted(station_unlock_milestones)
 
         # UI
         self.path_buttons = get_path_buttons(self.num_paths)
@@ -106,9 +109,6 @@ class Mediator:
         self.travel_plans: TravelPlans = {}
         self.is_paused = False
         self.game_speed_multiplier = 1
-        self.deliveries = 0
-        self.line_credits = 0
-        self.purchased_num_paths = 1
         self.unlocked_num_paths = self.get_unlocked_num_paths()
         self.unlocked_num_stations = self.get_unlocked_num_stations()
         self.update_path_button_lock_states()
@@ -116,6 +116,94 @@ class Mediator:
         self.passenger_max_wait_time_ms = passenger_max_wait_time_ms
         self.overdue_passenger_threshold = overdue_passenger_threshold
         self.prepare_layout(screen_width, screen_height)
+
+    @property
+    def num_paths(self) -> int:
+        return self._progression.num_paths
+
+    @num_paths.setter
+    def num_paths(self, value: int) -> None:
+        self._progression.num_paths = value
+
+    @property
+    def path_unlock_milestones(self) -> List[int]:
+        return self._progression.path_unlock_milestones
+
+    @path_unlock_milestones.setter
+    def path_unlock_milestones(self, value: List[int]) -> None:
+        self._progression.path_unlock_milestones = value
+
+    @property
+    def path_purchase_prices(self) -> List[int]:
+        return self._progression.path_purchase_prices
+
+    @path_purchase_prices.setter
+    def path_purchase_prices(self, value: List[int]) -> None:
+        self._progression.path_purchase_prices = value
+
+    @property
+    def num_stations(self) -> int:
+        return self._progression.num_stations
+
+    @num_stations.setter
+    def num_stations(self, value: int) -> None:
+        self._progression.num_stations = value
+
+    @property
+    def initial_num_stations(self) -> int:
+        return self._progression.initial_num_stations
+
+    @initial_num_stations.setter
+    def initial_num_stations(self, value: int) -> None:
+        self._progression.initial_num_stations = value
+
+    @property
+    def station_unlock_milestones(self) -> List[int]:
+        return self._progression.station_unlock_milestones
+
+    @station_unlock_milestones.setter
+    def station_unlock_milestones(self, value: List[int]) -> None:
+        self._progression.station_unlock_milestones = value
+
+    @property
+    def deliveries(self) -> int:
+        return self._progression.deliveries
+
+    @deliveries.setter
+    def deliveries(self, value: int) -> None:
+        self._progression.deliveries = value
+
+    @property
+    def line_credits(self) -> int:
+        return self._progression.line_credits
+
+    @line_credits.setter
+    def line_credits(self, value: int) -> None:
+        self._progression.line_credits = value
+
+    @property
+    def purchased_num_paths(self) -> int:
+        return self._progression.purchased_num_paths
+
+    @purchased_num_paths.setter
+    def purchased_num_paths(self, value: int) -> None:
+        self._progression.purchased_num_paths = value
+
+    @property
+    def unlocked_num_paths(self) -> int:
+        return self._progression.unlocked_num_paths
+
+    @unlocked_num_paths.setter
+    def unlocked_num_paths(self, value: int) -> None:
+        self._progression.unlocked_num_paths = value
+
+    @property
+    def unlocked_num_stations(self) -> int:
+        return self._progression.unlocked_num_stations
+
+    @unlocked_num_stations.setter
+    def unlocked_num_stations(self, value: int) -> None:
+        self._progression.unlocked_num_stations = value
 
     @property
     def total_travels_handled(self) -> int:
@@ -184,12 +272,7 @@ class Mediator:
         return path_colors
 
     def get_path_purchase_prices(self) -> List[int]:
-        if self.num_paths <= 1:
-            return []
-        return [
-            self.path_unlock_milestones[idx] - self.path_unlock_milestones[idx - 1]
-            for idx in range(1, self.num_paths)
-        ]
+        return self._progression.get_path_purchase_prices()
 
     def get_initial_station_pool(self) -> List[Station]:
         # Keep initial gameplay valid by guaranteeing at least two shape types.
@@ -202,16 +285,15 @@ class Mediator:
                 return stations
 
     def get_unlocked_num_stations(self) -> int:
-        unlocked = self.initial_num_stations + sum(
-            1
-            for milestone in self.station_unlock_milestones
-            if self.deliveries >= milestone
-        )
-        return min(unlocked, self.num_stations)
+        return self._progression.get_unlocked_num_stations()
 
     def update_unlocked_num_stations(self) -> None:
-        previous_unlocked_num_stations = self.unlocked_num_stations
-        self.unlocked_num_stations = self.get_unlocked_num_stations()
+        (
+            previous_unlocked_num_stations,
+            self.unlocked_num_stations,
+        ) = self._progression.set_unlocked_num_stations(
+            self.get_unlocked_num_stations()
+        )
         if self.unlocked_num_stations > len(self.stations):
             newly_unlocked_stations = self.all_stations[
                 len(self.stations) : self.unlocked_num_stations
@@ -222,11 +304,13 @@ class Mediator:
                     station.start_unlock_blink(self.time_ms)
 
     def get_unlocked_num_paths(self) -> int:
-        return min(max(1, self.purchased_num_paths), self.num_paths)
+        return self._progression.get_unlocked_num_paths()
 
     def update_unlocked_num_paths(self) -> None:
-        previous_unlocked_num_paths = self.unlocked_num_paths
-        self.unlocked_num_paths = self.get_unlocked_num_paths()
+        (
+            previous_unlocked_num_paths,
+            self.unlocked_num_paths,
+        ) = self._progression.set_unlocked_num_paths(self.get_unlocked_num_paths())
         if self.unlocked_num_paths > previous_unlocked_num_paths:
             for path_button_idx in range(
                 previous_unlocked_num_paths, self.unlocked_num_paths
@@ -239,21 +323,20 @@ class Mediator:
             button.set_locked(idx >= self.unlocked_num_paths)
 
     def get_next_path_button_idx_to_purchase(self) -> int | None:
-        if self.unlocked_num_paths >= self.num_paths:
-            return None
-        return self.unlocked_num_paths
+        return self._progression.get_next_path_button_idx_to_purchase()
 
     def get_purchase_price_for_path_button_idx(self, button_idx: int) -> int | None:
-        if button_idx <= 0 or button_idx >= self.num_paths:
-            return None
-        return self.path_purchase_prices[button_idx - 1]
+        return self._progression.get_purchase_price_for_path_button_idx(button_idx)
 
     def can_purchase_path_button_idx(self, button_idx: int) -> bool:
         next_button_idx = self.get_next_path_button_idx_to_purchase()
         if next_button_idx is None or next_button_idx != button_idx:
             return False
-        price = self.get_purchase_price_for_path_button_idx(button_idx)
-        return price is not None and self.line_credits >= price
+        return self._progression.can_purchase_resolved_path_button_idx(
+            button_idx,
+            next_button_idx=next_button_idx,
+            price=self.get_purchase_price_for_path_button_idx(button_idx),
+        )
 
     def try_purchase_path_button(self, button: PathButton) -> bool:
         if not button.is_locked:
@@ -267,8 +350,7 @@ class Mediator:
         price = self.get_purchase_price_for_path_button_idx(button_idx)
         if price is None:
             return False
-        self.line_credits -= price
-        self.purchased_num_paths += 1
+        self._progression.record_path_purchase(price)
         self.update_unlocked_num_paths()
         return True
 
@@ -906,8 +988,7 @@ class Mediator:
                         self.passengers.remove(passenger)
                         if passenger in self.travel_plans:
                             del self.travel_plans[passenger]
-                        self.deliveries += 1
-                        self.line_credits += 1
+                        self._progression.record_delivery()
                         self.update_unlocked_num_paths()
                         self.update_unlocked_num_stations()
                         boarding_slots -= 1

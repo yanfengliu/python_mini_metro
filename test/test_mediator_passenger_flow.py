@@ -78,6 +78,27 @@ class TestMediatorPassengerFlow(support.MediatorTestCase):
         self.assertEqual(mediator.total_travels_handled, 2)
         self.assertEqual(mediator.score, 2)
 
+    def test_delivery_calls_public_progression_hooks_in_order_after_award(self):
+        mediator, station_a, _, _, metro = self._build_two_station_mediator()
+        passenger = Passenger(station_a.shape)
+        metro.add_passenger(passenger)
+        mediator.passengers.append(passenger)
+        mediator.travel_plans[passenger] = TravelPlan([Node(station_a)])
+        calls = []
+
+        def record_path_update():
+            calls.append(("paths", mediator.deliveries, mediator.line_credits))
+
+        def record_station_update():
+            calls.append(("stations", mediator.deliveries, mediator.line_credits))
+
+        mediator.update_unlocked_num_paths = record_path_update
+        mediator.update_unlocked_num_stations = record_station_update
+
+        mediator.move_passengers(500)
+
+        self.assertEqual(calls, [("paths", 1, 1), ("stations", 1, 1)])
+
     def test_metro_stops_to_board_then_accelerates(self):
         mediator = Mediator()
         mediator.is_passenger_spawn_time = MagicMock(return_value=False)

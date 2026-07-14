@@ -108,9 +108,11 @@ Scope:
 
 Substeps: GM-03a splits mediator tests behind shared fixtures; GM-03b extracts progression and purchase ownership; GM-03c extracts pure route planning; GM-03d extracts topology and path lifecycle; GM-03e extracts passenger spawning and flow; GM-03f extracts input/layout coordination and leaves `Mediator` as a compatibility facade. Move one ownership cluster at a time and run focused plus full gates after every move.
 
+Size trajectory: GM-03b's explicit compatibility properties may temporarily grow `src/mediator.py` from its 1,112-line baseline to 1,193 lines while establishing single ownership. GM-03c must reverse that trajectory and finish below the 1,112-line baseline; GM-03d must cross below 1,000 lines. GM-03e and GM-03f continue toward the practical under-500 target without hiding behavior in magic delegation.
+
 Acceptance:
 
-- `src/mediator.py` and every resulting handwritten file are under 500 lines where practical and always under 1,000.
+- By GM-03d, `src/mediator.py` is under 1,000 lines; by GM-03 completion, it and every resulting handwritten file are under 500 lines where practical and always under 1,000.
 - Existing public `Mediator` methods retain behavior unless a separately accepted contract change says otherwise.
 - Full gameplay, deterministic replay, rendering, structured environment, and pixel environment tests pass unchanged or with semantics-driven updates already approved in GM-01/GM-02.
 

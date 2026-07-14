@@ -288,3 +288,30 @@ For each GM increment append: changed contracts, focused red/green tests, full l
 - Push: `origin/main` advanced from `60b4174` to `83d02d4`.
 - Remote workflow: [run 29303936139](https://github.com/yanfengliu/python_mini_metro/actions/runs/29303936139) succeeded; `build` passed in 32 seconds and `rl-smoke` passed in 3 minutes 35 seconds.
 - Commit B purpose: durably bind the exact behavior-neutral split and its local proofs to A's green remote result before GM-03b changes production mediator ownership.
+
+## GM-03a Commit B - remote finalization
+
+- Commit: `fbcb31d0321d690da56d4d7299c9720248881059` (`docs: finalize mediator test split [GM-03a:B]`).
+- Push: `origin/main` advanced from `83d02d4` to `fbcb31d`.
+- Remote workflow: [run 29304181859](https://github.com/yanfengliu/python_mini_metro/actions/runs/29304181859) succeeded; GitHub rendered `build` at 39 seconds and `rl-smoke` at 3 minutes 32 seconds.
+- Outcome: GM-03a is remotely finalized. GM-03b starts from this exact baseline and records the result before production edits.
+
+## GM-03b frozen baseline and plan review
+
+- Source boundary: `src/mediator.py` is 1,112 physical lines with Git blob `73eb42b9970418b8edc7b465fda76eaa8fdaf4e1`; its current progression cluster spans configuration/runtime state, writable aliases, price/unlock/purchase policy, entity/UI effects, and delivery integration. `test/test_mediator_progression.py` has 11 tests and 159 physical lines.
+- Local baseline: progression, passenger-flow, structured-environment, and recursive-checkpoint coverage passed 56/56 tests in 0.192 seconds from `fbcb31d`.
+- Ownership decision: a dependency-free `NetworkProgression` will solely own moved scalar/config/cache state and pure policy. Explicit writable `Mediator` properties and real public wrappers preserve callers; stations, buttons, identities, simulation-time effects, and delivery-hook orchestration remain on the facade.
+- Plan review: three independent live-code lanes initially disagreed on stateful aggregate versus stateless host controller, then converged on the precise no-duplication stateful design after checking direct writes, mutable lists, stale caches, constructor dispatch/RNG order, checkpoint access, monkeypatched hooks, and future save boundaries. Zero substantive plan finding remains.
+- External boundary: pinned external review was not relaunched because the platform's repository-context export prohibition was not superseded by the user's approval for pre-commit, Git, and GitHub CI. No transfer or reroute occurred; limitation artifacts and task-specific prompts are preserved under `2026-07-13/3/`.
+- Durability boundary at plan review: production and behavior-test edits had not started at this snapshot. The completed implementation evidence follows.
+
+## GM-03b local implementation evidence
+
+- TDD and ownership: baseline-green facade characterization passed before production edits; direct `NetworkProgression` contracts then produced the expected `ModuleNotFoundError: progression` red result. The dependency-free aggregate now solely owns the declared progression scalars/config/caches, while explicit writable `Mediator` properties and real public wrappers preserve consumers and side effects.
+- Runtime validation: the final focused progression/passenger slice passed 77/77 tests in 0.250 seconds. The authoritative sequential core suite passed 454 tests with 12 expected optional-RL skips in 5.490 seconds; the exact-RL environment passed 457/457 in 10.832 seconds.
+- Compatibility proof: all 11 public progression method AST signatures match baseline. A seeded baseline/current canonical checkpoint is byte-identical at 13,818 bytes after 90 deliveries, 90 credits, three unlocked paths, and six stations. Public next-index and price override dispatch, skipped/full-target price short-circuiting, stale-cache behavior, live list identity, RNG order, entity identity, delivery-hook order, and simulation-time effects have explicit regression coverage.
+- Static and identity gates: Ruff check and format pass all five changed Python files; final all-path pre-commit passes EOF, trailing-whitespace, Ruff check, and Ruff format hooks across the complete intended unit. Protocol fingerprint remains `69c604ac62d46d4a2339b3efad239372c61d0eb52e45ce6c9b6cf8da946dea8f`; task remains `719362078a7d98f1e3c944a6a797f7147b29383495f37f417aa9d61e3416016d`; training remains `b195946ef62db7058b5ff8c295045d285019cce10b2a12d8b86d28f180670f93`; the intentional new content fingerprint is `31d2a4c146fdf54234c2ef94f7b6ca5276926dfcb2f05e9a9a7fff2f5026b9a7`.
+- Adversarial review: the first code lane found a real public-dispatch regression; its initial fix exposed a second eager-price-query regression. Both were corrected and independently refuted with high-price/non-mutation and raising-price/short-circuit tests. Final code and refutation lanes returned `CLEAN`. The documentation lane's stale cursor, incomplete untracked-diff procedure, undisclosed size debt, and retry-prompt findings were corrected before final staging.
+- Size boundary: `src/progression.py` is 100 lines; `test/test_network_progression.py` is 139; `test/test_mediator_progression.py` is 341; and `test/test_mediator_passenger_flow.py` is 265. The explicit facade makes `src/mediator.py` 1,193 lines, 81 above its 1,112-line baseline and still above the 1,000-line ceiling. This is disclosed temporary debt: GM-03c must finish below 1,112 and GM-03d below 1,000 before later clusters continue toward the practical under-500 target.
+- Staged boundary: the exact 29-file GM-03b unit is staged; cached `diff --check` is clean and the staged secret-pattern scan reports zero matches. The complete cached inventory includes every new aggregate, test, and iteration artifact; only the pre-existing `.agents/` tree remains untracked and ignored `output/` remains excluded.
+- Durability boundary: GM-03b Commit A has not been created or pushed. Final all-path pre-commit and cached-diff review are green; Commit A, push, and exact GitHub CI are next.

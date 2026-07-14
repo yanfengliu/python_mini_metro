@@ -65,3 +65,9 @@ Reason: hashing source code does not distinguish two maps selectable from the sa
 Decision: GM-07a replaces internal boolean-only pause ownership with explicit pause reasons while retaining the `is_paused` compatibility facade. Menus/save, tutorial, and weekly choices build on that established contract.
 
 Reason: introducing pause reasons only with weekly progression would force save and tutorial schema migrations and could let the Space key dismiss a non-manual modal pause.
+
+## D-011 - Network progression has one internal owner behind the facade
+
+Decision: GM-03b introduces a dependency-free `NetworkProgression` aggregate as the sole owner of current line/station/economy progression scalars, rules, and cached counts. `Mediator` retains explicit writable properties, real public method wrappers, all station/button collections and effects, and the exact per-delivery public-hook order. The aggregate holds no mediator backreference, entities, UI objects, RNG, or clocks.
+
+Reason: a stateless controller over a broad mutable mediator protocol would relocate functions without extracting ownership, while duplicated controller state would break direct writes, checkpoints, and cached unlock semantics. A single internal store plus an explicit facade preserves the current API and gives GM-07 saves and GM-10 upgrades a narrow evolvable boundary without speculative serialization.

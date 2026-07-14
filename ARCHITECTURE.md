@@ -40,6 +40,7 @@ python_mini_metro/
 |  |- game_session.py
 |  |- main.py
 |  |- mediator.py
+|  |- progression.py
 |  |- recursive_checkpoint.py
 |  |- recursive_contract.py
 |  |- recursive_oracles.py
@@ -140,6 +141,7 @@ python_mini_metro/
 |  |- test_mediator_progression.py
 |  |- test_mediator_routing.py
 |  |- test_mediator_simulation.py
+|  |- test_network_progression.py
 |  |- test_overdue_threshold.py
 |  |- test_path.py
 |  |- test_player_env.py
@@ -190,6 +192,7 @@ python_mini_metro/
 
 - `src/env.py` remains the public Gym-like drive surface over `Mediator`; its default reward is the delta in lifetime passenger `deliveries`, while explicit `line_credits_delta` mode reconstructs the legacy spendable-credit reward. Structured observations name both values and retain `score` as a line-credit compatibility alias. `Mediator.overdue_passenger_threshold` is the canonical overload field with repository default `2`; the writable `max_waiting_passengers` compatibility property addresses the same value. The recursive loop uses `MiniMetroEnv.reset(seed)` and `MiniMetroEnv.step(action, dt_ms)` without driving the pygame GUI clock.
 - `src/simulation_context.py` gives every `Mediator` independent Python and NumPy random streams. Interactive, structured, and pixel environments share the same gameplay code without sharing host-global RNG state, so gameplay mechanics, normalized checkpoints, array views, and pixels are reproducible when same-process or spawned environments are interleaved. Opaque shortuuid entity IDs remain session-unique and are intentionally excluded from deterministic checkpoint comparison.
+- `src/progression.py` owns current line/station/economy rules, canonical delivery and credit counters, purchased-line state, and explicitly refreshed unlock caches without importing entities, UI, clocks, or RNG. `Mediator` remains the compatibility facade through explicit writable properties and real public methods; it owns station/path-button identity, active-station slicing, locks/blinks, and delivery/purchase side-effect ordering.
 - `src/game_clock.py` owns the bounded deterministic `17, 17, 16` millisecond cadence, while `src/game_session.py` provides the shared player-event and fixed-update driver. The pygame window handles input before updates and uses one `Clock.tick(60)` pacing authority.
 - `src/entity/path.py` owns logical centerline segments used by metro movement. `src/rendering/layout.py` derives immutable, symmetric visual lanes without rebuilding or re-identifying those simulation segments.
 - `src/rendering/network_renderer.py` owns one bounded antialiased route cache per renderer. `src/rendering/interpolation.py` tracks render-only previous/current metro poses, and `src/rendering/game_renderer.py` composes routes, stations, metros, controls, a two-value deliveries/line-credits HUD, and overlays without mutating gameplay state. Fonts and surfaces are renderer-owned and lazy so state-only and headless sessions do not require a display.
@@ -224,7 +227,7 @@ The Node boundary depends on the live sibling `civ-engine` through `file:../civ-
 ## Mediator characterization tests
 
 - `test/mediator_test_support.py` owns the shared per-test mediator fixture, pygame draw cleanup, interaction helper, and two-station network builder without matching unittest's default discovery pattern.
-- Six discovered modules partition mediator behavior by ownership: interaction/layout, routing decisions, path lifecycle, simulation/spawning/game over, passenger/metro flow, and progression/purchases. They preserve the former monolithic suite's exact 57 test bodies while keeping each test file below 500 lines; production `src/mediator.py` decomposition remains owned by GM-03b through GM-03f.
+- Six discovered modules partition mediator behavior by ownership: interaction/layout, routing decisions, path lifecycle, simulation/spawning/game over, passenger/metro flow, and progression/purchases. They preserve the former monolithic suite's exact 57 test bodies, and the progression/passenger-flow modules add facade characterization for the extracted ownership boundary. `test/test_network_progression.py` directly covers dependency-free progression policy and cached-state semantics. Production `src/mediator.py` decomposition continues through GM-03c to GM-03f.
 
 ## Rendering tests
 
