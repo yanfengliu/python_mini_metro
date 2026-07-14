@@ -111,3 +111,4 @@
 ## 2026-07-13
 
 - Ran the remotely gated matched-resource campaigns, rejected the operationally invalid primary result, promoted the fully valid ten-frame multiscale fallback within the preregistered RAM/throughput gates, made that exact descriptor the fresh recurrent default while preserving explicit PPO's contiguous-eight behavior and persisted resume identity, and made invalid/incomplete/mismatched campaign aggregates fail closed.
+- Reframed the ten-frame recurrent policy as the bounded player-pixel baseline and added a reviewed GM-12 research ladder for compact semantic strategy state, direct assisted hybrid policies, and pixel-only actors trained with privileged teachers/auxiliary critics; each lane keeps truthful protocol/task identity and is promoted only by matched held-out passenger deliveries.

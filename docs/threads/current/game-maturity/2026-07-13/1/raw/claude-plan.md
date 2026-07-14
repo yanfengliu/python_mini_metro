@@ -1,0 +1,1 @@
+External Claude plan review was not launched. After the platform rejected exporting the same repository plan/code context to Codex, rerouting it through Claude would have attempted the prohibited same outcome through another service. No external reviewer output exists.
