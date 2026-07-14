@@ -281,3 +281,10 @@ For each GM increment append: changed contracts, focused red/green tests, full l
 - Static/size boundary: Ruff check and format passed all seven new Python files after deliberate `isort: split` boundaries kept the support path bootstrap ahead of bare production imports. File sizes range from 72 to 270 physical lines, below the 500-line target.
 - Production boundary: comparison against frozen baseline `60b4174`, ordinary/cached diffs, and explicit `git status --short -- src` all prove no modified, staged, or untracked production file. `ARCHITECTURE.md` and `PROGRESS.md` document only the behavior-neutral test ownership change; README and GAME_RULES remain unchanged.
 - Hooks/review boundary: final pre-commit passed all 33 GM-03a changed/deleted/new paths with EOF, trailing-whitespace, Ruff check, and Ruff format hooks clean. Three independent live-code reviewers found no Python defect; all three found stale implementation/cursor evidence, and two found the inaccurate word “seeded” for the unchanged entropy-backed fixture. Both documentation defects were corrected, and all three final re-review lanes returned `CLEAN`. External final-diff review remains unlaunched under the same prohibited repository-export boundary. GM-03a is locally ready for Commit A.
+
+## GM-03a Commit A - remote implementation gate
+
+- Commit: `83d02d4002f739a41e2562e251a6b0023b98d6d3` (`test: split mediator test suite [GM-03a:A]`).
+- Push: `origin/main` advanced from `60b4174` to `83d02d4`.
+- Remote workflow: [run 29303936139](https://github.com/yanfengliu/python_mini_metro/actions/runs/29303936139) succeeded; `build` passed in 32 seconds and `rl-smoke` passed in 3 minutes 35 seconds.
+- Commit B purpose: durably bind the exact behavior-neutral split and its local proofs to A's green remote result before GM-03b changes production mediator ownership.
