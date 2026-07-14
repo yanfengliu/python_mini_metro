@@ -122,6 +122,7 @@ python_mini_metro/
 |  |- recursive-pass.test.mjs
 |  |- recursive-fixtures.mjs
 |  |- source-provenance.test.mjs
+|  |- mediator_test_support.py
 |  |- test_agent_play.py
 |  |- test_agent_play_threshold.py
 |  |- test_coverage_utils.py
@@ -133,7 +134,12 @@ python_mini_metro/
 |  |- test_graph.py
 |  |- test_headless_render.py
 |  |- test_main.py
-|  |- test_mediator.py
+|  |- test_mediator_interaction.py
+|  |- test_mediator_passenger_flow.py
+|  |- test_mediator_paths.py
+|  |- test_mediator_progression.py
+|  |- test_mediator_routing.py
+|  |- test_mediator_simulation.py
 |  |- test_overdue_threshold.py
 |  |- test_path.py
 |  |- test_player_env.py
@@ -211,9 +217,14 @@ The Node boundary depends on the live sibling `civ-engine` through `file:../civ-
 
 ## Recursive-loop tests
 
-- `test/test_recursive_playtest.py` covers strict scenario/input validation, one transcript row per operation, and recorded-input replay; `test/test_recursive_threshold_schema.py` pins immutable v1/v2/v3 threshold reconstruction and checkpoint mapping; `test/test_recursive_checkpoint.py` covers UUID-free checkpoint construction, schema normalization, alias agreement, reward-contract identity, and latent-state observability. `test/test_overdue_threshold.py` and `test/test_agent_play_threshold.py` cover default runtime overload semantics and agent evidence migration without enlarging the pre-existing oversized mediator test.
+- `test/test_recursive_playtest.py` covers strict scenario/input validation, one transcript row per operation, and recorded-input replay; `test/test_recursive_threshold_schema.py` pins immutable v1/v2/v3 threshold reconstruction and checkpoint mapping; `test/test_recursive_checkpoint.py` covers UUID-free checkpoint construction, schema normalization, alias agreement, reward-contract identity, and latent-state observability. `test/test_overdue_threshold.py` and `test/test_agent_play_threshold.py` cover default runtime overload semantics and agent evidence migration without enlarging the mediator characterization suites.
 - `test/test_recursive_oracles.py` covers cross-view topology and the remaining environment-contract oracle classes.
 - `test/source-provenance.test.mjs`, `test/recursive-ledger.test.mjs`, `test/playtest-verify.test.mjs`, `test/recursive-pass.test.mjs`, and `test/playtest-recursive.test.mjs` cover local and linked-engine inventory, ignored-runtime mismatch rejection, start/end recapture, token-safe concurrent/crash reconciliation, torn-tail repair, exact fresh-process verification, strict evidence promotion, manifest contracts, public verifier retries, and end-to-end success/failure outcomes. `test/recursive-fixtures.mjs` supplies strict shared manifest fixtures without registering another test entry point.
+
+## Mediator characterization tests
+
+- `test/mediator_test_support.py` owns the shared per-test mediator fixture, pygame draw cleanup, interaction helper, and two-station network builder without matching unittest's default discovery pattern.
+- Six discovered modules partition mediator behavior by ownership: interaction/layout, routing decisions, path lifecycle, simulation/spawning/game over, passenger/metro flow, and progression/purchases. They preserve the former monolithic suite's exact 57 test bodies while keeping each test file below 500 lines; production `src/mediator.py` decomposition remains owned by GM-03b through GM-03f.
 
 ## Rendering tests
 

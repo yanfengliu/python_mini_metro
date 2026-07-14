@@ -261,3 +261,23 @@ For each GM increment append: changed contracts, focused red/green tests, full l
 - Push: `origin/main` advanced from `dc35cd6` to `27a0304`.
 - Remote workflow: [run 29299216859](https://github.com/yanfengliu/python_mini_metro/actions/runs/29299216859) succeeded for the exact commit; `gh run watch 29299216859 --exit-status` returned zero after the pinned workflow completed. A subsequent metadata-only query was unavailable because the approval service reached its usage limit, so no unobserved per-job durations are claimed.
 - Commit B purpose: durably bind the hybrid/semantic-memory research decision to A's exact green remote result before GM-03a begins.
+
+## GM-02e Commit B - remote finalization
+
+- Commit: `60b4174b2bbe2f92ae3abac4a44991f03caa518b` (`docs: finalize hybrid RL memory plan [GM-02e:B]`).
+- Push: `origin/main` advanced from `27a0304` to `60b4174`.
+- Remote workflow: [run 29302064550](https://github.com/yanfengliu/python_mini_metro/actions/runs/29302064550) succeeded; `build` passed in 36 seconds and `rl-smoke` passed in 3 minutes 58 seconds. GM-02e is remotely finalized.
+
+## GM-03a frozen baseline
+
+- Source boundary: `test/test_mediator.py` is 1,158 physical lines with Git blob `a52b410258b513ded74e71a58bbea40cb1555506`, 57 unique tests, and three fixture/helper methods. `src/mediator.py` is 1,112 lines and is explicitly out of scope until GM-03b through GM-03f.
+- Local baseline: isolated py313 mediator tests passed 57/57; the full py313 suite passed 437 tests with 12 expected optional-RL skips in 10.275 seconds.
+- Review boundary: the pinned Codex plan review was blocked before launch because external repository-context transfer lacked separate post-disclosure approval; Claude was not used to reroute the prohibited export. Three independent in-process reviewers approved the corrected exact partition, discovery/body-preservation contract, documentation/process obligations, and durable cursor before implementation.
+
+## GM-03a local implementation evidence
+
+- Mechanical preservation: the monolithic test was replaced by `mediator_test_support.py` plus six behavior modules with standalone counts `12/8/8/10/8/11`. A frozen-baseline verifier proved exactly 57 unique discovered test IDs, all 57 original method names, all three helpers, attribute-free AST equality, exact dedented source-segment equality, and all six in-method comments. The original file is deleted without an aggregator.
+- Runtime validation: all six modules passed independently in fresh py313 processes and passed together 57/57 in 0.186 seconds. The sequential core suite passed 437 tests with 12 expected optional-RL skips in 5.646 seconds; the sequential exact-RL suite passed 440/440 in 11.622 seconds.
+- Static/size boundary: Ruff check and format passed all seven new Python files after deliberate `isort: split` boundaries kept the support path bootstrap ahead of bare production imports. File sizes range from 72 to 270 physical lines, below the 500-line target.
+- Production boundary: comparison against frozen baseline `60b4174`, ordinary/cached diffs, and explicit `git status --short -- src` all prove no modified, staged, or untracked production file. `ARCHITECTURE.md` and `PROGRESS.md` document only the behavior-neutral test ownership change; README and GAME_RULES remain unchanged.
+- Hooks/review boundary: final pre-commit passed all 33 GM-03a changed/deleted/new paths with EOF, trailing-whitespace, Ruff check, and Ruff format hooks clean. Three independent live-code reviewers found no Python defect; all three found stale implementation/cursor evidence, and two found the inaccurate word “seeded” for the unchanged entropy-backed fixture. Both documentation defects were corrected, and all three final re-review lanes returned `CLEAN`. External final-diff review remains unlaunched under the same prohibited repository-export boundary. GM-03a is locally ready for Commit A.
