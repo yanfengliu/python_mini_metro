@@ -24,4 +24,8 @@ The documentation review found four process defects and all were corrected: dura
 
 The final documentation re-review found one medium cursor lag after the exact 29-file unit was staged. Parent state/evidence and this iteration now record the completed cached inventory/stat, clean `diff --check`, zero secret-pattern matches, and `.agents/` exclusion. That finding is closed.
 
-Implementation finding status: no unresolved high- or medium-severity defect. GM-03b is locally ready for Commit A.
+Implementation finding status at local review: no unresolved high- or medium-severity defect; GM-03b was ready for Commit A.
+
+## Remote implementation gate
+
+Commit A `36e89d9bd70f0b41ce1a3d863fa85cd26eee811c` passed exact [run 29310175226](https://github.com/yanfengliu/python_mini_metro/actions/runs/29310175226): `build` completed successfully in 4 minutes and `rl-smoke` in 3 minutes 59 seconds. Evidence-only Commit B is the remaining GM-03b transaction.

@@ -1,6 +1,6 @@
 # GM-03b - Extract network progression ownership
 
-Status: implemented and locally verified; Commit A pending
+Status: Commit A remotely green; evidence-only Commit B pending
 
 Baseline: `fbcb31d0321d690da56d4d7299c9720248881059` (`docs: finalize mediator test split [GM-03a:B]`), remotely green in [run 29304181859](https://github.com/yanfengliu/python_mini_metro/actions/runs/29304181859).
 

@@ -314,4 +314,11 @@ For each GM increment append: changed contracts, focused red/green tests, full l
 - Adversarial review: the first code lane found a real public-dispatch regression; its initial fix exposed a second eager-price-query regression. Both were corrected and independently refuted with high-price/non-mutation and raising-price/short-circuit tests. Final code and refutation lanes returned `CLEAN`. The documentation lane's stale cursor, incomplete untracked-diff procedure, undisclosed size debt, and retry-prompt findings were corrected before final staging.
 - Size boundary: `src/progression.py` is 100 lines; `test/test_network_progression.py` is 139; `test/test_mediator_progression.py` is 341; and `test/test_mediator_passenger_flow.py` is 265. The explicit facade makes `src/mediator.py` 1,193 lines, 81 above its 1,112-line baseline and still above the 1,000-line ceiling. This is disclosed temporary debt: GM-03c must finish below 1,112 and GM-03d below 1,000 before later clusters continue toward the practical under-500 target.
 - Staged boundary: the exact 29-file GM-03b unit is staged; cached `diff --check` is clean and the staged secret-pattern scan reports zero matches. The complete cached inventory includes every new aggregate, test, and iteration artifact; only the pre-existing `.agents/` tree remains untracked and ignored `output/` remains excluded.
-- Durability boundary: GM-03b Commit A has not been created or pushed. Final all-path pre-commit and cached-diff review are green; Commit A, push, and exact GitHub CI are next.
+- Durability boundary at local review: GM-03b Commit A had not yet been created or pushed. Final all-path pre-commit and cached-diff review were green; the exact remote result now follows.
+
+## GM-03b Commit A - remote implementation gate
+
+- Commit: `36e89d9bd70f0b41ce1a3d863fa85cd26eee811c` (`refactor: extract mediator progression [GM-03b:A]`).
+- Push: `origin/main` advanced from `fbcb31d` to `36e89d9`.
+- Remote workflow: [run 29310175226](https://github.com/yanfengliu/python_mini_metro/actions/runs/29310175226) succeeded for the exact commit; `build` passed in 4 minutes and `rl-smoke` passed in 3 minutes 59 seconds. The pinned jobs covered the full Python/recursive/Node contract gate plus the exact RL library and recurrent-history/legacy-PPO smoke.
+- Commit B purpose: durably bind the progression extraction and its local compatibility proofs to A's exact green remote result before GM-03c begins.
