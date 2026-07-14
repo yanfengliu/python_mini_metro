@@ -253,4 +253,11 @@ For each GM increment append: changed contracts, focused red/green tests, full l
 - Primary evidence: SB3-Contrib documents recurrent Dict/MultiDiscrete support; Relational Deep RL motivates entity reasoning; GTrXL motivates gated long-memory attention; the 2025 Memory Gym study found GRU significantly ahead of Transformer-XL on every endless variant; Asymmetric Actor Critic, Learning by Cheating, and UNREAL motivate training-time privileged or auxiliary signals without granting them to a deployed visual actor.
 - Review boundary: independent live-code reviewers found and closed contradictory task identity, privileged-precision labeling, Box-only history lifecycle, final GM-05-through-GM-10 inventory, persistence-authority, and premature-freeze gaps. The external pinned Codex plan review was blocked before launch because the platform would not export repository plan/code context without separate disclosure approval; Claude was not used to reroute the prohibited same export. In-process re-review is the completion authority for this unit.
 - Disk/RAM clarification: the profile's 3.6-4.5 GB figures are summed peak process-tree working-set RAM. Live repository measurement found ignored `output/` at 816.6 MiB, led by `output/venv-rl` at 735.9 MiB (`torch` about 490 MiB); raw history-profile evidence is 16.7 MiB.
-- Durability boundary: GM-02e Commit A is not yet created or pushed. No runtime, reward, observation, model, dependency, or manifest default changes in this research-only work unit.
+- Durability boundary at research review: GM-02e Commit A had not yet been created or pushed. Its exact remote result is recorded below. No runtime, reward, observation, model, dependency, or manifest default changed in this research-only work unit.
+
+## GM-02e Commit A - remote research gate
+
+- Commit: `27a0304df1309096561ecdf21ffdcb46d6c9688f` (`docs: plan hybrid RL memory [GM-02e:A]`).
+- Push: `origin/main` advanced from `dc35cd6` to `27a0304`.
+- Remote workflow: [run 29299216859](https://github.com/yanfengliu/python_mini_metro/actions/runs/29299216859) succeeded for the exact commit; `gh run watch 29299216859 --exit-status` returned zero after the pinned workflow completed. A subsequent metadata-only query was unavailable because the approval service reached its usage limit, so no unobserved per-job durations are claimed.
+- Commit B purpose: durably bind the hybrid/semantic-memory research decision to A's exact green remote result before GM-03a begins.
