@@ -8,21 +8,21 @@ Current increment: GM-02 - Add strategically spaced long visual history
 
 Current substep: GM-02d2 - promote the measured safe history
 
-Current status: exact-source campaigns, ten-frame promotion implementation, local gates, and adversarial review are complete; GM-02d2 Commit A is next
+Current status: GM-02d2 implementation Commit A `36cf0588941f02617f1de450ec4f47b35580a2a7` passed remote run `29297091497`; evidence-only Commit B is next
 
-Durability transaction: GM-02d1 Commit B `3c684724a73882b31a714553f1f87f58c39f31da` passed run `29293344902`; GM-02d2 implementation Commit A is next
+Durability transaction: GM-02d2 Commit A `36cf0588941f02617f1de450ec4f47b35580a2a7` passed run `29297091497`; evidence-only Commit B is next
 
 Last remotely finalized work unit: GM-02d1 at Commit B `3c684724a73882b31a714553f1f87f58c39f31da`, which passed [run 29293344902](https://github.com/yanfengliu/python_mini_metro/actions/runs/29293344902)
 
-Expected remote implementation baseline: `3c684724a73882b31a714553f1f87f58c39f31da`
+Expected remote implementation baseline: `36cf0588941f02617f1de450ec4f47b35580a2a7`
 
-Current transaction marker: `[GM-02d2:A]`
+Current transaction marker: `[GM-02d2:B]`
 
 ## Resume here
 
-1. Stage only the reviewed GM-02d2 implementation, compact evidence, docs, prompts, and raw in-process reports; never stage the pre-existing `.agents/` tree or ignored raw profile/model outputs.
-2. Create/push GM-02d2 Commit A and wait for pinned `build` plus `rl-smoke` CI.
-3. Record A's exact SHA/CI in evidence-only Commit B, push/wait for B's CI, and only then advance to GM-03a.
+1. Stage only this evidence-only STATE/EVIDENCE update; never stage the pre-existing `.agents/` tree or ignored raw profile/model outputs.
+2. Create/push GM-02d2 Commit B and wait for pinned `build` plus `rl-smoke` CI.
+3. After B is green, mark GM-02d2 remotely finalized and advance directly to GM-03a.
 
 ## Increment ledger
 
@@ -30,7 +30,7 @@ Current transaction marker: `[GM-02d2:A]`
 | --- | --- | --- | --- | --- |
 | GM-00 | complete | `16a0e73` / `0411e68` | [A run 29172923371](https://github.com/yanfengliu/python_mini_metro/actions/runs/29172923371) and [B run 29173071970](https://github.com/yanfengliu/python_mini_metro/actions/runs/29173071970) succeeded | Durable plan and reviews |
 | GM-01 | complete | `5e00763` / `6c77033` / `3523ea4` / `18ef714` / `648025f` / `14050af` | GM-01a/GM-01b/GM-01c A/B green | Canonical objective and baseline rules remotely finalized |
-| GM-02 | in progress | `bab6b15` / `ab8e6eb` / `a5744c0` / `53bc510` / `9b75f37` / `812e426` / `02ceb54` / `3c68472` | GM-02a/GM-02b/GM-02c/GM-02d1 A/B green | GM-02d2 local promotion in progress |
+| GM-02 | in progress | `bab6b15` / `ab8e6eb` / `a5744c0` / `53bc510` / `9b75f37` / `812e426` / `02ceb54` / `3c68472` / `36cf058` | GM-02a/GM-02b/GM-02c/GM-02d1 A/B and GM-02d2 A green | GM-02d2 evidence-only Commit B pending |
 | GM-03 | pending | - | - | Mediator and test decomposition |
 | GM-04 | pending | - | - | Isolated pinned civ-engine local setup |
 | GM-05 | pending | - | - | Route editing |
@@ -58,7 +58,7 @@ Current transaction marker: `[GM-02d2:A]`
 | GM-02b | complete | `a5744c0` / run `29209101298` success | `53bc510` / run `29209297952` success | Temporal ring and lifecycle/resource tests remotely finalized |
 | GM-02c | complete | `9b75f37` / run `29211060401` success | `812e426` / run `29211292517` success | Descriptor-driven CLI/train/eval/recurrent/legacy integration remotely finalized |
 | GM-02d1 | complete | `02ceb54` / run `29293092427` success | `3c68472` / run `29293344902` success | Benchmark harness remotely finalized before measurement |
-| GM-02d2 | local-ready | `[GM-02d2:A]` / pending | - | Valid fallback promoted exact ten-frame default; implementation/gates/review complete |
+| GM-02d2 | remote-a-green | `36cf058` / run `29297091497` success | `[GM-02d2:B]` / pending | Valid fallback promoted exact ten-frame default; evidence-only finalization next |
 | GM-03a | pending | - | - | Split mediator tests |
 | GM-03b | pending | - | - | Extract progression |
 | GM-03c | pending | - | - | Extract route planning |
@@ -117,7 +117,7 @@ Before GM-12c starts, replace its placeholder with one row per configuration and
 
 ## Known external state
 
-- `main` and `origin/main` were equal at GM-02d1 Commit B `3c684724a73882b31a714553f1f87f58c39f31da` when both GM-02d2 campaigns ran; current tracked edits are the uncommitted promotion transaction.
+- `main` and `origin/main` are equal at GM-02d2 Commit A `36cf0588941f02617f1de450ec4f47b35580a2a7`; current tracked edits are the evidence-only Commit B transaction.
 - The only pre-existing untracked path is `.agents/`; preserve it.
 - The live sibling `../civ-engine` is 2.4.1 while this repository pins 2.2.0, so unisolated local `npm test` fails by design. GM-04 owns the durable setup fix.
 - The fleet `loop-ops/DIRECTIVES.md` does not list this repository as an active scheduled shift. Use repo-local persistent state and bare verified passes unless the owner later activates it there.
