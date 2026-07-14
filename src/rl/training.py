@@ -11,7 +11,7 @@ from typing import Any
 
 from rl.artifacts import sha256_file
 from rl.dependencies import require_rl_dependencies as require_rl_dependencies
-from rl.history import HistoryDescriptor, contiguous_history
+from rl.history import HistoryDescriptor, contiguous_history, default_history
 from rl.manifest import ManifestCompatibilityError, TrainingManifest
 from rl.policy import (
     DEFAULT_ALGORITHM,
@@ -161,8 +161,12 @@ def build_vector_env(
         raise ValueError("history and frame_stack cannot be combined")
     if history is not None and not isinstance(history, HistoryDescriptor):
         raise TypeError("history must be a HistoryDescriptor")
-    selected_history = history or contiguous_history(
-        DEFAULT_FRAME_STACK if frame_stack is None else frame_stack
+    selected_history = (
+        history
+        if history is not None
+        else default_history()
+        if frame_stack is None
+        else contiguous_history(frame_stack)
     )
     components = require_rl_dependencies()
     from rl.temporal_history import VecTemporalHistory

@@ -250,67 +250,83 @@ class TestPromotionContract(unittest.TestCase):
         self.assertFalse(decision.promoted)
 
     def test_missing_duplicate_invalid_and_setting_drift_fail_closed(self) -> None:
-        cases: list[list[ProfileRepeat]] = []
         complete = campaign_samples(PRIMARY_CAMPAIGN)
-        cases.append(complete[:-1])
-        cases.append([*complete, complete[0]])
-        cases.append(
-            [
-                sample
-                if index
-                else ProfileRepeat(
-                    sample.candidate,
-                    sample.repeat,
-                    sample.peak_working_set_bytes,
-                    sample.end_to_end_fps,
-                    False,
-                    sample.batch_size,
-                    sample.n_epochs,
-                )
-                for index, sample in enumerate(complete)
-            ]
-        )
-        cases.append(
-            [
-                sample
-                if index
-                else ProfileRepeat(
-                    sample.candidate,
-                    sample.repeat,
-                    sample.peak_working_set_bytes,
-                    sample.end_to_end_fps,
-                    sample.valid,
-                    32,
-                    sample.n_epochs,
-                )
-                for index, sample in enumerate(complete)
-            ]
-        )
-        cases.append(
-            [
-                sample
-                if index
-                else ProfileRepeat(
-                    sample.candidate,
-                    sample.repeat,
-                    sample.peak_working_set_bytes,
-                    sample.end_to_end_fps,
-                    sample.valid,
-                    sample.batch_size,
-                    3,
-                )
-                for index, sample in enumerate(complete)
-            ]
+        cases = (
+            ("missing", complete[:-1], "campaign-incomplete"),
+            ("duplicate", [*complete, complete[0]], "campaign-incomplete"),
+            (
+                "invalid",
+                [
+                    sample
+                    if index
+                    else ProfileRepeat(
+                        sample.candidate,
+                        sample.repeat,
+                        sample.peak_working_set_bytes,
+                        sample.end_to_end_fps,
+                        False,
+                        sample.batch_size,
+                        sample.n_epochs,
+                    )
+                    for index, sample in enumerate(complete)
+                ],
+                "repeat-invalid",
+            ),
+            (
+                "batch-drift",
+                [
+                    sample
+                    if index
+                    else ProfileRepeat(
+                        sample.candidate,
+                        sample.repeat,
+                        sample.peak_working_set_bytes,
+                        sample.end_to_end_fps,
+                        sample.valid,
+                        32,
+                        sample.n_epochs,
+                    )
+                    for index, sample in enumerate(complete)
+                ],
+                "settings-mismatch",
+            ),
+            (
+                "epoch-drift",
+                [
+                    sample
+                    if index
+                    else ProfileRepeat(
+                        sample.candidate,
+                        sample.repeat,
+                        sample.peak_working_set_bytes,
+                        sample.end_to_end_fps,
+                        sample.valid,
+                        sample.batch_size,
+                        3,
+                    )
+                    for index, sample in enumerate(complete)
+                ],
+                "settings-mismatch",
+            ),
         )
 
-        for samples in cases:
-            with self.subTest(samples=len(samples)):
-                self.assertFalse(
-                    evaluate_promotion(
-                        samples,
-                        campaign=PRIMARY_CAMPAIGN,
-                    ).promoted
+        for name, samples, reason in cases:
+            with self.subTest(name=name):
+                decision = evaluate_promotion(samples, campaign=PRIMARY_CAMPAIGN)
+                self.assertFalse(decision.promoted)
+                self.assertEqual(decision.reasons, (reason,))
+                self.assertEqual(
+                    (
+                        decision.baseline_median_peak_bytes,
+                        decision.target_median_peak_bytes,
+                        decision.baseline_median_fps,
+                        decision.target_median_fps,
+                    ),
+                    (None, None, None, None),
                 )
+                self.assertFalse(decision.relative_memory_passed)
+                self.assertFalse(decision.historical_memory_passed)
+                self.assertFalse(decision.throughput_passed)
 
     def test_controls_and_cross_campaign_targets_are_ineligible(self) -> None:
         primary = campaign_samples(PRIMARY_CAMPAIGN)
@@ -327,6 +343,9 @@ class TestPromotionContract(unittest.TestCase):
                 )
                 self.assertFalse(decision.eligible)
                 self.assertFalse(decision.promoted)
+                self.assertEqual(decision.reasons, ("target-ineligible",))
+                self.assertIsNone(decision.target_median_peak_bytes)
+                self.assertIsNone(decision.target_median_fps)
 
     def test_repeat_contract_rejects_unknown_indices_and_bad_measurements(self) -> None:
         with self.assertRaises((TypeError, ValueError)):

@@ -23,6 +23,7 @@ from rl.history import (  # noqa: E402
     NAMED_HISTORY_LAYOUTS,
     HistoryDescriptor,
     contiguous_history,
+    default_history,
     history_for_layout,
 )
 from rl.manifest import (  # noqa: E402
@@ -106,7 +107,7 @@ def build_parser() -> argparse.ArgumentParser:
     history_group.add_argument(
         "--frame-stack",
         type=_positive_int,
-        help="contiguous observation frames (default: 8 for fresh runs)",
+        help="explicit contiguous-history ablation (fresh recurrent default: profiled multiscale history)",
     )
     history_group.add_argument(
         "--history-layout",
@@ -177,7 +178,11 @@ def _resolve_algorithm_and_history(
         algorithm = requested_algorithm or DEFAULT_ALGORITHM
         if algorithm not in SUPPORTED_ALGORITHMS:
             raise ValueError(f"unsupported algorithm: {algorithm!r}")
-        history = requested_history or contiguous_history(DEFAULT_FRAME_STACK)
+        history = requested_history or (
+            default_history()
+            if algorithm == DEFAULT_ALGORITHM
+            else contiguous_history(DEFAULT_FRAME_STACK)
+        )
         return algorithm, history
 
     saved_algorithm = resume_manifest.algorithm

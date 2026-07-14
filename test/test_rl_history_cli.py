@@ -18,6 +18,7 @@ from rl.history import (
     DECISION_HISTORY_LAYOUT,
     EIGHT_MULTISCALE_HISTORY_LAYOUT,
     contiguous_history,
+    default_history,
     history_for_layout,
 )
 from rl.protocol import FAST_RENDER_PROFILE, RewardMode, TaskSpec
@@ -106,7 +107,15 @@ class TestHistoryCliResolution(unittest.TestCase):
                 requested_history=None,
                 resume_manifest=None,
             ),
-            ("recurrent_ppo", contiguous_history(8)),
+            ("recurrent_ppo", default_history()),
+        )
+        self.assertEqual(
+            module._resolve_algorithm_and_history(
+                requested_algorithm="ppo",
+                requested_history=None,
+                resume_manifest=None,
+            ),
+            ("ppo", contiguous_history(8)),
         )
         self.assertEqual(
             module._resolve_algorithm_and_history(
@@ -213,44 +222,59 @@ class TestHistoryCliResolution(unittest.TestCase):
         validate.assert_not_called()
         verify.assert_not_called()
 
-    def test_fresh_named_history_reaches_both_vector_environments(self) -> None:
+    def test_fresh_default_and_named_history_reach_both_vector_environments(
+        self,
+    ) -> None:
         module = load_script("train")
-        history = history_for_layout(EIGHT_MULTISCALE_HISTORY_LAYOUT)
         runtime = RuntimeSnapshot("3.13", "test", {})
         source = SourceSnapshot(None, ())
-        started = FakeVectorEnv()
-        with tempfile.TemporaryDirectory() as temp_dir:
-            args = module.build_parser().parse_args(
-                [
-                    "--history-layout",
-                    EIGHT_MULTISCALE_HISTORY_LAYOUT,
-                    "--run-dir",
-                    str(Path(temp_dir) / "run"),
-                ]
-            )
-            with (
-                patch.object(module, "require_rl_dependencies"),
-                patch.object(module, "compute_content_fingerprint", return_value="c"),
-                patch.object(module, "compute_training_fingerprint", return_value="t"),
-                patch.object(module, "collect_runtime_snapshot", return_value=runtime),
-                patch.object(module, "collect_source_snapshot", return_value=source),
-                patch.object(
-                    module,
-                    "build_vector_env",
-                    side_effect=[started, RuntimeError("stop after both builds")],
-                ) as build,
-            ):
-                with self.assertRaisesRegex(RuntimeError, "both builds"):
-                    module.run(args)
-
-        self.assertEqual(
-            build.call_args_list,
-            [
-                call(ANY, n_envs=8, seed=42, history=history),
-                call(ANY, n_envs=1, seed=10_042, history=history),
-            ],
+        cases = (
+            ((), default_history()),
+            (
+                ("--history-layout", EIGHT_MULTISCALE_HISTORY_LAYOUT),
+                history_for_layout(EIGHT_MULTISCALE_HISTORY_LAYOUT),
+            ),
         )
-        self.assertTrue(started.closed)
+        for selectors, history in cases:
+            with (
+                self.subTest(selectors=selectors),
+                tempfile.TemporaryDirectory() as temp_dir,
+            ):
+                started = FakeVectorEnv()
+                args = module.build_parser().parse_args(
+                    [*selectors, "--run-dir", str(Path(temp_dir) / "run")]
+                )
+                with (
+                    patch.object(module, "require_rl_dependencies"),
+                    patch.object(
+                        module, "compute_content_fingerprint", return_value="c"
+                    ),
+                    patch.object(
+                        module, "compute_training_fingerprint", return_value="t"
+                    ),
+                    patch.object(
+                        module, "collect_runtime_snapshot", return_value=runtime
+                    ),
+                    patch.object(
+                        module, "collect_source_snapshot", return_value=source
+                    ),
+                    patch.object(
+                        module,
+                        "build_vector_env",
+                        side_effect=[started, RuntimeError("stop after both builds")],
+                    ) as build,
+                ):
+                    with self.assertRaisesRegex(RuntimeError, "both builds"):
+                        module.run(args)
+
+                self.assertEqual(
+                    build.call_args_list,
+                    [
+                        call(ANY, n_envs=8, seed=42, history=history),
+                        call(ANY, n_envs=1, seed=10_042, history=history),
+                    ],
+                )
+                self.assertTrue(started.closed)
 
     def test_evaluation_authenticates_then_builds_exact_manifest_history(self):
         module = load_script("evaluate")

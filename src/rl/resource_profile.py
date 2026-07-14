@@ -284,10 +284,14 @@ def evaluate_promotion(
     )
     eligible = target == eligible_target
 
-    baseline_peak = _median_for(rows, BASELINE_CANDIDATE, "peak_working_set_bytes")
-    target_peak = _median_for(rows, target, "peak_working_set_bytes")
-    baseline_fps = _median_for(rows, BASELINE_CANDIDATE, "end_to_end_fps")
-    target_fps = _median_for(rows, target, "end_to_end_fps")
+    metrics_usable = eligible and complete and all_valid and settings_match
+    if metrics_usable:
+        baseline_peak = _median_for(rows, BASELINE_CANDIDATE, "peak_working_set_bytes")
+        target_peak = _median_for(rows, target, "peak_working_set_bytes")
+        baseline_fps = _median_for(rows, BASELINE_CANDIDATE, "end_to_end_fps")
+        target_fps = _median_for(rows, target, "end_to_end_fps")
+    else:
+        baseline_peak = target_peak = baseline_fps = target_fps = None
     relative_memory_passed = (
         baseline_peak is not None
         and target_peak is not None
@@ -301,24 +305,32 @@ def evaluate_promotion(
         and target_fps is not None
         and target_fps * 4 >= baseline_fps * 3
     )
-    gates = (
-        eligible,
-        complete,
-        all_valid,
-        settings_match,
+    measurement_gates = (
         relative_memory_passed,
         historical_memory_passed,
         throughput_passed,
     )
-    reason_names = (
-        "target-ineligible",
-        "campaign-incomplete",
-        "repeat-invalid",
-        "settings-mismatch",
-        "relative-memory-failed",
-        "historical-memory-failed",
-        "throughput-failed",
-    )
+    if not eligible:
+        reasons = ("target-ineligible",)
+    elif not complete:
+        reasons = ("campaign-incomplete",)
+    elif not all_valid:
+        reasons = ("repeat-invalid",)
+    elif not settings_match:
+        reasons = ("settings-mismatch",)
+    else:
+        reasons = tuple(
+            name
+            for name, passed in zip(
+                (
+                    "relative-memory-failed",
+                    "historical-memory-failed",
+                    "throughput-failed",
+                ),
+                measurement_gates,
+            )
+            if not passed
+        )
     return PromotionDecision(
         campaign=campaign,
         target=target,
@@ -333,8 +345,8 @@ def evaluate_promotion(
         relative_memory_passed=relative_memory_passed,
         historical_memory_passed=historical_memory_passed,
         throughput_passed=throughput_passed,
-        promoted=all(gates),
-        reasons=tuple(name for name, passed in zip(reason_names, gates) if not passed),
+        promoted=eligible and metrics_usable and all(measurement_gates),
+        reasons=reasons,
     )
 
 

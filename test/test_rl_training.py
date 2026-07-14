@@ -15,7 +15,12 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 import rl.training as rl_training
 from rl.artifacts import write_artifact_index
 from rl.evaluation import evaluate_vector_policy
-from rl.history import DECISION_HISTORY_LAYOUT, contiguous_history, history_for_layout
+from rl.history import (
+    DECISION_HISTORY_LAYOUT,
+    contiguous_history,
+    default_history,
+    history_for_layout,
+)
 from rl.manifest import (
     RuntimeSnapshot,
     SourceSnapshot,
@@ -43,9 +48,10 @@ RL_DEPS_AVAILABLE = all(
 
 
 class TestTrainingConfiguration(unittest.TestCase):
-    def test_recurrent_ppo_and_eight_frames_are_the_fresh_run_defaults(self):
+    def test_recurrent_ppo_and_profiled_history_are_the_fresh_run_defaults(self):
         self.assertEqual(rl_training.DEFAULT_ALGORITHM, "recurrent_ppo")
         self.assertEqual(rl_training.DEFAULT_FRAME_STACK, 8)
+        self.assertEqual(default_history().frame_stack, 10)
 
         recorded = rl_training.model_manifest_hyperparameters(
             algorithm=rl_training.DEFAULT_ALGORITHM,
@@ -263,9 +269,9 @@ class TestStableBaselinesTraining(unittest.TestCase):
             first_observation = first.reset()
             second_observation = second.reset()
             self.assertTrue((first_observation == second_observation).all())
-            self.assertEqual(first_observation.shape, (1, 24, 108, 192))
+            self.assertEqual(first_observation.shape, (1, 30, 108, 192))
             self.assertIsInstance(first, VecTemporalHistory)
-            self.assertEqual(first.history, contiguous_history(8))
+            self.assertEqual(first.history, default_history())
             self.assertIsInstance(first.venv, VecMonitor)
             self.assertIsInstance(first.venv.venv, DummyVecEnv)
             self.assertIs(select_base_vec_env_class(2), SubprocVecEnv)
@@ -288,7 +294,7 @@ class TestStableBaselinesTraining(unittest.TestCase):
             self.assertIs(infos[0]["TimeLimit.truncated"], True)
             self.assertTrue((next_observation[:, :-3] == 0).all())
             terminal = np.asarray(infos[0]["terminal_observation"])
-            self.assertEqual(terminal.shape, (24, 108, 192))
+            self.assertEqual(terminal.shape, (30, 108, 192))
             self.assertTrue((terminal[-6:-3] == initial[0, -3:]).all())
         finally:
             env.close()

@@ -14,6 +14,7 @@ CONTIGUOUS_HISTORY_LAYOUT = "contiguous-history-v1"
 DECISION_HISTORY_LAYOUT = "decision-history-v1"
 EIGHT_MULTISCALE_HISTORY_LAYOUT = "decision-history-8-control-v1"
 TEN_MULTISCALE_HISTORY_LAYOUT = "decision-history-10-fallback-v1"
+DEFAULT_HISTORY_LAYOUT = TEN_MULTISCALE_HISTORY_LAYOUT
 NAMED_HISTORY_LAYOUTS = (
     DECISION_HISTORY_LAYOUT,
     EIGHT_MULTISCALE_HISTORY_LAYOUT,
@@ -58,6 +59,7 @@ _FIXED_FIELDS = {
 __all__ = (
     "CHANNEL_ORDER",
     "CONTIGUOUS_HISTORY_LAYOUT",
+    "DEFAULT_HISTORY_LAYOUT",
     "DECISION_HISTORY_LAYOUT",
     "EIGHT_MULTISCALE_HISTORY_LAYOUT",
     "HISTORY_DESCRIPTOR_SCHEMA",
@@ -71,6 +73,7 @@ __all__ = (
     "TERMINAL_BEHAVIOR",
     "canonical_history_bytes",
     "contiguous_history",
+    "default_history",
     "history_for_layout",
 )
 
@@ -180,6 +183,12 @@ def contiguous_history(frame_stack: int) -> HistoryDescriptor:
         CONTIGUOUS_HISTORY_LAYOUT,
         tuple(range(frame_stack - 1, -1, -1)),
     )
+
+
+def default_history() -> HistoryDescriptor:
+    """Return the exact multiscale history promoted by matched profiling."""
+
+    return history_for_layout(DEFAULT_HISTORY_LAYOUT)
 
 
 def history_for_layout(layout: str) -> HistoryDescriptor:

@@ -107,3 +107,7 @@
 - Added a bounded per-environment `uint8` temporal-history ring with exact multiscale chronology, zero pre-history, isolated terminal/reset stacks, fail-closed recovery, contiguous `VecFrameStack` equivalence, and pinned candidate memory accounting; runtime integration remains staged for GM-02c.
 - Integrated exact manifest-declared temporal history across fresh training, resume, and evaluation; added mutually exclusive contiguous/named controls, recurrent and spawned multiscale coverage, genuine old-stack compatibility, model-space mismatch checks, evaluation history reporting, and a Windows multiscale lifecycle smoke while retaining eight contiguous frames as the unpromoted default.
 - Added a test-first matched-history resource profiler with cyclic fresh-process campaigns, exact storage/padded-batch/MAC and promotion contracts, a production-horizon two-update RecurrentPPO worker, and a dependency-free Windows launcher/descendant working-set supervisor; the harness is staged for remote verification before any default-promotion measurements run.
+
+## 2026-07-13
+
+- Ran the remotely gated matched-resource campaigns, rejected the operationally invalid primary result, promoted the fully valid ten-frame multiscale fallback within the preregistered RAM/throughput gates, made that exact descriptor the fresh recurrent default while preserving explicit PPO's contiguous-eight behavior and persisted resume identity, and made invalid/incomplete/mismatched campaign aggregates fail closed.

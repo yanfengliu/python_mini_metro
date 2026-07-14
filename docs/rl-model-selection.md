@@ -2,7 +2,7 @@
 
 ## Decision
 
-Use an **eight-frame `MiniMetroCNN` feeding a 256-unit LSTM with RecurrentPPO** as the default production training lane. Keep the existing delivery-delta reward: because a game begins at zero deliveries, the undiscounted sum of those deltas is exactly the total number of passengers delivered before the episode ends. The primary evaluation metric is therefore delivered passengers, not display score or shaped reward.
+Use a **ten-frame multiscale `MiniMetroCNN` feeding a 256-unit LSTM with RecurrentPPO** as the default production training lane. The exact oldest-to-newest offsets are `[128, 64, 7, 6, 5, 4, 3, 2, 1, 0]`, so the policy retains dense local motion plus route-state anchors 6.4 and 12.8 seconds back at the default decision cadence. Keep the existing delivery-delta reward: because a game begins at zero deliveries, the undiscounted sum of those deltas is exactly the total number of passengers delivered before the episode ends. The primary evaluation metric is therefore delivered passengers, not display score or shaped reward.
 
 Run **DreamerV3 `size12m`** as a separate research lane after the recurrent PPO baseline is trustworthy. Its recurrent state-space model and replay-based imagined training are well matched to long horizons, pixels, and sparse rewards, but adapting this repository's structured pointer action, artifact contract, and Windows training path is a materially larger project.
 
@@ -28,7 +28,7 @@ This is consequently a partially observed, long-horizon, sparse-reward visual-co
 | Candidate | Fit to this task | Main advantage | Main limitation | Disposition |
 | --- | --- | --- | --- | --- |
 | CNN PPO with frame stacking | Strong baseline | Small, established, debuggable, and already integrated | A fixed stack cannot remember events outside its window | Retain 4-frame PPO as a control; use 8-frame PPO as the memory-free ablation |
-| CNN-LSTM RecurrentPPO | Strongest implementation-ready fit | Adds per-episode learned state while preserving the current PPO, CNN, vector-env, and `MultiDiscrete` path | On-policy sample cost remains high; truncated backpropagation does not guarantee hour-long credit assignment | **Default lane: 8 frames, 256-unit LSTM** |
+| CNN-LSTM RecurrentPPO | Strongest implementation-ready fit | Adds per-episode learned state while preserving the current PPO, CNN, vector-env, and `MultiDiscrete` path | On-policy sample cost remains high; truncated backpropagation does not guarantee hour-long credit assignment | **Default lane: 10 multiscale frames, 256-unit LSTM** |
 | IMPALA-style recurrent CNN | Good only when collection scale is the bottleneck | Decoupled actors and learner provide high throughput; V-trace corrects actor/learner policy lag | IMPALA is a distributed algorithm and systems architecture, not merely a better encoder; it adds queues, stale-policy handling, and operational complexity | Defer until profiling proves local environment throughput is limiting and many actors are available |
 | Vision Transformer or spatial transformer | Plausible later encoder ablation | Patch attention can directly model long-distance station and route relationships | A ViT is spatial, not persistent temporal memory; a direct pixel-control comparison found RAD-trained CNNs generally superior to the tested ViT methods, although auxiliary reconstruction improved ViT | Defer; first try attention over CNN feature tokens, not a from-scratch pure ViT |
 | GTrXL or temporal Transformer | Plausible long-memory research | GTrXL matched or exceeded an LSTM baseline in its original partially observed RL study | Results are task-sensitive: Memory Gym later found GRU significantly ahead of Transformer-XL on all of its endless variants; sequence batching, masks, cache semantics, and attention cost also add implementation risk | Compare against LSTM only after a memory benchmark shows the LSTM ceiling |
@@ -42,7 +42,7 @@ Primary evidence for this comparison includes the [PPO paper](https://arxiv.org/
 Use these as the initial controlled configuration, not as permanently fixed hyperparameters:
 
 - Shared `MiniMetroCNN` feature extractor with `features_dim=256`.
-- `frame_stack=8` at the `fast` profile.
+- Exact history `decision-history-10-fallback-v1` at the `fast` profile, with offsets `[128, 64, 7, 6, 5, 4, 3, 2, 1, 0]`. Keep contiguous eight as the memory-free recurrent/PPO control.
 - One 256-unit LSTM layer. Start with SB3-Contrib's separate actor and critic LSTMs (`shared_lstm=False`, `enable_critic_lstm=True`) because that is its documented `CnnLstmPolicy` default; treat a shared LSTM as an ablation.
 - RecurrentPPO with the implemented recurrent defaults: `gamma=1.0`, `gae_lambda=0.99`, `n_steps=128`, `batch_size=64`, four optimization epochs, and a linear learning-rate schedule starting at `2.5e-4`. The legacy feedforward PPO lane retains its established `gamma=0.999`, `gae_lambda=0.95`, and batch size 256 settings as a stable control; it is not the recurrent default. Recurrent batch size 256 was a profiled former candidate rejected before integration, not a supported training ablation.
 - The delivery-delta reward with no game-over penalty and no display-score term in the primary experiment.
@@ -51,9 +51,9 @@ SB3-Contrib explicitly supports recurrent policies, multiprocessing, image obser
 
 ### Temporal-history migration status
 
-Training-manifest v2 gives temporal layout a separate immutable descriptor and `historyFingerprint` while preserving the single-frame task fingerprint. Genuine v1 manifests normalize any positive `frameStack` to their historical contiguous offsets and keep exact v1 bytes. Train, resume, and evaluation now reconstruct the same descriptor-driven vector ring, with `--frame-stack` reserved for contiguous ablations and `--history-layout` for reviewed multiscale layouts; equal-channel semantic mismatch fails before artifact access. The fresh default remains eight contiguous frames until matched resource profiling completes. The reviewed twelve-frame candidate remains `[128, 64, 32, 16, 7, 6, 5, 4, 3, 2, 1, 0]`, not a promoted default or an efficacy claim.
+Training-manifest v2 gives temporal layout a separate immutable descriptor and `historyFingerprint` while preserving the single-frame task fingerprint. Genuine v1 manifests normalize any positive `frameStack` to their historical contiguous offsets and keep exact v1 bytes. Train, resume, and evaluation reconstruct the same descriptor-driven vector ring, with `--frame-stack` reserved for contiguous ablations and `--history-layout` for reviewed multiscale layouts; equal-channel semantic mismatch fails before artifact access. Fresh recurrent omission now resolves through one exact ten-frame default factory. Fresh explicit PPO omission deliberately remains contiguous eight, and resume/evaluation always inherit the authenticated saved descriptor.
 
-The matched profiler is a two-stage durability contract. GM-02d1 remotely verifies a dependency-light campaign/gate layer, a real two-update RecurrentPPO worker, and a Windows supervisor that samples the complete launcher/descendant tree before any results are observed. GM-02d2 then runs three cyclically balanced fresh-process repeats each for eight-contiguous, eight-multiscale, and twelve-multiscale from that exact clean commit. It records actual recurrent padding, normalized tensor bytes, parameters, scoped one-row inference MACs, and 50 ms full-lifecycle aggregate working set. Twelve frames may become the fresh default only if every repeat is valid, batch 64/four epochs remain exact, median peak is at most 1.25 times the fresh baseline and strictly below the rounded historical 3.909 GiB guardrail, and median end-to-end throughput is at least 0.75 times baseline. Passing proves an engineering-safe observation contract, not higher passenger deliveries.
+The matched profiler used a two-stage durability contract: GM-02d1 remotely verified the campaign/gate layer, real two-update RecurrentPPO worker, and full Windows launcher/descendant sampling before any results were observed; GM-02d2 then ran from exact clean Commit B `3c684724`. The primary three-way campaign was operationally invalid because one control repeat exceeded the 100 ms sampling bound, and the valid twelve-frame target repeats independently exceeded the strict historical RAM cap. A fresh four-cycle interleaved fallback compared eight-contiguous against ten-multiscale with all eight repeats valid. Ten frames used 1.1119x the median peak working set and retained 0.8482x median throughput, passing the 1.25x relative-memory, strict 4,197,256,790-byte historical-memory, and 0.75x throughput gates. This proves an engineering-safe observation contract, not higher passenger deliveries; efficacy remains a held-out multi-seed experiment.
 
 ### Episode-memory semantics
 
@@ -92,17 +92,21 @@ The tensor sizes below are deterministic shape calculations:
 | One RGB `uint8` frame | 62,208 bytes = 60.75 KiB |
 | Four-frame `uint8` observation | 243 KiB |
 | Eight-frame `uint8` observation | 486 KiB |
+| Ten-frame `uint8` observation | 607.5 KiB |
 | 8 envs x 128 steps of eight-frame observations as raw `uint8` | 486 MiB |
+| 8 envs x 128 steps of ten-frame observations as raw `uint8` | 607.5 MiB |
 | One eight-frame observation materialized as `float32` | 1.898 MiB |
+| One ten-frame observation materialized as `float32` | 2.373 MiB |
 | 64 eight-frame observations materialized as `float32` | 121.5 MiB |
+| 64 ten-frame observations materialized as `float32` | 151.875 MiB |
 | 256 eight-frame observations materialized as `float32` | 486 MiB |
 | 8 envs x 128 steps of eight-frame observations as dense `float32` | 1.898 GiB |
 
-The rollout's raw observation payload is already 486 MiB before metadata. The `float32` rows show the additional risk when recurrent sequence padding and image normalization materialize minibatches; activations, gradients, optimizer state, recurrent state, process workers, and framework copies are additional.
+The default ten-frame rollout's raw observation payload is already 607.5 MiB before metadata; the matched eight-frame control is 486 MiB. The `float32` rows show the additional risk when recurrent sequence padding and image normalization materialize minibatches; activations, gradients, optimizer state, recurrent state, process workers, and framework copies are additional.
 
-A short local CPU profile compared one complete 8-environment x 128-step rollout with identical task settings. The former recurrent batch-256 candidate completed in 24.111 seconds, reported 242 rollout FPS, and peaked at 3.909 GiB process-tree RSS. The implemented batch-64 default completed in 17.030 seconds, reported 329 rollout FPS, and peaked at 3.030 GiB. These are single-run measurements on this Windows machine, not portable performance guarantees, but they refute batch 256 as a conservative default here. Batch 64 keeps the eight-frame semantics while reducing peak memory risk; longer training must still record wall time and peak RAM/VRAM.
+The older one-run CPU profile rejected recurrent batch 256 in favor of batch 64. The newer matched fallback campaign measured eight-contiguous and ten-multiscale under identical 8-environment x 128-step, batch-64/four-epoch training. Median process-tree working set was 3,636,346,880 versus 4,043,184,128 bytes; median end-to-end throughput was 86.3032 versus 73.2052 FPS. These gigabyte values sum instantaneous working set across the trainer and eight environment processes and may double-count shared pages; they are not disk use. The complete raw JSONL/log/summary evidence for both primary and fallback campaigns occupies about 16.7 MiB. These Windows measurements are engineering guardrails, not portable performance guarantees, so longer training must still record wall time and peak RAM/VRAM.
 
-At eight frames, the current CNN has approximately 364,960 trainable parameters. One 256-input/256-hidden PyTorch LSTM has 526,336 parameters; separate actor and critic LSTMs have 1,052,672. Adding the current 308-logit action head and scalar value head puts the CNN/recurrent/head core near 1.50 million parameters, excluding any extra policy MLPs. The model is therefore modest; observation and rollout tensors, not weights, are the first memory concern.
+At ten frames, the current CNN has 377,248 trainable parameters. One 256-input/256-hidden PyTorch LSTM has 526,336 parameters; separate actor and critic LSTMs have 1,052,672. Adding the current 308-logit action head and scalar value head makes the CNN/recurrent/head core 1,450,005 parameters. The two live 256-to-64-to-64 policy MLPs bring the exact profiled policy total to 1,491,221. The model is therefore modest; observation and rollout tensors, not weights, are the first memory concern.
 
 DreamerV3's official configuration defines [`size12m`](https://github.com/danijar/dreamerv3/blob/main/dreamerv3/configs.yaml) as the second-smallest named preset. Twelve million FP32 parameters are about 45.8 MiB; parameters, gradients, and two Adam moments are roughly 183 MiB before activations and JAX runtime allocation. Replay is the larger storage issue here: uncompressed single RGB frames consume about 5.79 GiB per 100,000 frames, 57.94 GiB per million, and 289.68 GiB at DreamerV3's default five-million-item replay capacity. A Dreamer lane must cap or compress replay and store individual frames rather than repeated frame stacks.
 
@@ -122,7 +126,7 @@ GAE trades bias against variance; it does not define the policy's memory capacit
 
 Architecture choice is complete only after controlled evaluation:
 
-1. Compare at least these four matched lanes: 4-frame CNN PPO, 8-frame CNN PPO, 8-frame CNN-LSTM RecurrentPPO, and recurrent PPO with the conditional pointer head. Add DreamerV3 `size12m` only when its task adapter passes the same environment tests.
+1. Compare at least these four matched lanes: 4-frame CNN PPO, 8-frame CNN PPO, ten-frame multiscale CNN-LSTM RecurrentPPO, and the same recurrent lane with the conditional pointer head. Add DreamerV3 `size12m` only when its task adapter passes the same environment tests.
 2. Run at least **five independent training seeds per configuration**. Five is a minimum engineering threshold, not enough evidence to report tiny differences as settled.
 3. Use separate training, tuning/validation, and final evaluation seed sets. Evaluate every checkpoint on the same held-out seed suite; do not select a checkpoint on its training episodes.
 4. Use at least 20 deterministic evaluation episodes per seed for final comparisons. Preserve recurrent state within each episode and reset it at every episode boundary.
@@ -137,7 +141,7 @@ These practices follow the variance and evaluation warnings in [Stable-Baselines
 
 ## Promotion criteria
 
-Promote 8-frame RecurrentPPO only if, across the pre-registered seed suite, it improves held-out deliveries over both frame-stack PPO controls without an unacceptable wall-clock or memory regression and without increasing invalid or semantically wasted action behavior.
+Retain the ten-frame RecurrentPPO lane as the trained-policy default only if, across the pre-registered seed suite, it improves held-out deliveries over both frame-stack PPO controls without an unacceptable wall-clock or memory regression and without increasing invalid or semantically wasted action behavior.
 
 Promote the conditional pointer head only if it improves deliveries or sample efficiency while PPO log-probability/entropy tests prove that inactive coordinate branches are masked correctly.
 

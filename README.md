@@ -155,7 +155,7 @@ The default observation is channel-first `uint8` RGB with shape `(3, 108, 192)`;
 
 Live `info` dictionaries contain protocol and pointer bookkeeping, not hidden stations, routes, deliveries, or simulation state. Game-level values appear only in terminal episode metrics after the last action: `deliveries` is the lifetime objective, while the legacy `display_score` field means remaining line credits. The deterministic helper in `rl.privileged_oracle` is deliberately separate and is used only by tests and the scripted curriculum demonstrator.
 
-Fresh training currently defaults to SB3-Contrib `recurrent_ppo` with eight spawned environments, an eight-contiguous-frame history, and recurrent minibatches of 64. At the default 10 Hz decision rate, eight RGB frames become 24 input channels and provide a nominal 0.8 seconds of local history (0.7 seconds between the oldest and newest samples). `MiniMetroCNN` extracts 256 visual features, then separate one-layer, 256-unit actor and critic LSTMs carry episode memory across decisions. Feed-forward PPO retains its prior batch size of 256; recurrent batch 64 materially reduced peak process-tree memory in the local one-rollout profile documented in the model-selection note. Reviewed strategically spaced histories are available as explicit experiments, but none becomes the fresh default until the matched resource gates pass.
+Fresh training defaults to SB3-Contrib `recurrent_ppo` with eight spawned environments, recurrent minibatches of 64, and the resource-profiled ten-frame multiscale history `[128, 64, 7, 6, 5, 4, 3, 2, 1, 0]`. At the default 10 Hz decision rate, the 30 RGB input channels preserve dense local motion over the last 0.7 seconds plus route context 6.4 and 12.8 seconds back. `MiniMetroCNN` extracts 256 visual features, then separate one-layer, 256-unit actor and critic LSTMs carry episode memory across decisions. Feed-forward PPO retains its prior batch size of 256 and, when selected without a history flag, retains the legacy eight-contiguous-frame ablation rather than silently inheriting the recurrent default.
 
 The recurrent hidden state persists within one game and resets at the next game's episode boundary; a new training or evaluation process also starts with blank hidden state. Learned network weights are different: authenticated checkpoints persist them across process restarts and resumed training.
 
@@ -172,7 +172,7 @@ python scripts/evaluate_rl.py output/rl/recurrent_ppo-RUN-ID/final_model.zip --e
 
 Standalone evaluation uses the run manifest's recorded evaluation seed by default; pass `--seed` only when you intentionally want a different deterministic episode suite.
 
-Opt into the reviewed twelve-frame multiscale candidate while leaving the fresh default unchanged:
+Run the unpromoted twelve-frame multiscale candidate explicitly when reproducing that ablation:
 
 ```powershell
 python scripts/train_rl.py --history-layout decision-history-v1 --total-timesteps 1000000 --n-envs 8 --run-dir output/rl/recurrent-multiscale-12
@@ -185,7 +185,13 @@ Profile the primary history campaign only from a committed source tree with no t
 python scripts/profile_rl_history.py --campaign primary --torch-threads 24 --torch-interop-threads 24 --output-dir output/rl-profile/gm02d-primary
 ```
 
-The supervisor attaches before each worker imports NumPy/Torch, samples the launcher and all discovered descendants at an absolute 50 ms cadence, and invalidates a repeat on incomplete process queries or timing gaps/acquisitions over 100 ms. Full JSONL samples, worker logs, and run summaries stay under ignored `output/`; each compact summary records their SHA-256 values, exact command/source commit, history identity, actual padded recurrent minibatches, parameter/MAC accounting, and full-lifecycle and measured-window working-set peaks. The promotion decision tests engineering safety only; matched passenger-delivery efficacy remains a separate multi-seed experiment.
+The July 13 primary run was operationally invalid because one eight-frame control repeat exceeded the preregistered 100 ms sampling-gap limit; its aggregate ratios are therefore non-authoritative. The twelve-frame target repeats also exceeded the strict historical RAM cap. The required fresh fallback campaign completed with all eight interleaved repeats valid and promoted the exact ten-frame history:
+
+```powershell
+python scripts/profile_rl_history.py --campaign fallback --torch-threads 24 --torch-interop-threads 24 --output-dir output/rl-profile/gm02d-fallback
+```
+
+The fallback median process-tree peak was 3,636,346,880 bytes for eight contiguous frames and 4,043,184,128 bytes for ten multiscale frames (1.1119x, below the 1.25x gate and the 4,197,256,790-byte historical cap). Median end-to-end throughput was 86.3032 versus 73.2052 FPS (0.8482x, above the 0.75x gate). These gigabyte values are summed instantaneous working-set RAM across the trainer and eight environment processes, not disk output, and may double-count shared pages; the two complete raw campaign directories together occupy only about 16.7 MiB. The supervisor attaches before each worker imports NumPy/Torch, samples the launcher and all discovered descendants at an absolute 50 ms cadence, and invalidates a repeat on incomplete process queries or timing gaps/acquisitions over 100 ms. Full JSONL samples, worker logs, and run summaries stay under ignored `output/`; the committed compact evidence authenticates the raw samples and stdout/stderr logs by SHA-256, authenticates each aggregate summary by size and SHA-256, and preserves the parsed per-run evidence semantically. This promotion proves engineering safety only; matched passenger-delivery efficacy remains a separate multi-seed experiment.
 
 Use feed-forward PPO and an explicit contiguous frame stack as controlled ablations. `--frame-stack` and `--history-layout` are mutually exclusive because channel count alone does not identify temporal meaning:
 

@@ -20,9 +20,9 @@ Decision: the fresh policy will receive more than eight frames, but the implemen
 
 Reason: eight consecutive 10 Hz frames cover only 0.8 seconds. Doubling contiguous frames covers 1.6 seconds while roughly doubling rollout observation memory, which is still too short for route and reroute planning. Recurrent state remains necessary for episode-long memory.
 
-Candidate: `decision-history-v1` with twelve oldest-to-newest offsets `[128, 64, 32, 16, 7, 6, 5, 4, 3, 2, 1, 0]`, zero-filled missing history, and explicit channel ordering. This keeps the current eight recent 10 Hz frames and adds anchors through 12.8 seconds at 1x, while the LSTM carries episode-long memory. The candidate produces 36 input channels and a 729 MiB raw 8-environment x 128-step rollout payload; promotion remains contingent on a measured process-tree profile against 8-contiguous and 8-multiscale controls.
+Result: the operationally valid fallback campaign promoted `decision-history-10-fallback-v1` with ten oldest-to-newest offsets `[128, 64, 7, 6, 5, 4, 3, 2, 1, 0]`, zero-filled missing history, and explicit channel ordering. This retains the last eight 10 Hz samples plus anchors 6.4 and 12.8 seconds back while the LSTM carries episode-long memory. Its measured median peak process-tree working set was 4,043,184,128 bytes versus 3,636,346,880 for the matched eight-contiguous control (1.1119x and below both RAM gates), while throughput retained 0.8482x of the control. The original twelve-frame primary campaign was operationally invalid and its target also exceeded the strict historical RAM cap, so it remains an explicit unpromoted ablation.
 
-Status: accepted implementation candidate; final fresh-default promotion is pending GM-02 profiling and review.
+Status: accepted fresh recurrent default after GM-02d profiling; passenger-delivery efficacy remains pending GM-12.
 
 ## D-004 - Product features share one simulation
 

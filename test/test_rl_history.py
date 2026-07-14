@@ -11,12 +11,14 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 from rl.history import (
     CONTIGUOUS_HISTORY_LAYOUT,
     DECISION_HISTORY_LAYOUT,
+    DEFAULT_HISTORY_LAYOUT,
     EIGHT_MULTISCALE_HISTORY_LAYOUT,
     NAMED_HISTORY_LAYOUTS,
     TEN_MULTISCALE_HISTORY_LAYOUT,
     HistoryDescriptor,
     canonical_history_bytes,
     contiguous_history,
+    default_history,
     history_for_layout,
 )
 
@@ -62,6 +64,18 @@ class TestHistoryDescriptor(unittest.TestCase):
         self.assertEqual(
             history_for_layout(TEN_MULTISCALE_HISTORY_LAYOUT).offsets,
             (128, 64, 7, 6, 5, 4, 3, 2, 1, 0),
+        )
+
+    def test_default_history_is_the_exact_profiled_ten_frame_layout(self) -> None:
+        history = default_history()
+
+        self.assertEqual(DEFAULT_HISTORY_LAYOUT, TEN_MULTISCALE_HISTORY_LAYOUT)
+        self.assertEqual(history, history_for_layout(TEN_MULTISCALE_HISTORY_LAYOUT))
+        self.assertEqual(history.frame_stack, 10)
+        self.assertEqual(history.offsets, (128, 64, 7, 6, 5, 4, 3, 2, 1, 0))
+        self.assertEqual(
+            history.fingerprint(),
+            "8c2959aac108ea5b16b977d8fe5e0f9adff795dc2e38a7d233354f28319d3602",
         )
 
     def test_equal_frame_counts_do_not_imply_equal_history_identity(self) -> None:

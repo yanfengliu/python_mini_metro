@@ -107,15 +107,16 @@ jobs:
           $freshEvaluation = Get-Content -Raw output/rl/ci-smoke/evaluation-ci.json | ConvertFrom-Json
           $resumedManifest = Get-Content -Raw output/rl/ci-resumed/training-manifest.json | ConvertFrom-Json
           $resumedEvaluation = Get-Content -Raw output/rl/ci-resumed/evaluation-ci.json | ConvertFrom-Json
+          $promotedHistoryFingerprint = "8c2959aac108ea5b16b977d8fe5e0f9adff795dc2e38a7d233354f28319d3602"
           foreach ($manifest in @($freshManifest, $resumedManifest)) {
-            if ($manifest.algorithm -ne "recurrent_ppo" -or $manifest.frameStack -ne 8) { throw "default recurrent algorithm or frame stack mismatch" }
-            if ($manifest.history.layout -ne "contiguous-history-v1" -or ($manifest.history.sampleOffsets -join ",") -ne "7,6,5,4,3,2,1,0") { throw "default recurrent history mismatch" }
+            if ($manifest.algorithm -ne "recurrent_ppo" -or $manifest.frameStack -ne 10) { throw "default recurrent algorithm or frame stack mismatch" }
+            if ($manifest.history.layout -ne "decision-history-10-fallback-v1" -or ($manifest.history.sampleOffsets -join ",") -ne "128,64,7,6,5,4,3,2,1,0" -or $manifest.historyFingerprint -ne $promotedHistoryFingerprint) { throw "default recurrent history mismatch" }
             if ($manifest.hyperparameters.policy -ne "CnnLstmPolicy" -or $manifest.hyperparameters.lstm_hidden_size -ne 256 -or $manifest.hyperparameters.n_lstm_layers -ne 1 -or $manifest.hyperparameters.batch_size -ne 64) { throw "default recurrent policy, LSTM shape, or batch size mismatch" }
             if ($manifest.hyperparameters.gamma -ne 1.0 -or $manifest.hyperparameters.gae_lambda -ne 0.99) { throw "default recurrent return estimator mismatch" }
           }
           foreach ($evaluation in @($freshEvaluation, $resumedEvaluation)) {
             if ($evaluation.algorithm -ne "recurrent_ppo" -or $evaluation.primaryMetric -ne "meanDeliveries") { throw "default recurrent evaluation contract mismatch" }
-            if ($evaluation.history.layout -ne "contiguous-history-v1" -or $evaluation.historyFingerprint -ne $freshManifest.historyFingerprint) { throw "default recurrent evaluation history mismatch" }
+            if ($evaluation.history.layout -ne "decision-history-10-fallback-v1" -or $evaluation.historyFingerprint -ne $promotedHistoryFingerprint) { throw "default recurrent evaluation history mismatch" }
             if ($evaluation.horizonTruncatedEpisodes -ne 1 -or $evaluation.gameOverEpisodes -ne 0 -or $evaluation.primaryMetricCensored -ne $true -or $evaluation.primaryMetricComplete -ne $false -or $evaluation.terminationMetadataComplete -ne $true) { throw "default recurrent censoring summary mismatch" }
           }
           if ($freshManifest.seed -ne 42 -or $freshEvaluation.seed -ne 10042 -or $freshEvaluation.episodeMetrics[0].seed -ne 10042) { throw "fresh recurrent seed mismatch" }
