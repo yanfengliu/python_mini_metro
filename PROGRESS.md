@@ -119,3 +119,4 @@
 ## 2026-07-14
 
 - Extracted the 12 path-lifecycle transitions into a dependency-light stateless component behind unchanged real `Mediator` methods, retaining canonical facade-owned topology state, late public-hook and factory resolution, mutation/identity/partial-failure timing, focused direct plus facade characterization, and a reproducible archived-baseline differential while reducing `src/mediator.py` below 1,000 lines.
+- Strengthened the repository delivery policy so each minimal coherent unit is reviewed, validated, scoped, and committed promptly while failing, in-flight, and partial checkpoint commits remain prohibited.

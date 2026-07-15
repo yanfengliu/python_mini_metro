@@ -159,7 +159,7 @@ Policy lives in this section. ALL mechanics — current review model pins, exact
 
 - **Commit directly to `main`.** This is a solo-developer project; branches add overhead without payoff and block autonomous progress. Each coherent change lands as its own commit on `main`. The Validation Gates must pass before each commit.
 - When you iterate, only run affected tests. After confidence in the change, run the full suite to make sure you didn't accidentally break anything before committing.
-- Commit as soon as you have a coherent, self-contained unit of change. Commit durable docs you added if you are not planning to remove them.
+- Commit each coherent, self-contained unit as soon as it has passed the existing verification and review requirements. During substantial multi-step work, treat each minimal coherent unit as a delivery boundary: review it as soon as it is coherent, resolve substantive findings, then promptly stage only its scoped files and commit it before unrelated completed units accumulate in the worktree or diff. Self-review trivial changes; adversarially review behavior, public-contract, and other non-trivial changes under the policy above. Never commit failing, in-flight, or partial work merely as a checkpoint. Commit durable docs you added if you are not planning to remove them.
 - **No branches needed for normal work.** Branches are reserved for explicit experimentation that you intend to keep isolated from `main` (and even then, prefer revertable single-commit experiments on `main`).
 - Stage only the coherent unit of work. Never revert unrelated user changes.
 - Before any commit, inspect `git diff --cached --stat` and `git diff --cached`.
