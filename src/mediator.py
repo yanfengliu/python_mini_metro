@@ -37,6 +37,7 @@ from geometry.point import Point
 from geometry.type import ShapeType
 from graph.graph_algo import bfs, build_station_nodes_dict
 from graph.node import Node
+from path_lifecycle import PathLifecycle
 from progression import NetworkProgression
 from route_planner import RoutePlanner
 from simulation_context import SimulationContext
@@ -65,6 +66,7 @@ class Mediator:
         if seed is not None and context is not None:
             raise ValueError("seed and context are mutually exclusive")
         self.context = context if context is not None else SimulationContext(seed)
+        self._path_lifecycle = PathLifecycle()
         self._router = RoutePlanner()
 
         # configs
@@ -369,14 +371,7 @@ class Mediator:
         self.increment_time(dt_ms)
 
     def assign_paths_to_buttons(self) -> None:
-        for path_button in self.path_buttons:
-            path_button.remove_path()
-
-        self.path_to_button = {}
-        for path, button in zip(self.paths, self.path_buttons):
-            button.assign_path(path)
-            self.path_to_button[path] = button
-        self.update_path_button_lock_states()
+        self._path_lifecycle.assign_paths_to_buttons(self)
 
     def get_surface_size(self, screen: pygame.surface.Surface) -> tuple[int, int]:
         width = screen_width
@@ -489,141 +484,40 @@ class Mediator:
                 return button
 
     def remove_path(self, path: Path) -> None:
-        self.path_to_button[path].remove_path()
-        for metro in list(path.metros):
-            for passenger in list(metro.passengers):
-                if passenger in self.passengers:
-                    self.passengers.remove(passenger)
-                self.travel_plans.pop(passenger, None)
-            if metro in self.metros:
-                self.metros.remove(metro)
-        self.invalidate_travel_plans_for_path(path)
-        self.release_color_for_path(path)
-        self.paths.remove(path)
-        self.assign_paths_to_buttons()
-        self.find_travel_plan_for_passengers()
+        self._path_lifecycle.remove_path(self, path)
 
     def invalidate_travel_plans_for_path(self, path: Path) -> None:
-        onboard_passengers = {
-            passenger for metro in self.metros for passenger in metro.passengers
-        }
-        for passenger, travel_plan in list(self.travel_plans.items()):
-            if passenger in onboard_passengers and travel_plan.next_path != path:
-                continue
-            if travel_plan.next_path == path or any(
-                path in node.paths for node in travel_plan.node_path
-            ):
-                del self.travel_plans[passenger]
+        self._path_lifecycle.invalidate_travel_plans_for_path(self, path)
 
     def remove_path_by_id(self, path_id: str) -> bool:
-        for path in self.paths:
-            if path.id == path_id:
-                self.remove_path(path)
-                return True
-        return False
+        return self._path_lifecycle.remove_path_by_id(self, path_id)
 
     def remove_path_by_index(self, path_index: int) -> bool:
-        if type(path_index) is not int:
-            return False
-        if 0 <= path_index < len(self.paths):
-            self.remove_path(self.paths[path_index])
-            return True
-        return False
+        return self._path_lifecycle.remove_path_by_index(self, path_index)
 
     def start_path_on_station(self, station: Station) -> None:
-        if len(self.paths) < self.unlocked_num_paths:
-            self.is_creating_path = True
-            assigned_color = (0, 0, 0)
-            available_colors = list(self.path_colors.keys())[: self.unlocked_num_paths]
-            for path_color in available_colors:
-                taken = self.path_colors[path_color]
-                if not taken:
-                    assigned_color = path_color
-                    self.path_colors[path_color] = True
-                    break
-            path = Path(assigned_color)
-            self.path_to_color[path] = assigned_color
-            path.add_station(station)
-            path.is_being_created = True
-            self.path_being_created = path
-            self.paths.append(path)
+        self._path_lifecycle.start_path_on_station(
+            self, station, get_path_factory=lambda: Path
+        )
 
     def create_path_from_station_indices(
         self, station_indices: List[int], loop: bool = False
     ) -> Path | None:
-        if not isinstance(station_indices, list):
-            return None
-        if len(station_indices) < 2 or len(self.paths) >= self.unlocked_num_paths:
-            return None
-        if any(
-            type(idx) is not int or idx < 0 or idx >= len(self.stations)
-            for idx in station_indices
-        ):
-            return None
-
-        self.start_path_on_station(self.stations[station_indices[0]])
-        created_path = self.path_being_created
-        if not created_path:
-            return None
-
-        stations_to_add = station_indices[1:-1]
-        if loop:
-            stations_to_add = station_indices[1:]
-            if station_indices[-1] == station_indices[0]:
-                stations_to_add = station_indices[1:-1]
-
-        for idx in stations_to_add:
-            self.add_station_to_path(self.stations[idx])
-
-        if loop:
-            self.end_path_on_station(self.stations[station_indices[0]])
-        else:
-            self.end_path_on_station(self.stations[station_indices[-1]])
-
-        if created_path in self.paths and not created_path.is_being_created:
-            return created_path
-        return None
+        return self._path_lifecycle.create_path_from_station_indices(
+            self, station_indices, loop
+        )
 
     def add_station_to_path(self, station: Station) -> None:
-        assert self.path_being_created is not None
-        if self.path_being_created.stations[-1] == station:
-            return
-        # loop
-        if (
-            len(self.path_being_created.stations) > 1
-            and self.path_being_created.stations[0] == station
-        ):
-            self.path_being_created.set_loop()
-            station.start_snap_blip(self.time_ms, self.path_being_created.color)
-        # non-loop
-        elif self.path_being_created.stations[0] != station:
-            if self.path_being_created.is_looped:
-                self.path_being_created.remove_loop()
-            self.path_being_created.add_station(station)
-            station.start_snap_blip(self.time_ms, self.path_being_created.color)
+        self._path_lifecycle.add_station_to_path(self, station)
 
     def abort_path_creation(self) -> None:
-        assert self.path_being_created is not None
-        self.is_creating_path = False
-        self.release_color_for_path(self.path_being_created)
-        self.paths.remove(self.path_being_created)
-        self.path_being_created = None
+        self._path_lifecycle.abort_path_creation(self)
 
     def release_color_for_path(self, path: Path) -> None:
-        self.path_colors[path.color] = False
-        del self.path_to_color[path]
+        self._path_lifecycle.release_color_for_path(self, path)
 
     def finish_path_creation(self) -> None:
-        assert self.path_being_created is not None
-        self.is_creating_path = False
-        self.path_being_created.is_being_created = False
-        self.path_being_created.remove_temporary_point()
-        if len(self.metros) < self.num_metros:
-            metro = Metro()
-            self.path_being_created.add_metro(metro)
-            self.metros.append(metro)
-        self.path_being_created = None
-        self.assign_paths_to_buttons()
+        self._path_lifecycle.finish_path_creation(self, get_metro_factory=lambda: Metro)
 
     def set_paused(self, paused: bool) -> None:
         self.is_paused = paused
@@ -692,27 +586,7 @@ class Mediator:
         return False
 
     def end_path_on_station(self, station: Station) -> None:
-        assert self.path_being_created is not None
-        # current station de-dupe
-        if (
-            len(self.path_being_created.stations) > 1
-            and self.path_being_created.stations[-1] == station
-        ):
-            self.finish_path_creation()
-        # loop
-        elif (
-            len(self.path_being_created.stations) > 1
-            and self.path_being_created.stations[0] == station
-        ):
-            self.path_being_created.set_loop()
-            self.finish_path_creation()
-        # non-loop
-        elif self.path_being_created.stations[0] != station:
-            self.path_being_created.add_station(station)
-            station.start_snap_blip(self.time_ms, self.path_being_created.color)
-            self.finish_path_creation()
-        else:
-            self.abort_path_creation()
+        self._path_lifecycle.end_path_on_station(self, station)
 
     def get_station_shape_types(self) -> List[ShapeType]:
         return list(dict.fromkeys(station.shape.type for station in self.stations))

@@ -115,3 +115,7 @@
 - Split the 1,158-line mediator characterization suite into a shared fixture plus six behavior-focused modules under 500 lines, preserving all 57 test bodies, three helpers, and six explanatory comments exactly while leaving production code unchanged.
 - Extracted line/station/economy progression into a dependency-free single-owner aggregate behind explicit writable `Mediator` facade properties and methods, with characterization coverage for cached unlocks, purchase rejection, entity/RNG identity, UI timing, checkpoint consumers, and delivery-hook order and no gameplay or public API change.
 - Extracted dependency-free stateless route queries, selection, compression, and lazy planning proposals behind the `Mediator` facade while preserving public methods, RNG/BFS and mapping lookup order, live passenger-list mutation timing, travel-plan identity and ownership, and passenger-delivery behavior.
+
+## 2026-07-14
+
+- Extracted the 12 path-lifecycle transitions into a dependency-light stateless component behind unchanged real `Mediator` methods, retaining canonical facade-owned topology state, late public-hook and factory resolution, mutation/identity/partial-failure timing, focused direct plus facade characterization, and a reproducible archived-baseline differential while reducing `src/mediator.py` below 1,000 lines.

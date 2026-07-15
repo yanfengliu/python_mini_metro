@@ -380,3 +380,75 @@ For each GM increment append: changed contracts, focused red/green tests, full l
 - Push: `origin/main` advanced from `00ea38c` to `1b751e4`.
 - Remote workflow: [run 29351838271](https://github.com/yanfengliu/python_mini_metro/actions/runs/29351838271) succeeded for the exact commit. API timestamps show `build` ran from 16:58:34Z through 16:59:08Z (34 seconds) and `rl-smoke` from 16:58:35Z through 17:02:18Z (3 minutes 43 seconds).
 - Commit B purpose: durably bind the route-planning extraction and its local equivalence proofs to A's exact green remote result before GM-03d changes topology/path lifecycle ownership.
+
+## GM-03c Commit B - remote finalization
+
+- Commit: `5e6186d8b331207d2a6ec583b7a82f80533f5203` (`docs: finalize route planning extraction [GM-03c:B]`).
+- Push: `origin/main` advanced from `1b751e4` to `5e6186d`.
+- Remote workflow: [run 29352432028](https://github.com/yanfengliu/python_mini_metro/actions/runs/29352432028) succeeded for the exact commit. API timestamps show `build` ran from 17:07:08Z through 17:07:52Z (44 seconds) and `rl-smoke` from 17:07:07Z through 17:10:51Z (3 minutes 44 seconds).
+- Outcome: GM-03c is remotely finalized. GM-03d starts from this exact baseline and owns topology/path lifecycle extraction plus the required reduction of `src/mediator.py` below 1,000 physical lines.
+
+## GM-03d frozen baseline
+
+- Source boundary: `src/mediator.py` is 1,110 physical lines at `5e6186d`; GM-03d must preserve every public compatibility method while moving topology/path lifecycle ownership into a focused module and finishing below 1,000.
+- Durability boundary: no GM-03d production or test edit has started. Three independent live-code lanes are mapping method ownership, observable mutation/identity/order contracts, TDD coverage, and a credible line budget before the implementation plan is frozen.
+
+## GM-03d plan review
+
+- Baseline proof: the 102-test topology-facing slice covering mediator paths/interaction, gameplay, environment, routing/passenger flow, recursive checkpoints/oracles, and render purity passed in 0.883 seconds at exact baseline `5e6186d`.
+- Boundary: stateless, non-retaining `PathLifecycle` owns exactly 12 transition algorithms through a call-scoped host. Mediator keeps canonical writable collections/maps/flags, RNG/entities/effects, every real public method, and late module-global `Path`/`Metro` factories.
+- Size contract: the frozen 168-line replacement envelope has a 57-line hard wrapper/import/install ceiling, proving `1110 - 168 + 57 = 999`; the target envelope is at most 45, projecting 987 and requiring no GM-03e/GM-03f scope.
+- Findings closed: mirrored state/proxy overhead; collection and callback capture; public-to-public dispatch; late factory resolution/release; exact button-map replacement; removal snapshots/order/partial state; detached object graphs; draft graph visibility; loop/snap/abort/finish identity; signature/import/differential/fingerprint/remote evidence.
+- Convergence: the contracts and refutation lanes returned `APPROVED`; a fresh final live-code lane independently verified the exact method set, arithmetic, factories, hooks, state ownership, and coverage and returned `APPROVED`. External pinned plan review remains unlaunched under the recorded repository-context-transfer boundary.
+- Durability boundary: no production or test edit has started. Baseline-green facade characterization is next, followed by the expected-red missing direct lifecycle module contract.
+
+## GM-03d baseline-green facade characterization
+
+- `test/test_mediator_path_contract.py` and non-discovered `test/path_lifecycle_test_support.py` were added before production moved. Ten behavior-level tests pass against the untouched baseline in 0.053 seconds.
+- The tests freeze all 12 public signatures; button clearing and mapping replacement; removal snapshots/order/detached graphs; rebound public hooks, path collections, and travel-plan maps; late module-global Path/Metro factory resolution; exact created entity identity and state timing; public creation transitions; loop/snap/finish/abort semantics; selector validation/first match; and draft-versus-finished graph/checkpoint visibility.
+- `test/test_mediator_path_contract.py` is 425 physical lines and its support module is 170; both remain below 500. Ruff check and format pass for both files.
+- Durability boundary: `src/` remains untouched. The direct lifecycle host contract is next and its isolated first run must fail only because `path_lifecycle` does not exist.
+
+## GM-03d expected-red direct contract and facade coverage review
+
+- `test/test_path_lifecycle.py` and non-discovered `test/path_lifecycle_direct_support.py` were added while `src/path_lifecycle.py` remained absent. The isolated py313 run produced exactly one loader error containing `ModuleNotFoundError: No module named 'path_lifecycle'`, reported `Ran 1 test`, and had no implementation or unrelated failure.
+- The direct module is 460 physical lines with ten planned tests; its support module is 185. Ruff check and format pass for both. The contract requires a stateless `__slots__` lifecycle, dependency-light import, exact button/removal/invalidation/selectors, late factories and immediate callable release, programmatic creation, add/abort/release/finish/end transitions, partial factory failure, and call-scoped host state.
+- An independent facade-test refuter found five substantive distinctions still missing from the first ten baseline-green tests: index collection re-read, abort pointer/path re-read after release, late finish assignment hook, captured created path versus current rebound collection, and exact partial state/propagated exceptions. A separate baseline-green module is closing all five before production starts.
+- Durability boundary: `src/` remains untouched. Production implementation is blocked on those five facade distinctions passing against the baseline.
+
+## GM-03d facade coverage closure
+
+- `test/test_mediator_path_failure_contract.py` adds six baseline-green tests for all five refuter findings and is 207 physical lines. Both facade modules pass 16/16 in 0.060 seconds against untouched production; Ruff check and format pass across all five new test/support files.
+- The closure proves live path collection re-read between index bounds and lookup; abort pointer/collection re-read after public release; finish assignment-hook resolution after metro installation; programmatic creation's captured path versus current collection; and unchanged Path/Metro exception identity with exact partial state and no rollback.
+- Durability boundary: all reviewed facade distinctions are green and the direct missing-module red is captured. `src/path_lifecycle.py` is still absent and `src/mediator.py` remains unchanged; the 12-method production extraction is next.
+
+## GM-03d production extraction and initial local gates
+
+- The 12 frozen topology/path-lifecycle transition bodies now live in dependency-light `src/path_lifecycle.py`; `Mediator` installs one stateless `PathLifecycle`, retains every real public compatibility method and every canonical directly writable collection/map/flag, and passes late `Path`/`Metro` getter thunks only at the original construction points.
+- TDD sequence: the exact baseline topology slice passed 102/102 before test or production edits; 16 facade distinctions then passed against untouched baseline; the direct contract's isolated first run failed only with `ModuleNotFoundError: No module named 'path_lifecycle'`; after production moved, the initial direct/facade slice passed 26/26.
+- Initial verification: the topology-focused compatibility slice passed 156/156. After review-driven regression coverage, the final sequential py313 core suite passed 535 tests with 12 expected optional-RL skips in 7.141 seconds, and the exact-RL suite passed 538/538 with no skips in 15.264 seconds. All 12 public facade AST signatures match baseline `5e6186d8b331207d2a6ec583b7a82f80533f5203` exactly.
+- Import and size proof: a fresh `path_lifecycle` import loaded none of pygame, mediator, entity, graph, route planner, progression, simulation context, travel plan, or related gameplay modules. `src/mediator.py` is 984 physical lines from the 1,110-line baseline, `src/path_lifecycle.py` is 235, and the five test/support files are 170, 185, 207, 450, and 484 lines; every changed handwritten file is below 500.
+- Identity proof: protocol remains `69c604ac62d46d4a2339b3efad239372c61d0eb52e45ce6c9b6cf8da946dea8f`, task remains `719362078a7d98f1e3c944a6a797f7147b29383495f37f417aa9d61e3416016d`, and training remains `b195946ef62db7058b5ff8c295045d285019cce10b2a12d8b86d28f180670f93`. The source extraction intentionally changes the content fingerprint to `17c5bbf8e034d3b99e8aa91e70a032bf66470ae6fc54b4a7e29b3d1810f7ed50` under the existing artifact-drift rules.
+
+## GM-03d corrected lifecycle differential
+
+- Implementation-test review identified one real coverage gap in the first proof: generic loop input did not explicitly distinguish the closed encoding `[0, 1, 2, 0]`. The finding was accepted and resolved rather than retaining the pre-finding differential digest. The corrected direct/real-facade pair passes 20/20, while deleting the de-duplication branch now produces exactly two assertion failures and no errors.
+- The strengthened baseline/current scenario uses explicit closed-loop input `[0, 1, 2, 0]` with `loop=True`. All seven actions succeed in both versions; all nine normalized observation/canonical-checkpoint records match; both RNG streams match; and the loop topology is station indices `[0, 1, 2]` with `is_looped=True` and snap-blip counts `[0, 2, 2]`, leaving the start station untouched.
+- The corrected aggregate is byte-identical across baseline and current at 10,490 bytes with SHA-256 `d6fb9dd21730f381776959c48dab8a9c87f82c7e3387646bf4ce30fd691c978d`. This supersedes the pre-finding differential digest.
+
+## GM-03d implementation-review and durability boundary
+
+- The semantic implementation lane returned `CLEAN` after comparing all 12 normalized bodies/signatures against the live baseline and inspecting mutation order, public dispatch, fresh reads, late factory resolution, partial failures, callable lifetime, identity, and retention. The implementation-test lane returned `CLEAN` after resolving and mutation-testing its explicit closed-loop finding. The process lane returned `NOT CLEAN` because durable status and architecture/progress were stale and the final review/hook/staging bundle was incomplete.
+- This documentation update closes the stale state/review/diff plus architecture/project-log findings and preserves implementation-specific Codex/Claude prompts with truthful nonlaunch records. Neither external CLI was launched because repository-context transfer was not authorized; no external approval is inferred.
+- The explicit closed-loop finding and final core/exact-RL regression suites are green. With the semantic and implementation-test lanes clean and the process lane's durable-doc findings resolved by this live-state remediation, in-process implementation review is converged. Changed-path pre-commit, staging and cached stat/full-diff inspection, credential scan, dependency-declaration scan, `.agents/`/`output/` exclusion audit, Commit A, and remote CI all remain pending. No GM-03d commit or push has occurred; `main` and `origin/main` remain at `5e6186d`.
+
+## GM-03d fresh commit-readiness review and reproducible differential
+
+- The user explicitly requested review and an early coherent commit. Codex CLI 0.144.4 was confirmed equal to the current registry release after its active binary prevented replacement. Pinned Codex and Claude implementation reviews were launched, but both returned HTTP 401 authentication failures and no approval; the exact failures remain under `raw/codex-2.stdout.log` and `raw/opus-2.md`.
+- Three fresh in-process lanes compensated for the unavailable CLIs. Semantic equivalence returned `CLEAN`. The test lane found two `MEDIUM` gaps: black palette fallback/unlocked-prefix behavior survived two mutations, and the earlier 10,490-byte differential had no durable runner or normalized record. The process lane found stale external-review status, missing explicit exclusion of the separate modified `AGENTS.md`, and an ordinary-diff claim that could not cover 29 untracked candidate paths.
+- Direct-host and real-Mediator tests now exhaust the unlocked palette while a later locked color remains free. They freeze black fallback plus prefix selection, the focused direct/facade/failure slice passes 27/27, and the changed direct/failure modules remain below 500 lines at 495 and 221.
+- `scripts/verify_path_lifecycle_differential.py` now reproduces the exact seven-action/nine-record scenario from archived baseline `5e6186d` and live candidate source without a checkout or worktree. Separate bytecode-disabled child processes emit full canonical checkpoints, source-tree hashes prove no runtime drift, and the commit-bound result plus `--expected` replay are byte-identical at 135,371 bytes with SHA-256 `4ceaf17d638f932df6c3ce31cdba8789f56c0ea82748b4b2b6dcbc111d47c668`. The prior non-reproducible digest is superseded.
+- The fresh test/evidence re-review is `CLEAN`: both palette mutations now produce exactly two failures with no errors, and a live replay regenerated the same seven-action/nine-record artifact and summary. The post-fix core suite passes 536 tests with 12 expected optional-RL skips, exact-RL passes 539/539, and Ruff check/format pass across all eight changed Python files.
+- The fresh process re-review is `CLEAN`: external 401 status/raw preservation, explicit `AGENTS.md`/`.agents/`/`output/` exclusions, ordinary-versus-cached diff language, artifact/runtime-tree hashes, docs, line limits, and unchanged dependency declarations all match the live tree.
+- Changed-path pre-commit is clean. EOF, trailing-whitespace, Ruff check, and Ruff format hooks pass all 41 hook-safe paths. The Codex UTF-16LE stdout remains byte-identical at SHA-256 `3614704f5876bf28d97f87f16dc0c80b9e53d3d311536c5aca79a13af9cd1d5a`; the Claude UTF-16LE raw failure is intentionally excluded from the EOF fixer because that hook appends an invalid single byte, and its restored exact capture remains SHA-256 `fccf9497458d6e0487324107b9fc41af93efd5ce47837c6c3abbe3761b59289b`.
+- The exact 42-path GM-03d unit is staged at 2,959 insertions and 160 deletions. Cached diff/check, high-confidence credential, dependency-declaration, and modified-`AGENTS.md`/`.agents/`/`output/` exclusion audits all pass; only modified `AGENTS.md` remains unstaged and only `.agents/skills/multi-cli-review/SKILL.md` remains untracked. Three-lane implementation review is re-converged; Commit A and remote CI remain pending.

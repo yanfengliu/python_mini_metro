@@ -1,0 +1,1 @@
+APPROVED — the live 1,110-line baseline confirms all 12 methods, the 168-line extraction envelope and 57-line hard replacement budget (`1110 - 168 + 57 = 999`), late `Path`/`Metro` lookup points, public-hook dispatch, mutable-state ownership, and sufficient TDD/equivalence verification coverage.
