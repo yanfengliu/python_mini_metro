@@ -38,4 +38,8 @@ Third, the durable thread incorrectly said external reviewers were never launche
 
 The process re-review is also `CLEAN`. It verified the corrected 401 history, explicit `AGENTS.md`/`.agents/`/`output/` exclusions, honest ordinary-versus-cached diff boundary, artifact and runtime-tree hashes, documentation consistency, line limits, and unchanged dependency declarations. Final changed-path hooks pass all 41 hook-safe paths. The UTF-16LE Codex stdout is classified as binary and remains byte-identical; the UTF-16LE Claude capture is excluded only from the EOF fixer because it appends an invalid single byte, then verified separately by SHA-256.
 
-Implementation review is re-converged: semantic, test/evidence, and process lanes are `CLEAN`, and both accepted test mutations are rejected in two layers. Changed-path hooks and exact staged audits are clean. Remote `build`/`rl-smoke` acceptance remains pending after Commit A is pushed.
+Implementation review is re-converged: semantic, test/evidence, and process lanes are `CLEAN`, and both accepted test mutations are rejected in two layers. Changed-path hooks and exact staged audits are clean.
+
+## Remote implementation gate
+
+Commit A `9321dcde0a0b062bb4953a3ac75d6f2bdaa06c3a` passed exact [run 29386046847](https://github.com/yanfengliu/python_mini_metro/actions/runs/29386046847): `build` and `rl-smoke` each completed successfully in 35 seconds by API timestamps. Evidence-only Commit B is the remaining GM-03d transaction.

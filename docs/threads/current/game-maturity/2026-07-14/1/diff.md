@@ -2,7 +2,7 @@
 
 Baseline: `5e6186d8b331207d2a6ec583b7a82f80533f5203`
 
-Status: production extraction, corrected reproducible local proofs, clean three-lane re-review, changed-path hooks, and exact staged audit complete; Commit A and remote CI remain pending.
+Status: production extraction, corrected reproducible local proofs, clean three-lane re-review, changed-path hooks, exact staged audit, and exact Commit-A remote CI green; evidence-only Commit B pending.
 
 ## Current production boundary
 
@@ -21,3 +21,7 @@ Status: production extraction, corrected reproducible local proofs, clean three-
 ## Current worktree boundary
 
 The owned 42-path GM-03d unit comprises parent state/evidence/decision edits, this iteration's plan/review/prompt/differential artifacts, the durable differential runner, architecture/progress updates, `src/path_lifecycle.py`, the Mediator facade rewiring, and focused direct/facade tests and support. Its staged scope is audited at 2,959 insertions and 160 deletions. The separately modified `AGENTS.md`, pre-existing untracked `.agents/` tree, and ignored `output/` are excluded.
+
+## Remote implementation gate
+
+Commit A `9321dcde0a0b062bb4953a3ac75d6f2bdaa06c3a` advanced `origin/main` from `5e6186d` and passed exact [run 29386046847](https://github.com/yanfengliu/python_mini_metro/actions/runs/29386046847): both `build` and `rl-smoke` succeeded in 35 seconds by API timestamps. Commit B changes only persistent/thread evidence.

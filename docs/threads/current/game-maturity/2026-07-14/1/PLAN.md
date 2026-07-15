@@ -1,6 +1,6 @@
 # GM-03d - Extract topology and path lifecycle
 
-Status: production extraction, reproducible local proofs, fresh commit-readiness re-review, changed-path hooks, and exact staged audit are complete; Commit A and remote CI remain pending
+Status: Commit A remotely green; evidence-only Commit B pending
 
 Baseline: GM-03c Commit B `5e6186d8b331207d2a6ec583b7a82f80533f5203` (`docs: finalize route planning extraction [GM-03c:B]`), remotely green in [run 29352432028](https://github.com/yanfengliu/python_mini_metro/actions/runs/29352432028). API timestamps show `build` passed in 44 seconds and `rl-smoke` in 3 minutes 44 seconds.
 
