@@ -1,6 +1,6 @@
 # GM-03f input and layout coordination extraction plan
 
-Status: implementation, archived-baseline differential, clean-checkout replay, local regression, adversarial live-code review, pre-commit, and exact staged audits are green; Commit A delivery is active
+Status: implementation Commit A `c676c30832d934449ca81ea5473ecaa492b8d001` passed exact workflow run `29724753115`; evidence-only Commit B is active
 
 Transaction marker: `[GM-03f:A]`
 

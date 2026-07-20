@@ -1,6 +1,6 @@
 # GM-03f review synthesis
 
-Status: architecture plan, implementation, differential, clean-checkout replay, local regression, adversarial live-code review, pre-commit, and exact scoped staging audits converged; Commit A delivery remains
+Status: architecture plan, implementation, differential, clean-checkout replay, local regression, adversarial live-code review, pre-commit, and exact scoped staging audits converged; Commit A passed exact remote CI and evidence-only Commit B remains
 
 ## Scope and baseline
 
@@ -28,4 +28,4 @@ The frozen broader command passes 156/156, full py313 passes 582 tests with 12 e
 
 ## Next gate
 
-Create, push, and remotely verify the exact reviewed Commit A transaction.
+Create, push, and remotely verify evidence-only Commit B; the next GM-04a transaction must record B's exact result before changing pinned-engine setup.
