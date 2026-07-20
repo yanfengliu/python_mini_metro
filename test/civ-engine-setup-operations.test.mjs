@@ -4,6 +4,7 @@ import {
   appendFile,
   copyFile,
   mkdir,
+  readdir,
   readFile,
   rm,
   symlink,
@@ -22,7 +23,6 @@ import {
   resolveTrustedNpmExecutable,
   validateRepositoryContract,
 } from '../scripts/civ-engine-setup-operations.mjs';
-import { createSetupTransaction } from '../scripts/civ-engine-setup-safety.mjs';
 import { withSetupRepository } from './civ-engine-setup-fixtures.mjs';
 import {
   commit,
@@ -50,53 +50,23 @@ const SETUP_MODULES = [
   'source-provenance-git-safety.mjs',
 ];
 
-test('root repair delegates exact descriptor installation to sanitized npm ci', async () => {
+test('root repair creates only the exact descriptor link without invoking npm', async () => {
   await withSetupRepository(async (fixtureRoot, { pin }) => {
     const pinRoot = path.join(fixtureRoot, '.civ-engine-pin');
     const rootSlot = path.join(fixtureRoot, 'node_modules', 'civ-engine');
-    await Promise.all([
-      mkdir(pinRoot),
-      mkdir(path.dirname(rootSlot), { recursive: true }),
-    ]);
+    await mkdir(pinRoot);
     await writeFile(path.join(pinRoot, 'package.json'), JSON.stringify({
       name: 'civ-engine',
       version: CIV_ENGINE_PIN.version,
     }));
-    await symlink(pinRoot, rootSlot, process.platform === 'win32' ? 'junction' : 'dir');
-    const transaction = await createSetupTransaction({ repoRoot: fixtureRoot });
-    let planned = null;
-    let launched = false;
-    try {
-      await installRootDependency({
-        repoRoot: fixtureRoot,
-        pinRoot,
-        transaction,
-        pin,
-        planNpm: async (input) => {
-          planned = input;
-          return { command: 'fixture-npm', args: input.args, options: {} };
-        },
-        runProcess(plan) {
-          launched = true;
-          assert.equal(plan.command, 'fixture-npm');
-        },
-      });
-    } finally {
-      await rm(transaction.parentPath, { recursive: true, force: true });
-    }
-    assert.equal(launched, true);
-    assert.equal(planned.cwd, fixtureRoot);
-    assert.deepEqual(planned.args, [
-      'ci',
-      '--omit=dev',
-      '--ignore-scripts',
-      '--no-audit',
-      '--no-fund',
-    ]);
+    await installRootDependency({ repoRoot: fixtureRoot, pinRoot, pin });
+    assert.doesNotMatch(installRootDependency.toString(), /npm|runProcess|planNpm/i);
+    assert.equal(await fsRealpath(rootSlot), await fsRealpath(pinRoot));
+    assert.deepEqual(await readdir(path.dirname(rootSlot)), ['civ-engine']);
   });
 });
 
-test('root npm repair unlinks only the expected stale slot and preserves its target', async () => {
+test('root exact-link repair refuses a stale link and preserves its target', async () => {
   await withSetupRepository(async (fixtureRoot, { pin }) => {
     const pinRoot = path.join(fixtureRoot, '.civ-engine-pin');
     const nodeModulesRoot = path.join(fixtureRoot, 'node_modules');
@@ -121,14 +91,54 @@ test('root npm repair unlinks only the expected stale slot and preserves its tar
       rootSlot,
       process.platform === 'win32' ? 'junction' : 'dir',
     );
-    const transaction = await createSetupTransaction({ repoRoot: fixtureRoot });
-    try {
-      await installRootDependency({ repoRoot: fixtureRoot, pinRoot, transaction, pin });
-      assert.equal(await readFile(sentinel, 'utf8'), 'external target must survive\n');
-      assert.equal(await fsRealpath(rootSlot), await fsRealpath(pinRoot));
-    } finally {
-      await rm(transaction.parentPath, { recursive: true, force: true });
-    }
+    await assert.rejects(
+      installRootDependency({ repoRoot: fixtureRoot, pinRoot, pin }),
+      /existing|stale|replace|already/i,
+    );
+    assert.equal(await readFile(sentinel, 'utf8'), 'external target must survive\n');
+    assert.equal(await fsRealpath(rootSlot), await fsRealpath(externalTarget));
+  });
+});
+
+test('root exact-link repair refuses a physical stale slot without touching its contents', async () => {
+  await withSetupRepository(async (fixtureRoot, { pin }) => {
+    const pinRoot = path.join(fixtureRoot, '.civ-engine-pin');
+    const rootSlot = path.join(fixtureRoot, 'node_modules', 'civ-engine');
+    const sentinel = path.join(rootSlot, 'sentinel.txt');
+    await Promise.all([
+      mkdir(pinRoot),
+      mkdir(rootSlot, { recursive: true }),
+    ]);
+    await writeFile(sentinel, 'physical slot must survive\n');
+    await assert.rejects(
+      installRootDependency({
+        repoRoot: fixtureRoot,
+        pinRoot,
+        pin,
+      }),
+      /physical.*slot|slot.*link/i,
+    );
+    assert.equal(await readFile(sentinel, 'utf8'), 'physical slot must survive\n');
+  });
+});
+
+test('root exact-link repair preserves every unexpected node_modules entry', async () => {
+  await withSetupRepository(async (fixtureRoot, { pin }) => {
+    const pinRoot = path.join(fixtureRoot, '.civ-engine-pin');
+    const nodeModulesRoot = path.join(fixtureRoot, 'node_modules');
+    const rootSlot = path.join(nodeModulesRoot, 'civ-engine');
+    const sentinel = path.join(nodeModulesRoot, 'unexpected', 'sentinel.txt');
+    await Promise.all([
+      mkdir(pinRoot),
+      mkdir(path.dirname(sentinel), { recursive: true }),
+    ]);
+    await writeFile(sentinel, 'unexpected entry must survive\n');
+    await assert.rejects(
+      installRootDependency({ repoRoot: fixtureRoot, pinRoot, pin }),
+      /unexpected.*entry/i,
+    );
+    assert.equal(await pathExistsForTest(rootSlot), false);
+    assert.equal(await readFile(sentinel, 'utf8'), 'unexpected entry must survive\n');
   });
 });
 
@@ -156,7 +166,7 @@ test('root contract rejects every unsupported install-affecting package field', 
   }
 });
 
-test('root install revalidates contract and blocks hostile non-dev lock graph before launch', async () => {
+test('root link creation rejects contract drift before filesystem mutation', async () => {
   await withSetupRepository(async (fixtureRoot, { pin }) => {
     await validateRepositoryContract({ repoRoot: fixtureRoot, pin });
     const lockPath = path.join(fixtureRoot, 'package-lock.json');
@@ -167,24 +177,16 @@ test('root install revalidates contract and blocks hostile non-dev lock graph be
       integrity: 'sha512-hostile',
     };
     await writeFile(lockPath, JSON.stringify(lockDocument, null, 2));
-    let planned = false;
-    let launched = false;
+    const rootSlot = path.join(fixtureRoot, 'node_modules', CIV_ENGINE_PIN.packageName);
     await assert.rejects(
       installRootDependency({
         repoRoot: fixtureRoot,
         pinRoot: path.join(fixtureRoot, '.civ-engine-pin'),
-        transaction: {},
         pin,
-        planNpm: async () => {
-          planned = true;
-          return { command: 'fixture', args: [], options: {} };
-        },
-        runProcess() { launched = true; },
       }),
       /lock|graph|contract|non-dev/i,
     );
-    assert.equal(planned, false);
-    assert.equal(launched, false);
+    assert.equal(await pathExistsForTest(rootSlot), false);
   });
 });
 
@@ -278,6 +280,7 @@ test('setup executable identity is independent of an attacker-controlled PATH', 
     );
     assert.doesNotMatch(source, /process\.env\.PATH\b|split\(path\.delimiter\)/);
     assert.doesNotMatch(source, /findPhysicalExecutable/);
+    assert.match(source, /fs\.lstat\(candidate, \{ bigint: true \}\)/);
   });
 });
 
@@ -307,6 +310,18 @@ test('real verify-only canary attributes content mismatches while strict rejects
     commit(pinRoot, 'canary commit mismatch');
     assert.equal(runCopiedVerification(fixtureRoot, false).ok, false);
     assert.equal(runCopiedVerification(fixtureRoot, true).ok, true);
+  });
+});
+
+test('strict verification rejects and preserves a foreign root dependency entry', async () => {
+  await withVerificationRepository(async ({ fixtureRoot }) => {
+    const sentinel = path.join(fixtureRoot, 'node_modules', 'unexpected', 'sentinel.txt');
+    await mkdir(path.dirname(sentinel));
+    await writeFile(sentinel, 'foreign entry must survive\n');
+    const result = runCopiedVerification(fixtureRoot, false);
+    assert.equal(result.ok, false);
+    assert.match(result.message, /unexpected.*entry/i);
+    assert.equal(await readFile(sentinel, 'utf8'), 'foreign entry must survive\n');
   });
 });
 
@@ -428,4 +443,14 @@ function runCopiedVerification(fixtureRoot, allowDirty) {
 async function fsRealpath(candidate) {
   const { realpath } = await import('node:fs/promises');
   return realpath(candidate);
+}
+
+async function pathExistsForTest(candidate) {
+  try {
+    await fsRealpath(candidate);
+    return true;
+  } catch (error) {
+    if (error?.code === 'ENOENT') return false;
+    throw error;
+  }
 }

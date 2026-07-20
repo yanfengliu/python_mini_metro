@@ -1,6 +1,6 @@
 # Game maturity resume state
 
-Last updated: 2026-07-19
+Last updated: 2026-07-20
 
 Active goal thread: `019f7c1a-897b-7c31-9662-4edbb4e128a6`
 
@@ -8,20 +8,20 @@ Current increment: GM-04 - Isolated pinned civ-engine setup
 
 Current substep: GM-04b - add the safe setup and verification command
 
-Current status: GM-04a is remotely finalized; GM-04b implementation, independent in-process review, real missing-pin proof, and complete local validation are clean, and Commit A is ready for exact scoped staging
+Current status: GM-04a is remotely finalized; GM-04b Commit A `8cff6201dd4d0b2b07ae1fbf9068a5b179109457` failed exact remote setup on npm 10 omitted-development namespace residue, and corrective Commit A2 is implementation-complete with two independent `CLEAN` re-reviews plus all focused/full runtime, static, dependency, hook, and exact cached-staging gates green; commit, push, and exact remote CI remain
 
-Durability transaction: GM-04b implementation Commit A is locally ready from remotely green GM-04a Commit B `28a6c7e6082f03a0590fb27d99996837575d5062`
+Durability transaction: failed GM-04b implementation Commit A is public; corrective implementation Commit A2 is active from `8cff6201dd4d0b2b07ae1fbf9068a5b179109457`
 
 Last remotely finalized work unit: GM-04a at Commit B `28a6c7e6082f03a0590fb27d99996837575d5062`, which passed [run 29731075431](https://github.com/yanfengliu/python_mini_metro/actions/runs/29731075431)
 
-Expected remote implementation baseline: `28a6c7e6082f03a0590fb27d99996837575d5062`
+Expected remote implementation baseline: `8cff6201dd4d0b2b07ae1fbf9068a5b179109457`, whose exact [run 29748574695](https://github.com/yanfengliu/python_mini_metro/actions/runs/29748574695) failed both jobs in setup
 
-Current transaction marker: `[GM-04b:A]`
+Current transaction marker: `[GM-04b:A2]`
 
 ## Resume here
 
-1. Preserve remotely finalized GM-04a Commit B, the pre-existing `.agents/` tree, unrelated ignored `output/`, the retained isolated pin, and the live `../civ-engine` sibling outside the transaction.
-2. Stage only the reviewed GM-04b implementation/docs/test unit, excluding `.agents/`, `output/`, pin/setup artifacts, and credentials; audit the cached diff, create `[GM-04b:A]`, push `main`, and wait for that exact workflow before recording Commit B.
+1. Preserve remotely finalized GM-04a Commit B, failed public GM-04b Commit A and its exact logs, the pre-existing `.agents/` tree, unrelated ignored `output/`, the retained isolated pin, and the live `../civ-engine` sibling outside the correction.
+2. Preserve the exact reviewed 14-path staged payload, create `[GM-04b:A2]`, push `main`, and wait for that exact workflow before recording Commit B; continue excluding `.agents/`, `output/`, pin/setup artifacts, and credentials.
 
 ## Increment ledger
 
@@ -31,7 +31,7 @@ Current transaction marker: `[GM-04b:A]`
 | GM-01 | complete | `5e00763` / `6c77033` / `3523ea4` / `18ef714` / `648025f` / `14050af` | GM-01a/GM-01b/GM-01c A/B green | Canonical objective and baseline rules remotely finalized |
 | GM-02 | complete | `bab6b15` / `ab8e6eb` / `a5744c0` / `53bc510` / `9b75f37` / `812e426` / `02ceb54` / `3c68472` / `36cf058` / `dc35cd6` / `27a0304` / `60b4174` | GM-02a through GM-02e A/B green | Long-history baseline and hybrid-memory research remotely finalized |
 | GM-03 | complete | `83d02d4` / `fbcb31d` / `36e89d9` / `00ea38c` / `1b751e4` / `5e6186d` / `9321dcd` / `b1e419e` / `7ac89cf` / `7ff9d9c` / `c676c30` / `be0b1e1` | GM-03a through GM-03f A/B green | Mediator decomposition remotely finalized |
-| GM-04 | in progress | - | - | GM-04a complete; GM-04b locally ready for Commit A |
+| GM-04 | in progress | `8cff620` failed; A2 active | [run 29748574695](https://github.com/yanfengliu/python_mini_metro/actions/runs/29748574695) failed | GM-04a complete; GM-04b exact-link correction in progress |
 | GM-05 | pending | - | - | Route editing |
 | GM-06 | pending | - | - | Fleet and carriages |
 | GM-07 | pending | - | - | Menus, save/resume, high scores |
@@ -66,7 +66,7 @@ Current transaction marker: `[GM-04b:A]`
 | GM-03e | complete | `7ac89cf` / run `29719845761` success | `7ff9d9c` / run `29720233286` success | Passenger-flow extraction remotely finalized |
 | GM-03f | complete | `c676c30` / run `29724753115` success | `be0b1e1` / run `29725101133` success | Input/layout coordination extraction remotely finalized |
 | GM-04a | complete | `585dc60` / run `29730625404` success | `28a6c7e` / run `29731075431` success | Isolated pin contract remotely finalized |
-| GM-04b | ready for Commit A | `[GM-04b:A]` ready | - | Reviewed implementation and complete local gates clean; exact scoped staging next |
+| GM-04b | corrective implementation | `8cff620` / run `29748574695` failure; `[GM-04b:A2]` staged | - | npm 10 empty-scope residue reproduced; corrective review/local/cached-staging gates clean; commit next |
 | GM-04c | pending | - | - | Complete pinned Node-suite proof and mismatch proof |
 | GM-05a | pending | - | - | Atomic path replacement |
 | GM-05b | pending | - | - | Selected-line redraw |

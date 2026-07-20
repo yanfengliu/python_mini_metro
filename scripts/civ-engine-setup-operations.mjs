@@ -172,6 +172,7 @@ export async function promotePin({
 }
 
 export async function classifyRootDependency({ repoRoot, pinRoot }) {
+  await auditRootNodeModules({ repoRoot, pinRoot, requireExactSlot: false });
   const rootSlot = path.join(repoRoot, 'node_modules', CIV_ENGINE_PIN.packageName);
   let resolution;
   try {
@@ -206,27 +207,15 @@ export async function classifyRootDependency({ repoRoot, pinRoot }) {
 export async function installRootDependency({
   repoRoot,
   pinRoot,
-  transaction,
   pin = CIV_ENGINE_PIN,
-  planNpm = npmPlan,
-  runProcess = runSetupProcess,
+  createRootLink = fs.symlink,
 }) {
   await validateRepositoryContract({ repoRoot, pin });
   await auditRootNodeModules({ repoRoot, pinRoot, requireExactSlot: false });
-  const plan = await planNpm({
-    cwd: repoRoot,
-    transaction,
-    args: [
-      'ci',
-      '--omit=dev',
-      '--ignore-scripts',
-      '--no-audit',
-      '--no-fund',
-    ],
-  });
   await validateRepositoryContract({ repoRoot, pin });
-  runProcess(plan, { phase: 'root civ-engine dependency install' });
+  await repairRootDependencyLink({ repoRoot, pinRoot, createRootLink });
   await auditRootNodeModules({ repoRoot, pinRoot, requireExactSlot: true });
+  await validateRepositoryContract({ repoRoot, pin });
 }
 
 export async function verifyDefaultPin({ repoRoot, pinRoot }) {
@@ -336,7 +325,10 @@ async function auditRootNodeModules({ repoRoot, pinRoot, requireExactSlot }) {
   const nodeModulesRoot = path.join(repoRoot, 'node_modules');
   if (!await pathExists(nodeModulesRoot)) {
     if (requireExactSlot) {
-      throw setupError('ERR_CIV_ENGINE_SETUP_UNSAFE', 'root node_modules is missing after npm ci');
+      throw setupError(
+        'ERR_CIV_ENGINE_SETUP_UNSAFE',
+        'root node_modules is missing after exact-link repair',
+      );
     }
     return;
   }
@@ -352,35 +344,104 @@ async function auditRootNodeModules({ repoRoot, pinRoot, requireExactSlot }) {
     if (name !== CIV_ENGINE_PIN.packageName) {
       throw setupError(
         'ERR_CIV_ENGINE_SETUP_UNSAFE',
-        'root npm ci would replace an unexpected node_modules entry',
+        'root node_modules contains an unexpected entry',
       );
     }
     foundSlot = true;
     const metadata = await fs.lstat(candidate);
     if (!metadata.isSymbolicLink()) {
-      await assertSafeGeneratedTree({
-        ownerRoot: repoRoot,
-        treeRoot: candidate,
-        label: 'root civ-engine dependency slot',
-      });
+      throw setupError(
+        'ERR_CIV_ENGINE_SETUP_UNSAFE',
+        'root civ-engine dependency slot must be a link',
+      );
     }
     if (
       requireExactSlot
       && !samePath(await fs.realpath(candidate), await fs.realpath(pinRoot))
     ) {
-      throw setupError('ERR_CIV_ENGINE_SETUP_UNSAFE', 'npm ci installed the wrong civ-engine target');
+      throw setupError('ERR_CIV_ENGINE_SETUP_UNSAFE', 'root dependency link has the wrong target');
     }
   }
   if (requireExactSlot && !foundSlot) {
-    throw setupError('ERR_CIV_ENGINE_SETUP_UNSAFE', 'npm ci omitted the root civ-engine dependency');
+    throw setupError('ERR_CIV_ENGINE_SETUP_UNSAFE', 'exact-link repair omitted the root dependency');
+  }
+}
+
+async function repairRootDependencyLink({ repoRoot, pinRoot, createRootLink }) {
+  const nodeModulesRoot = path.join(repoRoot, 'node_modules');
+  const rootSlot = path.join(nodeModulesRoot, CIV_ENGINE_PIN.packageName);
+  const containerIdentity = await ensurePhysicalDirectory(nodeModulesRoot, 'root node_modules');
+  await assertPhysicalDirectory(pinRoot, 'pinned civ-engine root');
+  let slotMetadata = null;
+  try {
+    slotMetadata = await fs.lstat(rootSlot);
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+  if (slotMetadata) {
+    if (!slotMetadata.isSymbolicLink()) {
+      throw setupError(
+        'ERR_CIV_ENGINE_SETUP_UNSAFE',
+        'root civ-engine dependency slot must be a link',
+      );
+    }
+    try {
+      if (samePath(await fs.realpath(rootSlot), await fs.realpath(pinRoot))) return;
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
+    throw setupError(
+      'ERR_CIV_ENGINE_SETUP_UNSAFE',
+      'existing root dependency link is not safe to replace',
+    );
+  }
+  await assertSameDirectoryIdentity(nodeModulesRoot, containerIdentity);
+  try {
+    await createRootLink(
+      pinRoot,
+      rootSlot,
+      process.platform === 'win32' ? 'junction' : 'dir',
+    );
+  } catch (error) {
+    if (error?.code === 'EEXIST') {
+      throw setupError(
+        'ERR_CIV_ENGINE_SETUP_UNSAFE',
+        'root dependency slot changed during exact-link repair',
+      );
+    }
+    throw error;
+  }
+  await assertSameDirectoryIdentity(nodeModulesRoot, containerIdentity);
+}
+
+async function ensurePhysicalDirectory(candidate, label) {
+  try {
+    await fs.mkdir(candidate);
+  } catch (error) {
+    if (error?.code !== 'EEXIST') throw error;
+  }
+  return assertPhysicalDirectory(candidate, label);
+}
+
+async function assertSameDirectoryIdentity(candidate, expected) {
+  const current = await assertPhysicalDirectory(candidate, 'root node_modules');
+  if (current.dev !== expected.dev || current.ino !== expected.ino) {
+    throw setupError(
+      'ERR_CIV_ENGINE_SETUP_UNSAFE',
+      'root node_modules identity changed during exact-link repair',
+    );
   }
 }
 
 async function assertPhysicalDirectory(candidate, label) {
-  const [metadata, physical] = await Promise.all([fs.lstat(candidate), fs.realpath(candidate)]);
+  const [metadata, physical] = await Promise.all([
+    fs.lstat(candidate, { bigint: true }),
+    fs.realpath(candidate),
+  ]);
   if (!metadata.isDirectory() || metadata.isSymbolicLink() || !samePath(candidate, physical)) {
     throw setupError('ERR_CIV_ENGINE_SETUP_UNSAFE', `${label} must be a physical directory`);
   }
+  return metadata;
 }
 
 async function assertPhysicalFile(candidate, label) {
