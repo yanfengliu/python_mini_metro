@@ -27,3 +27,7 @@ Two independent in-process semantic lanes returned `CLEAN` after method-by-metho
 The fleet-pinned external implementation lanes were retried against the live tree. Codex CLI 0.144.6 again exhausted WebSocket and HTTPS retries with HTTP 401 missing authentication, and Claude again failed because its OAuth session expired. Exact outputs are preserved in `raw/codex-implementation.stdout.log` and `raw/claude-implementation.md`; neither unavailable lane is approval.
 
 Local regression evidence is green: py313 core passed 560 tests with 12 expected optional-RL skips, and the exact RL environment passed 563/563 with no skips. Ruff and format checks are green for the final Python scope. Changed-path pre-commit passes all 36 hook-safe paths; two byte-verbatim external failure captures are intentionally excluded from mutating EOF/trailing-whitespace hooks after exact recapture. The intended/live and staged sets agree at 38 paths; hook-safe cached check, credential/dependency scans, staged LF/size proof, and `.agents/`/ignored-output exclusion pass with no unstaged tracked file. Commit A, push, and exact remote CI remain pending.
+
+## Commit A remote gate
+
+Commit A `7ac89cf100e13a256ec3cbe7550d3e6926a31d23` is pushed to public `origin/main`, and exact workflow run `29719845761` completed successfully. `build` passed in 39 seconds and `rl-smoke` passed in 3 minutes 39 seconds. The evidence-only Commit B records this result before GM-03f begins.

@@ -1,6 +1,6 @@
 # GM-03e passenger-flow extraction plan
 
-Status: implementation, equivalence, review, hooks, exact staging, and cached audits are green; Commit A is active
+Status: Commit A `7ac89cf` and exact run `29719845761` are green; evidence-only Commit B is active
 
 Transaction marker: `[GM-03e:A]`
 
