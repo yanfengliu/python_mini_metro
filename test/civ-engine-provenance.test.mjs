@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import {
+  access,
+  appendFile,
   copyFile,
   mkdir,
   readFile,
@@ -11,6 +13,7 @@ import {
 import path from 'node:path';
 import test from 'node:test';
 
+import { runReadOnlyGit } from '../scripts/civ-engine-setup-process.mjs';
 import {
   assertSourceStateAllowed,
   captureSourceState,
@@ -83,11 +86,15 @@ test('a wrong physical engine root is non-overridable and fully attributable', a
       () => assertCivEngineStateAllowed(forged, { allowDirty: true }),
       /fresh civ-engine capture/i,
     );
-    changed.engine.expectedPackageRootPhysical = true;
-    changed.engine.locationMatches = true;
+    assert.throws(() => {
+      changed.engine.expectedPackageRootPhysical = true;
+    }, TypeError);
+    assert.throws(() => {
+      changed.engine.locationMatches = true;
+    }, TypeError);
     assert.throws(
       () => assertCivEngineStateAllowed(changed.engine, { allowDirty: true }),
-      /fresh civ-engine capture/i,
+      (error) => error?.code === 'ERR_CIV_ENGINE_PROVENANCE' && /cannot be overridden/.test(error.message),
     );
   });
 });
@@ -144,7 +151,10 @@ test('a top-level dist junction cannot escape the engine package root', async ()
         sourceOptions(fixtureRoot, engine.commit, engine.treeDigest),
       );
       assert.equal(captured.available, false);
-      assert.match(captured.error, /dist must be a physical directory/i);
+      assert.equal(
+        captured.error,
+        'civ-engine runtime layout is unavailable or unsafe',
+      );
       for (const allowDirty of [false, true]) {
         assert.throws(
           () => assertCivEngineStateAllowed(captured, { allowDirty }),
@@ -258,5 +268,225 @@ test('default provenance follows nested ESM resolution and rejects its physical 
     } finally {
       await rm(decoyRoot, { recursive: true, force: true });
     }
+  });
+});
+
+test('engine provenance rejects a local filter before its sentinel can execute', async () => {
+  await withRepository(async (fixtureRoot, engine) => {
+    const markerPath = path.join(fixtureRoot, 'pin-filter-ran.txt');
+    const probePath = path.join(fixtureRoot, 'pin-filter-probe.mjs');
+    const secret = 'PIN_FILTER_SECRET_MUST_NOT_LEAK';
+    await writeFile(
+      probePath,
+      `import { writeFileSync } from 'node:fs';\nwriteFileSync(${JSON.stringify(markerPath)}, ${JSON.stringify(secret)});\n`,
+      'utf8',
+    );
+    await Promise.all([
+      appendFile(
+        path.join(engine.root, '.git', 'config'),
+        `\n[filter "probe"]\n\tclean = node ${normalize(probePath)} ${secret}\n`,
+        'utf8',
+      ),
+      writeFile(path.join(engine.root, '.gitattributes'), '* filter=probe\n', 'utf8'),
+    ]);
+
+    const captured = await captureCivEngineState(
+      sourceOptions(fixtureRoot, engine.commit, engine.treeDigest),
+    );
+    assert.equal(captured.available, false);
+    assert.equal(captured.error, 'civ-engine Git metadata is unsafe');
+    assert.doesNotMatch(captured.error, new RegExp(secret));
+    await assert.rejects(access(markerPath), (error) => error?.code === 'ENOENT');
+  });
+});
+
+test('engine provenance re-audits local config before every Git call', async () => {
+  await withRepository(async (fixtureRoot, engine) => {
+    const secret = 'PIN_REAUDIT_SECRET_MUST_NOT_LEAK';
+    let gitCalls = 0;
+    const captured = await captureCivEngineState({
+      ...sourceOptions(fixtureRoot, engine.commit, engine.treeDigest),
+      async engineGitRunner({ args }) {
+        gitCalls += 1;
+        assert.equal(args[0], 'status');
+        await appendFile(
+          path.join(engine.root, '.git', 'config'),
+          `\n[filter "probe"]\n\tprocess = ${secret}\n`,
+          'utf8',
+        );
+        return '';
+      },
+    });
+
+    assert.equal(gitCalls, 1);
+    assert.equal(captured.available, false);
+    assert.equal(captured.error, 'civ-engine Git metadata is unsafe');
+    assert.doesNotMatch(captured.error, new RegExp(secret));
+  });
+});
+
+test('engine provenance re-audits active info excludes before every Git call', async () => {
+  await withRepository(async (fixtureRoot, engine) => {
+    const secret = 'PIN_EXCLUDE_SECRET_4C21';
+    await writeFile(path.join(engine.root, `${secret}.txt`), 'concealed\n', 'utf8');
+    let gitCalls = 0;
+    const captured = await captureCivEngineState({
+      ...sourceOptions(fixtureRoot, engine.commit, engine.treeDigest),
+      async engineGitRunner(options) {
+        gitCalls += 1;
+        assert.equal(options.args[0], 'status');
+        await appendFile(
+          path.join(engine.root, '.git', 'info', 'exclude'),
+          `\n/${secret}.txt\n`,
+          'utf8',
+        );
+        return runReadOnlyGit(options);
+      },
+    });
+    assert.equal(gitCalls, 1);
+    assert.equal(captured.available, false);
+    assert.equal(captured.error, 'civ-engine Git metadata is unsafe');
+    assert.doesNotMatch(captured.error, new RegExp(secret));
+  });
+});
+
+test('engine Git failures and unavailable summaries never reflect config values', async () => {
+  await withRepository(async (fixtureRoot, engine) => {
+    const secret = 'PIN_CONFIG_SECRET_3A52';
+    await appendFile(
+      path.join(engine.root, '.git', 'config'),
+      `\n[core]\n\trepositoryFormatVersion = 1\n`
+      + `[extensions]\n\tobjectFormat = ${secret}\n`,
+      'utf8',
+    );
+    const captured = await captureCivEngineState(
+      sourceOptions(fixtureRoot, engine.commit, engine.treeDigest),
+    );
+    assert.equal(captured.available, false);
+    assert.match(captured.error, /^civ-engine Git inspection failed \(\d+\)$/);
+    assert.doesNotMatch(captured.error, new RegExp(secret));
+  });
+});
+
+for (const [name, relativePath] of [
+  ['worktree attributes', '.gitattributes'],
+  ['info attributes', '.git/info/attributes'],
+]) {
+  test(`engine provenance rejects behavior-changing ${name} before Git`, async () => {
+    await withRepository(async (fixtureRoot, engine) => {
+      const secret = 'PIN_ATTRIBUTE_SECRET_7F4D';
+      await Promise.all([
+        writeFile(
+          path.join(engine.root, ...relativePath.split('/')),
+          `* filter=${secret}\n`,
+          'utf8',
+        ),
+        appendFile(
+          path.join(engine.root, '.git', 'config'),
+          `\n[filter "${secret}"]\n\trequired = true\n`,
+          'utf8',
+        ),
+      ]);
+      let gitCalls = 0;
+      const captured = await captureCivEngineState({
+        ...sourceOptions(fixtureRoot, engine.commit, engine.treeDigest),
+        engineGitRunner() {
+          gitCalls += 1;
+          throw new Error(`pin Git reflected ${secret}`);
+        },
+      });
+      assert.equal(gitCalls, 0);
+      assert.equal(captured.available, false);
+      assert.equal(captured.error, 'civ-engine Git metadata is unsafe');
+      assert.doesNotMatch(captured.error, new RegExp(secret));
+    });
+  });
+}
+
+test('engine provenance permits only the fixed root text attribute policy', async () => {
+  await withRepository(async (fixtureRoot, engine) => {
+    await writeFile(
+      path.join(engine.root, '.gitattributes'),
+      '* text=auto\n',
+      'utf8',
+    );
+    const captured = await captureCivEngineState(
+      sourceOptions(fixtureRoot, engine.commit, engine.treeDigest),
+    );
+    assert.equal(captured.available, true, captured.error);
+    assert.equal(captured.worktreeDirty, true);
+  });
+});
+
+test('engine unavailable summaries categorize arbitrary runner errors', async () => {
+  await withRepository(async (fixtureRoot, engine) => {
+    const secret = 'PIN_RUNNER_SECRET_A614';
+    const captured = await captureCivEngineState({
+      ...sourceOptions(fixtureRoot, engine.commit, engine.treeDigest),
+      engineGitRunner() {
+        throw new Error(`attacker path and ${secret}`);
+      },
+    });
+    assert.equal(captured.available, false);
+    assert.equal(captured.error, 'civ-engine Git inspection failed');
+    assert.doesNotMatch(captured.error, new RegExp(secret));
+  });
+});
+
+test('engine Git ignores repo-derived and ambient HOME/XDG config and attributes', async () => {
+  await withRepository(async (fixtureRoot, engine) => {
+    const homePath = path.join(engine.root, '.git-read-home');
+    const xdgPath = path.join(engine.root, '.ambient-xdg');
+    const markerPath = path.join(fixtureRoot, 'pin-global-filter-ran.txt');
+    const probePath = path.join(fixtureRoot, 'pin-global-filter-probe.mjs');
+    await Promise.all([
+      mkdir(path.join(homePath, '.config', 'git'), { recursive: true }),
+      mkdir(path.join(xdgPath, 'git'), { recursive: true }),
+    ]);
+    await Promise.all([
+      writeFile(
+        probePath,
+        `import { writeFileSync } from 'node:fs';\nwriteFileSync(${JSON.stringify(markerPath)}, 'ran');\nprocess.stdin.resume();\n`,
+        'utf8',
+      ),
+      writeFile(
+        path.join(homePath, '.config', 'git', 'attributes'),
+        '* filter=probe\n',
+        'utf8',
+      ),
+      writeFile(
+        path.join(xdgPath, 'git', 'attributes'),
+        '* filter=probe\n',
+        'utf8',
+      ),
+      writeFile(
+        path.join(xdgPath, 'git', 'config'),
+        `[filter "probe"]\n\tclean = node ${normalize(probePath)}\n`,
+        'utf8',
+      ),
+    ]);
+    await writeFile(
+      path.join(homePath, 'gitconfig'),
+      `[filter "probe"]\n\tclean = node ${normalize(probePath)}\n`,
+      'utf8',
+    );
+
+    const captured = await captureCivEngineState({
+      ...sourceOptions(fixtureRoot, engine.commit, engine.treeDigest),
+      engineGitRunner(options) {
+        return runReadOnlyGit({
+          ...options,
+          inheritedEnv: {
+            ...process.env,
+            HOME: homePath,
+            USERPROFILE: homePath,
+            XDG_CONFIG_HOME: xdgPath,
+            GIT_CONFIG_GLOBAL: path.join(homePath, 'gitconfig'),
+          },
+        });
+      },
+    });
+    assert.equal(captured.available, true, captured.error);
+    await assert.rejects(access(markerPath), (error) => error?.code === 'ENOENT');
   });
 });

@@ -8,6 +8,7 @@ import {
 import path from 'node:path';
 import test from 'node:test';
 
+import { runReadOnlyGit } from '../scripts/civ-engine-setup-process.mjs';
 import {
   assertSourceStateAllowed,
   compareSourceStateSummaries,
@@ -158,11 +159,11 @@ test('artifact writer records a tracked dirty patch and exposes a stable summary
 
     assert.throws(
       () => assertSourceStateAllowed(persisted),
-      /fresh civ-engine capture/i,
+      /fresh source capture/i,
     );
     assert.throws(
       () => assertSourceStateAllowed(persisted, { allowDirty: true }),
-      /fresh civ-engine capture/i,
+      /fresh source capture/i,
     );
     assert.throws(
       () => assertSourceStateAllowed(captured.sourceState),
@@ -176,6 +177,140 @@ test('artifact writer records a tracked dirty patch and exposes a stable summary
       assertSourceStateAllowed(captured.sourceState, { allowDirty: true }),
       captured.sourceState,
     );
+  });
+});
+
+test('provenance requires repeated state and diff agreement', async () => {
+  await withRepository(async (fixtureRoot, engine) => {
+    const sourcePath = path.join(fixtureRoot, 'src', 'app.py');
+    const stateA = 'print("state a")\n';
+    const transientB = 'print("transient b")\n';
+    await writeFile(sourcePath, stateA, 'utf8');
+    let injectedTransient = false;
+    const captured = await captureSourceProvenance({
+      ...sourceOptions(fixtureRoot, engine.commit, engine.treeDigest),
+      async rootGitRunner(options) {
+        if (
+          !injectedTransient
+          && options.args[0] === 'diff'
+          && options.args.includes('HEAD')
+        ) {
+          injectedTransient = true;
+          await writeFile(sourcePath, transientB, 'utf8');
+          try {
+            return runReadOnlyGit(options);
+          } finally {
+            await writeFile(sourcePath, stateA, 'utf8');
+          }
+        }
+        return runReadOnlyGit(options);
+      },
+    });
+    assert.equal(injectedTransient, true);
+    assert.match(captured.sourceDiff, /\+print\("state a"\)/);
+    assert.doesNotMatch(captured.sourceDiff, /transient b/);
+  });
+});
+
+test('source policy accepts only intact fresh outer captures', async () => {
+  await withRepository(async (fixtureRoot, engine) => {
+    const options = sourceOptions(fixtureRoot, engine.commit, engine.treeDigest);
+    const fresh = await captureSourceState(options);
+    assert.equal(assertSourceStateAllowed(fresh), fresh);
+
+    for (const invalid of [structuredClone(fresh), { ...fresh }]) {
+      assert.throws(
+        () => assertSourceStateAllowed(invalid),
+        /fresh source capture/i,
+      );
+      await assert.rejects(
+        () => recaptureAndAssertSourceUnchanged({
+          ...options,
+          startSourceState: invalid,
+        }),
+        /fresh source capture/i,
+      );
+    }
+
+    assert.equal(Object.isFrozen(fresh), true);
+    assert.equal(Object.isFrozen(fresh.files), true);
+    assert.equal(Object.isFrozen(fresh.files[0]), true);
+    assert.equal(Object.isFrozen(fresh.engine), true);
+    assert.throws(() => {
+      fresh.files[0].sha256 = '0'.repeat(64);
+    }, TypeError);
+    assert.equal(assertSourceStateAllowed(fresh), fresh);
+  });
+});
+
+test('immutable capture blocks accessor and async artifact mutation', async () => {
+  await withRepository(async (fixtureRoot, engine) => {
+    const options = sourceOptions(fixtureRoot, engine.commit, engine.treeDigest);
+    const captured = await captureSourceProvenance(options);
+    const originalDigest = captured.sourceState.treeDigest;
+    const runDir = path.join(fixtureRoot, 'evidence', 'async-mutation');
+
+    let getterReads = 0;
+    assert.throws(() => Object.defineProperty(captured.sourceState, 'treeDigest', {
+      configurable: true,
+      enumerable: true,
+      get() {
+        getterReads += 1;
+        return '0'.repeat(64);
+      },
+    }), TypeError);
+    const writing = writeSourceStateArtifacts({
+      repoRoot: fixtureRoot,
+      runDir,
+      ...captured,
+    });
+    let mutationError;
+    queueMicrotask(() => {
+      try {
+        captured.sourceState.treeDigest = '0'.repeat(64);
+      } catch (error) {
+        mutationError = error;
+      }
+    });
+
+    await writing;
+    assert.equal(getterReads, 0);
+    assert.equal(mutationError instanceof TypeError, true);
+    assert.equal(
+      JSON.parse(await readFile(path.join(runDir, 'source-state.json'), 'utf8')).treeDigest,
+      originalDigest,
+    );
+  });
+});
+
+test('immutable start capture preserves recapture comparison across async mutation', async () => {
+  await withRepository(async (fixtureRoot, engine) => {
+    const options = sourceOptions(fixtureRoot, engine.commit, engine.treeDigest);
+    const start = await captureSourceProvenance(options);
+    await writeFile(
+      path.join(fixtureRoot, 'src', 'app.py'),
+      'print("changed while recapturing")\n',
+      'utf8',
+    );
+
+    const recapturing = recaptureAndAssertSourceUnchanged({
+      ...options,
+      startSourceState: start.sourceState,
+    });
+    let mutationError;
+    queueMicrotask(() => {
+      try {
+        start.sourceState.treeDigest = '0'.repeat(64);
+      } catch (error) {
+        mutationError = error;
+      }
+    });
+
+    await assert.rejects(
+      recapturing,
+      (error) => error?.code === 'ERR_SOURCE_CHANGED_DURING_RUN',
+    );
+    assert.equal(mutationError instanceof TypeError, true);
   });
 });
 
@@ -198,6 +333,19 @@ test('clean artifact writer omits the patch and refuses to overwrite evidence', 
     await assert.rejects(
       () => writeSourceStateArtifacts({ ...options, runDir }),
       (error) => error?.code === 'EEXIST',
+    );
+    await writeFile(path.join(fixtureRoot, 'src', 'app.py'), 'print("dirty retry")\n');
+    await assert.rejects(
+      () => writeSourceStateArtifacts({ ...options, runDir }),
+      (error) => error?.code === 'EEXIST',
+    );
+    await assert.rejects(
+      readFile(path.join(runDir, 'source-diff.patch'), 'utf8'),
+      { code: 'ENOENT' },
+    );
+    assert.equal(
+      JSON.parse(await readFile(path.join(runDir, 'source-state.json'), 'utf8')).diffAvailable,
+      false,
     );
   });
 });

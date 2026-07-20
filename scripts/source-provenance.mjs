@@ -1,9 +1,7 @@
-import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   mkdir,
-  readFile,
-  readdir,
+  open,
   writeFile,
 } from 'node:fs/promises';
 import path from 'node:path';
@@ -14,30 +12,22 @@ import {
   captureCivEngineState,
   civEngineStateSummary,
 } from './source-provenance-engine.mjs';
+import {
+  crosscheckRelevantWorkingBytes,
+  inventoryRelevantSourceFiles,
+  isRelevantSourcePath,
+  normalizeRepoPath,
+  SOURCE_GIT_PATHSPECS,
+} from './source-provenance-content.mjs';
+import { auditSourceGitMetadata } from './source-provenance-git-safety.mjs';
+import { runReadOnlyGit } from './civ-engine-setup-process.mjs';
 
 export const SOURCE_STATE_SCHEMA_VERSION = 1;
 export const SOURCE_STATE_ARTIFACT = 'source-state.json';
 export const SOURCE_DIFF_ARTIFACT = 'source-diff.patch';
 
 const HASH_ALGORITHM = 'sha256';
-const TREE_ROOTS = ['src', 'scripts'];
-const ROOT_FILE_PATTERNS = [/^package.*\.json$/, /^requirements.*\.txt$/];
-const CACHE_DIRECTORIES = new Set([
-  '.mypy_cache',
-  '.pytest_cache',
-  '.ruff_cache',
-  '.tox',
-  '.venv',
-  '__pycache__',
-  'node_modules',
-]);
-const CACHE_FILE_PATTERNS = [/\.py[co]$/, /^\.DS_Store$/];
-const GIT_PATHSPECS = [
-  ':(top)src',
-  ':(top)scripts',
-  ':(top,glob)package*.json',
-  ':(top,glob)requirements*.txt',
-];
+const FRESH_SOURCE_STATE_SNAPSHOTS = new WeakMap();
 
 export async function captureSourceState({
   repoRoot,
@@ -46,10 +36,12 @@ export async function captureSourceState({
   expectedEngineCommit,
   expectedEngineTreeDigest,
   expectedEngineVersion,
+  rootGitRunner = runReadOnlyGit,
 }) {
   const resolvedRoot = path.resolve(repoRoot);
-  const [files, engine] = await Promise.all([
-    inventorySourceFiles(resolvedRoot),
+  await auditSourceGitMetadata(resolvedRoot);
+  const [inventory, engine] = await Promise.all([
+    inventoryRelevantSourceFiles(resolvedRoot),
     captureCivEngineState({
       repoRoot: resolvedRoot,
       enginePackageRoot,
@@ -59,54 +51,70 @@ export async function captureSourceState({
       expectedEngineVersion,
     }),
   ]);
-  const status = relevantGitStatus(resolvedRoot);
-  return {
+  const status = await relevantGitStatus(resolvedRoot, inventory, rootGitRunner);
+  const { files } = inventory;
+  return registerFreshSourceState({
     schemaVersion: SOURCE_STATE_SCHEMA_VERSION,
     algorithm: HASH_ALGORITHM,
     treeDigest: digestJson(files),
     fileCount: files.length,
-    gitCommit: currentGitCommit(resolvedRoot),
+    gitCommit: await currentGitCommit(resolvedRoot, rootGitRunner),
     worktreeDirty: status.length > 0,
     statusDigest: digestJson(status),
     status,
     files,
     engine,
     diffAvailable: false,
-  };
+  });
 }
 
 export async function captureSourceProvenance(options) {
   const { repoRoot } = options;
   const resolvedRoot = path.resolve(repoRoot);
+  let previousCapture = null;
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const sourceState = await captureSourceState({
-      ...options,
-      repoRoot: resolvedRoot,
-    });
-    const sourceDiff = sourceState.worktreeDirty
-      ? relevantGitDiff(resolvedRoot, sourceState.status)
-      : '';
-    const confirmedState = await captureSourceState({
-      ...options,
-      repoRoot: resolvedRoot,
-    });
-    if (!sameCapturedState(sourceState, confirmedState)) continue;
-    if (!sourceDiff) {
-      return { sourceState, sourceDiff: null };
+    const captured = await captureProvenanceAttempt(options, resolvedRoot);
+    if (!captured) {
+      previousCapture = null;
+      continue;
     }
-    return {
-      sourceState: {
-        ...sourceState,
-        diffAvailable: true,
-        diffDigest: sha256(sourceDiff),
-        diffArtifact: SOURCE_DIFF_ARTIFACT,
-      },
-      sourceDiff,
-    };
+    if (previousCapture && isDeepStrictEqual(previousCapture, captured)) {
+      return captured;
+    }
+    previousCapture = captured;
   }
   const error = new Error('relevant source changed repeatedly during provenance capture');
   error.code = 'ERR_SOURCE_CAPTURE_UNSTABLE';
   throw error;
+}
+
+async function captureProvenanceAttempt(options, resolvedRoot) {
+  const sourceState = await captureSourceState({
+    ...options,
+    repoRoot: resolvedRoot,
+  });
+  const sourceDiff = sourceState.worktreeDirty
+    ? await relevantGitDiff(
+      resolvedRoot,
+      sourceState.status,
+      options.rootGitRunner ?? runReadOnlyGit,
+    )
+    : '';
+  const confirmedState = await captureSourceState({
+    ...options,
+    repoRoot: resolvedRoot,
+  });
+  if (!sameCapturedState(sourceState, confirmedState)) return null;
+  if (!sourceDiff) return { sourceState, sourceDiff: null };
+  return {
+    sourceState: registerFreshSourceState({
+      ...sourceState,
+      diffAvailable: true,
+      diffDigest: sha256(sourceDiff),
+      diffArtifact: SOURCE_DIFF_ARTIFACT,
+    }),
+    sourceDiff,
+  };
 }
 
 export async function writeSourceStateArtifacts({
@@ -119,6 +127,7 @@ export async function writeSourceStateArtifacts({
   expectedEngineCommit,
   expectedEngineTreeDigest,
   expectedEngineVersion,
+  rootGitRunner,
 }) {
   const captured = capturedState
     ? { sourceState: capturedState, sourceDiff: capturedDiff ?? null }
@@ -129,26 +138,33 @@ export async function writeSourceStateArtifacts({
       expectedEngineCommit,
       expectedEngineTreeDigest,
       expectedEngineVersion,
+      ...(rootGitRunner ? { rootGitRunner } : {}),
     });
-  validateCapturedDiff(captured.sourceState, captured.sourceDiff);
+  assertFreshSourceStateIdentity(captured.sourceState);
+  const sourceStateSnapshot = structuredClone(captured.sourceState);
+  validateCapturedDiff(sourceStateSnapshot, captured.sourceDiff);
 
   const resolvedRunDir = path.resolve(runDir);
   const sourceStatePath = path.join(resolvedRunDir, SOURCE_STATE_ARTIFACT);
-  const sourceDiffPath = captured.sourceState.diffAvailable
+  const sourceDiffPath = sourceStateSnapshot.diffAvailable
     ? path.join(resolvedRunDir, SOURCE_DIFF_ARTIFACT)
     : null;
   await mkdir(resolvedRunDir, { recursive: true });
-  if (sourceDiffPath) {
-    await writeFile(sourceDiffPath, captured.sourceDiff, {
-      encoding: 'utf8',
-      flag: 'wx',
-    });
+  assertFreshSourceStateIdentity(captured.sourceState);
+  const sourceStateDocument = `${JSON.stringify(sourceStateSnapshot, null, 2)}\n`;
+  const sourceStateHandle = await open(sourceStatePath, 'wx');
+  try {
+    if (sourceDiffPath) {
+      await writeFile(sourceDiffPath, captured.sourceDiff, {
+        encoding: 'utf8',
+        flag: 'wx',
+      });
+    }
+    await sourceStateHandle.writeFile(sourceStateDocument, { encoding: 'utf8' });
+  } finally {
+    await sourceStateHandle.close();
   }
-  await writeFile(
-    sourceStatePath,
-    `${JSON.stringify(captured.sourceState, null, 2)}\n`,
-    { encoding: 'utf8', flag: 'wx' },
-  );
+  assertFreshSourceStateIdentity(captured.sourceState);
   return {
     sourceState: captured.sourceState,
     sourceDiff: captured.sourceDiff,
@@ -174,6 +190,7 @@ export function sourceStateSummary(sourceState) {
 }
 
 export function assertSourceStateAllowed(sourceState, { allowDirty = false } = {}) {
+  assertFreshSourceStateIdentity(sourceState);
   assertCivEngineStateAllowed(sourceState.engine, { allowDirty });
   if (!sourceState.worktreeDirty || allowDirty) return sourceState;
   const changedPaths = sourceState.status
@@ -205,15 +222,18 @@ export async function recaptureAndAssertSourceUnchanged({
   ...captureOptions
 }) {
   if (!startSourceState) throw new TypeError('startSourceState is required');
+  assertFreshSourceStateIdentity(startSourceState);
+  const startSnapshot = structuredClone(startSourceState);
   const endProvenance = await captureSourceProvenance(captureOptions);
+  assertFreshSourceStateIdentity(startSourceState);
   const comparison = compareSourceStateSummaries(
-    startSourceState,
+    startSnapshot,
     endProvenance.sourceState,
   );
   if (!comparison.ok) {
     const error = new Error('local or civ-engine source changed during recursive run');
     error.code = 'ERR_SOURCE_CHANGED_DURING_RUN';
-    error.startSourceState = structuredClone(startSourceState);
+    error.startSourceState = startSnapshot;
     error.endSourceState = structuredClone(endProvenance.sourceState);
     error.endProvenance = endProvenance;
     error.startSummary = comparison.startSummary;
@@ -227,71 +247,34 @@ export async function recaptureAndAssertSourceUnchanged({
   };
 }
 
-async function inventorySourceFiles(repoRoot) {
-  const relativePaths = [];
-  for (const root of TREE_ROOTS) {
-    await walkFiles(repoRoot, root, relativePaths);
-  }
-  const rootEntries = await readdir(repoRoot, { withFileTypes: true });
-  for (const entry of rootEntries) {
-    if (
-      entry.isFile()
-      && ROOT_FILE_PATTERNS.some((pattern) => pattern.test(entry.name))
-    ) {
-      relativePaths.push(entry.name);
-    }
-  }
-  relativePaths.sort(compareText);
-  return Promise.all(relativePaths.map(async (relativePath) => {
-    const contents = await readFile(path.join(repoRoot, ...relativePath.split('/')));
-    return {
-      path: relativePath,
-      bytes: contents.byteLength,
-      sha256: sha256(contents),
-    };
-  }));
-}
-
-async function walkFiles(repoRoot, relativeDirectory, results) {
-  let entries;
-  try {
-    entries = await readdir(path.join(repoRoot, relativeDirectory), {
-      withFileTypes: true,
-    });
-  } catch (error) {
-    if (error?.code === 'ENOENT') return;
-    throw error;
-  }
-  entries.sort((left, right) => compareText(left.name, right.name));
-  for (const entry of entries) {
-    const relativePath = normalizePath(path.join(relativeDirectory, entry.name));
-    if (isExcludedPath(relativePath)) continue;
-    if (entry.isDirectory()) {
-      await walkFiles(repoRoot, relativePath, results);
-    } else if (entry.isFile()) {
-      results.push(relativePath);
-    }
-  }
-}
-
-function relevantGitStatus(repoRoot) {
-  const output = runGit(repoRoot, [
+async function relevantGitStatus(repoRoot, inventory, rootGitRunner) {
+  const output = await runGit(repoRoot, [
     'status',
     '--porcelain=v1',
     '-z',
     '--untracked-files=all',
     '--',
-    ...GIT_PATHSPECS,
-  ]);
-  return parsePorcelainStatus(output)
+    ...SOURCE_GIT_PATHSPECS,
+  ], [0], rootGitRunner);
+  const indexOutput = await runGit(repoRoot, [
+    'ls-files',
+    '-v',
+    '-z',
+    '--',
+    ...SOURCE_GIT_PATHSPECS,
+  ], [0], rootGitRunner);
+  const trackedPaths = parseRelevantIndex(indexOutput);
+  const status = parsePorcelainStatus(output)
     .filter((entry) => (
-      isRelevantPath(entry.path)
-      || (entry.originalPath && isRelevantPath(entry.originalPath))
-    ))
-    .sort((left, right) => compareText(
-      `${left.path}\0${left.originalPath ?? ''}\0${left.code}`,
-      `${right.path}\0${right.originalPath ?? ''}\0${right.code}`,
+      isRelevantSourcePath(entry.path)
+      || (entry.originalPath && isRelevantSourcePath(entry.originalPath))
     ));
+  return crosscheckRelevantWorkingBytes({
+    inventory,
+    status,
+    trackedPaths,
+    readGit: (args) => runGit(repoRoot, args, [0], rootGitRunner),
+  });
 }
 
 function parsePorcelainStatus(output) {
@@ -304,11 +287,11 @@ function parsePorcelainStatus(output) {
       throw new Error(`unexpected git status record: ${JSON.stringify(record)}`);
     }
     const code = record.slice(0, 2);
-    const entry = { code, path: normalizePath(record.slice(3)) };
+    const entry = { code, path: normalizeRepoPath(record.slice(3)) };
     if (/[RC]/.test(code)) {
       const originalPath = records[index + 1];
       if (!originalPath) throw new Error('git rename status omitted its original path');
-      entry.originalPath = normalizePath(originalPath);
+      entry.originalPath = normalizeRepoPath(originalPath);
       index += 1;
     }
     status.push(entry);
@@ -316,73 +299,122 @@ function parsePorcelainStatus(output) {
   return status;
 }
 
-function relevantGitDiff(repoRoot, status) {
+function parseRelevantIndex(output) {
+  const trackedPaths = new Set();
+  for (const record of output.split('\0')) {
+    if (!record) continue;
+    if (record.length < 3 || record[1] !== ' ') {
+      throw unsafeGitIndex('unexpected relevant index record');
+    }
+    const tag = record[0];
+    const relativePath = normalizeRepoPath(record.slice(2));
+    if (!isRelevantSourcePath(relativePath)) continue;
+    if (tag === 'S' || tag === 's') {
+      throw unsafeGitIndex(`skip-worktree flag on ${relativePath}`);
+    }
+    if (tag === tag.toLowerCase()) {
+      throw unsafeGitIndex(`assume-unchanged flag on ${relativePath}`);
+    }
+    if (tag !== 'H') {
+      throw unsafeGitIndex(`unsupported index state on ${relativePath}`);
+    }
+    trackedPaths.add(relativePath);
+  }
+  return trackedPaths;
+}
+
+async function relevantGitDiff(repoRoot, status, rootGitRunner) {
   const trackedPaths = [...new Set(status
     .filter((entry) => entry.code !== '??')
     .flatMap(
     (entry) => [entry.path, entry.originalPath]
-      .filter((candidate) => candidate && isRelevantPath(candidate)),
+      .filter((candidate) => candidate && isRelevantSourcePath(candidate)),
   ))].sort(compareText);
   const patches = [];
   if (trackedPaths.length > 0) {
-    patches.push(runGit(repoRoot, [
+    patches.push(await runGit(repoRoot, [
       'diff',
       '--no-ext-diff',
+      '--no-textconv',
       '--no-color',
       '--binary',
       '--full-index',
       'HEAD',
       '--',
       ...trackedPaths.map((changedPath) => `:(literal)${changedPath}`),
-    ]));
+    ], [0], rootGitRunner));
   }
   const untrackedPaths = status
-    .filter((entry) => entry.code === '??' && isRelevantPath(entry.path))
+    .filter((entry) => entry.code === '??' && isRelevantSourcePath(entry.path))
     .map((entry) => entry.path)
     .sort(compareText);
   for (const untrackedPath of untrackedPaths) {
-    patches.push(runGit(repoRoot, [
+    patches.push(await runGit(repoRoot, [
       'diff',
       '--no-index',
       '--no-ext-diff',
+      '--no-textconv',
       '--no-color',
       '--binary',
       '--full-index',
       '--',
       '/dev/null',
       untrackedPath,
-    ], [0, 1]));
+    ], [0, 1], rootGitRunner));
   }
   return patches.filter(Boolean).map(ensureTrailingNewline).join('');
 }
 
-function currentGitCommit(repoRoot) {
-  return runGit(repoRoot, ['rev-parse', 'HEAD']).trim();
+async function currentGitCommit(repoRoot, rootGitRunner) {
+  return (await runGit(
+    repoRoot,
+    ['rev-parse', 'HEAD'],
+    [0],
+    rootGitRunner,
+  )).trim();
 }
 
-function runGit(repoRoot, args, allowedStatuses = [0]) {
-  const safeRoot = normalizePath(path.resolve(repoRoot));
-  const result = spawnSync(
-    'git',
-    ['-c', `safe.directory=${safeRoot}`, ...args],
-    {
-      cwd: repoRoot,
-      encoding: 'utf8',
-      shell: false,
-    },
-  );
-  if (result.error) throw result.error;
-  if (!allowedStatuses.includes(result.status)) {
-    throw new Error(
-      `git ${args[0]} failed with exit ${result.status}: `
-      + `${(result.stderr || result.stdout).trim()}`,
-    );
-  }
-  return result.stdout;
+async function runGit(repoRoot, args, allowedStatuses, rootGitRunner) {
+  await auditSourceGitMetadata(repoRoot);
+  return rootGitRunner({ repoRoot, args, allowedStatuses });
 }
 
 function sameCapturedState(left, right) {
   return compareSourceStateSummaries(left, right).ok;
+}
+
+function assertFreshSourceStateIdentity(sourceState) {
+  const snapshot = sourceState && typeof sourceState === 'object'
+    ? FRESH_SOURCE_STATE_SNAPSHOTS.get(sourceState)
+    : undefined;
+  if (
+    !snapshot
+    || !isDeepStrictEqual(snapshot, sourceState)
+    || !Array.isArray(sourceState.status)
+    || !Array.isArray(sourceState.files)
+    || typeof sourceState.diffAvailable !== 'boolean'
+  ) {
+    throw new TypeError('an intact fresh source capture is required');
+  }
+}
+
+function registerFreshSourceState(sourceState) {
+  const frozenState = freezeCapture(sourceState);
+  FRESH_SOURCE_STATE_SNAPSHOTS.set(frozenState, structuredClone(frozenState));
+  return frozenState;
+}
+
+function freezeCapture(value, seen = new Set()) {
+  if (value === null || typeof value !== 'object' || seen.has(value)) return value;
+  seen.add(value);
+  for (const key of Reflect.ownKeys(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor || descriptor.get || descriptor.set) {
+      throw new TypeError('source capture must contain only data properties');
+    }
+    freezeCapture(descriptor.value, seen);
+  }
+  return Object.freeze(value);
 }
 
 function ensureTrailingNewline(value) {
@@ -407,26 +439,6 @@ function validateCapturedDiff(sourceState, sourceDiff) {
   }
 }
 
-function isRelevantPath(candidate) {
-  const normalized = normalizePath(candidate);
-  if (isExcludedPath(normalized)) return false;
-  if (TREE_ROOTS.some((root) => (
-    normalized === root || normalized.startsWith(`${root}/`)
-  ))) return true;
-  return !normalized.includes('/')
-    && ROOT_FILE_PATTERNS.some((pattern) => pattern.test(normalized));
-}
-
-function isExcludedPath(candidate) {
-  const parts = normalizePath(candidate).split('/');
-  if (parts.some((part) => CACHE_DIRECTORIES.has(part))) return true;
-  return CACHE_FILE_PATTERNS.some((pattern) => pattern.test(parts.at(-1)));
-}
-
-function normalizePath(candidate) {
-  return candidate.split(path.sep).join('/');
-}
-
 function digestJson(value) {
   return sha256(JSON.stringify(value));
 }
@@ -437,4 +449,10 @@ function sha256(value) {
 
 function compareText(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function unsafeGitIndex(message) {
+  return Object.assign(new Error(`source Git index rejected: ${message}`), {
+    code: 'ERR_SOURCE_GIT_UNSAFE',
+  });
 }

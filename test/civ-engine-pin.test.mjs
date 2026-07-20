@@ -11,9 +11,11 @@ import {
   EXPECTED_CIV_ENGINE_COMMIT,
   EXPECTED_CIV_ENGINE_TREE_DIGEST,
   EXPECTED_CIV_ENGINE_VERSION,
+  EXPECTED_ROOT_LOCK_DIGEST,
   resolveCivEnginePinRoot,
   validateCivEnginePin,
 } from '../scripts/civ-engine-pin.mjs';
+import { digestParsedRootLock } from '../scripts/civ-engine-setup-root-contract.mjs';
 import {
   assertCivEngineStateAllowed,
   captureCivEngineState,
@@ -27,6 +29,7 @@ const expectedPin = {
   installPath: '.civ-engine-pin',
   version: '2.2.0',
   commit: 'e0cb614a516c449159a4562c2ac45bd40bffd3df',
+  rootLockSha256: '40927f3d860f5b0a8bc1e3360f9ffc0552a2ef4076d671714999effaa72149e5',
   runtimeTreeSha256: '960f4af06a8012298ca7f6fda65e64590a78e059fbe4ca154c0ca5ce33282891',
 };
 
@@ -83,6 +86,7 @@ test('checked-in civ-engine pin is exact, frozen, and source-compatible', () => 
   assert.equal(CIV_ENGINE_PACKAGE_SPEC, 'file:.civ-engine-pin');
   assert.equal(EXPECTED_CIV_ENGINE_VERSION, expectedPin.version);
   assert.equal(EXPECTED_CIV_ENGINE_COMMIT, expectedPin.commit);
+  assert.equal(EXPECTED_ROOT_LOCK_DIGEST, expectedPin.rootLockSha256);
   assert.equal(EXPECTED_CIV_ENGINE_TREE_DIGEST, expectedPin.runtimeTreeSha256);
   assert.equal(
     resolveCivEnginePinRoot(repoRoot),
@@ -94,6 +98,7 @@ test('pin validator rejects every unsafe or ambiguous descriptor dimension', () 
   const invalidPins = [
     { ...expectedPin, extra: true },
     withoutKey(expectedPin, 'version'),
+    withoutKey(expectedPin, 'rootLockSha256'),
     { ...expectedPin, schemaVersion: 2 },
     { ...expectedPin, packageName: 'other-engine' },
     { ...expectedPin, repositoryUrl: 'http://github.com/yanfengliu/civ-engine.git' },
@@ -106,6 +111,8 @@ test('pin validator rejects every unsafe or ambiguous descriptor dimension', () 
     { ...expectedPin, version: '2.2.0-alpha.01' },
     { ...expectedPin, commit: expectedPin.commit.toUpperCase() },
     { ...expectedPin, commit: expectedPin.commit.slice(1) },
+    { ...expectedPin, rootLockSha256: expectedPin.rootLockSha256.toUpperCase() },
+    { ...expectedPin, rootLockSha256: expectedPin.rootLockSha256.slice(1) },
     { ...expectedPin, runtimeTreeSha256: expectedPin.runtimeTreeSha256.toUpperCase() },
     { ...expectedPin, runtimeTreeSha256: expectedPin.runtimeTreeSha256.slice(1) },
     { ...expectedPin, installPath: '../civ-engine' },
@@ -132,6 +139,22 @@ test('pin validator rejects every unsafe or ambiguous descriptor dimension', () 
   const validated = validateCivEnginePin({ ...expectedPin });
   assert.deepEqual(validated, expectedPin);
   assert.equal(Object.isFrozen(validated), true);
+});
+
+test('root lock digest is canonical across formatting and object key order', () => {
+  const first = JSON.parse('{"packages":{"node_modules/a":{"dev":true,"version":"1.0.0"}},"lockfileVersion":3}');
+  const reordered = JSON.parse(`{
+    "lockfileVersion": 3,
+    "packages": {
+      "node_modules/a": {
+        "version": "1.0.0",
+        "dev": true
+      }
+    }
+  }`);
+  assert.equal(digestParsedRootLock(first), digestParsedRootLock(reordered));
+  reordered.packages['node_modules/a'].version = '1.0.1';
+  assert.notEqual(digestParsedRootLock(first), digestParsedRootLock(reordered));
 });
 
 test('pin root resolution is explicit, contained, and independent of cwd', () => {
@@ -189,7 +212,34 @@ test('package lock npm ignore and CI resolution agree with the descriptor', asyn
   const packageDocument = JSON.parse(packageText);
   const lock = JSON.parse(lockText);
 
+  assert.equal(digestParsedRootLock(lock), CIV_ENGINE_PIN.rootLockSha256);
+
   assert.equal(packageDocument.dependencies[CIV_ENGINE_PIN.packageName], CIV_ENGINE_PACKAGE_SPEC);
+  assert.equal(
+    packageDocument.scripts['setup:civ-engine'],
+    'node scripts/civ-engine-setup.mjs',
+  );
+  assert.equal(
+    packageDocument.scripts.pretest,
+    'node scripts/civ-engine-setup.mjs --verify-only',
+  );
+  assert.equal(
+    packageDocument.scripts['preplaytest:verify'],
+    'node scripts/civ-engine-setup.mjs --verify-only',
+  );
+  assert.equal(
+    packageDocument.scripts['preplaytest:recursive'],
+    'node scripts/civ-engine-setup.mjs --verify-only --allow-dirty',
+  );
+  assert.equal(packageDocument.scripts.test, 'node scripts/civ-engine-guard.mjs test');
+  assert.equal(
+    packageDocument.scripts['playtest:verify'],
+    'node scripts/civ-engine-guard.mjs playtest:verify',
+  );
+  assert.equal(
+    packageDocument.scripts['playtest:recursive'],
+    'node scripts/civ-engine-guard.mjs playtest:recursive',
+  );
   assert.equal(lock.packages[''].dependencies[CIV_ENGINE_PIN.packageName], CIV_ENGINE_PACKAGE_SPEC);
   assert.equal(lock.packages[CIV_ENGINE_PIN.installPath].version, CIV_ENGINE_PIN.version);
   assert.deepEqual(lock.packages[`node_modules/${CIV_ENGINE_PIN.packageName}`], {
@@ -198,70 +248,54 @@ test('package lock npm ignore and CI resolution agree with the descriptor', asyn
   });
   assert.doesNotMatch(packageText, /\.\.\/civ-engine/);
   assert.doesNotMatch(lockText, /\.\.\/civ-engine/);
-  assert.equal(npmrc.replace(/\r\n/g, '\n'), 'install-links=false\n');
+  assert.equal(
+    npmrc.replace(/\r\n/g, '\n'),
+    'install-links=false\nloglevel=silent\n',
+  );
   assert.match(gitignore, /^\/\.civ-engine-pin\/$/m);
+  assert.match(gitignore, /^\/\.civ-engine-setup\.lock$/m);
+  assert.match(gitignore, /^\/\.civ-engine-setup-\*\/$/m);
   assert.match(workflow, /^permissions:\s*\n  contents: read$/m);
   const workflowSteps = workflow
     .split(/^      - /m)
     .slice(1);
   const checkoutSteps = workflowSteps
     .filter((step) => /^(?:        )?uses: actions\/checkout@/m.test(step));
-  assert.equal(checkoutSteps.length, 3);
+  assert.equal(checkoutSteps.length, 2);
   for (const checkoutStep of checkoutSteps) {
     assert.match(checkoutStep, /^          persist-credentials: false$/m);
+    assert.match(checkoutStep, /^          fetch-depth: 0$/m);
   }
-  const canonicalRepository = new URL(CIV_ENGINE_PIN.repositoryUrl).pathname
-    .replace(/^\//, '')
-    .replace(/\.git$/, '');
-  const engineCheckout = checkoutSteps.find((step) => (
-    step.includes(`repository: ${canonicalRepository}`)
-  ));
-  assert.match(engineCheckout, new RegExp(
-    `^          repository: ${escapeRegExp(canonicalRepository)}$`,
-    'm',
-  ));
-  assert.match(engineCheckout, new RegExp(`^          ref: ${CIV_ENGINE_PIN.commit}$`, 'm'));
+  const buildJob = workflow.slice(
+    workflow.indexOf('  build:'),
+    workflow.indexOf('  rl-smoke:'),
+  );
+  const windowsJob = workflow.slice(workflow.indexOf('  rl-smoke:'));
+  assert.match(buildJob, /^        run: npm run setup:civ-engine$/m);
+  assert.match(buildJob, /^        run: npm test$/m);
+  assert.match(buildJob, /^        run: npm run playtest:recursive$/m);
+  assert.ok(
+    buildJob.indexOf('run: npm run setup:civ-engine')
+      < buildJob.indexOf('run: npm test'),
+  );
+  assert.ok(
+    buildJob.indexOf('run: npm test')
+      < buildJob.indexOf('run: npm run playtest:recursive'),
+  );
+  assert.match(windowsJob, /uses: actions\/setup-node@/);
+  assert.match(windowsJob, /^        run: npm run setup:civ-engine$/m);
   assert.match(
-    engineCheckout,
-    new RegExp(`^          path: python_mini_metro/${escapeRegExp(CIV_ENGINE_PIN.installPath)}$`, 'm'),
+    windowsJob,
+    /^        run: npm run setup:civ-engine -- --verify-only$/m,
   );
-  const engineBuild = workflowSteps.find((step) => (
-    step.includes(`working-directory: python_mini_metro/${CIV_ENGINE_PIN.installPath}`)
-  ));
-  assert.match(engineBuild, /^        run: \|\r?\n          npm ci\r?\n          npm run build$/m);
-  const rootInstall = workflowSteps.find((step) => (
-    step.includes('working-directory: python_mini_metro')
-    && step.includes('run: npm ci --omit=dev')
-  ));
-  assert.match(rootInstall, /^        run: npm ci --omit=dev$/m);
-  const provenanceStep = workflowSteps.find((step) => (
-    step.includes('captureCivEngineState')
-  ));
-  assert.match(provenanceStep, /^        working-directory: python_mini_metro$/m);
-  assert.match(provenanceStep, /^        run: >-$/m);
-  assert.match(
-    provenanceStep,
-    /assertCivEngineStateAllowed\(state\)/,
+  assert.ok(
+    windowsJob.indexOf('run: npm run setup:civ-engine')
+      < windowsJob.indexOf('run: npm run setup:civ-engine -- --verify-only'),
   );
-  const contractTestStep = workflowSteps.find((step) => /^        run: npm test$/m.test(step));
-  const recursivePassStep = workflowSteps.find((step) => (
-    /^        run: npm run playtest:recursive$/m.test(step)
-  ));
-  assert.ok(contractTestStep);
-  assert.ok(recursivePassStep);
-  const buildIndex = workflow.indexOf(
-    `working-directory: python_mini_metro/${CIV_ENGINE_PIN.installPath}`,
-  );
-  const installIndex = workflow.indexOf('name: Install recursive-loop dependency');
-  const provenanceIndex = workflow.indexOf('captureCivEngineState');
-  const testsIndex = workflow.indexOf('run: npm test');
-  const recursivePassIndex = workflow.indexOf('run: npm run playtest:recursive');
-  assert.ok(buildIndex > 0);
-  assert.ok(buildIndex < installIndex);
-  assert.ok(installIndex < provenanceIndex);
-  assert.ok(provenanceIndex < testsIndex);
-  assert.ok(provenanceIndex < recursivePassIndex);
-  assert.doesNotMatch(workflow, /path: civ-engine\s*$/m);
+  assert.doesNotMatch(workflow, /repository: yanfengliu\/civ-engine/);
+  assert.doesNotMatch(workflow, /working-directory: .*\.civ-engine-pin/);
+  assert.doesNotMatch(workflow, /captureCivEngineState/);
+  assert.doesNotMatch(workflow, /^        run: npm ci(?:\s|$)/m);
 });
 
 test('default provenance attests the exact isolated package ESM will execute', async () => {
@@ -309,8 +343,4 @@ function withoutKey(value, key) {
 
 function normalize(value) {
   return value.split(path.sep).join('/');
-}
-
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

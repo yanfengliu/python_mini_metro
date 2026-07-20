@@ -8,4 +8,6 @@ myenv/
 .coverage
 /node_modules/
 /.civ-engine-pin/
+/.civ-engine-setup.lock
+/.civ-engine-setup-*/
 /output/

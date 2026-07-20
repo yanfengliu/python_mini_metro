@@ -1,6 +1,6 @@
 # GM-04 review synthesis
 
-Status: GM-04a implementation review converged clean; Commit A is remotely green and evidence-only Commit B is active
+Status: GM-04a implementation review converged clean and Commit B is remotely finalized
 
 ## Baseline
 
@@ -14,7 +14,7 @@ The descriptor is checked in below `scripts/` so it participates in recursive so
 
 The provenance lane identified a High-class shadowing risk: hashing root `node_modules/civ-engine` does not prove a bare import from `scripts/` will execute it because a nested `scripts/node_modules` can win resolution. The plan now resolves package metadata and the ESM runtime without importing them, realpaths both, proves the runtime is the package's declared entry, and proves the package root equals the isolated pin. Explicit fixture roots remain, but resolve from the explicit repository root rather than ambient cwd.
 
-The cross-platform lane identified npm layout sensitivity and `npm ci` deletion order. The plan commits `install-links=false`, builds the retained checkout outside `node_modules` before root installation, and proves realpath equality. The setup command remains GM-04b scope and will use a Node entry point, argv arrays, `shell: false`, and `npm.cmd` on Windows.
+The cross-platform lane identified npm layout sensitivity and `npm ci` deletion order. The plan commits `install-links=false`, builds the retained checkout outside `node_modules` before root installation, and proves realpath equality. The setup command remains GM-04b scope and uses a Node entry point, argv arrays, and `shell: false`; D-017 supersedes the original `npm.cmd` forecast with a validated physical npm CLI launched by the real Node executable after live Windows evidence proved direct `.cmd` execution fails and `cmd.exe` reparsing is unsafe.
 
 ## Adjudicated differences
 
@@ -43,3 +43,5 @@ The three independent final re-reviews returned `CLEAN`. Focused pin/provenance/
 ## Remote implementation gate
 
 Implementation Commit A `585dc6067d1c8c2c0a115bd31f1d4e238dc25ddc` passed exact workflow run `29730625404`: `build` succeeded in 35 seconds and `rl-smoke` in 3 minutes 44 seconds. Evidence-only Commit B binds that result before GM-04b begins.
+
+Evidence-only Commit B `28a6c7e6082f03a0590fb27d99996837575d5062` passed exact workflow run `29731075431`: `build` succeeded in 34 seconds and `rl-smoke` in 4 minutes 41 seconds. GM-04a is remotely finalized.

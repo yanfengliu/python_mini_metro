@@ -21,24 +21,31 @@ python -m pip install -r requirements-rl-locked.txt
 
 Both lockfiles are universal Python 3.13 resolutions with hashes and platform markers; pip selects the matching Linux or Windows wheels while preserving the same reviewed dependency graph.
 
-The recursive playtest also requires Node.js 20.6 or newer and the isolated civ-engine checkout described by `scripts/civ-engine-pin.json`. The checkout is retained at the ignored repo-local `/.civ-engine-pin/` path; neither setup nor recursive execution reads or mutates a sibling `../civ-engine` checkout. The engine build uses its own development lock, while the root install omits that nested build-only graph. The package lock, CI checkout, Git commit, package version, physical resolution path, and complete runtime-tree digest are verified against the descriptor before recursive execution.
+The recursive playtest also requires Node.js 20.6 or newer and the isolated civ-engine checkout described by `scripts/civ-engine-pin.json`. The checkout is retained at the ignored repo-local `/.civ-engine-pin/` path; neither setup nor recursive execution reads or mutates a sibling `../civ-engine` checkout. The engine build uses its own development lock, while the root install omits that nested build-only graph. The package lock, Git commit, package version, physical resolution path, and complete runtime-tree digest are verified against the descriptor before recursive execution.
 
 ```powershell
-$existingPin = Get-Item -LiteralPath .civ-engine-pin -Force -ErrorAction SilentlyContinue
-if ($null -ne $existingPin) { throw ".civ-engine-pin already exists; do not replace or traverse it manually" }
-git clone --no-checkout https://github.com/yanfengliu/civ-engine.git .civ-engine-pin
-if ($LASTEXITCODE -ne 0) { throw "civ-engine clone failed" }
-git -C .civ-engine-pin checkout --detach e0cb614a516c449159a4562c2ac45bd40bffd3df
-if ($LASTEXITCODE -ne 0) { throw "civ-engine checkout failed" }
-npm --prefix .civ-engine-pin ci
-if ($LASTEXITCODE -ne 0) { throw "civ-engine install failed" }
-npm --prefix .civ-engine-pin run build
-if ($LASTEXITCODE -ne 0) { throw "civ-engine build failed" }
-npm ci --omit=dev
-if ($LASTEXITCODE -ne 0) { throw "recursive-loop dependency install failed" }
+npm run setup:civ-engine
+node scripts/civ-engine-setup.mjs --verify-only
 python -m pip install -r requirements-locked.txt
-if ($LASTEXITCODE -ne 0) { throw "Python dependency install failed" }
 ```
+
+`npm run setup:civ-engine` is the only supported setup path. After its trusted top-level npm/Node bootstrap passes the startup assertion, it validates the checked-in descriptor, exact root package, descriptor-pinned canonical parsed-lock digest, and exact `.npmrc` contract; serializes setup with a repository-local lock; uses an owned transaction and restricted child-process environment; authenticates every physical non-generated checkout file to its exact detached-`HEAD` blob identity modulo LF/CRLF normalization allowed only by the independently authenticated repository-wide `* text=auto` policy before any install or build; atomically claims a missing final pin directory, records that directory's physical identity in the owned transaction, and recursively publishes directories, exclusive file copies, and contained links through no-replace filesystem primitives; reauthenticates the complete detached checkout at the final path before root installation; materializes or rebuilds only the exact ignored pin; installs through the validated Node-distribution npm CLI; builds through the exact pin-local TypeScript CLI under `process.execPath`; installs the root runtime dependency; and finishes with strict provenance verification. Publication never renames or deletes at the final pin path: a destination or child-entry race fails without replacing or removing the winner, and any failure after the directory claim retains the matching source transaction and partial pin for inspection while releasing only the owned setup lock. The explicit `--verify-only` command is read-only and fails if setup is active or any required identity is unavailable.
+
+Setup fails closed instead of replacing an existing suspicious checkout or following untrusted links. It refuses a linked pin, any non-generated checkout file without exact `HEAD` blob identity outside the authenticated `* text=auto` LF/CRLF normalization, suspicious Git identity or metadata, generated-tree links that resolve outside the audited tree, a pre-existing setup lock, an ownership-changed artifact from the active setup, any root lock semantics outside the descriptor-pinned digest, and resolution through any nested, external, or otherwise unexpected dependency slot. After the checkout's complete source identity is authenticated, setup may rebuild missing or mismatched ignored dependencies and `dist/` output and may repair only the exact root dependency slot, including unlinking a stale slot without touching its former target; that repair also refuses any unexpected root `node_modules` entry that npm would otherwise replace. Strict verification never repairs: it rejects unavailable, unsafe, or shadowed state and every disallowed version, commit, status, physical-path, runtime-entry, or runtime-digest mismatch. Inspect and resolve suspicious state; do not delete or replace `/.civ-engine-pin/` merely to make the check pass.
+
+An interrupted setup can intentionally leave `/.civ-engine-setup.lock`, one or more `/.civ-engine-setup-<suffix>/` transactions, and a partially published `/.civ-engine-pin/`; an interrupted guarded public Node command can leave the lock but never a setup transaction or partial publication. First prove that no setup or guarded command is still running and attribute each exact repository-root entry to the interrupted command. The lock must be a physical regular file containing one JSON `token` record, and each transaction must be a physical directory with a physical `.setup-owner` file containing its own JSON `token` record; every transaction descendant must also be a physical regular file or directory. After the final directory is claimed, the transaction normally contains a physical `.setup-promotion-claim` file whose JSON names `.civ-engine-pin`, records its physical `dev`/`ino` identity, and repeats the transaction token; a crash between the exclusive directory creation and that record can instead leave an unrecorded partial pin. A partial pin is not covered by the routine cleanup commands below: preserve it with its transaction for inspection, and do not remove it unless the physical claim record, current destination identity, token, physical descendants, and exact transaction ownership have been independently matched. A link, junction, reparse point, absent or changed claim record, identity mismatch, non-physical descendant, or unrecognized entry is not safe to remove. List the exact names and inspect each exact record, then remove only the individually reviewed routine lock/transaction literal paths:
+
+```powershell
+Get-Item -LiteralPath .\.civ-engine-setup.lock -Force -ErrorAction SilentlyContinue
+Get-ChildItem -LiteralPath . -Force -Directory | Where-Object Name -Like '.civ-engine-setup-*'
+Get-Content -LiteralPath .\.civ-engine-setup.lock
+Get-Content -LiteralPath .\.civ-engine-setup-<exact-suffix>\.setup-owner
+Get-Content -LiteralPath .\.civ-engine-setup-<exact-suffix>\.setup-promotion-claim
+Remove-Item -LiteralPath .\.civ-engine-setup.lock
+Remove-Item -LiteralPath .\.civ-engine-setup-<exact-suffix> -Recurse
+```
+
+Never pass a wildcard to a deletion command or run broad repository cleanup for recovery, and never remove an artifact that cannot be attributed and physically inspected. A `/.civ-engine-pin/` without a matching transaction-side physical claim record is not safely attributable as a crash-publication artifact and must not be removed by this recovery procedure. Rerun `npm run setup:civ-engine` after the exact owned leftovers are gone.
 
 Set `PYTHON` to a specific interpreter path when `python` is not the intended executable. Recursive runs set `PYTHONHASHSEED` to `0` by default unless it is already defined.
 
@@ -237,6 +244,10 @@ npm test
 npm run playtest:recursive
 ```
 
+The canonical `npm test`, `npm run playtest:verify`, and `npm run playtest:recursive` commands enter `scripts/civ-engine-guard.mjs` after a trusted npm/Node bootstrap. Once the shared startup assertion confirms that `NODE_OPTIONS` is unset or empty and `process.execArgv` is empty, `npm test` accepts no forwarded arguments and always launches the complete `node --test` suite, so forwarded package-script arguments cannot become child Node options or file operands; use direct `node --test <files>` only for focused development runs. The guard parses recursive arguments before its effects, acquires the setup-exclusive verification lease, ownership-checks both before and after verifying the isolated engine, launches only its fixed Node command body with `shell: false`, holds the lease until that child completes, and releases it in `finally`; concurrent setup or another guarded command is excluded while each honors the same lock. The token lock is advisory against out-of-band filesystem tampering during child execution: the guard does not continuously monitor it, and release fails closed when lost ownership remains observable. Verification/spawn and release failures are preserved together behind a categorical guard diagnostic. The exact root `.npmrc` pins npm's prelude to `loglevel=silent`, so the standard canonical invocation does not echo its expanded command line before that diagnostic; setup rejects configuration drift. Suppressing lifecycle prehooks alone still reaches the in-body guard after a clean bootstrap.
+
+The tracked `package.json` and `.npmrc`, the selected top-level npm and Node executables, and their pre-start environment/configuration are an explicit trusted bootstrap boundary for both setup and guarded commands. Both entry-point mains categorically refuse their own effects when they observe non-empty `NODE_OPTIONS` or `process.execArgv`, but Node applies those mechanisms before loading the modules, so the assertion detects taint only after any preload has already run and cannot undo pre-main effects. Caller-selected bootstrap overrides outside this boundary are not attested. By contrast, once setup starts cleanly, every Git/npm/build child receives the documented scrubbed allowlisted environment, including removal of inherited `NODE_OPTIONS` and npm behavior variables.
+
 Use another strict scenario or keep artifacts under a different subdirectory of `output/` with:
 
 ```powershell
@@ -244,7 +255,7 @@ npm run playtest:recursive -- --scenario path/to/scenario.json
 npm run playtest:recursive -- --output-root output/my-recursive-runs
 ```
 
-Normal recursive runs fail closed when relevant runtime source under `src/`, `scripts/`, `package*.json`, or `requirements*.txt` is dirty. They also require ESM resolution to reach the exact physical `/.civ-engine-pin/` checkout and require that checkout to match the pinned version, Git commit, and full runtime-tree digest, so a sibling link, nested package shadow, or modified ignored `dist/` build cannot masquerade as the pin. A wrong physical location or runtime entry is never overridable. Commit or restore local source first. Deliberate canary and development runs inside the correct isolated checkout may opt in explicitly; the resulting source inventories, dirty or mismatched status, and local patch are retained with the evidence:
+Normal recursive runs fail closed when relevant runtime source under `src/`, `scripts/`, `package*.json`, or `requirements*.txt` is dirty. They also require ESM resolution to reach the exact physical `/.civ-engine-pin/` checkout and require that checkout to match the pinned version, Git commit, and full runtime-tree digest, so a sibling link, nested package shadow, or modified ignored `dist/` build cannot masquerade as the pin. A wrong remote, attached HEAD, physical location, dependency slot, runtime entry, or unavailable runtime is never overridable. Commit or restore local source first. The setup verifier's `--verify-only --allow-dirty` mode is reserved for recursive execution: its npm prehook is defense in depth, while the public command body and recursive body share one exact parser and select canary verification only when `--allow-dirty` occupies an option position, never when it is the value consumed by `--scenario` or `--output-root`; unknown or missing recursive arguments fail before lease acquisition, verification, or body launch. Tests and standalone verification always remain strict. The canary retains attributable source inventories, dirty or mismatched status, and the local patch with its evidence:
 
 ```powershell
 npm run playtest:recursive -- --allow-dirty

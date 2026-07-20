@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -22,6 +21,11 @@ import {
   resolveRuntimeEntry,
   samePath,
 } from './civ-engine-runtime.mjs';
+import { runReadOnlyGit } from './civ-engine-setup-process.mjs';
+import {
+  auditEngineGitMetadata,
+  safeCivEngineUnavailableReason,
+} from './source-provenance-engine-safety.mjs';
 
 export {
   EXPECTED_CIV_ENGINE_COMMIT,
@@ -63,6 +67,7 @@ export async function captureCivEngineState({
   expectedEngineCommit = EXPECTED_CIV_ENGINE_COMMIT,
   expectedEngineVersion = EXPECTED_CIV_ENGINE_VERSION,
   expectedEngineTreeDigest = EXPECTED_CIV_ENGINE_TREE_DIGEST,
+  engineGitRunner = runReadOnlyGit,
 }) {
   if (typeof repoRoot !== 'string' || !path.isAbsolute(repoRoot)) {
     throw new TypeError('repoRoot must be an absolute path');
@@ -91,11 +96,13 @@ export async function captureCivEngineState({
   );
   const expectedPackageRootPhysical = expectedRootIdentity.physical;
   const requestedRoot = explicitPackageRoot ?? expectedPackageRoot;
+  let capturePhase = 'package resolution';
   try {
     const resolution = explicitPackageRoot
       ? { packageRoot: explicitPackageRoot, runtimePath: null }
       : resolveInstalledCivEngine(PACKAGE_NAME);
     const resolvedPackageRoot = await fs.realpath(resolution.packageRoot);
+    capturePhase = 'package metadata';
     const packageDocumentPath = path.join(resolvedPackageRoot, 'package.json');
     const packageDocumentStat = await fs.lstat(packageDocumentPath);
     const resolvedPackageDocument = await fs.realpath(packageDocumentPath);
@@ -113,6 +120,7 @@ export async function captureCivEngineState({
       path.join(resolvedPackageRoot, 'package.json'),
       'utf8',
     ));
+    capturePhase = 'runtime layout';
     await assertPhysicalDirectory(resolvedPackageRoot, 'dist');
     const runtimeEntry = resolveRuntimeEntry(packageDocument);
     const declaredRuntimePath = path.join(
@@ -140,12 +148,18 @@ export async function captureCivEngineState({
       resolvedPackageRoot,
       resolvedExpectedPackageRoot,
     );
+    capturePhase = 'runtime inventory';
     const files = await inventoryRuntimeFiles(resolvedPackageRoot);
     if (!files.some((entry) => entry.path === runtimeEntry)) {
       throw new Error(`resolved civ-engine runtime entry is missing: ${runtimeEntry}`);
     }
-    const status = gitStatus(resolvedPackageRoot);
-    const gitCommit = runGit(resolvedPackageRoot, ['rev-parse', 'HEAD']).trim();
+    capturePhase = 'Git inspection';
+    const status = await gitStatus(resolvedPackageRoot, engineGitRunner);
+    const gitCommit = (await runGit(
+      resolvedPackageRoot,
+      ['rev-parse', 'HEAD'],
+      engineGitRunner,
+    )).trim();
     const treeDigest = digestJson(files);
     const summary = {
       schemaVersion: SCHEMA_VERSION,
@@ -203,7 +217,7 @@ export async function captureCivEngineState({
       expectedTreeDigest: expectedEngineTreeDigest,
       runtimeMatches: false,
       fileCount: 0,
-      error: error instanceof Error ? error.message : String(error),
+      error: safeCivEngineUnavailableReason(capturePhase, error),
     };
     assertCivEngineStateSummary(summary);
     return registerFreshCapture({
@@ -394,17 +408,31 @@ function assertFreshCivEngineIdentity(state, summary) {
 }
 
 function registerFreshCapture(state) {
-  FRESH_CAPTURE_SNAPSHOTS.set(state, structuredClone(state));
-  return state;
+  const frozenState = freezeCapture(state);
+  FRESH_CAPTURE_SNAPSHOTS.set(frozenState, structuredClone(frozenState));
+  return frozenState;
 }
 
-function gitStatus(packageRoot) {
-  return parsePorcelainStatus(runGit(packageRoot, [
+function freezeCapture(value, seen = new Set()) {
+  if (value === null || typeof value !== 'object' || seen.has(value)) return value;
+  seen.add(value);
+  for (const key of Reflect.ownKeys(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor || descriptor.get || descriptor.set) {
+      throw new TypeError('civ-engine capture must contain only data properties');
+    }
+    freezeCapture(descriptor.value, seen);
+  }
+  return Object.freeze(value);
+}
+
+async function gitStatus(packageRoot, engineGitRunner) {
+  return parsePorcelainStatus(await runGit(packageRoot, [
     'status',
     '--porcelain=v1',
     '-z',
     '--untracked-files=all',
-  ])).sort((left, right) => compareText(
+  ], engineGitRunner)).sort((left, right) => compareText(
     `${left.path}\0${left.originalPath ?? ''}\0${left.code}`,
     `${right.path}\0${right.originalPath ?? ''}\0${right.code}`,
   ));
@@ -432,21 +460,12 @@ function parsePorcelainStatus(output) {
   return status;
 }
 
-function runGit(packageRoot, args) {
-  const safeRoot = normalizePath(path.resolve(packageRoot));
-  const result = spawnSync('git', ['-c', `safe.directory=${safeRoot}`, ...args], {
-    cwd: packageRoot,
-    encoding: 'utf8',
-    shell: false,
+async function runGit(packageRoot, args, engineGitRunner) {
+  await auditEngineGitMetadata(packageRoot);
+  return engineGitRunner({
+    repoRoot: packageRoot,
+    args,
   });
-  if (result.error) throw result.error;
-  if (result.status !== 0) {
-    throw new Error(
-      `civ-engine git ${args[0]} failed with exit ${result.status}: `
-      + `${(result.stderr || result.stdout).trim()}`,
-    );
-  }
-  return result.stdout;
 }
 
 function provenanceError(message) {

@@ -7,9 +7,13 @@
     "node": ">=20.6.0"
   },
   "scripts": {
-    "test": "node --test test/*.test.mjs",
-    "playtest:verify": "node scripts/playtest-verify.mjs",
-    "playtest:recursive": "node scripts/playtest-recursive.mjs"
+    "setup:civ-engine": "node scripts/civ-engine-setup.mjs",
+    "pretest": "node scripts/civ-engine-setup.mjs --verify-only",
+    "preplaytest:verify": "node scripts/civ-engine-setup.mjs --verify-only",
+    "preplaytest:recursive": "node scripts/civ-engine-setup.mjs --verify-only --allow-dirty",
+    "test": "node scripts/civ-engine-guard.mjs test",
+    "playtest:verify": "node scripts/civ-engine-guard.mjs playtest:verify",
+    "playtest:recursive": "node scripts/civ-engine-guard.mjs playtest:recursive"
   },
   "dependencies": {
     "civ-engine": "file:.civ-engine-pin"

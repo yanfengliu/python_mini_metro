@@ -1,8 +1,8 @@
 # GM-04 isolated civ-engine plan
 
-Status: GM-04a implementation Commit A `585dc6067d1c8c2c0a115bd31f1d4e238dc25ddc` passed exact workflow run `29730625404`; evidence-only Commit B is active
+Status: GM-04a remotely finalized at Commit B `28a6c7e6082f03a0590fb27d99996837575d5062`; exact workflow run `29731075431` succeeded
 
-Transaction marker: `[GM-04a:B]`
+Transaction marker: `[GM-04a:B]` complete
 
 ## Baseline and intent
 
@@ -16,13 +16,13 @@ GM-04 establishes a repo-owned ignored engine checkout that never reads, writes,
 
 GM-04a defines and enforces the pin contract. Add a checked-in `scripts/civ-engine-pin.json`, a dependency-light strict loader, exact `file:.civ-engine-pin` package and lock resolution, `/.civ-engine-pin/` ignore coverage, `install-links=false`, nested CI checkout/build, resolution-without-execution provenance identity, and contract tests. Update manual setup documentation so Commit A never documents the obsolete sibling. Do not add the public setup/verifier command or pre-hooks in this work unit.
 
-GM-04b adds one idempotent cross-platform Node setup/verification command that consumes the descriptor, obtains the fixed public repository without accepting caller credentials or a caller-selected origin, checks out the exact commit detached, installs and builds the engine before root `npm ci --omit=dev`, verifies the exact physical root/version/commit/clean status/runtime digest, and installs fail-fast hooks before every public Node test/playtest entry point. It must use argv arrays, `shell: false`, and `npm.cmd` on Windows; it must never broadly clean `output/`, `node_modules/`, the sibling, or another checkout.
+GM-04b adds one idempotent cross-platform Node setup/verification command that consumes the descriptor, obtains the fixed public repository without accepting caller credentials or a caller-selected origin, checks out the exact commit detached, installs and builds the engine before root `npm ci --omit=dev`, verifies the exact physical root/version/commit/clean status/runtime digest, and guards every public Node test/playtest entry point. It must use argv arrays and `shell: false`; D-017 supersedes this plan's original `npm.cmd` forecast after live Windows evidence showed direct execution fails and `cmd.exe` reparsing is unsafe, so Windows launches the validated physical npm CLI through the real Node executable. It must never broadly clean `output/`, `node_modules/`, the sibling, or another checkout.
 
 GM-04c freezes the 44 pre-GM04 test names, proves every retained and newly added Node test passes against the pin, runs a clean default recursive pass, proves a link to the live sibling fails before engine-dependent code with actual and expected path/version/commit/digest, proves repeated setup is stable, scans tracked/staged dependency material for credentials, and records exact local and remote results. Post-change acceptance is the exact final `N/N` total, not the stale 41 count and not an assumed 44/44 after new tests are registered.
 
 ## Canonical descriptor
 
-`scripts/civ-engine-pin.json` has exactly these fields: `schemaVersion`, `packageName`, `repositoryUrl`, `installPath`, `version`, `commit`, and `runtimeTreeSha256`. The checked-in values are schema 1, package `civ-engine`, fixed credential-free public HTTPS origin `https://github.com/yanfengliu/civ-engine.git`, install path `.civ-engine-pin`, version 2.2.0, the full pinned commit, and the full pinned runtime digest.
+GM-04a originally froze exactly seven descriptor fields: `schemaVersion`, `packageName`, `repositoryUrl`, `installPath`, `version`, `commit`, and `runtimeTreeSha256`. GM-04b extends that same schema with the required eighth `rootLockSha256` field so setup can authenticate the complete canonical parsed root lock graph; the loader and descriptor now reject its omission or drift. The retained engine values remain schema 1, package `civ-engine`, fixed credential-free public HTTPS origin `https://github.com/yanfengliu/civ-engine.git`, install path `.civ-engine-pin`, version 2.2.0, the full pinned commit, and the full pinned runtime digest.
 
 The loader reads JSON synchronously from its module URL without importing `civ-engine`; rejects missing/extra keys, wrong schema or package, non-canonical repository URL, credentials/query/fragment, malformed semantic version, non-lowercase 40-hex commit, non-lowercase 64-hex digest, absolute/backslash/traversal/non-normalized install paths, and a resolved path outside the explicit repository root; returns a frozen clone; resolves from an explicit `repoRoot`, never ambient `cwd`; derives `file:.civ-engine-pin`; and exports the existing expected-version/commit/tree-digest names for source compatibility.
 

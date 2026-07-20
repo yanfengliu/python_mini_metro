@@ -15,14 +15,7 @@ jobs:
         with:
           path: python_mini_metro
           persist-credentials: false
-
-      - name: Checkout isolated pinned civ-engine
-        uses: actions/checkout@v4
-        with:
-          repository: yanfengliu/civ-engine
-          ref: e0cb614a516c449159a4562c2ac45bd40bffd3df
-          path: python_mini_metro/.civ-engine-pin
-          persist-credentials: false
+          fetch-depth: 0
 
       - name: Set up Python 3.13
         uses: actions/setup-python@v5
@@ -37,20 +30,9 @@ jobs:
           cache: npm
           cache-dependency-path: python_mini_metro/package-lock.json
 
-      - name: Build pinned civ-engine
-        working-directory: python_mini_metro/.civ-engine-pin
-        run: |
-          npm ci
-          npm run build
-
-      - name: Install recursive-loop dependency
+      - name: Set up and verify isolated civ-engine
         working-directory: python_mini_metro
-        run: npm ci --omit=dev
-
-      - name: Verify isolated civ-engine provenance
-        working-directory: python_mini_metro
-        run: >-
-          node --input-type=module -e "import { assertCivEngineStateAllowed, captureCivEngineState } from './scripts/source-provenance-engine.mjs'; const state = await captureCivEngineState({ repoRoot: process.cwd() }); assertCivEngineStateAllowed(state)"
+        run: npm run setup:civ-engine
 
       - name: Install hash-pinned Python dependencies
         working-directory: python_mini_metro
@@ -79,12 +61,26 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Set up Python 3.13
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
           architecture: "x64"
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Set up isolated civ-engine
+        run: npm run setup:civ-engine
+
+      - name: Verify isolated civ-engine setup
+        run: npm run setup:civ-engine -- --verify-only
 
       - name: Install hash-pinned RL dependencies
         run: |

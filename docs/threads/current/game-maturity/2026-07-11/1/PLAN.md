@@ -131,7 +131,7 @@ Acceptance:
 - A mismatched live sibling still fails with an attributable message rather than producing misleading downstream failures.
 - No generated dependency worktree or credentials are committed.
 
-Substeps: GM-04a defines the isolated pin location and provenance contract; GM-04b adds the setup/verification command without mutating `../civ-engine`; GM-04c proves the complete current Node suite passes at the pin and mismatch diagnostics remain attributable.
+Substeps: GM-04a defines the isolated pin location and provenance contract; GM-04b adds the setup/verification command without mutating `../civ-engine`, using a validated physical npm CLI launched by Node on Windows because direct `npm.cmd` with `shell: false` fails and `cmd.exe` reparsing would weaken the argv-only boundary; GM-04c proves the complete current Node suite passes at the pin and mismatch diagnostics remain attributable.
 
 ### GM-05 - Add route editing
 

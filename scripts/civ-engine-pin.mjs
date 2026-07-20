@@ -6,6 +6,7 @@ const PIN_KEYS = [
   'installPath',
   'packageName',
   'repositoryUrl',
+  'rootLockSha256',
   'runtimeTreeSha256',
   'schemaVersion',
   'version',
@@ -14,6 +15,7 @@ const CANONICAL_PACKAGE_NAME = 'civ-engine';
 const CANONICAL_REPOSITORY_URL = 'https://github.com/yanfengliu/civ-engine.git';
 const CANONICAL_INSTALL_PATH = '.civ-engine-pin';
 const COMMIT_PATTERN = /^[0-9a-f]{40}$/;
+const ROOT_LOCK_DIGEST_PATTERN = /^[0-9a-f]{64}$/;
 const RUNTIME_DIGEST_PATTERN = /^[0-9a-f]{64}$/;
 const SEMVER_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 
@@ -30,6 +32,8 @@ export function validateCivEnginePin(candidate) {
     || !isSemanticVersion(candidate.version)
     || typeof candidate.commit !== 'string'
     || !COMMIT_PATTERN.test(candidate.commit)
+    || typeof candidate.rootLockSha256 !== 'string'
+    || !ROOT_LOCK_DIGEST_PATTERN.test(candidate.rootLockSha256)
     || typeof candidate.runtimeTreeSha256 !== 'string'
     || !RUNTIME_DIGEST_PATTERN.test(candidate.runtimeTreeSha256)
     || candidate.installPath !== CANONICAL_INSTALL_PATH
@@ -44,6 +48,7 @@ export function validateCivEnginePin(candidate) {
     installPath: candidate.installPath,
     version: candidate.version,
     commit: candidate.commit,
+    rootLockSha256: candidate.rootLockSha256,
     runtimeTreeSha256: candidate.runtimeTreeSha256,
   });
 }
@@ -109,5 +114,6 @@ const pinDocument = JSON.parse(
 export const CIV_ENGINE_PIN = validateCivEnginePin(pinDocument);
 export const CIV_ENGINE_PACKAGE_SPEC = `file:${CIV_ENGINE_PIN.installPath}`;
 export const EXPECTED_CIV_ENGINE_COMMIT = CIV_ENGINE_PIN.commit;
+export const EXPECTED_ROOT_LOCK_DIGEST = CIV_ENGINE_PIN.rootLockSha256;
 export const EXPECTED_CIV_ENGINE_VERSION = CIV_ENGINE_PIN.version;
 export const EXPECTED_CIV_ENGINE_TREE_DIGEST = CIV_ENGINE_PIN.runtimeTreeSha256;

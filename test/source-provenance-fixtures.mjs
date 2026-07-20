@@ -84,7 +84,10 @@ export async function copyProvenanceModules(fixtureRoot) {
     'civ-engine-pin.json',
     'civ-engine-pin.mjs',
     'civ-engine-runtime.mjs',
+    'civ-engine-setup-process.mjs',
+    'source-provenance-engine-safety.mjs',
     'source-provenance-engine.mjs',
+    'source-provenance-git-safety.mjs',
   ]) {
     await copyFile(
       path.join(repoRoot, 'scripts', fileName),

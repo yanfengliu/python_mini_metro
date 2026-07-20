@@ -5,5 +5,6 @@
   "installPath": ".civ-engine-pin",
   "version": "2.2.0",
   "commit": "e0cb614a516c449159a4562c2ac45bd40bffd3df",
+  "rootLockSha256": "40927f3d860f5b0a8bc1e3360f9ffc0552a2ef4076d671714999effaa72149e5",
   "runtimeTreeSha256": "960f4af06a8012298ca7f6fda65e64590a78e059fbe4ca154c0ca5ce33282891"
 }
