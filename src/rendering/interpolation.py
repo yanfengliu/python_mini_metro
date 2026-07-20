@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from types import SimpleNamespace
 from typing import Any, Iterable
 
@@ -14,6 +14,8 @@ class MetroSnapshot:
     metro_id: str
     path_id: str
     segment_index: int
+    segment: Any | None
+    transition_key: tuple[Any, ...] | None
     position: Position
     is_forward: bool
     is_stopped: bool
@@ -29,12 +31,116 @@ def _metro_id(metro: Any) -> str:
     return str(getattr(metro, "id", id(metro)))
 
 
-def capture_metro(metro: Any) -> MetroSnapshot:
+def _position(value: Any) -> Position:
+    return (float(value.left), float(value.top))
+
+
+def _is_path_segment(segment: Any) -> bool:
+    return (
+        getattr(segment, "start_station", None) is not None
+        and getattr(segment, "end_station", None) is not None
+    )
+
+
+def _station_pair(segment: Any) -> tuple[int, int] | None:
+    start = getattr(segment, "start_station", None)
+    end = getattr(segment, "end_station", None)
+    if start is None or end is None:
+        return None
+    return tuple(sorted((id(start), id(end))))
+
+
+def _endpoint_pair(segment: Any) -> tuple[Position, Position] | None:
+    try:
+        return tuple(
+            sorted(
+                (
+                    _position(segment.segment_start),
+                    _position(segment.segment_end),
+                )
+            )
+        )
+    except (AttributeError, TypeError, ValueError, OverflowError):
+        return None
+
+
+def _nearest_path_segment(
+    segments: tuple[Any, ...],
+    start_index: int,
+    step: int,
+    is_looped: bool,
+) -> Any | None:
+    index = start_index + step
+    for _ in segments:
+        if not is_looped and not 0 <= index < len(segments):
+            return None
+        index %= len(segments)
+        segment = segments[index]
+        if _is_path_segment(segment):
+            return segment
+        index += step
+    return None
+
+
+def _transition_key(
+    path: Any | None,
+    segment_index: int,
+    segment: Any | None,
+) -> tuple[Any, ...] | None:
+    if path is None or segment is None:
+        return None
+    try:
+        segments = tuple(path.segments)
+    except (AttributeError, TypeError):
+        return None
+    if not 0 <= segment_index < len(segments) or segments[segment_index] is not segment:
+        return None
+    endpoints = _endpoint_pair(segment)
+    if endpoints is None:
+        return None
+    if _is_path_segment(segment):
+        stations = _station_pair(segment)
+        return None if stations is None else ("path", stations, endpoints)
+
+    is_looped = bool(getattr(path, "is_looped", False))
+    previous = _nearest_path_segment(segments, segment_index, -1, is_looped)
+    following = _nearest_path_segment(segments, segment_index, 1, is_looped)
+    if previous is None or following is None:
+        return None
+    previous_pair = _station_pair(previous)
+    following_pair = _station_pair(following)
+    if previous_pair is None or following_pair is None:
+        return None
+    adjacency = tuple(sorted((previous_pair, following_pair)))
+    return ("padding", adjacency, endpoints)
+
+
+def _segment_for(metro: Any, path: Any | None, segment_index: int) -> Any | None:
+    missing = object()
+    segment = getattr(metro, "current_segment", missing)
+    if segment is not missing:
+        return segment
+    if path is None:
+        return None
+    try:
+        segments = tuple(path.segments)
+    except (AttributeError, TypeError):
+        return None
+    if 0 <= segment_index < len(segments):
+        return segments[segment_index]
+    return None
+
+
+def capture_metro(metro: Any, path: Any | None = None) -> MetroSnapshot:
     position = metro.position
+    segment_index = int(metro.current_segment_idx)
+    segment = _segment_for(metro, path, segment_index)
     return MetroSnapshot(
         metro_id=_metro_id(metro),
         path_id=str(getattr(metro, "path_id", "")),
-        segment_index=int(metro.current_segment_idx),
+        segment_index=segment_index,
+        segment=segment,
+        transition_key=_transition_key(path, segment_index, segment),
         position=(float(position.left), float(position.top)),
         is_forward=bool(metro.is_forward),
         is_stopped=getattr(metro, "current_station", None) is not None,
@@ -45,8 +151,35 @@ def _metros(source: Any) -> Iterable[Any]:
     return getattr(source, "metros", source)
 
 
+def _paths(source: Any) -> tuple[Any, ...]:
+    values = getattr(source, "paths", None)
+    if values is not None:
+        try:
+            return tuple(values)
+        except TypeError:
+            return ()
+    if hasattr(source, "segments") and hasattr(source, "metros"):
+        return (source,)
+    return ()
+
+
+def _containing_path(metro: Any, paths: tuple[Any, ...]) -> Any | None:
+    owners = [
+        path
+        for path in paths
+        if any(item is metro for item in getattr(path, "metros", ()))
+    ]
+    if len(owners) == 1:
+        return owners[0]
+    return None
+
+
 def capture_metros(source: Any) -> dict[str, MetroSnapshot]:
-    return {_metro_id(metro): capture_metro(metro) for metro in _metros(source)}
+    paths = _paths(source)
+    return {
+        _metro_id(metro): capture_metro(metro, _containing_path(metro, paths))
+        for metro in _metros(source)
+    }
 
 
 def interpolate_heading(start: float, end: float, alpha: float) -> float:
@@ -74,6 +207,83 @@ def _project_snapshot(
     path: Any, snapshot: MetroSnapshot, layout: VisualPath
 ) -> MetroPose:
     return project_metro_pose(path, _snapshot_proxy(snapshot), layout)
+
+
+def _matches_live_path(path: Any, snapshot: MetroSnapshot) -> bool:
+    try:
+        segments = tuple(path.segments)
+    except (AttributeError, TypeError):
+        return False
+    return (
+        str(getattr(path, "id", id(path))) == snapshot.path_id
+        and snapshot.segment is not None
+        and 0 <= snapshot.segment_index < len(segments)
+        and segments[snapshot.segment_index] is snapshot.segment
+    )
+
+
+def _bind_snapshot(
+    snapshot: MetroSnapshot,
+    live: MetroSnapshot,
+    direction_flip: bool,
+) -> MetroSnapshot:
+    return replace(
+        snapshot,
+        segment_index=live.segment_index,
+        segment=live.segment,
+        transition_key=live.transition_key,
+        is_forward=snapshot.is_forward ^ direction_flip,
+    )
+
+
+def _rebase_snapshots(
+    previous: MetroSnapshot | None,
+    current: MetroSnapshot,
+    live: MetroSnapshot,
+) -> tuple[MetroSnapshot, MetroSnapshot] | None:
+    if (
+        previous is None
+        or previous.path_id != current.path_id
+        or current.path_id != live.path_id
+        or current.position != live.position
+        or current.is_stopped != live.is_stopped
+        or current.segment is None
+        or previous.segment is not current.segment
+        or current.transition_key is None
+        or previous.transition_key != current.transition_key
+        or live.transition_key != current.transition_key
+    ):
+        return None
+    direction_flip = current.is_forward != live.is_forward
+    return (
+        _bind_snapshot(previous, live, direction_flip),
+        _bind_snapshot(current, live, direction_flip),
+    )
+
+
+def _rebase_unbound_legacy_snapshots(
+    previous: MetroSnapshot | None,
+    current: MetroSnapshot,
+    live: MetroSnapshot,
+) -> tuple[MetroSnapshot, MetroSnapshot] | None:
+    """Keep incomplete legacy renderer doubles working without weakening real hosts."""
+
+    if (
+        previous is None
+        or previous.segment is not None
+        or current.segment is not None
+        or previous.path_id != current.path_id
+        or current.path_id != live.path_id
+        or previous.segment_index != live.segment_index
+        or current.segment_index != live.segment_index
+        or current.position != live.position
+    ):
+        return None
+    direction_flip = current.is_forward != live.is_forward
+    return (
+        _bind_snapshot(previous, live, direction_flip),
+        _bind_snapshot(current, live, direction_flip),
+    )
 
 
 class MetroInterpolator:
@@ -104,23 +314,38 @@ class MetroInterpolator:
     ) -> MetroPose:
         """Return an interpolated pose, falling back safely for new topology."""
 
-        live_snapshot = capture_metro(metro)
-        current_snapshot = self._current.get(live_snapshot.metro_id, live_snapshot)
-        try:
-            current_pose = _project_snapshot(path, current_snapshot, layout)
-        except (IndexError, ValueError):
+        live_snapshot = capture_metro(metro, path)
+        cached_current = self._current.get(live_snapshot.metro_id)
+        previous_snapshot = self._previous.get(live_snapshot.metro_id)
+        if cached_current is None:
             current_snapshot = live_snapshot
-            current_pose = _project_snapshot(path, current_snapshot, layout)
-        previous_snapshot = self._previous.get(current_snapshot.metro_id)
+        elif _matches_live_path(path, cached_current):
+            current_snapshot = cached_current
+        else:
+            rebased = _rebase_snapshots(
+                previous_snapshot,
+                cached_current,
+                live_snapshot,
+            )
+            if rebased is None and not hasattr(metro, "current_segment"):
+                rebased = _rebase_unbound_legacy_snapshots(
+                    previous_snapshot,
+                    cached_current,
+                    live_snapshot,
+                )
+            if rebased is None:
+                return _project_snapshot(path, live_snapshot, layout)
+            previous_snapshot, current_snapshot = rebased
+
+        current_pose = _project_snapshot(path, current_snapshot, layout)
         if (
             previous_snapshot is None
             or previous_snapshot.path_id != current_snapshot.path_id
         ):
             return current_pose
-        try:
-            previous_pose = _project_snapshot(path, previous_snapshot, layout)
-        except (IndexError, ValueError):
+        if not _matches_live_path(path, previous_snapshot):
             return current_pose
+        previous_pose = _project_snapshot(path, previous_snapshot, layout)
 
         amount = max(0.0, min(1.0, float(alpha)))
         position = (

@@ -11,11 +11,13 @@ import pygame
 from .layout import (
     Position,
     VisualPath,
+    build_preview_visual_path,
     build_visual_path,
     centered_path_orders,
 )
 
 RGBA = tuple[int, int, int, int]
+INVALID_PREVIEW_COLOR = (215, 45, 45)
 
 
 def _default_lane_spacing() -> float:
@@ -116,21 +118,26 @@ def _draw_round_stroke(
     pygame.draw.circle(surface, color, scaled_end, radius)
 
 
-def _render_static_surface(
+def _render_layouts_surface(
     size: tuple[int, int],
     layouts: tuple[VisualPath, ...],
     style: NetworkStyle,
+    origin: tuple[int, int] = (0, 0),
 ) -> pygame.Surface:
     scale = style.supersample
     high_resolution = pygame.Surface(
         (size[0] * scale, size[1] * scale), pygame.SRCALPHA, 32
     )
+
+    def local(point: Position) -> Position:
+        return (point[0] - origin[0], point[1] - origin[1])
+
     for layout in layouts:
         for segment in layout.segments:
             _draw_round_stroke(
                 high_resolution,
-                segment.start,
-                segment.end,
+                local(segment.start),
+                local(segment.end),
                 style.halo_color,
                 style.halo_width,
                 scale,
@@ -140,13 +147,31 @@ def _render_static_surface(
         for segment in layout.segments:
             _draw_round_stroke(
                 high_resolution,
-                segment.start,
-                segment.end,
+                local(segment.start),
+                local(segment.end),
                 color,
                 style.stroke_width,
                 scale,
             )
     return pygame.transform.smoothscale(high_resolution, size)
+
+
+def _layout_bounds(
+    size: tuple[int, int], layout: VisualPath, style: NetworkStyle
+) -> tuple[int, int, int, int] | None:
+    points = tuple(
+        point for segment in layout.segments for point in (segment.start, segment.end)
+    )
+    if not points:
+        return None
+    margin = math.ceil(style.halo_width / 2) + 2
+    left = max(0, math.floor(min(point[0] for point in points) - margin))
+    top = max(0, math.floor(min(point[1] for point in points) - margin))
+    right = min(size[0], math.ceil(max(point[0] for point in points) + margin))
+    bottom = min(size[1], math.ceil(max(point[1] for point in points) + margin))
+    if right <= left or bottom <= top:
+        return None
+    return (left, top, right, bottom)
 
 
 def _draw_dynamic_segment(
@@ -191,7 +216,7 @@ def _draw_dynamic_segment(
 
 
 class NetworkRenderer:
-    """Render static routes from a bounded one-entry per-instance cache."""
+    """Render static routes and transient previews from bounded caches."""
 
     def __init__(self, style: NetworkStyle | None = None) -> None:
         self.style = style or NetworkStyle()
@@ -199,15 +224,31 @@ class NetworkRenderer:
         self._cache_surface: pygame.Surface | None = None
         self._cache_layouts: tuple[VisualPath, ...] = ()
         self.cache_rebuild_count = 0
+        self._preview_cache_key: tuple[Any, ...] | None = None
+        self._preview_cache_surface: pygame.Surface | None = None
+        self._preview_cache_layout: VisualPath | None = None
+        self._preview_cache_origin = (0, 0)
+        self.preview_cache_rebuild_count = 0
 
     @property
     def cache_entry_count(self) -> int:
         return int(self._cache_surface is not None)
 
+    @property
+    def preview_cache_entry_count(self) -> int:
+        return int(self._preview_cache_surface is not None)
+
     def clear_cache(self) -> None:
         self._cache_key = None
         self._cache_surface = None
         self._cache_layouts = ()
+        self.clear_preview_cache()
+
+    def clear_preview_cache(self) -> None:
+        self._preview_cache_key = None
+        self._preview_cache_surface = None
+        self._preview_cache_layout = None
+        self._preview_cache_origin = (0, 0)
 
     def draw(
         self,
@@ -241,7 +282,7 @@ class NetworkRenderer:
                 for path, order in zip(path_values, order_values)
             )
             self._cache_surface = (
-                _render_static_surface(size, self._cache_layouts, self.style)
+                _render_layouts_surface(size, self._cache_layouts, self.style)
                 if any(layout.segments for layout in self._cache_layouts)
                 else None
             )
@@ -263,3 +304,48 @@ class NetworkRenderer:
                 self.style,
             )
         return self._cache_layouts
+
+    def draw_preview(
+        self,
+        surface: pygame.Surface,
+        *,
+        path_id: str,
+        color: Sequence[int],
+        stations: Sequence[Any],
+        order: float,
+        loop: bool,
+        temp_point: Any | None,
+        invalid: bool,
+    ) -> VisualPath | None:
+        """Draw one off-live route preview without retaining gameplay objects."""
+
+        preview = build_preview_visual_path(
+            path_id=str(path_id),
+            color=INVALID_PREVIEW_COLOR if invalid else color,
+            stations=stations,
+            order=float(order),
+            lane_spacing=self.style.lane_spacing,
+            loop=bool(loop),
+            temp_point=temp_point,
+        )
+        if not preview.segments:
+            return None
+        key = (surface.get_size(), self.style, preview)
+        if key != self._preview_cache_key:
+            bounds = _layout_bounds(surface.get_size(), preview, self.style)
+            if bounds is None:
+                return preview
+            left, top, right, bottom = bounds
+            self._preview_cache_layout = preview
+            self._preview_cache_surface = _render_layouts_surface(
+                (right - left, bottom - top),
+                (preview,),
+                self.style,
+                origin=(left, top),
+            )
+            self._preview_cache_origin = (left, top)
+            self._preview_cache_key = key
+            self.preview_cache_rebuild_count += 1
+        assert self._preview_cache_surface is not None
+        surface.blit(self._preview_cache_surface, self._preview_cache_origin)
+        return self._preview_cache_layout

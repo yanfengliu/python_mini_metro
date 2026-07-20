@@ -1,6 +1,6 @@
 # GM-05a atomic programmatic path-replacement plan
 
-Status: implementation Commit A `c7effd8365ab47454f3a722befadab488ae5f550` passed exact workflow run `29776047898`, including `build` job `88465530550` and `rl-smoke` job `88465530480`; evidence-only Commit B is active, and GM-05b remains closed until B passes its own exact workflow
+Status: complete; implementation Commit A `c7effd8365ab47454f3a722befadab488ae5f550` passed exact workflow run `29776047898`, and evidence-only Commit B `47b93491662ebe56a38aba8653d868ae66249d6c` passed exact workflow run `29776631928`
 
 Transaction marker: `[GM-05a:B]`
 
@@ -94,3 +94,7 @@ Segment object identities necessarily change when geometry is rebuilt. GM-05a pr
 Implementation Commit A `c7effd8365ab47454f3a722befadab488ae5f550` passed exact push workflow [run 29776047898](https://github.com/yanfengliu/python_mini_metro/actions/runs/29776047898), run number 130. The exact-run watcher exited successfully after exact-head `build` job `88465530550` passed isolated setup/verification, recursive-loop contracts, a clean default recursive pass, and the Python unit suite, and exact-head `rl-smoke` job `88465530480` passed isolated setup/verification, RL contract/library smoke, and recurrent-history/legacy-PPO smoke.
 
 Evidence-only Commit B binds that exact result. No Commit B workflow result is claimed before B exists and its own exact run completes.
+
+## Remote Commit B gate
+
+Evidence-only Commit B `47b93491662ebe56a38aba8653d868ae66249d6c` passed exact push workflow [run 29776631928](https://github.com/yanfengliu/python_mini_metro/actions/runs/29776631928), run number 131. Exact-head `build` job `88467464598` passed in 1m02s and exact-head `rl-smoke` job `88467464551` passed in 4m49s. GM-05a is remotely finalized and GM-05b opened from that exact green baseline.

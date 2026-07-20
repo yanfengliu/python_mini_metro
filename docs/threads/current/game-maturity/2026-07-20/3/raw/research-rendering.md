@@ -1,0 +1,9 @@
+# GM-05b rendering-continuity research
+
+A second independent live probe confirmed the immediate no-fixed-step renderer defect. On old route `[0, 1, 2]`, a metro partway on retained edge `0 -> 1` kept physical pose `(160, 100)` after successful replacement to `[3, 0, 1, 2]`, while the edge moved from numeric segment index 0 to 2. Existing interpolator snapshots still used old index 0 against the new path and produced `(156.47, 114.12)`, a 14.55-pixel jump.
+
+Main dispatches input before `GameSession.advance`, and a 60 Hz frame can legitimately execute zero fixed steps, so the defect is reachable. The static NetworkRenderer cache already invalidates correctly because its signature includes path identity, color, loop/order, stations, and segments; no explicit commit-time cache flush is required.
+
+The committed Path must remain live and untouched during redraw. `Path.temp_point` is not suitable because it is anchored to the committed final station and is checkpoint-visible. The draft should instead render as a separate pure overlay after the static cache and before stations/metros, using the selected path's live `VisualPath.order`, exact centered normal/padding/stroke geometry, and no static-cache rebuild on pointer-only motion.
+
+Snapshot segment identity is the correctness floor: an old numeric index may never be reinterpreted through rebuilt segments. When cached previous/current snapshots share one old retained transition and current physical position is unchanged, both can be safely rebased to the live segment index/direction to preserve sub-tick continuity. If old history crosses transitions or another precondition fails, fall back to the live pose rather than animate through a removed edge. A blanket current-segment comparison must not disable ordinary within-step segment-transition interpolation.

@@ -1,93 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, Protocol
+from typing import Any
+
+from input_coordinator_host import InputCoordinatorHost
 
 Resolver = Callable[[], Any]
-
-
-class InputCoordinatorHost(Protocol):
-    """Mutable facade surface used only for one input or layout transition."""
-
-    _progression: Any
-    path_buttons: list[Any]
-    speed_buttons: list[Any]
-    buttons: list[Any]
-    stations: list[Any]
-    game_over_restart_rect: Any | None
-    game_over_exit_rect: Any | None
-    _layout_size: tuple[int, int] | None
-    _compat_renderer: Any | None
-    time_ms: int
-    unlocked_num_paths: int
-    is_game_over: bool
-    is_mouse_down: bool
-    is_creating_path: bool
-    path_being_created: Any | None
-    is_paused: bool
-    game_speed_multiplier: int
-
-    def get_unlocked_num_paths(self) -> int: ...
-
-    def update_path_button_lock_states(self) -> None: ...
-
-    def get_next_path_button_idx_to_purchase(self) -> int | None: ...
-
-    def get_purchase_price_for_path_button_idx(self, button_idx: int) -> int | None: ...
-
-    def can_purchase_path_button_idx(self, button_idx: int) -> bool: ...
-
-    def update_unlocked_num_paths(self) -> None: ...
-
-    def try_purchase_path_button(self, button: Any) -> bool: ...
-
-    def try_purchase_path_button_by_index(
-        self, button_idx: int | None = None
-    ) -> bool: ...
-
-    def replace_path_by_id(
-        self, path_id: str, station_indices: list[int], loop: bool = False
-    ) -> bool: ...
-
-    def replace_path_by_index(
-        self, path_index: int, station_indices: list[int], loop: bool = False
-    ) -> bool: ...
-
-    def increment_time(self, dt_ms: int) -> None: ...
-
-    def get_surface_size(self, screen: Any) -> tuple[int, int]: ...
-
-    def prepare_layout(self, width: int, height: int) -> None: ...
-
-    def get_containing_entity(self, position: Any) -> Any | None: ...
-
-    def start_path_on_station(self, station: Any) -> None: ...
-
-    def add_station_to_path(self, station: Any) -> None: ...
-
-    def end_path_on_station(self, station: Any) -> None: ...
-
-    def abort_path_creation(self) -> None: ...
-
-    def remove_path(self, path: Any) -> None: ...
-
-    def apply_speed_action(self, action: Any) -> None: ...
-
-    def set_paused(self, paused: bool) -> None: ...
-
-    def set_game_speed(self, speed_multiplier: int) -> None: ...
-
-    def create_path_from_station_indices(
-        self, station_indices: list[int], loop: bool = False
-    ) -> Any | None: ...
-
-    def remove_path_by_id(self, path_id: str) -> bool: ...
-
-    def remove_path_by_index(self, path_index: int) -> bool: ...
-
-    def react_mouse_event(self, event: Any) -> None: ...
-
-    def react_keyboard_event(self, event: Any) -> None: ...
 
 
 class InputCoordinator:
@@ -247,45 +165,137 @@ class InputCoordinator:
         get_path_button_type: Resolver,
         get_speed_button_type: Resolver,
         get_button_type: Resolver,
+        get_path_redraw_factory: Resolver | None = None,
     ) -> None:
         entity = host.get_containing_entity(event.position)
+        event_type = get_mouse_event_type()
+        redraw = getattr(host, "path_redraw", None)
+        creating = bool(getattr(host, "is_creating_path", False))
+        creation_path = getattr(host, "path_being_created", None)
+        redraw_type = (
+            get_path_redraw_factory()
+            if redraw is not None and get_path_redraw_factory is not None
+            else None
+        )
+        if (
+            redraw is not None
+            and redraw_type is not None
+            and not isinstance(redraw, redraw_type)
+        ):
+            self._clear_redraw(host)
+            redraw = None
+            if not creating and creation_path is None:
+                if event.event_type == event_type.MOUSE_DOWN:
+                    host.is_mouse_down = True
+                elif event.event_type == event_type.MOUSE_UP:
+                    host.is_mouse_down = False
+                if (
+                    not host.is_mouse_down
+                    and entity
+                    and isinstance(entity, get_button_type())
+                ):
+                    entity.on_hover()
+                return
 
-        if event.event_type == get_mouse_event_type().MOUSE_DOWN:
+        if event.event_type == event_type.MOUSE_DOWN:
+            was_mouse_down = bool(host.is_mouse_down)
             host.is_mouse_down = True
-            if entity:
-                if isinstance(entity, get_station_type()):
-                    host.start_path_on_station(entity)
+            if creating or creation_path is not None:
+                if redraw is not None:
+                    self._clear_redraw(host)
+                return
+            if was_mouse_down or redraw is not None:
+                return
+            if entity and isinstance(entity, get_station_type()):
+                host.start_path_on_station(entity)
+            elif entity and isinstance(entity, get_path_button_type()):
+                path = getattr(entity, "path", None)
+                if (
+                    path is not None
+                    and not bool(getattr(entity, "is_locked", False))
+                    and get_path_redraw_factory is not None
+                ):
+                    self._clear_redraw(host)
+                    host.path_redraw = get_path_redraw_factory()(path)
 
-        elif event.event_type == get_mouse_event_type().MOUSE_UP:
+        elif event.event_type == event_type.MOUSE_UP:
             host.is_mouse_down = False
-            if host.is_creating_path:
-                assert host.path_being_created is not None
+            if creating:
+                if redraw is not None:
+                    self._clear_redraw(host)
+                if creation_path is None:
+                    return
                 if entity and isinstance(entity, get_station_type()):
                     host.end_path_on_station(entity)
                 else:
                     host.abort_path_creation()
+            elif creation_path is not None:
+                if redraw is not None:
+                    self._clear_redraw(host)
+            elif redraw is None or not redraw.stations:
+                if redraw is not None:
+                    self._clear_redraw(host)
+                self._apply_release_target(
+                    host, entity, get_path_button_type(), get_speed_button_type()
+                )
+                if entity and isinstance(entity, get_button_type()):
+                    entity.on_hover()
             else:
-                if entity and isinstance(entity, get_path_button_type()):
-                    if entity.path:
-                        host.remove_path(entity.path)
-                    elif entity.is_locked:
-                        host.try_purchase_path_button(entity)
-                elif entity and isinstance(entity, get_speed_button_type()):
-                    host.apply_speed_action(entity.action)
+                station_type = get_station_type()
+                if entity and isinstance(entity, station_type):
+                    redraw = redraw.enter_station(entity, event.position)
+                self._clear_redraw(host)
+                indices = redraw.station_indices(host.stations)
+                if entity and isinstance(entity, station_type) and redraw.is_valid:
+                    if indices is not None:
+                        try:
+                            host.replace_path(redraw.path, indices, redraw.loop)
+                        finally:
+                            self._clear_redraw(host)
+                elif entity and isinstance(entity, get_button_type()):
+                    entity.on_hover()
 
-        elif event.event_type == get_mouse_event_type().MOUSE_MOTION:
+        elif event.event_type == event_type.MOUSE_MOTION:
             if host.is_mouse_down:
-                if host.is_creating_path and host.path_being_created:
-                    if entity and isinstance(entity, get_station_type()):
-                        host.add_station_to_path(entity)
-                    else:
-                        host.path_being_created.set_temporary_point(event.position)
+                if creating or creation_path is not None:
+                    if redraw is not None:
+                        self._clear_redraw(host)
+                    if creating and creation_path:
+                        if entity and isinstance(entity, get_station_type()):
+                            host.add_station_to_path(entity)
+                        else:
+                            creation_path.set_temporary_point(event.position)
+                    return
+                if redraw is not None:
+                    host.path_redraw = (
+                        redraw.enter_station(entity, event.position)
+                        if entity and isinstance(entity, get_station_type())
+                        else redraw.move_to(event.position)
+                    )
             else:
+                if redraw is not None:
+                    self._clear_redraw(host)
                 if entity and isinstance(entity, get_button_type()):
                     entity.on_hover()
                 else:
                     for button in host.buttons:
                         button.on_exit()
+
+    @staticmethod
+    def _clear_redraw(host: InputCoordinatorHost) -> None:
+        host.path_redraw = None
+        for button in host.buttons:
+            button.on_exit()
+
+    @staticmethod
+    def _apply_release_target(host, entity, path_type, speed_type) -> None:
+        if entity and isinstance(entity, path_type):
+            if entity.path:
+                host.remove_path(entity.path)
+            elif entity.is_locked:
+                host.try_purchase_path_button(entity)
+        elif entity and isinstance(entity, speed_type):
+            host.apply_speed_action(entity.action)
 
     def react_keyboard_event(
         self,

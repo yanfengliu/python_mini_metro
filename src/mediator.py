@@ -42,6 +42,7 @@ from graph.node import Node
 from input_coordinator import InputCoordinator
 from passenger_flow import PassengerFlow
 from path_lifecycle import PathLifecycle
+from path_redraw import PathRedrawGesture
 from progression import NetworkProgression
 from route_planner import RoutePlanner
 from simulation_context import SimulationContext
@@ -122,6 +123,7 @@ class Mediator:
         self.is_mouse_down = False
         self.is_creating_path = False
         self.path_being_created: Path | None = None
+        self.path_redraw: PathRedrawGesture | None = None
         self.travel_plans: TravelPlans = {}
         self.is_paused = False
         self.game_speed_multiplier = 1
@@ -384,6 +386,7 @@ class Mediator:
             get_path_button_type=lambda: PathButton,
             get_speed_button_type=lambda: SpeedButton,
             get_button_type=lambda: Button,
+            get_path_redraw_factory=lambda: PathRedrawGesture,
         )
 
     def react_keyboard_event(self, event: KeyboardEvent) -> None:

@@ -107,6 +107,7 @@ class GameRenderer:
         paths_by_id = {str(getattr(path, "id", id(path))): path for path in paths}
         current_time_ms = int(getattr(state, "time_ms", 0))
         max_wait_ms = getattr(state, "passenger_max_wait_time_ms", None)
+        self._draw_redraw_preview(surface, state, paths, layouts)
 
         for station in getattr(state, "stations", ()):
             _call_flexibly(
@@ -138,6 +139,40 @@ class GameRenderer:
         if bool(getattr(state, "is_game_over", False)):
             self._draw_game_over(surface, state)
 
+    def _draw_redraw_preview(
+        self,
+        surface: pygame.Surface,
+        state: Any,
+        paths: tuple[Any, ...],
+        layouts: tuple[Any, ...],
+    ) -> None:
+        redraw = getattr(state, "path_redraw", None)
+        target = getattr(redraw, "path", None)
+        clear_preview = getattr(self.network_renderer, "clear_preview_cache", None)
+        if redraw is None or target is None:
+            if callable(clear_preview):
+                clear_preview()
+            return
+        selected_layout = next(
+            (layout for path, layout in zip(paths, layouts) if path is target),
+            None,
+        )
+        draw_preview = getattr(self.network_renderer, "draw_preview", None)
+        if selected_layout is None or not callable(draw_preview):
+            if callable(clear_preview):
+                clear_preview()
+            return
+        draw_preview(
+            surface,
+            path_id=selected_layout.path_id,
+            color=selected_layout.color,
+            stations=getattr(redraw, "stations", ()),
+            order=selected_layout.order,
+            loop=bool(getattr(redraw, "loop", False)),
+            temp_point=getattr(redraw, "temp_point", None),
+            invalid=bool(getattr(redraw, "invalid", False)),
+        )
+
     def _draw_metro(
         self,
         surface: pygame.Surface,
@@ -160,6 +195,9 @@ class GameRenderer:
     def _draw_buttons(
         self, surface: pygame.Surface, state: Any, current_time_ms: int
     ) -> None:
+        redraw = getattr(state, "path_redraw", None)
+        selected_path = getattr(redraw, "path", None)
+        redraw_invalid = bool(getattr(redraw, "invalid", False))
         path_buttons = tuple(getattr(state, "path_buttons", ()))
         path_button_indexes = {
             id(button): index for index, button in enumerate(path_buttons)
@@ -172,6 +210,12 @@ class GameRenderer:
             }
             path_button_index = path_button_indexes.get(id(button))
             if path_button_index is not None:
+                is_selected = (
+                    selected_path is not None
+                    and getattr(button, "path", None) is selected_path
+                )
+                kwargs["is_selected"] = is_selected
+                kwargs["is_invalid"] = bool(is_selected and redraw_invalid)
                 price_method = getattr(
                     state, "get_purchase_price_for_path_button_idx", None
                 )

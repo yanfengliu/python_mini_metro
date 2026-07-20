@@ -8,6 +8,7 @@ the simulation objects it describes.
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -181,6 +182,90 @@ def build_visual_path(
         order=float(order),
         is_looped=is_looped,
         segments=tuple(segment for segment in visual_segments if segment is not None),
+    )
+
+
+def build_preview_visual_path(
+    *,
+    path_id: str,
+    color: Sequence[int],
+    stations: Sequence[Any],
+    order: float,
+    lane_spacing: float,
+    loop: bool,
+    temp_point: Any | None = None,
+) -> VisualPath:
+    """Build an immutable off-live route preview from station positions."""
+
+    if lane_spacing < 0:
+        raise ValueError("lane spacing cannot be negative")
+    station_values = tuple(
+        (_station_id(station), _position(station.position)) for station in stations
+    )
+    edges: list[tuple[tuple[str | None, Position], tuple[str | None, Position]]] = [
+        (start, end) for start, end in zip(station_values, station_values[1:])
+    ]
+    is_looped = bool(loop and len(station_values) >= 2)
+    if is_looped:
+        edges.append((station_values[-1], station_values[0]))
+    elif station_values and temp_point is not None:
+        pointer_position = _position(temp_point)
+        if pointer_position != station_values[-1][1]:
+            edges.append((station_values[-1], (None, pointer_position)))
+
+    path_segments: list[VisualSegment] = []
+    for start, end in edges:
+        visual_start, visual_end = _offset_pair(
+            start[1], end[1], float(order), float(lane_spacing)
+        )
+        path_segments.append(
+            VisualSegment(
+                logical_index=0,
+                kind="path",
+                start=visual_start,
+                end=visual_end,
+                start_station_id=start[0],
+                end_station_id=end[0],
+            )
+        )
+
+    segments: list[VisualSegment] = []
+    for segment in path_segments:
+        if segments:
+            segments.append(
+                VisualSegment(
+                    logical_index=len(segments),
+                    kind="padding",
+                    start=segments[-1].end,
+                    end=segment.start,
+                )
+            )
+        segments.append(
+            VisualSegment(
+                logical_index=len(segments),
+                kind="path",
+                start=segment.start,
+                end=segment.end,
+                start_station_id=segment.start_station_id,
+                end_station_id=segment.end_station_id,
+            )
+        )
+    if is_looped and segments:
+        segments.append(
+            VisualSegment(
+                logical_index=len(segments),
+                kind="padding",
+                start=segments[-1].end,
+                end=segments[0].start,
+            )
+        )
+
+    return VisualPath(
+        path_id=str(path_id),
+        color=tuple(int(channel) for channel in color),
+        order=float(order),
+        is_looped=is_looped,
+        segments=tuple(segments),
     )
 
 

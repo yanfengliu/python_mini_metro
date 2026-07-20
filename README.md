@@ -62,7 +62,8 @@ Set `PYTHON` to a specific interpreter path when `python` is not the intended ex
 * Press `1`, `2`, or `3` to set game speed to 1x, 2x, or 4x.
 * The top-left HUD shows lifetime passengers delivered and currently spendable line credits as separate values.
 * Each filled grey circle at the bottom is an unused unlocked metro line slot.
-* Click on the colored circle at the bottom to cancel an established line.
+* Hold an assigned colored circle, drag through the replacement station order, and release on the final station to redraw that line; the selected circle is outlined and an invalid repeated-station draft turns red.
+* Click and release a colored circle without dragging through a station to cancel that established line.
 * Empty rings are locked line slots; hover to see their price and click the next one to buy it with line credits when affordable.
 
 ## To play programmatically

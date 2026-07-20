@@ -239,6 +239,7 @@ def _preflight(
     if (
         bool(host.is_creating_path)
         or host.path_being_created is not None
+        or getattr(host, "path_redraw", None) is not None
         or sum(path is target for path in paths) != 1
         or bool(getattr(target, "is_being_created", False))
         or not _identity_unique(paths)

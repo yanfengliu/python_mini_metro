@@ -45,7 +45,10 @@ class TestInputCoordinator(support.MediatorTestCase):
             if isinstance(node, ast.Import)
             for alias in node.names
         )
-        self.assertLessEqual(imports, {"__future__", "collections.abc", "typing"})
+        self.assertLessEqual(
+            imports,
+            {"__future__", "collections.abc", "input_coordinator_host", "typing"},
+        )
 
         renderer = RecordingRenderer(self.events)
 

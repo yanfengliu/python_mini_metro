@@ -23,6 +23,11 @@ from geometry.point import Point
 from geometry.shape import Shape
 from ui.button import Button
 
+SELECTED_OUTLINE_COLOR = (25, 25, 25)
+INVALID_OUTLINE_COLOR = (215, 45, 45)
+SELECTION_OUTLINE_GAP = 5
+SELECTION_OUTLINE_WIDTH = 4
+
 
 class PathButton(Button):
     def __init__(self, shape: Shape, position: Point) -> None:
@@ -93,9 +98,13 @@ class PathButton(Button):
         locked_purchase_price: int | None = None,
         locked_purchase_affordable: bool = False,
         buy_text_font: pygame.font.Font | None = None,
+        is_selected: bool = False,
+        is_invalid: bool = False,
     ) -> None:
-        if current_time_ms is not None and not self.is_unlock_blink_visible(
-            current_time_ms
+        if (
+            not is_selected
+            and current_time_ms is not None
+            and not self.is_unlock_blink_visible(current_time_ms)
         ):
             return
         if self.is_locked and isinstance(self.shape, Circle):
@@ -139,7 +148,15 @@ class PathButton(Button):
                 surface.blit(price_surface, price_rect)
         else:
             super().draw(surface)
-        if self.cross and self.show_cross and self.path:
+        if is_selected:
+            pygame.draw.circle(
+                surface,
+                INVALID_OUTLINE_COLOR if is_invalid else SELECTED_OUTLINE_COLOR,
+                self.position.to_tuple(),
+                int(getattr(self.shape, "radius", button_size)) + SELECTION_OUTLINE_GAP,
+                SELECTION_OUTLINE_WIDTH,
+            )
+        if self.cross and self.show_cross and self.path and not is_selected:
             had_position = hasattr(self.cross, "position")
             previous_position = getattr(self.cross, "position", None)
             try:
