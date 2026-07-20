@@ -1,5 +1,6 @@
 python_mini_metro/
 |- .gitattributes
+|- .npmrc
 |- .github/
 |  \- workflows/
 |     \- test.yml
@@ -35,6 +36,9 @@ python_mini_metro/
 |  |- recursive-ledger.mjs
 |  |- recursive-ledger-lock.mjs
 |  |- recursive-pass.mjs
+|  |- civ-engine-pin.json
+|  |- civ-engine-pin.mjs
+|  |- civ-engine-runtime.mjs
 |  |- source-provenance-engine.mjs
 |  |- source-provenance.mjs
 |  |- train_rl.py
@@ -131,11 +135,14 @@ python_mini_metro/
 |     \- viewport.py
 |- test/
 |  |- __init__.py
+|  |- civ-engine-pin.test.mjs
+|  |- civ-engine-provenance.test.mjs
 |  |- playtest-recursive.test.mjs
 |  |- playtest-verify.test.mjs
 |  |- recursive-ledger.test.mjs
 |  |- recursive-pass.test.mjs
 |  |- recursive-fixtures.mjs
+|  |- source-provenance-fixtures.mjs
 |  |- source-provenance.test.mjs
 |  |- input_coordinator_direct_support.py
 |  |- mediator_test_support.py
@@ -251,19 +258,19 @@ python_mini_metro/
 
 ## Recursive pass data flow
 
-1. `scripts/source-provenance.mjs` inventories relevant runtime source with per-file and tree SHA-256 digests, records relevant Git status, and enforces the clean-by-default policy. `scripts/source-provenance-engine.mjs` independently resolves the live `civ-engine` package and pins its version, commit, and complete `package.json` plus `dist/` runtime-tree digest, including ignored build output. `--allow-dirty` is an explicit canary/development escape hatch that preserves attributable mismatches and `source-diff.patch` when a local diff is available.
+1. `scripts/source-provenance.mjs` inventories relevant runtime source with per-file and tree SHA-256 digests, records relevant Git status, and enforces the clean-by-default policy. `scripts/civ-engine-pin.json` and its strict dependency-light loader define the credential-free repository, ignored repo-local checkout, package version, Git commit, and complete runtime-tree digest. `scripts/source-provenance-engine.mjs` resolves package metadata and the ESM runtime without executing them, proves both belong to the exact physical `/.civ-engine-pin/` checkout, and inventories its `package.json` plus `dist/`, including ignored build output. `--allow-dirty` is an explicit canary/development escape hatch for attributable content/status mismatches inside that root; location or runtime-entry mismatch is never overridable.
 2. `scripts/playtest-recursive.mjs` captures and writes that provenance before driving, creates a unique append-only directory under `output/recursive/`, launches the Python driver with the checked-in deterministic fixture by default, and captures the drive logs and artifacts.
 3. `scripts/playtest-verify.mjs` launches a fresh Python process against the recorded `inputs.json`, compares exact replayable input metadata, transcript results, canonical checkpoint vectors, and authored finding semantics, then writes verification evidence and strict replay-verified findings. Standalone verification attempts use unique subdirectories under `<run-id>/verification-attempts/`.
 4. Before finalization, the driver recaptures both source trees and turns any mid-run drift into an attributable `source-changed` failure with final-state evidence. `scripts/recursive-pass.mjs` selects the highest-severity verified open finding, builds civ-engine run/pass manifests, and validates their repository-level completeness including source-state summaries. New manifests use `source-state-v2`; immutable `source-state-v1` rows from earlier harness revisions remain readable during reconciliation. `scripts/recursive-ledger.mjs` and `scripts/recursive-ledger-lock.mjs` own write-ahead paired persistence, atomic manifest creation, repair of an unterminated final JSONL fragment, token-checked heartbeat locks, dead-owner recovery, and one-pass intent reconciliation.
 5. Each run keeps `run-manifest.json` and `pass-manifest.json`; aggregate run rows append to `output/recursive/ledger.jsonl` and pass rows append to `output/recursive/passes.jsonl`. Pending intents are deleted only after both rows are durably confirmed. Outcomes are `verified` or `run-failed` for run manifests and `no-fix-candidate`, `proposal-only`, or `run-failed` for pass manifests.
 
-The Node boundary depends on the live sibling `civ-engine` through `file:../civ-engine`. `package-lock.json` records engine 2.2.0, and CI checks out commit `e0cb614a516c449159a4562c2ac45bd40bffd3df` as that sibling, builds it under Node 22, asserts the imported version, then runs the Node contract tests and Python unit suite. The pass is scripted and proposal-only: no model provider, automatic source edit, apply arm, or auto-merge boundary is present.
+The Node boundary depends on the retained ignored checkout at `/.civ-engine-pin/` through `file:.civ-engine-pin` with npm link semantics fixed by `.npmrc`. `package-lock.json` records the same root and engine 2.2.0. CI checks out commit `e0cb614a516c449159a4562c2ac45bd40bffd3df` at that exact nested path, builds its development graph under Node 22, installs only the root runtime graph, and verifies path/version/commit/clean-status/runtime-digest provenance without importing engine code before the contract tests and Python unit suite. The pass is scripted and proposal-only: no model provider, automatic source edit, apply arm, or auto-merge boundary is present.
 
 ## Recursive-loop tests
 
 - `test/test_recursive_playtest.py` covers strict scenario/input validation, one transcript row per operation, and recorded-input replay; `test/test_recursive_threshold_schema.py` pins immutable v1/v2/v3 threshold reconstruction and checkpoint mapping; `test/test_recursive_checkpoint.py` covers UUID-free checkpoint construction, schema normalization, alias agreement, reward-contract identity, and latent-state observability. `test/test_overdue_threshold.py` and `test/test_agent_play_threshold.py` cover default runtime overload semantics and agent evidence migration without enlarging the mediator characterization suites.
 - `test/test_recursive_oracles.py` covers cross-view topology and the remaining environment-contract oracle classes.
-- `test/source-provenance.test.mjs`, `test/recursive-ledger.test.mjs`, `test/playtest-verify.test.mjs`, `test/recursive-pass.test.mjs`, and `test/playtest-recursive.test.mjs` cover local and linked-engine inventory, ignored-runtime mismatch rejection, start/end recapture, token-safe concurrent/crash reconciliation, torn-tail repair, exact fresh-process verification, strict evidence promotion, manifest contracts, public verifier retries, and end-to-end success/failure outcomes. `test/recursive-fixtures.mjs` supplies strict shared manifest fixtures without registering another test entry point.
+- `test/civ-engine-pin.test.mjs`, `test/civ-engine-provenance.test.mjs`, `test/source-provenance.test.mjs`, `test/recursive-ledger.test.mjs`, `test/playtest-verify.test.mjs`, `test/recursive-pass.test.mjs`, and `test/playtest-recursive.test.mjs` cover descriptor/package/lock/workflow parity, preservation of the 44-test pre-GM04 surface, physical package/runtime identity, fresh-capture integrity, local and engine inventory, ignored-runtime mismatch rejection, start/end recapture, token-safe concurrent/crash reconciliation, torn-tail repair, exact fresh-process verification, strict evidence promotion, manifest contracts, public verifier retries, and end-to-end success/failure outcomes. `test/source-provenance-fixtures.mjs` and `test/recursive-fixtures.mjs` supply shared hermetic repositories and strict manifest fixtures without registering extra test entry points.
 
 ## Mediator characterization tests
 

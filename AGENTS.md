@@ -4,7 +4,7 @@
 
 A Python 3.13 `pygame-ce` implementation of Mini Metro: optimize how many passengers your metro system delivers. Human and programmatic play are both supported; a Gymnasium player-equivalent pixel environment plus Stable-Baselines3 training/evaluation scripts (`scripts/train_rl.py`, `scripts/evaluate_rl.py`) make RL training a first-class purpose.
 
-The recursive playtest loop runs on Node ≥ 20 against a built `../civ-engine` sibling. Keep workflow guidance rooted in the repo's existing Python commands and root-level documentation.
+The recursive playtest loop runs on Node ≥ 20.6 against the built ignored `/.civ-engine-pin/` checkout described by `scripts/civ-engine-pin.json`; it never relies on or mutates `../civ-engine`. Keep workflow guidance rooted in the repo's existing Python commands and root-level documentation.
 
 ## Fleet constitution
 
@@ -33,7 +33,7 @@ The recursive playtest loop runs on Node ≥ 20 against a built `../civ-engine` 
 
 - `conda activate py313`; install from `requirements-locked.txt` (RL extras: `requirements-rl-locked.txt`).
 - Machine-local fallbacks when shell activation is not applied: use `C:\Users\38909\miniconda3\envs\py313\python.exe` directly, and `C:\Users\38909\miniconda3\Scripts\conda.exe` when `conda` is not on PATH. These paths are machine-specific — portable docs and scripts use `conda activate py313` plus `python ...`.
-- Recursive loop: Node ≥ 20 and a built `../civ-engine` sibling (CI pins engine 2.2.0 and verifies the imported version).
+- Recursive loop: Node ≥ 20.6 and a built ignored `/.civ-engine-pin/` checkout (CI materializes the checked-in descriptor's commit at that path and verifies physical path, package version, commit, clean status, and runtime digest before execution).
 
 ## Session start
 

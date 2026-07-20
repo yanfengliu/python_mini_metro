@@ -2,6 +2,9 @@ name: Python, recursive loop, and RL smoke
 
 on: [push]
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -11,13 +14,15 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: python_mini_metro
+          persist-credentials: false
 
-      - name: Checkout pinned civ-engine sibling
+      - name: Checkout isolated pinned civ-engine
         uses: actions/checkout@v4
         with:
           repository: yanfengliu/civ-engine
           ref: e0cb614a516c449159a4562c2ac45bd40bffd3df
-          path: civ-engine
+          path: python_mini_metro/.civ-engine-pin
+          persist-credentials: false
 
       - name: Set up Python 3.13
         uses: actions/setup-python@v5
@@ -33,18 +38,19 @@ jobs:
           cache-dependency-path: python_mini_metro/package-lock.json
 
       - name: Build pinned civ-engine
-        working-directory: civ-engine
+        working-directory: python_mini_metro/.civ-engine-pin
         run: |
           npm ci
           npm run build
 
       - name: Install recursive-loop dependency
         working-directory: python_mini_metro
-        run: npm ci
+        run: npm ci --omit=dev
 
-      - name: Verify civ-engine contract version
+      - name: Verify isolated civ-engine provenance
         working-directory: python_mini_metro
-        run: node --input-type=module -e "import { ENGINE_VERSION } from 'civ-engine'; if (ENGINE_VERSION !== '2.2.0') throw new Error('expected civ-engine 2.2.0, got ' + ENGINE_VERSION)"
+        run: >-
+          node --input-type=module -e "import { assertCivEngineStateAllowed, captureCivEngineState } from './scripts/source-provenance-engine.mjs'; const state = await captureCivEngineState({ repoRoot: process.cwd() }); assertCivEngineStateAllowed(state)"
 
       - name: Install hash-pinned Python dependencies
         working-directory: python_mini_metro
@@ -71,6 +77,8 @@ jobs:
     steps:
       - name: Checkout python_mini_metro
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up Python 3.13
         uses: actions/setup-python@v5

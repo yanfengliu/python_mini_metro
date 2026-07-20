@@ -2,35 +2,144 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 
-export const EXPECTED_CIV_ENGINE_COMMIT = 'e0cb614a516c449159a4562c2ac45bd40bffd3df';
-export const EXPECTED_CIV_ENGINE_VERSION = '2.2.0';
-export const EXPECTED_CIV_ENGINE_TREE_DIGEST = '960f4af06a8012298ca7f6fda65e64590a78e059fbe4ca154c0ca5ce33282891';
+import {
+  CIV_ENGINE_PIN,
+  EXPECTED_CIV_ENGINE_COMMIT,
+  EXPECTED_CIV_ENGINE_TREE_DIGEST,
+  EXPECTED_CIV_ENGINE_VERSION,
+  resolveCivEnginePinRoot,
+} from './civ-engine-pin.mjs';
+import {
+  assertPhysicalDirectory,
+  inspectExpectedPackageRoot,
+  inventoryRuntimeFiles,
+  isStrictlyInside,
+  normalizePath,
+  resolveFromRepoRoot,
+  resolveInstalledCivEngine,
+  resolveRuntimeEntry,
+  samePath,
+} from './civ-engine-runtime.mjs';
+
+export {
+  EXPECTED_CIV_ENGINE_COMMIT,
+  EXPECTED_CIV_ENGINE_TREE_DIGEST,
+  EXPECTED_CIV_ENGINE_VERSION,
+} from './civ-engine-pin.mjs';
 
 const SCHEMA_VERSION = 1;
 const HASH_ALGORITHM = 'sha256';
-const PACKAGE_NAME = 'civ-engine';
+const PACKAGE_NAME = CIV_ENGINE_PIN.packageName;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
-const TEXT_RUNTIME_EXTENSIONS = new Set(['.js', '.json', '.map', '.ts']);
+const FRESH_CAPTURE_SNAPSHOTS = new WeakMap();
+const SUMMARY_KEYS = [
+  'algorithm',
+  'available',
+  'commitMatches',
+  'error',
+  'expectedGitCommit',
+  'expectedPackageVersion',
+  'expectedTreeDigest',
+  'fileCount',
+  'gitCommit',
+  'packageName',
+  'packageVersion',
+  'resolvedPackageRoot',
+  'runtimeEntry',
+  'runtimeMatches',
+  'schemaVersion',
+  'statusDigest',
+  'treeDigest',
+  'versionMatches',
+  'worktreeDirty',
+];
 
 export async function captureCivEngineState({
   repoRoot,
   enginePackageRoot,
+  expectedEnginePackageRoot,
   expectedEngineCommit = EXPECTED_CIV_ENGINE_COMMIT,
   expectedEngineVersion = EXPECTED_CIV_ENGINE_VERSION,
   expectedEngineTreeDigest = EXPECTED_CIV_ENGINE_TREE_DIGEST,
 }) {
+  if (typeof repoRoot !== 'string' || !path.isAbsolute(repoRoot)) {
+    throw new TypeError('repoRoot must be an absolute path');
+  }
   const resolvedRepoRoot = path.resolve(repoRoot);
-  const requestedRoot = path.resolve(
-    enginePackageRoot ?? path.join(resolvedRepoRoot, 'node_modules', PACKAGE_NAME),
+  const explicitPackageRoot = enginePackageRoot === undefined
+    ? null
+    : resolveFromRepoRoot(resolvedRepoRoot, enginePackageRoot, 'enginePackageRoot');
+  const usesConfiguredPinRoot = expectedEnginePackageRoot === undefined;
+  const expectedPackageRoot = usesConfiguredPinRoot
+    ? resolveCivEnginePinRoot(resolvedRepoRoot)
+    : resolveFromRepoRoot(
+      resolvedRepoRoot,
+      expectedEnginePackageRoot,
+      'expectedEnginePackageRoot',
+    );
+  const expectedRootIdentity = await inspectExpectedPackageRoot({
+    repoRoot: resolvedRepoRoot,
+    expectedPackageRoot,
+    requireContained: usesConfiguredPinRoot,
+  });
+  const resolvedExpectedPackageRoot = expectedRootIdentity.resolved;
+  const localExpectedPackageRoot = normalizePath(expectedPackageRoot);
+  const localResolvedExpectedPackageRoot = normalizePath(
+    resolvedExpectedPackageRoot,
   );
+  const expectedPackageRootPhysical = expectedRootIdentity.physical;
+  const requestedRoot = explicitPackageRoot ?? expectedPackageRoot;
   try {
-    const resolvedPackageRoot = await fs.realpath(requestedRoot);
+    const resolution = explicitPackageRoot
+      ? { packageRoot: explicitPackageRoot, runtimePath: null }
+      : resolveInstalledCivEngine(PACKAGE_NAME);
+    const resolvedPackageRoot = await fs.realpath(resolution.packageRoot);
+    const packageDocumentPath = path.join(resolvedPackageRoot, 'package.json');
+    const packageDocumentStat = await fs.lstat(packageDocumentPath);
+    const resolvedPackageDocument = await fs.realpath(packageDocumentPath);
+    if (
+      !packageDocumentStat.isFile()
+      || packageDocumentStat.isSymbolicLink()
+      || !samePath(packageDocumentPath, resolvedPackageDocument)
+    ) {
+      throw new Error('civ-engine package metadata must be a physical file');
+    }
+    if (!samePath(path.dirname(resolvedPackageDocument), resolvedPackageRoot)) {
+      throw new Error('resolved civ-engine package metadata escapes its package root');
+    }
     const packageDocument = JSON.parse(await fs.readFile(
       path.join(resolvedPackageRoot, 'package.json'),
       'utf8',
     ));
+    await assertPhysicalDirectory(resolvedPackageRoot, 'dist');
     const runtimeEntry = resolveRuntimeEntry(packageDocument);
+    const declaredRuntimePath = path.join(
+      resolvedPackageRoot,
+      ...runtimeEntry.split('/'),
+    );
+    const declaredRuntimeStat = await fs.lstat(declaredRuntimePath);
+    const declaredRuntimeEntry = await fs.realpath(declaredRuntimePath);
+    if (
+      !declaredRuntimeStat.isFile()
+      || declaredRuntimeStat.isSymbolicLink()
+      || !samePath(declaredRuntimePath, declaredRuntimeEntry)
+      || !isStrictlyInside(resolvedPackageRoot, declaredRuntimeEntry)
+    ) {
+      throw new Error('declared civ-engine runtime must be a physical file below its package root');
+    }
+    const resolvedRuntimeEntry = resolution.runtimePath
+      ? await fs.realpath(resolution.runtimePath)
+      : declaredRuntimeEntry;
+    if (!isStrictlyInside(resolvedPackageRoot, resolvedRuntimeEntry)) {
+      throw new Error('resolved civ-engine runtime entry escapes its package root');
+    }
+    const runtimeEntryMatches = samePath(resolvedRuntimeEntry, declaredRuntimeEntry);
+    const locationMatches = expectedPackageRootPhysical && samePath(
+      resolvedPackageRoot,
+      resolvedExpectedPackageRoot,
+    );
     const files = await inventoryRuntimeFiles(resolvedPackageRoot);
     if (!files.some((entry) => entry.path === runtimeEntry)) {
       throw new Error(`resolved civ-engine runtime entry is missing: ${runtimeEntry}`);
@@ -60,13 +169,20 @@ export async function captureCivEngineState({
       error: null,
     };
     assertCivEngineStateSummary(summary);
-    return {
+    return registerFreshCapture({
       ...summary,
       localResolvedPackageRoot: normalizePath(resolvedPackageRoot),
+      localExpectedPackageRoot,
+      localResolvedExpectedPackageRoot,
+      expectedPackageRootPhysical,
+      locationMatches,
+      localDeclaredRuntimeEntry: normalizePath(declaredRuntimeEntry),
+      localResolvedRuntimeEntry: normalizePath(resolvedRuntimeEntry),
+      runtimeEntryMatches,
       status,
       files,
       summary: structuredClone(summary),
-    };
+    });
   } catch (error) {
     const summary = {
       schemaVersion: SCHEMA_VERSION,
@@ -90,13 +206,20 @@ export async function captureCivEngineState({
       error: error instanceof Error ? error.message : String(error),
     };
     assertCivEngineStateSummary(summary);
-    return {
+    return registerFreshCapture({
       ...summary,
       localResolvedPackageRoot: normalizePath(requestedRoot),
+      localExpectedPackageRoot,
+      localResolvedExpectedPackageRoot,
+      expectedPackageRootPhysical,
+      locationMatches: false,
+      localDeclaredRuntimeEntry: null,
+      localResolvedRuntimeEntry: null,
+      runtimeEntryMatches: false,
       status: [],
       files: [],
       summary: structuredClone(summary),
-    };
+    });
   }
 }
 
@@ -108,10 +231,35 @@ export function civEngineStateSummary(state) {
 
 export function assertCivEngineStateAllowed(state, { allowDirty = false } = {}) {
   const summary = civEngineStateSummary(state);
+  assertFreshCivEngineIdentity(state, summary);
   if (!summary.available) {
     throw provenanceError(`civ-engine runtime is unavailable: ${summary.error}`);
   }
+  const physicalRootMismatch = !state.expectedPackageRootPhysical;
+  const locationMismatch = !state.locationMatches;
+  const runtimeEntryMismatch = !state.runtimeEntryMatches;
   const issues = [];
+  if (physicalRootMismatch) {
+    issues.push(
+      `pinned root ${state.localExpectedPackageRoot} is not a physical in-repository directory `
+      + `(resolves to ${state.localResolvedExpectedPackageRoot})`,
+    );
+  }
+  if (
+    locationMismatch
+    && !samePath(state.localResolvedPackageRoot, state.localResolvedExpectedPackageRoot)
+  ) {
+    issues.push(
+      `resolved package root ${state.localResolvedPackageRoot} does not match pinned root `
+      + `${state.localExpectedPackageRoot}`,
+    );
+  }
+  if (runtimeEntryMismatch) {
+    issues.push(
+      `resolved runtime entry ${state.localResolvedRuntimeEntry} does not match declared entry `
+      + `${state.localDeclaredRuntimeEntry}`,
+    );
+  }
   if (summary.packageName !== PACKAGE_NAME) {
     issues.push(`package name is ${summary.packageName}`);
   }
@@ -131,42 +279,28 @@ export function assertCivEngineStateAllowed(state, { allowDirty = false } = {}) 
     );
   }
   if (summary.worktreeDirty) issues.push('worktree is dirty');
-  if (issues.length > 0 && !allowDirty) {
+  const identityMismatch = (
+    physicalRootMismatch
+    || locationMismatch
+    || runtimeEntryMismatch
+  );
+  if (issues.length > 0 && (!allowDirty || identityMismatch)) {
     throw provenanceError(
       `civ-engine provenance rejected (${issues.join('; ')}); `
-      + 'use --allow-dirty only for attributed canary/development evidence',
+      + (identityMismatch
+        ? 'resolved package location and runtime identity cannot be overridden'
+        : 'use --allow-dirty only for attributed canary/development evidence'),
     );
   }
   return state;
 }
 
 export function assertCivEngineStateSummary(summary) {
-  const stableKeys = [
-    'algorithm',
-    'available',
-    'commitMatches',
-    'error',
-    'expectedGitCommit',
-    'expectedPackageVersion',
-    'expectedTreeDigest',
-    'fileCount',
-    'gitCommit',
-    'packageName',
-    'packageVersion',
-    'resolvedPackageRoot',
-    'runtimeEntry',
-    'runtimeMatches',
-    'schemaVersion',
-    'statusDigest',
-    'treeDigest',
-    'versionMatches',
-    'worktreeDirty',
-  ];
   if (
     !summary
     || typeof summary !== 'object'
     || Array.isArray(summary)
-    || Object.keys(summary).sort().join('\0') !== stableKeys.sort().join('\0')
+    || Object.keys(summary).sort().join('\0') !== SUMMARY_KEYS.join('\0')
     || summary.schemaVersion !== SCHEMA_VERSION
     || summary.algorithm !== HASH_ALGORITHM
     || typeof summary.available !== 'boolean'
@@ -194,6 +328,10 @@ export function assertCivEngineStateSummary(summary) {
       || !SHA256_PATTERN.test(summary.treeDigest)
       || summary.fileCount <= 0
       || summary.error !== null
+      || summary.versionMatches
+        !== (summary.packageVersion === summary.expectedPackageVersion)
+      || summary.commitMatches !== (summary.gitCommit === summary.expectedGitCommit)
+      || summary.runtimeMatches !== (summary.treeDigest === summary.expectedTreeDigest)
     ) {
       throw new TypeError('invalid available civ-engine provenance summary');
     }
@@ -205,6 +343,9 @@ export function assertCivEngineStateSummary(summary) {
     || summary.worktreeDirty !== null
     || summary.statusDigest !== null
     || summary.treeDigest !== null
+    || summary.versionMatches !== false
+    || summary.commitMatches !== false
+    || summary.runtimeMatches !== false
     || summary.fileCount !== 0
     || typeof summary.error !== 'string'
     || summary.error.length === 0
@@ -214,60 +355,47 @@ export function assertCivEngineStateSummary(summary) {
   return summary;
 }
 
-async function inventoryRuntimeFiles(packageRoot) {
-  const relativePaths = ['package.json'];
-  await walkDist(packageRoot, 'dist', relativePaths);
-  relativePaths.sort(compareText);
-  return Promise.all(relativePaths.map(async (relativePath) => {
-    const rawContents = await fs.readFile(
-      path.join(packageRoot, ...relativePath.split('/')),
+function assertFreshCivEngineIdentity(state, summary) {
+  const capturedSnapshot = state && typeof state === 'object'
+    ? FRESH_CAPTURE_SNAPSHOTS.get(state)
+    : undefined;
+  if (
+    !state
+    || typeof state !== 'object'
+    || Array.isArray(state)
+    || !capturedSnapshot
+    || !isDeepStrictEqual(capturedSnapshot, state)
+    || !Object.hasOwn(state, 'summary')
+    || !isDeepStrictEqual(
+      summary,
+      Object.fromEntries(SUMMARY_KEYS.map((key) => [key, state[key]])),
+    )
+    || typeof state.localResolvedPackageRoot !== 'string'
+    || typeof state.localExpectedPackageRoot !== 'string'
+    || typeof state.localResolvedExpectedPackageRoot !== 'string'
+    || typeof state.expectedPackageRootPhysical !== 'boolean'
+    || typeof state.locationMatches !== 'boolean'
+    || typeof state.runtimeEntryMatches !== 'boolean'
+    || !Array.isArray(state.status)
+    || !Array.isArray(state.files)
+    || (summary.available && (
+      typeof state.localDeclaredRuntimeEntry !== 'string'
+      || typeof state.localResolvedRuntimeEntry !== 'string'
+    ))
+    || (!summary.available && (
+      state.localDeclaredRuntimeEntry !== null
+      || state.localResolvedRuntimeEntry !== null
+    ))
+  ) {
+    throw new TypeError(
+      'a fresh civ-engine capture with resolved identity is required',
     );
-    const contents = canonicalRuntimeContents(relativePath, rawContents);
-    return {
-      path: relativePath,
-      bytes: contents.byteLength,
-      sha256: sha256(contents),
-    };
-  }));
-}
-
-function canonicalRuntimeContents(relativePath, contents) {
-  if (!TEXT_RUNTIME_EXTENSIONS.has(path.extname(relativePath).toLowerCase())) {
-    return contents;
-  }
-  return Buffer.from(contents.toString('utf8').replace(/\r\n/g, '\n'), 'utf8');
-}
-
-async function walkDist(packageRoot, relativeDirectory, results) {
-  const entries = await fs.readdir(path.join(packageRoot, relativeDirectory), {
-    withFileTypes: true,
-  });
-  entries.sort((left, right) => compareText(left.name, right.name));
-  for (const entry of entries) {
-    const relativePath = normalizePath(path.join(relativeDirectory, entry.name));
-    if (entry.isDirectory()) {
-      await walkDist(packageRoot, relativePath, results);
-    } else if (entry.isFile()) {
-      results.push(relativePath);
-    } else {
-      throw new Error(`unsupported civ-engine dist entry: ${relativePath}`);
-    }
   }
 }
 
-function resolveRuntimeEntry(packageDocument) {
-  const rootExport = packageDocument.exports?.['.'];
-  let candidate = typeof rootExport === 'string' ? rootExport : rootExport?.import;
-  if (candidate && typeof candidate === 'object') candidate = candidate.default;
-  candidate ??= packageDocument.main;
-  if (typeof candidate !== 'string' || !candidate.startsWith('./dist/')) {
-    throw new Error('civ-engine package must expose an imported dist runtime');
-  }
-  const normalized = path.posix.normalize(candidate.slice(2));
-  if (normalized.startsWith('../') || path.posix.isAbsolute(normalized)) {
-    throw new Error('civ-engine runtime entry escapes its package root');
-  }
-  return normalized;
+function registerFreshCapture(state) {
+  FRESH_CAPTURE_SNAPSHOTS.set(state, structuredClone(state));
+  return state;
 }
 
 function gitStatus(packageRoot) {
@@ -325,10 +453,6 @@ function provenanceError(message) {
   const error = new Error(message);
   error.code = 'ERR_CIV_ENGINE_PROVENANCE';
   return error;
-}
-
-function normalizePath(candidate) {
-  return candidate.split(path.sep).join('/');
 }
 
 function portablePackageRoot(repoRoot, packageRoot) {

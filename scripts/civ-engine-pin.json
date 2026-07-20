@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "packageName": "civ-engine",
+  "repositoryUrl": "https://github.com/yanfengliu/civ-engine.git",
+  "installPath": ".civ-engine-pin",
+  "version": "2.2.0",
+  "commit": "e0cb614a516c449159a4562c2ac45bd40bffd3df",
+  "runtimeTreeSha256": "960f4af06a8012298ca7f6fda65e64590a78e059fbe4ca154c0ca5ce33282891"
+}

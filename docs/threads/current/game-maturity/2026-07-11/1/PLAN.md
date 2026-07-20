@@ -127,7 +127,7 @@ Scope:
 
 Acceptance:
 
-- A clean documented setup from the current machine state runs all 41 Node contract tests against the pin.
+- A clean documented setup from the current machine state retains all 44 pre-GM04 Node contract tests and passes the exact larger post-change suite against the pin.
 - A mismatched live sibling still fails with an attributable message rather than producing misleading downstream failures.
 - No generated dependency worktree or credentials are committed.
 

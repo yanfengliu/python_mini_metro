@@ -21,15 +21,23 @@ python -m pip install -r requirements-rl-locked.txt
 
 Both lockfiles are universal Python 3.13 resolutions with hashes and platform markers; pip selects the matching Linux or Windows wheels while preserving the same reviewed dependency graph.
 
-The recursive playtest also requires Node.js 20 or newer and a built `civ-engine` sibling at `../civ-engine`. The checked-in package lock expects civ-engine 2.2.0 through that relative link; CI pins the sibling to commit `e0cb614a516c449159a4562c2ac45bd40bffd3df` and verifies the imported engine version before testing.
+The recursive playtest also requires Node.js 20.6 or newer and the isolated civ-engine checkout described by `scripts/civ-engine-pin.json`. The checkout is retained at the ignored repo-local `/.civ-engine-pin/` path; neither setup nor recursive execution reads or mutates a sibling `../civ-engine` checkout. The engine build uses its own development lock, while the root install omits that nested build-only graph. The package lock, CI checkout, Git commit, package version, physical resolution path, and complete runtime-tree digest are verified against the descriptor before recursive execution.
 
 ```powershell
-cd ../civ-engine
-npm ci
-npm run build
-cd ../python_mini_metro
-npm ci
+$existingPin = Get-Item -LiteralPath .civ-engine-pin -Force -ErrorAction SilentlyContinue
+if ($null -ne $existingPin) { throw ".civ-engine-pin already exists; do not replace or traverse it manually" }
+git clone --no-checkout https://github.com/yanfengliu/civ-engine.git .civ-engine-pin
+if ($LASTEXITCODE -ne 0) { throw "civ-engine clone failed" }
+git -C .civ-engine-pin checkout --detach e0cb614a516c449159a4562c2ac45bd40bffd3df
+if ($LASTEXITCODE -ne 0) { throw "civ-engine checkout failed" }
+npm --prefix .civ-engine-pin ci
+if ($LASTEXITCODE -ne 0) { throw "civ-engine install failed" }
+npm --prefix .civ-engine-pin run build
+if ($LASTEXITCODE -ne 0) { throw "civ-engine build failed" }
+npm ci --omit=dev
+if ($LASTEXITCODE -ne 0) { throw "recursive-loop dependency install failed" }
 python -m pip install -r requirements-locked.txt
+if ($LASTEXITCODE -ne 0) { throw "Python dependency install failed" }
 ```
 
 Set `PYTHON` to a specific interpreter path when `python` is not the intended executable. Recursive runs set `PYTHONHASHSEED` to `0` by default unless it is already defined.
@@ -236,7 +244,7 @@ npm run playtest:recursive -- --scenario path/to/scenario.json
 npm run playtest:recursive -- --output-root output/my-recursive-runs
 ```
 
-Normal recursive runs fail closed when relevant runtime source under `src/`, `scripts/`, `package*.json`, or `requirements*.txt` is dirty. They also require the resolved `civ-engine` package to match the pinned version, Git commit, and full runtime-tree digest, so a modified ignored `dist/` build cannot masquerade as the pinned engine. Commit or restore those files first. Deliberate canary and development runs may opt in explicitly; the resulting source inventories, dirty or mismatched status, and local patch are retained with the evidence:
+Normal recursive runs fail closed when relevant runtime source under `src/`, `scripts/`, `package*.json`, or `requirements*.txt` is dirty. They also require ESM resolution to reach the exact physical `/.civ-engine-pin/` checkout and require that checkout to match the pinned version, Git commit, and full runtime-tree digest, so a sibling link, nested package shadow, or modified ignored `dist/` build cannot masquerade as the pin. A wrong physical location or runtime entry is never overridable. Commit or restore local source first. Deliberate canary and development runs inside the correct isolated checkout may opt in explicitly; the resulting source inventories, dirty or mismatched status, and local patch are retained with the evidence:
 
 ```powershell
 npm run playtest:recursive -- --allow-dirty

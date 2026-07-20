@@ -7,4 +7,5 @@ __pycache__/
 myenv/
 .coverage
 /node_modules/
+/.civ-engine-pin/
 /output/

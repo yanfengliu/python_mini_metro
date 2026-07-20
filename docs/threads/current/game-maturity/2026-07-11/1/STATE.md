@@ -4,24 +4,24 @@ Last updated: 2026-07-19
 
 Active goal thread: `019f7c1a-897b-7c31-9662-4edbb4e128a6`
 
-Current increment: GM-03 - Decompose mediator and its test boundaries
+Current increment: GM-04 - Isolated pinned civ-engine setup
 
-Current substep: GM-03f - extract input and layout coordination
+Current substep: GM-04a - enforce the isolated pin contract
 
-Current status: GM-03f implementation Commit A is remotely green; evidence-only Commit B is active
+Current status: GM-03f is remotely finalized; GM-04a implementation, adversarial review, exact scoped staging, and cached audits are locally green, so Commit A is ready
 
-Durability transaction: GM-03f Commit A `c676c30832d934449ca81ea5473ecaa492b8d001` passed run `29724753115`; evidence-only Commit B is the active transaction
+Durability transaction: GM-04a implementation Commit A is active from remotely green GM-03f Commit B `be0b1e1812c126e7472a3ed56fe4a66f62d17122`
 
-Last remotely finalized work unit: GM-03e at Commit B `7ff9d9c4e0cee91898d84ce29c13641201f6ac83`, which passed [run 29720233286](https://github.com/yanfengliu/python_mini_metro/actions/runs/29720233286)
+Last remotely finalized work unit: GM-03f at Commit B `be0b1e1812c126e7472a3ed56fe4a66f62d17122`, which passed [run 29725101133](https://github.com/yanfengliu/python_mini_metro/actions/runs/29725101133)
 
-Expected remote implementation baseline: `c676c30832d934449ca81ea5473ecaa492b8d001`
+Expected remote implementation baseline: `be0b1e1812c126e7472a3ed56fe4a66f62d17122`
 
-Current transaction marker: `[GM-03f:B]`
+Current transaction marker: `[GM-04a:A]`
 
 ## Resume here
 
-1. Preserve remotely green GM-03f Commit A, the pre-existing `.agents/` tree, and unrelated ignored `output/` outside the transaction.
-2. Create and push evidence-only `[GM-03f:B]`, wait for its exact build and RL-smoke jobs, then record that result while opening GM-04a.
+1. Preserve remotely finalized GM-03f Commit B, the pre-existing `.agents/` tree, unrelated ignored `output/`, and the live `../civ-engine` sibling outside the transaction.
+2. Commit and push the ready scoped `[GM-04a:A]` index; then wait for its exact build and RL-smoke jobs before evidence-only Commit B.
 
 ## Increment ledger
 
@@ -30,8 +30,8 @@ Current transaction marker: `[GM-03f:B]`
 | GM-00 | complete | `16a0e73` / `0411e68` | [A run 29172923371](https://github.com/yanfengliu/python_mini_metro/actions/runs/29172923371) and [B run 29173071970](https://github.com/yanfengliu/python_mini_metro/actions/runs/29173071970) succeeded | Durable plan and reviews |
 | GM-01 | complete | `5e00763` / `6c77033` / `3523ea4` / `18ef714` / `648025f` / `14050af` | GM-01a/GM-01b/GM-01c A/B green | Canonical objective and baseline rules remotely finalized |
 | GM-02 | complete | `bab6b15` / `ab8e6eb` / `a5744c0` / `53bc510` / `9b75f37` / `812e426` / `02ceb54` / `3c68472` / `36cf058` / `dc35cd6` / `27a0304` / `60b4174` | GM-02a through GM-02e A/B green | Long-history baseline and hybrid-memory research remotely finalized |
-| GM-03 | in progress | `83d02d4` / `fbcb31d` / `36e89d9` / `00ea38c` / `1b751e4` / `5e6186d` / `9321dcd` / `b1e419e` / `7ac89cf` / `7ff9d9c` / `c676c30` | GM-03a through GM-03e A/B green; GM-03f A green | GM-03f evidence-only Commit B active |
-| GM-04 | pending | - | - | Isolated pinned civ-engine local setup |
+| GM-03 | complete | `83d02d4` / `fbcb31d` / `36e89d9` / `00ea38c` / `1b751e4` / `5e6186d` / `9321dcd` / `b1e419e` / `7ac89cf` / `7ff9d9c` / `c676c30` / `be0b1e1` | GM-03a through GM-03f A/B green | Mediator decomposition remotely finalized |
+| GM-04 | in progress | - | - | GM-04a isolated pin contract active |
 | GM-05 | pending | - | - | Route editing |
 | GM-06 | pending | - | - | Fleet and carriages |
 | GM-07 | pending | - | - | Menus, save/resume, high scores |
@@ -64,8 +64,8 @@ Current transaction marker: `[GM-03f:B]`
 | GM-03c | complete | `1b751e4` / run `29351838271` success | `5e6186d` / run `29352432028` success | Route-planning ownership remotely finalized |
 | GM-03d | complete | `9321dcd` / run `29386046847` success | `b1e419e` / run `29386306430` success | Path-lifecycle extraction remotely finalized |
 | GM-03e | complete | `7ac89cf` / run `29719845761` success | `7ff9d9c` / run `29720233286` success | Passenger-flow extraction remotely finalized |
-| GM-03f | in progress | `c676c30` / run `29724753115` success | `[GM-03f:B]` active | Commit A build and RL smoke green; evidence-only finalization active |
-| GM-04a | pending | - | - | Isolated pin contract |
+| GM-03f | complete | `c676c30` / run `29724753115` success | `be0b1e1` / run `29725101133` success | Input/layout coordination extraction remotely finalized |
+| GM-04a | in progress | `[GM-04a:A]` ready | - | Implementation/review, exact staging, and cached audits locally green |
 | GM-04b | pending | - | - | Setup/verification command |
 | GM-04c | pending | - | - | Complete pinned Node-suite proof and mismatch proof |
 | GM-05a | pending | - | - | Atomic path replacement |
@@ -117,9 +117,8 @@ Before GM-12c starts, replace its placeholder with one row per configuration and
 
 ## Known external state
 
-- `main` and `origin/main` are equal at remotely green GM-03f Commit A `c676c30832d934449ca81ea5473ecaa492b8d001`; the only pre-existing untracked path is `.agents/`.
-- GM-03d Commit B is final at `b1e419e`; the later `fba557f` and `2c4cd4f` commits change process policy and review artifacts without changing runtime, tests, gameplay, or dependencies.
-- The live sibling `../civ-engine` is 2.4.1 while this repository pins 2.2.0, so unisolated local `npm test` fails by design. GM-04 owns the durable setup fix.
+- `main` and `origin/main` are equal at remotely green GM-03f Commit B `be0b1e1812c126e7472a3ed56fe4a66f62d17122`; the only pre-existing untracked path is `.agents/`.
+- The live sibling `../civ-engine` is clean version 2.4.1 at commit `2632daca2ea1d1330cf1270962941005354f775b` while this repository pins 2.2.0 at `e0cb614a516c449159a4562c2ac45bd40bffd3df`; the unisolated live baseline is 25/44 with 19 attributable pin failures. GM-04 will isolate resolution without mutating the sibling.
 - The fleet `loop-ops/DIRECTIVES.md` does not list this repository as an active scheduled shift. Use repo-local persistent state and bare verified passes unless the owner later activates it there.
 
 ## Blockers

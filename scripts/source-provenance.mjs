@@ -42,6 +42,7 @@ const GIT_PATHSPECS = [
 export async function captureSourceState({
   repoRoot,
   enginePackageRoot,
+  expectedEnginePackageRoot,
   expectedEngineCommit,
   expectedEngineTreeDigest,
   expectedEngineVersion,
@@ -52,6 +53,7 @@ export async function captureSourceState({
     captureCivEngineState({
       repoRoot: resolvedRoot,
       enginePackageRoot,
+      expectedEnginePackageRoot,
       expectedEngineCommit,
       expectedEngineTreeDigest,
       expectedEngineVersion,
@@ -113,6 +115,7 @@ export async function writeSourceStateArtifacts({
   sourceState: capturedState,
   sourceDiff: capturedDiff,
   enginePackageRoot,
+  expectedEnginePackageRoot,
   expectedEngineCommit,
   expectedEngineTreeDigest,
   expectedEngineVersion,
@@ -122,6 +125,7 @@ export async function writeSourceStateArtifacts({
     : await captureSourceProvenance({
       repoRoot,
       enginePackageRoot,
+      expectedEnginePackageRoot,
       expectedEngineCommit,
       expectedEngineTreeDigest,
       expectedEngineVersion,

@@ -9,7 +9,10 @@ import {
 } from 'civ-engine';
 
 import { createRecursiveLedger } from './recursive-ledger.mjs';
-import { assertCivEngineStateSummary } from './source-provenance-engine.mjs';
+import {
+  assertCivEngineStateSummary,
+  EXPECTED_CIV_ENGINE_VERSION,
+} from './source-provenance-engine.mjs';
 
 const GAME_ID = 'python_mini_metro';
 const SOURCE_STATE_TAG = 'source-state-v2';
@@ -121,8 +124,10 @@ export function assertCompleteManifest(manifest) {
   if (manifest.gameId !== GAME_ID) {
     throw new Error(`manifest gameId must be ${GAME_ID}`);
   }
-  if (manifest.engineVersion !== '2.2.0') {
-    throw new Error('manifest engineVersion must be the pinned civ-engine 2.2.0');
+  if (manifest.engineVersion !== EXPECTED_CIV_ENGINE_VERSION) {
+    throw new Error(
+      `manifest engineVersion must be the pinned civ-engine ${EXPECTED_CIV_ENGINE_VERSION}`,
+    );
   }
   const isPass = manifest.tags?.includes('recursive-pass') === true;
   const isRun = manifest.tags?.includes('recursive-run') === true;

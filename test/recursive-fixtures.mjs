@@ -18,7 +18,7 @@ export function sourceStateFixture(overrides = {}) {
       schemaVersion: 1,
       available: true,
       packageName: 'civ-engine',
-      resolvedPackageRoot: '../civ-engine',
+      resolvedPackageRoot: '.civ-engine-pin',
       packageVersion: EXPECTED_CIV_ENGINE_VERSION,
       expectedPackageVersion: EXPECTED_CIV_ENGINE_VERSION,
       versionMatches: true,
