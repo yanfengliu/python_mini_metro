@@ -124,3 +124,4 @@
 ## 2026-07-19
 
 - Extracted 16 passenger-flow and simulation-transition algorithms into a dependency-light stateless component behind unchanged `Mediator` methods, preserving late collaborator resolution, three fresh graph phases, live iterator and partial-failure timing, and deterministic gameplay while reducing `src/mediator.py` to 735 lines.
+- Extracted 19 input, layout, compatibility-render, path-button UI, pause/speed, and structured-action algorithms into a dependency-light stateless coordinator behind unchanged `Mediator` methods, preserving canonical facade state, late dependency and public-hook resolution, subclass/evaluation-order behavior, and player-equivalent control semantics while reducing `src/mediator.py` to 605 lines.

@@ -37,6 +37,7 @@ from geometry.point import Point
 from geometry.type import ShapeType
 from graph.graph_algo import bfs, build_station_nodes_dict
 from graph.node import Node
+from input_coordinator import InputCoordinator
 from passenger_flow import PassengerFlow
 from path_lifecycle import PathLifecycle
 from progression import NetworkProgression
@@ -57,6 +58,12 @@ from utils import get_shape_from_type, hue_to_rgb, pick_distinct_hue
 TravelPlans = Dict[Passenger, TravelPlan]
 
 
+def _get_game_renderer_factory():
+    from rendering.game_renderer import GameRenderer
+
+    return GameRenderer
+
+
 class Mediator:
     def __init__(
         self,
@@ -67,6 +74,7 @@ class Mediator:
         if seed is not None and context is not None:
             raise ValueError("seed and context are mutually exclusive")
         self.context = context if context is not None else SimulationContext(seed)
+        self._input = InputCoordinator()
         self._passenger_flow = PassengerFlow()
         self._path_lifecycle = PathLifecycle()
         self._router = RoutePlanner()
@@ -244,19 +252,18 @@ class Mediator:
     def prepare_layout(self, width: int, height: int) -> None:
         """Prepare every interactive hitbox before input is dispatched."""
 
-        update_path_button_positions(self.path_buttons, width, height)
-        update_speed_button_positions(self.speed_buttons, width, height)
-        start_top = height // 2 + game_over_font_size // 3 + 40
-        restart_rect = pygame.Rect(
-            0, 0, game_over_button_width, game_over_button_height
+        self._input.prepare_layout(
+            self,
+            width,
+            height,
+            get_update_path_button_positions=lambda: update_path_button_positions,
+            get_update_speed_button_positions=lambda: update_speed_button_positions,
+            get_game_over_font_size=lambda: game_over_font_size,
+            get_rect_factory=lambda: pygame.Rect,
+            get_game_over_button_width=lambda: game_over_button_width,
+            get_game_over_button_height=lambda: game_over_button_height,
+            get_game_over_button_spacing=lambda: game_over_button_spacing,
         )
-        restart_rect.centerx = width // 2
-        restart_rect.top = start_top
-        exit_rect = restart_rect.copy()
-        exit_rect.top = restart_rect.bottom + game_over_button_spacing
-        self.game_over_restart_rect = restart_rect
-        self.game_over_exit_rect = exit_rect
-        self._layout_size = (width, height)
 
     def generate_distinct_path_colors(self, path_count: int) -> Dict[Color, bool]:
         if path_count <= 0:
@@ -313,20 +320,10 @@ class Mediator:
         return self._progression.get_unlocked_num_paths()
 
     def update_unlocked_num_paths(self) -> None:
-        (
-            previous_unlocked_num_paths,
-            self.unlocked_num_paths,
-        ) = self._progression.set_unlocked_num_paths(self.get_unlocked_num_paths())
-        if self.unlocked_num_paths > previous_unlocked_num_paths:
-            for path_button_idx in range(
-                previous_unlocked_num_paths, self.unlocked_num_paths
-            ):
-                self.path_buttons[path_button_idx].start_unlock_blink(self.time_ms)
-        self.update_path_button_lock_states()
+        self._input.update_unlocked_num_paths(self)
 
     def update_path_button_lock_states(self) -> None:
-        for idx, button in enumerate(self.path_buttons):
-            button.set_locked(idx >= self.unlocked_num_paths)
+        self._input.update_path_button_lock_states(self)
 
     def get_next_path_button_idx_to_purchase(self) -> int | None:
         return self._progression.get_next_path_button_idx_to_purchase()
@@ -335,56 +332,27 @@ class Mediator:
         return self._progression.get_purchase_price_for_path_button_idx(button_idx)
 
     def can_purchase_path_button_idx(self, button_idx: int) -> bool:
-        next_button_idx = self.get_next_path_button_idx_to_purchase()
-        if next_button_idx is None or next_button_idx != button_idx:
-            return False
-        return self._progression.can_purchase_resolved_path_button_idx(
-            button_idx,
-            next_button_idx=next_button_idx,
-            price=self.get_purchase_price_for_path_button_idx(button_idx),
-        )
+        return self._input.can_purchase_path_button_idx(self, button_idx)
 
     def try_purchase_path_button(self, button: PathButton) -> bool:
-        if not button.is_locked:
-            return False
-        try:
-            button_idx = self.path_buttons.index(button)
-        except ValueError:
-            return False
-        if not self.can_purchase_path_button_idx(button_idx):
-            return False
-        price = self.get_purchase_price_for_path_button_idx(button_idx)
-        if price is None:
-            return False
-        self._progression.record_path_purchase(price)
-        self.update_unlocked_num_paths()
-        return True
+        return self._input.try_purchase_path_button(self, button)
 
     def try_purchase_path_button_by_index(self, button_idx: int | None = None) -> bool:
-        if button_idx is None:
-            button_idx = self.get_next_path_button_idx_to_purchase()
-        if button_idx is None:
-            return False
-        if button_idx < 0 or button_idx >= len(self.path_buttons):
-            return False
-        return self.try_purchase_path_button(self.path_buttons[button_idx])
+        return self._input.try_purchase_path_button_by_index(self, button_idx)
 
     def step_time(self, dt_ms: int) -> None:
-        self.increment_time(dt_ms)
+        self._input.step_time(self, dt_ms)
 
     def assign_paths_to_buttons(self) -> None:
         self._path_lifecycle.assign_paths_to_buttons(self)
 
     def get_surface_size(self, screen: pygame.surface.Surface) -> tuple[int, int]:
-        width = screen_width
-        height = screen_height
-        maybe_width = screen.get_width()
-        maybe_height = screen.get_height()
-        if isinstance(maybe_width, (int, float)):
-            width = int(maybe_width)
-        if isinstance(maybe_height, (int, float)):
-            height = int(maybe_height)
-        return (width, height)
+        return self._input.get_surface_size(
+            self,
+            screen,
+            get_screen_width=lambda: screen_width,
+            get_screen_height=lambda: screen_height,
+        )
 
     def render(
         self,
@@ -394,96 +362,49 @@ class Mediator:
     ) -> None:
         """Compatibility rendering entrypoint; callers should own the renderer."""
 
-        size = self.get_surface_size(screen)
-        if self._layout_size != size:
-            self.prepare_layout(*size)
-        if renderer is None and self._compat_renderer is None:
-            from rendering.game_renderer import GameRenderer
-
-            self._compat_renderer = GameRenderer()
-        if renderer is None:
-            renderer = self._compat_renderer
-        assert renderer is not None
-        draw = getattr(renderer, "draw")
-        draw(screen, self, alpha=alpha)
+        self._input.render(
+            self,
+            screen,
+            renderer,
+            alpha,
+            get_renderer_factory=lambda: _get_game_renderer_factory(),
+        )
 
     def handle_game_over_click(self, position: Point) -> str | None:
-        if not self.is_game_over:
-            return None
-        if self.game_over_restart_rect and self.game_over_restart_rect.collidepoint(
-            position.to_tuple()
-        ):
-            return "restart"
-        if self.game_over_exit_rect and self.game_over_exit_rect.collidepoint(
-            position.to_tuple()
-        ):
-            return "exit"
-        return None
+        return self._input.handle_game_over_click(self, position)
 
     def react_mouse_event(self, event: MouseEvent) -> None:
-        entity = self.get_containing_entity(event.position)
-
-        if event.event_type == MouseEventType.MOUSE_DOWN:
-            self.is_mouse_down = True
-            if entity:
-                if isinstance(entity, Station):
-                    self.start_path_on_station(entity)
-
-        elif event.event_type == MouseEventType.MOUSE_UP:
-            self.is_mouse_down = False
-            if self.is_creating_path:
-                assert self.path_being_created is not None
-                if entity and isinstance(entity, Station):
-                    self.end_path_on_station(entity)
-                else:
-                    self.abort_path_creation()
-            else:
-                if entity and isinstance(entity, PathButton):
-                    if entity.path:
-                        self.remove_path(entity.path)
-                    elif entity.is_locked:
-                        self.try_purchase_path_button(entity)
-                elif entity and isinstance(entity, SpeedButton):
-                    self.apply_speed_action(entity.action)
-
-        elif event.event_type == MouseEventType.MOUSE_MOTION:
-            if self.is_mouse_down:
-                if self.is_creating_path and self.path_being_created:
-                    if entity and isinstance(entity, Station):
-                        self.add_station_to_path(entity)
-                    else:
-                        self.path_being_created.set_temporary_point(event.position)
-            else:
-                if entity and isinstance(entity, Button):
-                    entity.on_hover()
-                else:
-                    for button in self.buttons:
-                        button.on_exit()
+        self._input.react_mouse_event(
+            self,
+            event,
+            get_mouse_event_type=lambda: MouseEventType,
+            get_station_type=lambda: Station,
+            get_path_button_type=lambda: PathButton,
+            get_speed_button_type=lambda: SpeedButton,
+            get_button_type=lambda: Button,
+        )
 
     def react_keyboard_event(self, event: KeyboardEvent) -> None:
-        if event.event_type == KeyboardEventType.KEY_UP:
-            if event.key == pygame.K_SPACE:
-                self.is_paused = not self.is_paused
-            elif event.key == pygame.K_1:
-                self.set_game_speed(1)
-            elif event.key == pygame.K_2:
-                self.set_game_speed(2)
-            elif event.key == pygame.K_3:
-                self.set_game_speed(4)
+        self._input.react_keyboard_event(
+            self,
+            event,
+            get_keyboard_event_type=lambda: KeyboardEventType,
+            get_pause_key=lambda: pygame.K_SPACE,
+            get_speed_1_key=lambda: pygame.K_1,
+            get_speed_2_key=lambda: pygame.K_2,
+            get_speed_4_key=lambda: pygame.K_3,
+        )
 
     def react(self, event: Event | None) -> None:
-        if isinstance(event, MouseEvent):
-            self.react_mouse_event(event)
-        elif isinstance(event, KeyboardEvent):
-            self.react_keyboard_event(event)
+        self._input.react(
+            self,
+            event,
+            get_mouse_event_class=lambda: MouseEvent,
+            get_keyboard_event_class=lambda: KeyboardEvent,
+        )
 
     def get_containing_entity(self, position: Point):
-        for station in self.stations:
-            if station.contains(position):
-                return station
-        for button in self.buttons:
-            if button.contains(position):
-                return button
+        return self._input.get_containing_entity(self, position)
 
     def remove_path(self, path: Path) -> None:
         self._path_lifecycle.remove_path(self, path)
@@ -522,70 +443,19 @@ class Mediator:
         self._path_lifecycle.finish_path_creation(self, get_metro_factory=lambda: Metro)
 
     def set_paused(self, paused: bool) -> None:
-        self.is_paused = paused
+        self._input.set_paused(self, paused)
 
     def set_game_speed(self, speed_multiplier: int) -> None:
-        self.game_speed_multiplier = speed_multiplier
+        self._input.set_game_speed(self, speed_multiplier)
 
     def apply_speed_action(self, action: SpeedAction) -> None:
-        if action == "pause":
-            self.set_paused(True)
-            return
-        if action == "speed_1":
-            self.set_game_speed(1)
-        elif action == "speed_2":
-            self.set_game_speed(2)
-        elif action == "speed_4":
-            self.set_game_speed(4)
-        self.set_paused(False)
+        self._input.apply_speed_action(self, action)
 
     def is_speed_button_active(self, action: SpeedAction) -> bool:
-        if action == "pause":
-            return self.is_paused
-        if self.is_paused:
-            return False
-        if action == "speed_1":
-            return self.game_speed_multiplier == 1
-        if action == "speed_2":
-            return self.game_speed_multiplier == 2
-        if action == "speed_4":
-            return self.game_speed_multiplier == 4
-        return False
+        return self._input.is_speed_button_active(self, action)
 
     def apply_action(self, action: object) -> bool:
-        if self.is_game_over:
-            return False
-        if not isinstance(action, dict):
-            return False
-        action_type = action.get("type")
-        if not isinstance(action_type, str):
-            return False
-        if action_type == "create_path":
-            stations = action.get("stations", [])
-            loop = action.get("loop", False)
-            if type(loop) is not bool:
-                return False
-            return self.create_path_from_station_indices(stations, loop) is not None
-        if action_type == "buy_line":
-            button_idx = action.get("path_index")
-            if button_idx is not None and type(button_idx) is not int:
-                return False
-            return self.try_purchase_path_button_by_index(button_idx)
-        if action_type == "remove_path":
-            if "path_id" in action:
-                return self.remove_path_by_id(action["path_id"])
-            if "path_index" in action:
-                return self.remove_path_by_index(action["path_index"])
-            return False
-        if action_type == "pause":
-            self.set_paused(True)
-            return True
-        if action_type == "resume":
-            self.set_paused(False)
-            return True
-        if action_type == "noop":
-            return True
-        return False
+        return self._input.apply_action(self, action)
 
     def end_path_on_station(self, station: Station) -> None:
         self._path_lifecycle.end_path_on_station(self, station)
