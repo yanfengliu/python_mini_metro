@@ -1,8 +1,8 @@
 # GM-04c final reproducibility and mismatch-proof plan
 
-Status: GM-04b is remotely finalized at evidence-only Commit B `41ecfc691ac4d4784acff549f06e3fe2f26e9c3b`, whose exact workflow run `29758092140` passed; the declared GM-04c local proof is complete without production changes, two independent payload reviews converged `CLEAN`, and changed-path hooks plus exact 18-path staging, cached diff, credential, dependency-surface, and exclusion gates pass; Commit A, push, and exact remote CI remain pending
+Status: GM-04c evidence Commit A `60ac9530cafff88a8d112040c17631cc6a6528e8` passed exact workflow run `29763804498`, including `build` job `88424781541` and `rl-smoke` job `88424781562`; evidence-only Commit B is active, and GM-04 remains open with GM-05 closed until B passes its own exact workflow
 
-Transaction marker: `[GM-04c:A]`
+Transaction marker: `[GM-04c:B]`
 
 ## Baseline and boundary
 
@@ -36,7 +36,7 @@ The accepted clean recursive run is `output/recursive/recursive-2026-07-20T16-21
 
 Four old ignored output pre-commit cache roots remain retained because ACL-blocked descendants prevent safely proving complete task-owned removal: `output/gm04a-precommit-cache`, `output/gm04b-a3-precommit-cache`, `output/gm04b-final-precommit-cache`, and `output/gm04b-precommit-cache-final2`. They are cleanup limitations outside this tracked transaction, not proof inputs or commit content.
 
-The exact task cache `C:\tmp\python-mini-metro-gm04b-precommit-cache` remains intentionally retained only through the GM-04c changed-path hook run. It is not commit content and may be reconsidered for exact scoped cleanup only after those hooks complete.
+The exact task cache `C:\tmp\python-mini-metro-gm04b-precommit-cache` was retained through the GM-04c Commit A and B changed-path hooks, then removed by exact physical-path cleanup after the final B hook. It was never commit content.
 
 ## Delivery sequence
 
@@ -49,5 +49,11 @@ The exact task cache `C:\tmp\python-mini-metro-gm04b-precommit-cache` remains in
 
 - The repeated setup, 245/241/four-skip canonical suite, clean recursive public verification, strict identity, audits, dependency-material and staged-payload credential scans, and isolated pre-body mismatch refusal with independently captured path/version/commit/digest values are all recorded with exact attributable evidence.
 - Production remains unchanged, the isolated fixture is removed, the sibling and retained pin are preserved, and cleanup limitations are explicit.
-- The tracked Commit A payload passes independent local review and required delivery gates before commit; no GM-04c remote result or remote approval is claimed until it exists.
+- The tracked Commit A payload passed independent local review, required delivery gates, and its exact remote workflow; no Commit B remote result or remote approval is claimed before it exists.
 - `no-fix-candidate` closes only this proof unit; the remaining roadmap stays open.
+
+## Remote Commit A gate
+
+Evidence Commit A `60ac9530cafff88a8d112040c17631cc6a6528e8` passed exact push workflow [run 29763804498](https://github.com/yanfengliu/python_mini_metro/actions/runs/29763804498), run number 128. Exact-head `build` job `88424781541` ran from 17:28:21Z through 17:32:41Z and passed isolated setup/verification, recursive-loop contracts, a clean default recursive pass, and the Python unit suite. Exact-head `rl-smoke` job `88424781562` ran from 17:28:22Z through 17:32:41Z and passed Windows isolated setup/strict verification, RL contract/library smoke, and recurrent-history/legacy-PPO smoke.
+
+Evidence-only Commit B binds that exact result. No Commit B workflow result is claimed before B exists and its own exact run completes.

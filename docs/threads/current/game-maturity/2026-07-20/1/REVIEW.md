@@ -1,6 +1,6 @@
 # GM-04c review synthesis
 
-Status: the declared local proof is complete and production is unchanged; two independent payload reviews converged `CLEAN` after all findings were corrected, and changed-path hooks plus exact 18-path staging, cached diff, credential, dependency-surface, and exclusion gates pass; Commit A, push, and exact remote CI remain pending, so no GM-04c remote result is claimed
+Status: the declared local proof and corrected payload passed local review/gates and became evidence Commit A `60ac9530cafff88a8d112040c17631cc6a6528e8`; exact workflow run `29763804498` passed both jobs, evidence-only Commit B is active, and GM-04 remains open with GM-05 closed until B's own exact workflow succeeds
 
 ## Baseline
 
@@ -32,8 +32,14 @@ Two independent initial payload reviews blocked delivery on omitted expected/act
 
 ## Limitations and disposition
 
-Safe cleanup remains limited for four old ignored output pre-commit cache roots whose descendants are ACL-blocked: `output/gm04a-precommit-cache`, `output/gm04b-a3-precommit-cache`, `output/gm04b-final-precommit-cache`, and `output/gm04b-precommit-cache-final2`. The exact cache `C:\tmp\python-mini-metro-gm04b-precommit-cache` remains retained only through GM-04c changed-path hooks.
+Safe cleanup remains limited for four old ignored output pre-commit cache roots whose descendants are ACL-blocked: `output/gm04a-precommit-cache`, `output/gm04b-a3-precommit-cache`, `output/gm04b-final-precommit-cache`, and `output/gm04b-precommit-cache-final2`. The exact task cache `C:\tmp\python-mini-metro-gm04b-precommit-cache` was removed after the final Commit B hook run.
 
-The local proof and corrected payload are locally approved. They are not yet committed, pushed, or remotely green; GM-04 remains in progress until both GM-04c Commit A and evidence-only Commit B pass their exact remote workflows.
+The local proof and corrected payload are locally approved. Commit A is committed, pushed, and remotely green; GM-04 remains in progress until evidence-only Commit B passes its own exact remote workflow.
 
 The exact staged allowlist contains 18 paths, 248 insertions, and 17 deletions at the pre-commit checkpoint. Cached path equality, full diff review, whitespace checking, credential and dependency-surface scans, forbidden-path exclusions, and absence of unstaged tracked drift all pass; only the pre-existing `.agents/` tree remains untracked.
+
+## Remote Commit A gate
+
+Evidence Commit A `60ac9530cafff88a8d112040c17631cc6a6528e8` passed exact workflow [run 29763804498](https://github.com/yanfengliu/python_mini_metro/actions/runs/29763804498), run number 128. Exact-head `build` job `88424781541` succeeded from 17:28:21Z through 17:32:41Z, and exact-head `rl-smoke` job `88424781562` succeeded from 17:28:22Z through 17:32:41Z. Both job records name the exact Commit A SHA and passed every configured step.
+
+Evidence-only Commit B records this result without changing production. It has no remote result yet and does not open GM-05 before its own exact workflow succeeds.
