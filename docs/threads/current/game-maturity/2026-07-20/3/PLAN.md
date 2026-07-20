@@ -1,8 +1,8 @@
 # GM-05b selected-line mouse-redraw plan
 
-Status: live-code research and three-lane adversarial plan review are complete; implementation is active
+Status: implementation Commit A is exact-head remote green; evidence-only Commit B is active and GM-05c remains closed
 
-Transaction marker: `[GM-05b:A]`
+Transaction marker: `[GM-05b:B]`
 
 ## Baseline and scope
 
@@ -49,6 +49,10 @@ The reproduced defect is reachable in the real main loop: input dispatch precede
 8. Run focused red/green tests, the full py313 `python -m unittest -v` suite, exact Ruff check/format on changed Python paths, the GM-03f differential, genuine checkpoint-v1/v2 and recursive-input-v1/v2/v3 replay regressions, and `pre-commit run --files` on the exact payload. Inspect any hook rewrite, rerun affected gates, stage only exact GM-05b paths, and run cached diff/exclusion/credential/whitespace audits. Record the pre-change environment-content fingerprint `2aaff2849ab18c0f07bdb009b0cb55d380bad3b49fa8a550384b769fa172802b`, its expected post-change successor, and the existing fail-closed old-artifact/content-drift boundary rather than implying gameplay/render source identity stayed constant.
 9. Obtain independent adversarial review of the live plan and implementation. The fleet-pinned external multi-CLI path remains unavailable at the established repository-export authorization boundary, so compensating in-process lanes must read the live code and no external approval may be claimed.
 10. Commit/push `[GM-05b:A]`, wait for that exact SHA's `build` and `rl-smoke` jobs, then create/push evidence-only `[GM-05b:B]` recording A's exact result and leaving GM-05c closed while B's own workflow is pending. Only GM-05c's opening Commit A transaction may query and persist B's exact SHA/run/jobs, mark GM-05b remotely finalized, and open GM-05c.
+
+## Commit A remote result
+
+Implementation Commit A `37865d454eb93887a726af74441eb2bc282174fb` passed exact [run 29786749550](https://github.com/yanfengliu/python_mini_metro/actions/runs/29786749550), run number 132. Exact-head `build` job `88499822031` passed in 1m08s and exact-head `rl-smoke` job `88499822004` passed in 1m07s. The active `[GM-05b:B]` payload is evidence-only; GM-05c remains closed until B's own exact workflow is green and reconciled downstream.
 
 ## Acceptance
 
