@@ -1,8 +1,8 @@
 # GM-05a atomic programmatic path-replacement plan
 
-Status: implemented red-first, locally green, independently re-reviewed `CLEAN` in three compensating live-code lanes, and hook-clean on the exact 35-path payload; exact Commit A staging, push, and remote CI remain pending
+Status: implementation Commit A `c7effd8365ab47454f3a722befadab488ae5f550` passed exact workflow run `29776047898`, including `build` job `88465530550` and `rl-smoke` job `88465530480`; evidence-only Commit B is active, and GM-05b remains closed until B passes its own exact workflow
 
-Transaction marker: `[GM-05a:A]`
+Transaction marker: `[GM-05a:B]`
 
 ## Baseline and scope
 
@@ -88,3 +88,9 @@ Path buttons and their assigned paths, color ownership maps, progression, clocks
 - Local gates, independent review, scoped staging, two-commit delivery, and both exact remote workflows complete before GM-05b opens.
 
 Segment object identities necessarily change when geometry is rebuilt. GM-05a proves the exact static post-action route geometry and unchanged metro pose, not temporal interpolation continuity. GM-05b must recheck the selected-line/redraw interpolation frame and treat any one-frame visual discontinuity as a UI regression rather than silently inheriting it.
+
+## Remote Commit A gate
+
+Implementation Commit A `c7effd8365ab47454f3a722befadab488ae5f550` passed exact push workflow [run 29776047898](https://github.com/yanfengliu/python_mini_metro/actions/runs/29776047898), run number 130. The exact-run watcher exited successfully after exact-head `build` job `88465530550` passed isolated setup/verification, recursive-loop contracts, a clean default recursive pass, and the Python unit suite, and exact-head `rl-smoke` job `88465530480` passed isolated setup/verification, RL contract/library smoke, and recurrent-history/legacy-PPO smoke.
+
+Evidence-only Commit B binds that exact result. No Commit B workflow result is claimed before B exists and its own exact run completes.

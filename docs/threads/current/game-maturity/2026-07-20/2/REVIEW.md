@@ -1,6 +1,6 @@
 # GM-05a review synthesis
 
-Status: plan and implementation review are `CLEAN`; three independent corrected-plan lanes approved the scope before red-first TDD, and three independent compensating live-code lanes found and verified the implementation corrections before Commit A
+Status: plan and implementation review are `CLEAN`; implementation Commit A `c7effd8365ab47454f3a722befadab488ae5f550` passed exact workflow run `29776047898`, evidence-only Commit B is active, and GM-05b remains closed until B's own exact workflow succeeds
 
 The pre-plan live-code audits converged on strict selector and unique-station rules, off-live geometry, semantic metro rebinding, global waiting replanning, deferred onboard replanning at a retained safe alight, exact rollback including RNG, and direct identity tests in addition to checkpoint/replay equality.
 
@@ -16,6 +16,12 @@ Final implementation lane results are `CLEAN`: API/action/checkpoint/replay pass
 
 The exact static logical and rounded segment geometry assertions are sufficient for GM-05a's programmatic scope: they compare candidate/live station, path, padding, endpoint, order, and width semantics while separately proving unchanged metro pose. GM-05b retains the explicit obligation to inspect selected-line redraw and interpolation-frame continuity.
 
-The canonical Node suite was not rerun for this non-loop work unit because a pre-existing concurrent `.civ-engine-setup.lock` lease refused setup; no unrelated process or lock was terminated. AGENTS requires that suite for loop-machinery changes, which GM-05a does not contain. EOF, trailing-whitespace, Ruff, and Ruff-format hooks pass on the exact 35-path payload. Cached staging audits and remote Commit A/B workflows remain delivery gates.
+The canonical Node suite was not rerun for this non-loop work unit because a pre-existing concurrent `.civ-engine-setup.lock` lease refused setup; no unrelated process or lock was terminated. AGENTS requires that suite for loop-machinery changes, which GM-05a does not contain. EOF, trailing-whitespace, Ruff, and Ruff-format hooks plus cached staging audits passed on the exact 35-path Commit A payload. Exact hooks/cached audits for the four-document Commit B payload and B's own remote workflow remain delivery gates.
 
 The public multi-CLI workflow was not retried because the established repository-export authorization boundary has not changed. The independent lanes are compensating in-process review only; no external reviewer has read or approved GM-05a. Available verbatim reviewer outputs plus the passenger lane's explicitly labeled recovered summaries are preserved under `raw/`.
+
+## Remote Commit A gate
+
+Implementation Commit A `c7effd8365ab47454f3a722befadab488ae5f550` passed exact workflow [run 29776047898](https://github.com/yanfengliu/python_mini_metro/actions/runs/29776047898), run number 130. The exact-run watcher exited successfully after exact-head `build` job `88465530550` and exact-head `rl-smoke` job `88465530480` passed every configured step.
+
+Evidence-only Commit B records this result without changing production. It has no remote result yet and does not open GM-05b before its own exact workflow succeeds.
