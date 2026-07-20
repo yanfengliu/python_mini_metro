@@ -1,8 +1,8 @@
 # GM-04 isolated civ-engine plan
 
-Status: GM-03f is remotely finalized at Commit B `be0b1e1812c126e7472a3ed56fe4a66f62d17122`; GM-04a implementation and adversarial review are locally green, and scoped Commit A staging is active
+Status: GM-04a implementation Commit A `585dc6067d1c8c2c0a115bd31f1d4e238dc25ddc` passed exact workflow run `29730625404`; evidence-only Commit B is active
 
-Transaction marker: `[GM-04a:A]`
+Transaction marker: `[GM-04a:B]`
 
 ## Baseline and intent
 

@@ -6,22 +6,22 @@ Active goal thread: `019f7c1a-897b-7c31-9662-4edbb4e128a6`
 
 Current increment: GM-04 - Isolated pinned civ-engine setup
 
-Current substep: GM-04a - enforce the isolated pin contract
+Current substep: GM-04a - finalize the isolated pin contract
 
-Current status: GM-03f is remotely finalized; GM-04a implementation, adversarial review, exact scoped staging, and cached audits are locally green, so Commit A is ready
+Current status: GM-04a implementation Commit A `585dc6067d1c8c2c0a115bd31f1d4e238dc25ddc` is remotely green; evidence-only Commit B is active
 
-Durability transaction: GM-04a implementation Commit A is active from remotely green GM-03f Commit B `be0b1e1812c126e7472a3ed56fe4a66f62d17122`
+Durability transaction: GM-04a evidence-only Commit B is active from remotely green implementation Commit A `585dc6067d1c8c2c0a115bd31f1d4e238dc25ddc`
 
 Last remotely finalized work unit: GM-03f at Commit B `be0b1e1812c126e7472a3ed56fe4a66f62d17122`, which passed [run 29725101133](https://github.com/yanfengliu/python_mini_metro/actions/runs/29725101133)
 
-Expected remote implementation baseline: `be0b1e1812c126e7472a3ed56fe4a66f62d17122`
+Expected remote implementation baseline: `585dc6067d1c8c2c0a115bd31f1d4e238dc25ddc`
 
-Current transaction marker: `[GM-04a:A]`
+Current transaction marker: `[GM-04a:B]`
 
 ## Resume here
 
-1. Preserve remotely finalized GM-03f Commit B, the pre-existing `.agents/` tree, unrelated ignored `output/`, and the live `../civ-engine` sibling outside the transaction.
-2. Commit and push the ready scoped `[GM-04a:A]` index; then wait for its exact build and RL-smoke jobs before evidence-only Commit B.
+1. Preserve remotely green GM-04a Commit A, the pre-existing `.agents/` tree, unrelated ignored `output/`, the retained isolated pin, and the live `../civ-engine` sibling outside the transaction.
+2. Self-review, stage, commit, and push evidence-only `[GM-04a:B]`; wait for its exact build and RL-smoke jobs, then open GM-04b from that remotely finalized baseline.
 
 ## Increment ledger
 
@@ -65,7 +65,7 @@ Current transaction marker: `[GM-04a:A]`
 | GM-03d | complete | `9321dcd` / run `29386046847` success | `b1e419e` / run `29386306430` success | Path-lifecycle extraction remotely finalized |
 | GM-03e | complete | `7ac89cf` / run `29719845761` success | `7ff9d9c` / run `29720233286` success | Passenger-flow extraction remotely finalized |
 | GM-03f | complete | `c676c30` / run `29724753115` success | `be0b1e1` / run `29725101133` success | Input/layout coordination extraction remotely finalized |
-| GM-04a | in progress | `[GM-04a:A]` ready | - | Implementation/review, exact staging, and cached audits locally green |
+| GM-04a | in progress | `585dc60` / run `29730625404` success | `[GM-04a:B]` active | Implementation Commit A remotely green; evidence-only finalization active |
 | GM-04b | pending | - | - | Setup/verification command |
 | GM-04c | pending | - | - | Complete pinned Node-suite proof and mismatch proof |
 | GM-05a | pending | - | - | Atomic path replacement |

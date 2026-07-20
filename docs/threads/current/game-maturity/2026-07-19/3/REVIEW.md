@@ -1,6 +1,6 @@
 # GM-04 review synthesis
 
-Status: GM-04a implementation review converged clean; scoped Commit A is ready
+Status: GM-04a implementation review converged clean; Commit A is remotely green and evidence-only Commit B is active
 
 ## Baseline
 
@@ -38,4 +38,8 @@ The test/documentation lane found dangerous-but-normalized install paths, incomp
 
 ## Final review gate
 
-The three independent final re-reviews returned `CLEAN`. Focused pin/provenance/source validation passes 22/22; the final serial Node suite passes 56/56 while preserving all 44 baseline names; full py313 passes 582 with 12 expected optional-RL skips; exact RL passes 585/585. Scoped pre-commit passes check-yaml, EOF, and trailing-whitespace for all 34 paths; Ruff hooks correctly skip with no changed Python. A direct YAML fallback caught and closed the inline-run scalar defect before this final pass. Exact scoped staging contains 34 paths with 3,769 insertions and 292 deletions, no unstaged tracked delta, clean cached whitespace and credential-signature checks, and only the preserved `.agents/` tree untracked. The fleet-pinned external workflow remains unavailable at the established repository-export authorization boundary, so no external approval is claimed. Commit A is ready.
+The three independent final re-reviews returned `CLEAN`. Focused pin/provenance/source validation passes 22/22; the final serial Node suite passes 56/56 while preserving all 44 baseline names; full py313 passes 582 with 12 expected optional-RL skips; exact RL passes 585/585. Scoped pre-commit passes check-yaml, EOF, and trailing-whitespace for all 34 paths; Ruff hooks correctly skip with no changed Python. A direct YAML fallback caught and closed the inline-run scalar defect before this final pass. Exact scoped staging contains 34 paths with 3,769 insertions and 292 deletions, no unstaged tracked delta, clean cached whitespace and credential-signature checks, and only the preserved `.agents/` tree untracked. The fleet-pinned external workflow remains unavailable at the established repository-export authorization boundary, so no external approval is claimed. Commit A passed its exact remote gate.
+
+## Remote implementation gate
+
+Implementation Commit A `585dc6067d1c8c2c0a115bd31f1d4e238dc25ddc` passed exact workflow run `29730625404`: `build` succeeded in 35 seconds and `rl-smoke` in 3 minutes 44 seconds. Evidence-only Commit B binds that result before GM-04b begins.
