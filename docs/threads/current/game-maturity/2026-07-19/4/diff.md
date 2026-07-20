@@ -6,3 +6,4 @@
 - Replace the manual PowerShell bootstrap with the public command and document fail-closed/crash-recovery behavior.
 - Update architecture, agent guidance, progress, parent state/evidence/decision, and this iteration's plan/review artifacts.
 - Preserve `.agents/`, unrelated ignored output, the retained pin except for explicit live validation, and `../civ-engine`; never stage generated pin/setup/lock content or credentials.
+- Correct target-platform child-path synthesis and serialize source-before-destination publication metadata, byte, and link-target observations, with regressions for every downstream failure and review gap exposed after A2's exact workflow.

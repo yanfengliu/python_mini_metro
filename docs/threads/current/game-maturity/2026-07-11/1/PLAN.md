@@ -2,7 +2,9 @@
 
 Status: active
 
-Goal thread: `019f5286-dfca-75e1-9e79-58719dbe1efb`
+Original goal thread: `019f5286-dfca-75e1-9e79-58719dbe1efb`
+
+Active continuation goal thread: `019f7c1a-897b-7c31-9662-4edbb4e128a6`
 
 ## Objective
 

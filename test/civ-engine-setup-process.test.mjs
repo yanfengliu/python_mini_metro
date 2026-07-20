@@ -88,6 +88,76 @@ test('child environment is an allowlist and carries no caller credentials', () =
   }
 });
 
+test('child environment derives default paths from the selected platform', () => {
+  const windowsEnvironment = buildSetupEnvironment({
+    platform: 'win32',
+    homePath: 'C:\\controlled\\home',
+    tempPath: 'C:\\controlled\\temp',
+  });
+  assert.equal(
+    windowsEnvironment.GIT_CONFIG_GLOBAL,
+    'C:\\controlled\\home\\gitconfig',
+  );
+  assert.equal(
+    windowsEnvironment.npm_config_userconfig,
+    'C:\\controlled\\home\\npm-user.ini',
+  );
+  assert.equal(
+    windowsEnvironment.npm_config_globalconfig,
+    'C:\\controlled\\home\\npm-global.ini',
+  );
+  assert.equal(
+    windowsEnvironment.npm_config_cache,
+    'C:\\controlled\\temp\\npm-cache',
+  );
+
+  const posixEnvironment = buildSetupEnvironment({
+    platform: 'linux',
+    homePath: '/controlled/home',
+    tempPath: '/controlled/temp',
+  });
+  assert.equal(posixEnvironment.GIT_CONFIG_GLOBAL, '/controlled/home/gitconfig');
+  assert.equal(posixEnvironment.npm_config_userconfig, '/controlled/home/npm-user.ini');
+  assert.equal(posixEnvironment.npm_config_globalconfig, '/controlled/home/npm-global.ini');
+  assert.equal(posixEnvironment.npm_config_cache, '/controlled/temp/npm-cache');
+});
+
+test('Git planner derives isolated home paths from the selected platform', () => {
+  const windowsPlan = planGitInvocation({
+    gitExecutable: process.execPath,
+    repoRoot: process.cwd(),
+    args: ['status'],
+    homeDir: 'C:\\controlled\\home',
+    tempDir: 'C:\\controlled\\temp',
+    platform: 'win32',
+  });
+  assert.equal(
+    windowsPlan.options.env.GIT_CONFIG_GLOBAL,
+    'C:\\controlled\\home\\gitconfig',
+  );
+  assert.equal(
+    windowsPlan.args.find((argument) => argument.startsWith('core.hooksPath=')),
+    'core.hooksPath=C:/controlled/home/hooks-disabled',
+  );
+
+  const posixPlan = planGitInvocation({
+    gitExecutable: process.execPath,
+    repoRoot: process.cwd(),
+    args: ['status'],
+    homeDir: '/controlled/home',
+    tempDir: '/controlled/temp',
+    platform: 'linux',
+  });
+  assert.equal(
+    posixPlan.options.env.GIT_CONFIG_GLOBAL,
+    '/controlled/home/gitconfig',
+  );
+  assert.equal(
+    posixPlan.args.find((argument) => argument.startsWith('core.hooksPath=')),
+    'core.hooksPath=/controlled/home/hooks-disabled',
+  );
+});
+
 test('default read-only Git plan uses no repository-derived config surface', async () => {
   await withSetupRepository(async (fixtureRoot) => {
     const nullDevice = process.platform === 'win32' ? 'NUL' : '/dev/null';

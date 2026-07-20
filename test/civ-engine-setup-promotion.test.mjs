@@ -310,6 +310,54 @@ test('publication detects root and nested directory mode changes', {
   }
 });
 
+test('publication snapshots source directory mode before destination mode', async () => {
+  await withSetupRepository(async (repoRoot) => {
+    const transaction = await createPromotionSource(repoRoot);
+    const destination = path.join(repoRoot, '.civ-engine-pin');
+    let sourceReads = 0;
+    let sourceSnapshotComplete = false;
+    let injected = false;
+    const modeChangingFileSystem = new Proxy(fs, {
+      get(target, property) {
+        if (property !== 'lstat') return target[property];
+        return async (candidate, options) => {
+          const verificationSource = samePath(candidate, transaction.checkoutPath)
+            && ++sourceReads === 2;
+          const injectMode = samePath(candidate, destination)
+            && sourceSnapshotComplete
+            && !injected;
+          const metadata = await fs.lstat(candidate, options);
+          if (verificationSource) sourceSnapshotComplete = true;
+          if (!injectMode) return metadata;
+          injected = true;
+          return new Proxy(metadata, {
+            get(stat, field) {
+              if (field === 'mode') return stat.mode ^ 0o001n;
+              const value = Reflect.get(stat, field, stat);
+              return typeof value === 'function' ? value.bind(stat) : value;
+            },
+          });
+        };
+      },
+    });
+
+    await assert.rejects(
+      promotePin({
+        source: transaction.checkoutPath,
+        destination,
+        transaction,
+        fileSystem: modeChangingFileSystem,
+      }),
+      (error) => (
+        error?.code === 'ERR_CIV_ENGINE_SETUP_OWNERSHIP'
+        && error.message.includes('published directory type or mode changed')
+        && error.preserveSetupTransaction === true
+      ),
+    );
+    assert.equal(injected, true);
+  });
+});
+
 test('contained directory links are remapped and escaping links are refused', async () => {
   await withSetupRepository(async (repoRoot) => {
     const contained = await createPromotionSource(repoRoot);

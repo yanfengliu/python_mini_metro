@@ -136,10 +136,8 @@ async function publishLink({ fileSystem, claim, sourcePath, destinationPath }) {
 
 async function assertEquivalentTree({ fileSystem, claim, source, destination }) {
   await assertOwnedClaim(fileSystem, claim);
-  const [sourceDirectory, destinationDirectory] = await Promise.all([
-    fileSystem.lstat(source, { bigint: true }),
-    fileSystem.lstat(destination, { bigint: true }),
-  ]);
+  const sourceDirectory = await fileSystem.lstat(source, { bigint: true });
+  const destinationDirectory = await fileSystem.lstat(destination, { bigint: true });
   if (
     !sourceDirectory.isDirectory()
     || sourceDirectory.isSymbolicLink()
@@ -157,18 +155,14 @@ async function assertEquivalentTree({ fileSystem, claim, source, destination }) 
   for (const name of sourceNames) {
     const sourcePath = path.join(source, name);
     const destinationPath = path.join(destination, name);
-    const [sourceMetadata, destinationMetadata] = await Promise.all([
-      fileSystem.lstat(sourcePath, { bigint: true }),
-      fileSystem.lstat(destinationPath, { bigint: true }),
-    ]);
+    const sourceMetadata = await fileSystem.lstat(sourcePath, { bigint: true });
+    const destinationMetadata = await fileSystem.lstat(destinationPath, { bigint: true });
     if (sourceMetadata.isSymbolicLink() || destinationMetadata.isSymbolicLink()) {
       if (!sourceMetadata.isSymbolicLink() || !destinationMetadata.isSymbolicLink()) {
         throw ownershipError('published entry type changed');
       }
-      const [sourceTarget, destinationTarget] = await Promise.all([
-        fileSystem.realpath(sourcePath),
-        fileSystem.realpath(destinationPath),
-      ]);
+      const sourceTarget = await fileSystem.realpath(sourcePath);
+      const destinationTarget = await fileSystem.realpath(destinationPath);
       const expectedTarget = path.join(
         claim.destination,
         path.relative(claim.source, sourceTarget),
@@ -187,10 +181,8 @@ async function assertEquivalentTree({ fileSystem, claim, source, destination }) 
         destination: destinationPath,
       });
     } else if (sourceMetadata.isFile() && destinationMetadata.isFile()) {
-      const [sourceBytes, destinationBytes] = await Promise.all([
-        fileSystem.readFile(sourcePath),
-        fileSystem.readFile(destinationPath),
-      ]);
+      const sourceBytes = await fileSystem.readFile(sourcePath);
+      const destinationBytes = await fileSystem.readFile(destinationPath);
       if (
         !sourceBytes.equals(destinationBytes)
         || Number(sourceMetadata.mode & 0o777n) !== Number(destinationMetadata.mode & 0o777n)

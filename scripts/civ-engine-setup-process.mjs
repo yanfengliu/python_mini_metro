@@ -9,9 +9,9 @@ export function buildSetupEnvironment({
   sourceEnv = process.env,
   homePath,
   tempPath,
-  gitGlobalConfigPath = path.join(homePath, 'gitconfig'),
-  npmUserConfigPath = path.join(homePath, 'npm-user.ini'),
-  npmGlobalConfigPath = path.join(homePath, 'npm-global.ini'),
+  gitGlobalConfigPath = platformPath(platform).join(homePath, 'gitconfig'),
+  npmUserConfigPath = platformPath(platform).join(homePath, 'npm-user.ini'),
+  npmGlobalConfigPath = platformPath(platform).join(homePath, 'npm-global.ini'),
   pathValue = '',
   gitCeilingDirectories,
 }) {
@@ -24,7 +24,7 @@ export function buildSetupEnvironment({
     PATH: pathValue,
     npm_config_userconfig: npmUserConfigPath,
     npm_config_globalconfig: npmGlobalConfigPath,
-    npm_config_cache: path.join(tempPath, 'npm-cache'),
+    npm_config_cache: platformPath(platform).join(tempPath, 'npm-cache'),
     GIT_ATTR_NOSYSTEM: '1',
     GIT_CONFIG_GLOBAL: gitGlobalConfigPath,
     GIT_CONFIG_NOSYSTEM: '1',
@@ -56,11 +56,12 @@ export function planGitInvocation({
   const safeRoot = portable(path.resolve(repoRoot));
   const nullDevice = platform === 'win32' ? 'NUL' : '/dev/null';
   const isolatedHome = homeDir ?? nullDevice;
+  const selectedPath = platformPath(platform);
   const gitGlobalConfigPath = homeDir
-    ? path.join(homeDir, 'gitconfig')
+    ? selectedPath.join(homeDir, 'gitconfig')
     : nullDevice;
   const hooksPath = homeDir
-    ? path.join(homeDir, 'hooks-disabled')
+    ? selectedPath.join(homeDir, 'hooks-disabled')
     : nullDevice;
   const environment = buildSetupEnvironment({
     platform,
@@ -85,7 +86,7 @@ export function planGitInvocation({
       '-c',
       'core.fsmonitor=false',
       '-c',
-      `core.hooksPath=${portable(hooksPath)}`,
+      `core.hooksPath=${portable(hooksPath, selectedPath)}`,
       '-c',
       'credential.helper=',
       '-c',
@@ -330,8 +331,12 @@ function trustedGitCandidates(platform) {
   return ['/usr/bin/git', '/usr/local/bin/git', '/opt/homebrew/bin/git'];
 }
 
-function portable(value) {
-  return value.split(path.sep).join('/');
+function portable(value, pathImplementation = path) {
+  return value.split(pathImplementation.sep).join('/');
+}
+
+function platformPath(platform) {
+  return platform === 'win32' ? path.win32 : path.posix;
 }
 
 function identityError(message) {

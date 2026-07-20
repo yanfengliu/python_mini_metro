@@ -1,8 +1,8 @@
 # GM-04b safe setup and verification plan
 
-Status: adversarial plan review converged clean; implementation Commit A `8cff6201dd4d0b2b07ae1fbf9068a5b179109457` failed exact remote setup because npm 10 retained empty omitted-development namespaces, and corrective Commit A2 replaces root npm with missing-only exact linking; two independent re-reviews, complete local validation, and exact scoped staging are clean, while commit, push, and exact remote CI remain
+Status: adversarial plan review converged clean; implementation Commit A `8cff6201dd4d0b2b07ae1fbf9068a5b179109457` failed exact remote setup because npm 10 retained empty omitted-development namespaces; corrective Commit A2 `16d786098543f32d3b00e8aef37b56a88f67b9a5` proved missing-only exact linking on Ubuntu and Windows in run `29753292420`, whose Windows job succeeded but whose Ubuntu canonical Node suite exposed two downstream portability and snapshot-order defects; corrective Commit A3 is implementation-complete with fresh `CLEAN` code and staged-payload reviews plus all local gates, the exact 20-path hook set, and cached staging audits green, while GM-04c remains closed pending A3 commit/push, its exact green workflow, and evidence-only Commit B
 
-Transaction marker: `[GM-04b:A2]`
+Transaction marker: `[GM-04b:A3]`
 
 ## Baseline and boundary
 
@@ -64,7 +64,7 @@ The tracked `package.json` and `.npmrc`, selected top-level npm and Node executa
 3. Add guarded-body sentinel tests proving that, after clean startup, suppressing lifecycle hooks alone does not bypass identity, `npm test` forwards no package-script argv into child Node, strict versus explicit recursive canary behavior is exact, every body remains unexecuted after identity failure, and no dirty or caller-selected setup override is accepted. Add live/unit probes showing startup taint is categorically detected without reflection before setup/guard effects while recording that pre-main code cannot be undone. Exercise missing-pin setup and strict verify on real Ubuntu and Windows CI.
 4. Implement the smallest focused setup, checkout-safety, and subprocess boundaries needed to pass those tests, keeping each handwritten file below 500 lines.
 5. Run the focused setup suites, all 44 frozen pre-GM04 test names plus the exact larger current Node suite, syntax/JSON/YAML checks, `npm ls --depth=0`, root/pin dependency audits, full py313, exact RL, changed-path pre-commit, cached diff/credential scans, and three independent adversarial implementation reviews.
-6. Deliver implementation Commit A, wait for its exact build and RL-smoke jobs, then deliver evidence-only Commit B and wait for its exact jobs. GM-04c begins only from that remotely finalized baseline.
+6. Preserve the real corrective history: Commit A failed during setup, Commit A2 proved setup on both hosted platforms but failed later in Ubuntu's canonical Node suite, and Commit A3 corrects those downstream defects plus any fresh review findings. Wait for A3's exact build and RL-smoke jobs, then deliver evidence-only Commit B and wait for its exact jobs. GM-04c begins only from that remotely finalized baseline.
 
 ## Review boundary
 
