@@ -1,8 +1,8 @@
 # GM-04b safe setup and verification plan
 
-Status: adversarial plan review converged clean; implementation Commit A `8cff6201dd4d0b2b07ae1fbf9068a5b179109457` failed exact remote setup because npm 10 retained empty omitted-development namespaces; corrective Commit A2 `16d786098543f32d3b00e8aef37b56a88f67b9a5` proved missing-only exact linking on Ubuntu and Windows in run `29753292420`, whose Windows job succeeded but whose Ubuntu canonical Node suite exposed two downstream portability and snapshot-order defects; corrective Commit A3 is implementation-complete with fresh `CLEAN` code and staged-payload reviews plus all local gates, the exact 20-path hook set, and cached staging audits green, while GM-04c remains closed pending A3 commit/push, its exact green workflow, and evidence-only Commit B
+Status: implementation Commit A `8cff6201dd4d0b2b07ae1fbf9068a5b179109457` and corrective Commit A2 `16d786098543f32d3b00e8aef37b56a88f67b9a5` exposed and preserved the npm 10 root-layout and downstream portability/snapshot-order failures; corrective Commit A3 `069973c8a1b0018f6edcc2de98e77ae7c139af78` closed those defects plus both fresh adversarial findings and passed exact workflow run `29757294004`; evidence-only Commit B is active, and GM-04c remains closed pending B's exact green workflow
 
-Transaction marker: `[GM-04b:A3]`
+Transaction marker: `[GM-04b:B]`
 
 ## Baseline and boundary
 
