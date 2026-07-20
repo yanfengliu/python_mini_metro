@@ -1,6 +1,6 @@
 # GM-04b review synthesis
 
-Status: Commit A and corrective Commit A2 preserved the exact npm 10 root-layout and downstream production failures; corrective Commit A3 `069973c8a1b0018f6edcc2de98e77ae7c139af78` closes those defects and both fresh adversarial findings with `CLEAN` code and staged-payload reviews, complete local gates, and exact workflow run `29757294004` green; evidence-only Commit B is active, while the fleet-pinned external workflow remains unavailable and no external approval is claimed
+Status: Commit A and corrective Commit A2 preserved the exact npm 10 root-layout and downstream production failures; corrective Commit A3 `069973c8a1b0018f6edcc2de98e77ae7c139af78` closed those defects and both fresh adversarial findings with `CLEAN` code and staged-payload reviews, complete local gates, and exact workflow run `29757294004` green; evidence-only Commit B `41ecfc691ac4d4784acff549f06e3fe2f26e9c3b` passed exact workflow run `29758092140`, so GM-04b is remotely finalized, while the fleet-pinned external workflow remained unavailable and no external approval is claimed
 
 ## Baseline
 
@@ -56,4 +56,8 @@ The fresh adversarial A3 re-review is `CLEAN`: the reviewer independently confir
 
 ## Remote corrective implementation gate
 
-Corrective Commit A3 `069973c8a1b0018f6edcc2de98e77ae7c139af78` passed exact push workflow [run 29757294004](https://github.com/yanfengliu/python_mini_metro/actions/runs/29757294004). Exact-head `build` job `88402829511` succeeded from 15:54:52Z through 15:55:59Z, including isolated setup/verification, all recursive-loop contracts, a clean default recursive pass, and the Python unit suite. Exact-head `rl-smoke` job `88402829842` succeeded from 15:54:52Z through 15:58:58Z, including Windows setup/strict verification, the RL contract/library smoke, and recurrent-history/legacy-PPO smoke. Evidence-only Commit B binds that result before GM-04c begins.
+Corrective Commit A3 `069973c8a1b0018f6edcc2de98e77ae7c139af78` passed exact push workflow [run 29757294004](https://github.com/yanfengliu/python_mini_metro/actions/runs/29757294004). Exact-head `build` job `88402829511` succeeded from 15:54:52Z through 15:55:59Z, including isolated setup/verification, all recursive-loop contracts, a clean default recursive pass, and the Python unit suite. Exact-head `rl-smoke` job `88402829842` succeeded from 15:54:52Z through 15:58:58Z, including Windows setup/strict verification, the RL contract/library smoke, and recurrent-history/legacy-PPO smoke.
+
+## Evidence-only Commit B remote finalization
+
+Evidence-only Commit B `41ecfc691ac4d4784acff549f06e3fe2f26e9c3b` passed exact workflow [run 29758092140](https://github.com/yanfengliu/python_mini_metro/actions/runs/29758092140). Exact-head `build` job `88405558876` and exact-head `rl-smoke` job `88405560427` both succeeded. GM-04b is remotely finalized, and GM-04c opens from that exact baseline; this result is not GM-04c Commit A approval or remote evidence.

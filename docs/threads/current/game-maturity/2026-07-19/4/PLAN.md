@@ -1,6 +1,6 @@
 # GM-04b safe setup and verification plan
 
-Status: implementation Commit A `8cff6201dd4d0b2b07ae1fbf9068a5b179109457` and corrective Commit A2 `16d786098543f32d3b00e8aef37b56a88f67b9a5` exposed and preserved the npm 10 root-layout and downstream portability/snapshot-order failures; corrective Commit A3 `069973c8a1b0018f6edcc2de98e77ae7c139af78` closed those defects plus both fresh adversarial findings and passed exact workflow run `29757294004`; evidence-only Commit B is active, and GM-04c remains closed pending B's exact green workflow
+Status: implementation Commit A `8cff6201dd4d0b2b07ae1fbf9068a5b179109457` and corrective Commit A2 `16d786098543f32d3b00e8aef37b56a88f67b9a5` exposed and preserved the npm 10 root-layout and downstream portability/snapshot-order failures; corrective Commit A3 `069973c8a1b0018f6edcc2de98e77ae7c139af78` closed those defects plus both fresh adversarial findings and passed exact workflow run `29757294004`; evidence-only Commit B `41ecfc691ac4d4784acff549f06e3fe2f26e9c3b` passed exact workflow run `29758092140`, so GM-04b is remotely finalized and GM-04c has opened
 
 Transaction marker: `[GM-04b:B]`
 
@@ -64,7 +64,7 @@ The tracked `package.json` and `.npmrc`, selected top-level npm and Node executa
 3. Add guarded-body sentinel tests proving that, after clean startup, suppressing lifecycle hooks alone does not bypass identity, `npm test` forwards no package-script argv into child Node, strict versus explicit recursive canary behavior is exact, every body remains unexecuted after identity failure, and no dirty or caller-selected setup override is accepted. Add live/unit probes showing startup taint is categorically detected without reflection before setup/guard effects while recording that pre-main code cannot be undone. Exercise missing-pin setup and strict verify on real Ubuntu and Windows CI.
 4. Implement the smallest focused setup, checkout-safety, and subprocess boundaries needed to pass those tests, keeping each handwritten file below 500 lines.
 5. Run the focused setup suites, all 44 frozen pre-GM04 test names plus the exact larger current Node suite, syntax/JSON/YAML checks, `npm ls --depth=0`, root/pin dependency audits, full py313, exact RL, changed-path pre-commit, cached diff/credential scans, and three independent adversarial implementation reviews.
-6. Preserve the real corrective history: Commit A failed during setup, Commit A2 proved setup on both hosted platforms but failed later in Ubuntu's canonical Node suite, and Commit A3 corrects those downstream defects plus any fresh review findings. Wait for A3's exact build and RL-smoke jobs, then deliver evidence-only Commit B and wait for its exact jobs. GM-04c begins only from that remotely finalized baseline.
+6. Preserve the real corrective history: Commit A failed during setup, Commit A2 proved setup on both hosted platforms but failed later in Ubuntu's canonical Node suite, and Commit A3 corrected those downstream defects plus both fresh review findings. A3 exact workflow run `29757294004` passed, then evidence-only Commit B `41ecfc691ac4d4784acff549f06e3fe2f26e9c3b` passed exact workflow run `29758092140`; GM-04c opened from that remotely finalized baseline.
 
 ## Review boundary
 
@@ -76,3 +76,7 @@ The multi-CLI runbook applies because this unit changes supply-chain and workflo
 - Exact reruns are stable and unnecessary phases are skipped; every suspicious pre-existing state fails before mutation with attributable expected-versus-actual diagnostics. Exclusive-create races preserve an intervening slot winner, while a path-level parent-container swap is detected after creation and retains all resulting state for inspection rather than deleting through an untrusted path.
 - Under the explicit trusted bootstrap, every canonical Node test/playtest surface fails before its guarded body on physical pin identity mismatch, `npm test` has a fixed zero-argument full-suite child body, the standard npm invocation suppresses its expanded command prelude, and recursive dirty canaries retain their documented attributed path; startup-taint detection is fail-closed for later effects but is not represented as prevention or attestation of pre-main execution.
 - Focused/full local gates and independent implementation review are clean, Commit A and evidence-only Commit B are pushed to `main`, and both exact workflows succeed before GM-04c.
+
+## Remote finalization
+
+Evidence-only Commit B `41ecfc691ac4d4784acff549f06e3fe2f26e9c3b` passed exact workflow run `29758092140`; `build` job `88405558876` and `rl-smoke` job `88405560427` both succeeded. This satisfies the GM-04b acceptance and durability boundary without making any claim about GM-04c Commit A.
