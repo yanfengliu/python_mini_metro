@@ -83,6 +83,9 @@ obs = env.reset(seed=42)
 obs, reward, done, info = env.step(
     {"type": "create_path", "stations": [0, 1, 2], "loop": False}
 )
+obs, reward, done, info = env.step(
+    {"type": "replace_path", "path_index": 0, "stations": [0, 2, 1]}
+)
 obs, reward, done, info = env.step({"type": "remove_path", "path_index": 0})
 ```
 
@@ -120,6 +123,13 @@ obs, reward, done, info = env.step({"type": "remove_path", "path_index": 0})
   - Valid only when `0 <= k < len(observation["structured"]["paths"])`.
 - `{"type": "remove_path", "path_id": "..."}`
   - Removes an existing path by path id string from `observation["structured"]["paths"][*]["id"]`.
+- `{"type": "replace_path", "path_index": k, "stations": [i0, i1, ...], "loop": bool}`
+- `{"type": "replace_path", "path_id": "...", "stations": [i0, i1, ...], "loop": bool}`
+  - Requires exactly one selector: either an existing path index or its nonempty id string.
+  - `stations` must be an exact list of at least two active-station integer indices. After an optional single trailing copy of the first index is removed for a loop, every index and resolved station object must be unique.
+  - `loop` is optional and defaults to `False`; when present it must be a boolean. Unrelated extra keys are tolerated.
+  - A safe replacement preserves the path object, public id, color/button ownership, metros, riders, and each metro's physical pose while rebuilding route geometry. Waiting riders replan immediately; onboard riders keep a fresh marker to their next safe alight and replan there.
+  - Invalid, ambiguous, or continuity-breaking replacements fail atomically with `action_ok=False`.
 - `{"type": "buy_line"}`
   - Buys the next locked line if affordable.
   - Price follows configured incremental unlock costs (derived from `path_unlock_milestones`).
@@ -132,7 +142,7 @@ obs, reward, done, info = env.step({"type": "remove_path", "path_index": 0})
 - `{"type": "resume"}`
   - Resumes simulation updates.
 
-Any unknown `type`, or malformed action payload, returns `info["action_ok"] == False` without mutating game state.
+Any unknown `type`, malformed action payload, or rejected replacement returns `info["action_ok"] == False` without mutating game state or advancing time.
 
 ### `step(..., dt_ms=...)` behavior
 - `dt_ms` argument to `step(...)` overrides constructor `dt_ms` for that call.

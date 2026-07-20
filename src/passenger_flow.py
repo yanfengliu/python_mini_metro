@@ -307,6 +307,7 @@ class PassengerFlow:
         *,
         get_graph_builder: Resolver,
         get_record_delivery: Resolver,
+        get_scoped_replanner: Resolver | None = None,
     ) -> None:
         station_nodes_dict = get_graph_builder()(host.stations, host.paths)
         for metro in host.metros:
@@ -372,9 +373,25 @@ class PassengerFlow:
                         travel_plan = host.travel_plans.get(passenger)
                         if travel_plan is not None:
                             travel_plan.increment_next_station()
-                            host.find_next_path_for_passenger_at_station(
-                                passenger, station
+                            next_station_idx = getattr(
+                                travel_plan, "next_station_idx", None
                             )
+                            if (
+                                get_scoped_replanner is not None
+                                and type(next_station_idx) is int
+                                and next_station_idx >= len(travel_plan.node_path)
+                            ):
+                                travel_plan.next_path = None
+                                travel_plan.next_station = None
+                                travel_plan.node_path.clear()
+                                travel_plan.next_station_idx = 0
+                                get_scoped_replanner()(
+                                    passenger, station, station_nodes_dict
+                                )
+                            else:
+                                host.find_next_path_for_passenger_at_station(
+                                    passenger, station
+                                )
                         boarding_slots -= 1
                         continue
 
@@ -401,6 +418,35 @@ class PassengerFlow:
                 ):
                     metro.stop_time_remaining_ms = 0
                     metro.boarding_progress_ms = 0
+
+    def replan_passenger_at_station(
+        self,
+        host: PassengerFlowHost,
+        passenger: Any,
+        station: Any,
+        station_nodes_dict: dict[Any, Any],
+        *,
+        get_best_path_finder: Resolver,
+        get_search: Resolver,
+        get_plan_factory: Resolver,
+    ) -> None:
+        node_path = get_best_path_finder()(
+            station,
+            host.get_stations_for_shape_type(passenger.destination_shape.type),
+            station_nodes_dict,
+            find_node_path=lambda start, end: get_search()(start, end),
+            get_reduce_node_path=lambda: host.skip_stations_on_same_path,
+        )
+        if node_path is not None and len(node_path) == 1:
+            station.remove_passenger(passenger)
+            host.passengers.remove(passenger)
+            passenger.is_at_destination = True
+            host.travel_plans.pop(passenger, None)
+        elif node_path:
+            host.travel_plans[passenger] = get_plan_factory()(node_path[1:])
+            host.find_next_path_for_passenger_at_station(passenger, station)
+        else:
+            host.travel_plans[passenger] = get_plan_factory()([])
 
     def update_waiting_and_game_over(self, host: PassengerFlowHost, dt_ms: int) -> None:
         if host.is_game_over:

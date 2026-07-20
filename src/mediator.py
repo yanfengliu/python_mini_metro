@@ -19,7 +19,9 @@ from config import (
     passenger_size,
     passenger_spawning_interval_step,
     passenger_spawning_start_step,
+    path_order_shift,
     path_unlock_milestones,
+    path_width,
     screen_height,
     screen_width,
     station_unlock_milestones,
@@ -430,6 +432,34 @@ class Mediator:
             self, station_indices, loop
         )
 
+    def replace_path(
+        self, path: Path, station_indices: List[int], loop: bool = False
+    ) -> bool:
+        return self._path_lifecycle.replace_path(
+            self,
+            path,
+            station_indices,
+            loop,
+            get_path_factory=lambda: Path,
+            get_geometry_style=lambda: (path_order_shift, path_width),
+            get_graph_builder=lambda: build_station_nodes_dict,
+            get_scoped_replanner=lambda: self._replan_passenger_at_station,
+        )
+
+    def replace_path_by_id(
+        self, path_id: str, station_indices: List[int], loop: bool = False
+    ) -> bool:
+        return self._path_lifecycle.replace_path_by_id(
+            self, path_id, station_indices, loop
+        )
+
+    def replace_path_by_index(
+        self, path_index: int, station_indices: List[int], loop: bool = False
+    ) -> bool:
+        return self._path_lifecycle.replace_path_by_index(
+            self, path_index, station_indices, loop
+        )
+
     def add_station_to_path(self, station: Station) -> None:
         self._path_lifecycle.add_station_to_path(self, station)
 
@@ -543,6 +573,7 @@ class Mediator:
             dt_ms,
             get_graph_builder=lambda: build_station_nodes_dict,
             get_record_delivery=lambda: self._progression.record_delivery,
+            get_scoped_replanner=lambda: self._replan_passenger_at_station,
         )
 
     def update_waiting_and_game_over(self, dt_ms: int) -> None:
@@ -594,6 +625,22 @@ class Mediator:
 
     def skip_stations_on_same_path(self, node_path: List[Node]):
         return self._router.skip_stations_on_same_path(node_path)
+
+    def _replan_passenger_at_station(
+        self,
+        passenger: Passenger,
+        station: Station,
+        station_nodes_dict: Dict[Station, Node],
+    ) -> None:
+        self._passenger_flow.replan_passenger_at_station(
+            self,
+            passenger,
+            station,
+            station_nodes_dict,
+            get_best_path_finder=lambda: self._router.find_best_node_path,
+            get_search=lambda: bfs,
+            get_plan_factory=lambda: TravelPlan,
+        )
 
     def find_travel_plan_for_passengers(self) -> None:
         self._passenger_flow.find_travel_plan_for_passengers(

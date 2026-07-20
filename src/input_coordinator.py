@@ -45,6 +45,14 @@ class InputCoordinatorHost(Protocol):
         self, button_idx: int | None = None
     ) -> bool: ...
 
+    def replace_path_by_id(
+        self, path_id: str, station_indices: list[int], loop: bool = False
+    ) -> bool: ...
+
+    def replace_path_by_index(
+        self, path_index: int, station_indices: list[int], loop: bool = False
+    ) -> bool: ...
+
     def increment_time(self, dt_ms: int) -> None: ...
 
     def get_surface_size(self, screen: Any) -> tuple[int, int]: ...
@@ -380,6 +388,39 @@ class InputCoordinator:
             if "path_index" in action:
                 return host.remove_path_by_index(action["path_index"])
             return False
+        if action_type == "replace_path":
+            has_path_id = "path_id" in action
+            has_path_index = "path_index" in action
+            if has_path_id == has_path_index:
+                return False
+
+            stations = action.get("stations")
+            if (
+                type(stations) is not list
+                or len(stations) < 2
+                or any(
+                    type(station_index) is not int
+                    or station_index < 0
+                    or station_index >= len(host.stations)
+                    for station_index in stations
+                )
+            ):
+                return False
+
+            loop = action.get("loop", False)
+            if type(loop) is not bool:
+                return False
+
+            if has_path_id:
+                path_id = action["path_id"]
+                if type(path_id) is not str or not path_id:
+                    return False
+                return host.replace_path_by_id(path_id, stations, loop)
+
+            path_index = action["path_index"]
+            if type(path_index) is not int:
+                return False
+            return host.replace_path_by_index(path_index, stations, loop)
         if action_type == "pause":
             host.set_paused(True)
             return True

@@ -31,8 +31,9 @@ This document summarizes the game rules currently implemented in code.
 ## Metro Lines and Trains
 
 - You can create a line by connecting at least 2 stations.
-- Duplicate station picks are ignored while creating a line.
+- During interactive creation, repeating the current endpoint is ignored; reconnecting to the first station after at least two stations closes a loop. Other nonconsecutive repeated stations retain the existing creation behavior.
 - Optional loop creation is supported by connecting the line back to its first station.
+- Programmatic line replacement requires unique active station indices and objects after removing at most one trailing copy of the first station for a loop. A safe replacement preserves the line, fleet, riders, and metro poses; an ambiguous or continuity-breaking edit is rejected atomically.
 - When a line endpoint snaps onto a station during creation, that station emits a brief outward ring blip in the line color.
 - A line can only be created if there is an unlocked line slot available.
 - Removing a line also removes the metros assigned to it.
@@ -68,6 +69,7 @@ This document summarizes the game rules currently implemented in code.
 - If multiple stations match a destination shape, the game uses one with a valid route.
 - Passengers can transfer between lines at stations according to their travel plan.
 - If no route exists, passengers wait until the network changes. Removing a line invalidates waiting-passenger plans that used it; passengers already riding a surviving line keep their immediate transfer plan until they leave that line, then replan against the updated network.
+- Replacing a line immediately replans every waiting passenger against the committed network. An onboard passenger retains the next safe alight on its current line, then receives a fresh route from that station; removing that alight from the edited line rejects the replacement.
 
 ## Timing and Spawning
 
@@ -104,12 +106,13 @@ This document summarizes the game rules currently implemented in code.
 ## Programmatic Actions (Environment / API)
 
 - `create_path`: create a line from station indices (with optional loop flag).
+- `replace_path`: atomically replace one existing line selected by exactly one index or id, using a unique station-index sequence and optional loop flag.
 - `remove_path`: remove a line by index or id.
 - `buy_line`: purchase the next locked line, optionally targeting its sequential button index.
 - `pause`: pause simulation.
 - `resume`: resume simulation.
 - `noop` (or `None`): do nothing this step.
-- Malformed actions are rejected without mutating game state.
+- Malformed or unsafe actions are rejected without mutating game state or advancing programmatic time.
 
 ## Player-Equivalent RL Controls
 

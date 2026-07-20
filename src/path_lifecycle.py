@@ -3,8 +3,11 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, Protocol
 
+from path_replacement import replace_path as replace_path_transaction
+
 PathFactoryGetter = Callable[[], Callable[[Any], Any]]
 MetroFactoryGetter = Callable[[], Callable[[], Any]]
+Resolver = Callable[[], Any]
 
 
 class PathLifecycleHost(Protocol):
@@ -32,6 +35,10 @@ class PathLifecycleHost(Protocol):
     def assign_paths_to_buttons(self) -> None: ...
 
     def remove_path(self, path: Any) -> None: ...
+
+    def replace_path(
+        self, path: Any, station_indices: list[int], loop: bool = False
+    ) -> bool: ...
 
     def invalidate_travel_plans_for_path(self, path: Any) -> None: ...
 
@@ -169,6 +176,57 @@ class PathLifecycle:
         if created_path in host.paths and not created_path.is_being_created:
             return created_path
         return None
+
+    def replace_path(
+        self,
+        host: PathLifecycleHost,
+        path: Any,
+        station_indices: list[int],
+        loop: bool = False,
+        *,
+        get_path_factory: Resolver,
+        get_geometry_style: Resolver,
+        get_graph_builder: Resolver,
+        get_scoped_replanner: Resolver,
+    ) -> bool:
+        return replace_path_transaction(
+            host,
+            path,
+            station_indices,
+            loop,
+            get_path_factory=get_path_factory,
+            get_geometry_style=get_geometry_style,
+            get_graph_builder=get_graph_builder,
+            get_scoped_replanner=get_scoped_replanner,
+        )
+
+    def replace_path_by_id(
+        self,
+        host: PathLifecycleHost,
+        path_id: str,
+        station_indices: list[int],
+        loop: bool = False,
+    ) -> bool:
+        if type(path_id) is not str or not path_id:
+            return False
+        matches = [path for path in host.paths if getattr(path, "id", None) == path_id]
+        if len(matches) != 1:
+            return False
+        return host.replace_path(matches[0], station_indices, loop)
+
+    def replace_path_by_index(
+        self,
+        host: PathLifecycleHost,
+        path_index: int,
+        station_indices: list[int],
+        loop: bool = False,
+    ) -> bool:
+        if type(path_index) is not int or not 0 <= path_index < len(host.paths):
+            return False
+        path = host.paths[path_index]
+        if sum(candidate is path for candidate in host.paths) != 1:
+            return False
+        return host.replace_path(path, station_indices, loop)
 
     def add_station_to_path(self, host: PathLifecycleHost, station: Any) -> None:
         assert host.path_being_created is not None
