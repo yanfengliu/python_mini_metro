@@ -1,0 +1,1 @@
+APPROVED. Late color/size/factory lookup and exception-sensitive counter reset are exact; router/progression resolution and all three graph builds are frozen; generator traces and archived isolated drift-guarded expected evidence are required; the line model, GM-03f scope, and transaction remain intact. No substantive finding remains.

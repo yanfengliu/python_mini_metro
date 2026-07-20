@@ -1,4 +1,5 @@
 python_mini_metro/
+|- .gitattributes
 |- .github/
 |  \- workflows/
 |     \- test.yml
@@ -9,7 +10,8 @@ python_mini_metro/
 |  \- threads/
 |     |- README.md
 |     |- current/
-|     |  \- README.md
+|     |  |- README.md
+|     |  \- game-maturity/
 |     \- done/
 |        |- README.md
 |        |- agents-repo-fit/
@@ -23,6 +25,7 @@ python_mini_metro/
 |  |  \- recursive-playtest.json
 |  |- playtest-recursive.mjs
 |  |- playtest-verify.mjs
+|  |- passenger_flow_differential_support.py
 |  |- profile_rl_history.py
 |  |- profile_rl_history_worker.py
 |  |- recursive-ledger.mjs
@@ -31,6 +34,7 @@ python_mini_metro/
 |  |- source-provenance-engine.mjs
 |  |- source-provenance.mjs
 |  |- train_rl.py
+|  |- verify_passenger_flow_differential.py
 |  \- verify_path_lifecycle_differential.py
 |- src/
 |  |- __init__.py
@@ -41,6 +45,7 @@ python_mini_metro/
 |  |- game_session.py
 |  |- main.py
 |  |- mediator.py
+|  |- passenger_flow.py
 |  |- path_lifecycle.py
 |  |- progression.py
 |  |- route_planner.py
@@ -127,6 +132,7 @@ python_mini_metro/
 |  |- recursive-fixtures.mjs
 |  |- source-provenance.test.mjs
 |  |- mediator_test_support.py
+|  |- passenger_flow_direct_support.py
 |  |- path_lifecycle_direct_support.py
 |  |- path_lifecycle_test_support.py
 |  |- route_planner_test_support.py
@@ -143,6 +149,8 @@ python_mini_metro/
 |  |- test_main.py
 |  |- test_mediator_interaction.py
 |  |- test_mediator_passenger_flow.py
+|  |- test_mediator_passenger_flow_effect_contract.py
+|  |- test_mediator_passenger_flow_facade_contract.py
 |  |- test_mediator_path_contract.py
 |  |- test_mediator_path_failure_contract.py
 |  |- test_mediator_paths.py
@@ -155,6 +163,7 @@ python_mini_metro/
 |  |- test_overdue_threshold.py
 |  |- test_path.py
 |  |- test_path_lifecycle.py
+|  |- test_passenger_flow.py
 |  |- test_player_env.py
 |  |- test_recursive_checkpoint.py
 |  |- test_recursive_oracles.py
@@ -210,7 +219,9 @@ python_mini_metro/
 - `src/progression.py` owns current line/station/economy rules, canonical delivery and credit counters, purchased-line state, and explicitly refreshed unlock caches without importing entities, UI, clocks, or RNG. `Mediator` remains the compatibility facade through explicit writable properties and real public methods; it owns station/path-button identity, active-station slicing, locks/blinks, and delivery/purchase side-effect ordering.
 - `src/route_planner.py` owns stateless route queries, path compression and selection, and lazy boarding/bulk planning proposals without importing pygame or gameplay entities at runtime. `Mediator` remains the public compatibility and side-effect facade: it supplies fresh RNG-ordered destinations, graphs, and resolver callbacks, owns every travel-plan map write and passenger mutation, and applies each yielded proposal before the planner resumes over the live collection. Bulk planning emits explicit arrival, route, and fallback phases; its in-frame selection loop preserves raw-arrival provenance, destination-iterator finalization, callback lifetime, and live local-reference timing through facade effects.
 - `src/path_lifecycle.py` owns the 12 path creation, completion, invalidation, selection, removal, color-release, and button-reassignment transition algorithms as a dependency-light stateless component. Each call receives a structural `PathLifecycleHost` only for that transition; `Mediator` remains the canonical owner of directly writable topology collections, maps, flags, factories, entities, and public compatibility methods, and the component retains no facade backreference or mutable state between calls.
+- `src/passenger_flow.py` owns the 16 passenger spawning, tick coordination, stop/exchange, delivery, waiting/game-over, and bulk proposal-application algorithms as a dependency-light stateless component. Each call receives the current structural `PassengerFlowHost`; `Mediator` retains the exact public method signatures and canonical collections, RNG, clocks, progression, router, factories, and public hooks, while resolver thunks preserve each original lookup and mutation point without retaining a facade, callback, graph, entity, or cache between calls.
 - `scripts/verify_path_lifecycle_differential.py` materializes an exact committed baseline through `git archive`, runs baseline and candidate lifecycle scenarios in isolated bytecode-disabled child processes, guards each source tree against drift, and emits one canonical seven-action/nine-record equality artifact plus its digest summary without checking out or mutating either source tree.
+- `scripts/verify_passenger_flow_differential.py` and its dependency-light support module apply the same non-mutating archived-baseline discipline to seeded spawning, pause/speed/waiting behavior, three fresh graph phases, metro delivery-transfer-boarding order, lazy arrival/route/fallback proposal effects, live-list mutation, and callable finalization timing. Exact-path `.gitattributes` rules keep the canonical artifact and summary LF-stable across Windows `core.autocrlf=true` checkouts so byte-level `--expected` replay remains portable.
 - `src/game_clock.py` owns the bounded deterministic `17, 17, 16` millisecond cadence, while `src/game_session.py` provides the shared player-event and fixed-update driver. The pygame window handles input before updates and uses one `Clock.tick(60)` pacing authority.
 - `src/entity/path.py` owns logical centerline segments used by metro movement. `src/rendering/layout.py` derives immutable, symmetric visual lanes without rebuilding or re-identifying those simulation segments.
 - `src/rendering/network_renderer.py` owns one bounded antialiased route cache per renderer. `src/rendering/interpolation.py` tracks render-only previous/current metro poses, and `src/rendering/game_renderer.py` composes routes, stations, metros, controls, a two-value deliveries/line-credits HUD, and overlays without mutating gameplay state. Fonts and surfaces are renderer-owned and lazy so state-only and headless sessions do not require a display.
@@ -245,7 +256,7 @@ The Node boundary depends on the live sibling `civ-engine` through `file:../civ-
 ## Mediator characterization tests
 
 - `test/mediator_test_support.py` owns the shared per-test mediator fixture, pygame draw cleanup, interaction helper, and two-station network builder without matching unittest's default discovery pattern.
-- Ten mediator-facing discovered modules partition behavior by ownership: interaction/layout, routing decisions, route-facade contracts, route observability, path lifecycle, path-facade and failure contracts, simulation/spawning/game over, passenger/metro flow, and progression/purchases. They preserve the former monolithic suite's exact 57 test bodies while adding focused characterization for extracted boundaries. `test/test_network_progression.py` directly covers dependency-free progression policy and cached-state semantics; four direct route-planner modules cover dependency-free queries, selection, resolver and callable-lifetime timing, and lazy proposal iteration; `test/test_path_lifecycle.py` plus its two non-discovered support modules cover the stateless host boundary, transition ordering, rebinding, factory lifetime and failures, and import isolation. Production `src/mediator.py` decomposition continues through GM-03e and GM-03f.
+- Ten original mediator-facing discovered modules partition behavior by ownership: interaction/layout, routing decisions, route-facade contracts, route observability, path lifecycle, path-facade and failure contracts, simulation/spawning/game over, passenger/metro flow, and progression/purchases. They preserve the former monolithic suite's exact 57 test bodies while adding focused characterization for extracted boundaries. `test/test_network_progression.py` directly covers dependency-free progression policy and cached-state semantics; four direct route-planner modules cover dependency-free queries, selection, resolver and callable-lifetime timing, and lazy proposal iteration; `test/test_path_lifecycle.py` plus its two non-discovered support modules cover the stateless host boundary, transition ordering, rebinding, factory lifetime and failures, and import isolation. `test/test_passenger_flow.py` plus its non-discovered support module cover the dependency-light stateless host boundary directly; two additional facade/effect contract modules pin all 16 public signatures, late dependency resolution, partial failures, live iteration, graph freshness, and exact passenger-effect ordering. Production `src/mediator.py` decomposition continues through GM-03f.
 
 ## Rendering tests
 
