@@ -352,6 +352,7 @@ class TestGM05bMouseRedraw(unittest.TestCase):
 
     def test_valid_unsafe_redraw_rejects_without_changing_live_topology(self) -> None:
         path = self.create_path([0, 1, 2])
+        self.assertTrue(self.mediator.assign_locomotive(path))
         topology = tuple(path.stations)
         hook = MagicMock(wraps=self.mediator.replace_path)
         self.mediator.replace_path = hook
@@ -386,12 +387,14 @@ class TestGM05bMouseRedraw(unittest.TestCase):
 
     def test_plain_click_and_historical_bare_up_delete_assigned_lines(self) -> None:
         clicked = self.create_path([0, 1])
+        self.assertTrue(self.mediator.assign_locomotive(clicked))
         clicked_button = self.mediator.path_to_button[clicked]
         self.dispatch(pygame.MOUSEBUTTONDOWN, clicked_button.position)
         self.dispatch(pygame.MOUSEBUTTONUP, clicked_button.position)
         self.assertNotIn(clicked, self.mediator.paths)
 
         bare = self.create_path([1, 2])
+        self.assertTrue(self.mediator.assign_locomotive(bare))
         self.dispatch(pygame.MOUSEBUTTONUP, self.mediator.path_to_button[bare].position)
         self.assertNotIn(bare, self.mediator.paths)
 

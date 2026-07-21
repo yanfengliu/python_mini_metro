@@ -8,19 +8,23 @@ from typing import Any
 SCHEMA_VERSION_V1 = 1
 SCHEMA_VERSION_V2 = 2
 SCHEMA_VERSION_V3 = 3
+SCHEMA_VERSION_V4 = 4
 LEGACY_SCHEMA_VERSION = SCHEMA_VERSION_V1
-SCHEMA_VERSION = SCHEMA_VERSION_V3
+SCHEMA_VERSION = SCHEMA_VERSION_V4
 _SUPPORTED_SCHEMA_VERSIONS = {
     SCHEMA_VERSION_V1,
     SCHEMA_VERSION_V2,
     SCHEMA_VERSION_V3,
+    SCHEMA_VERSION_V4,
 }
 DELIVERIES_REWARD_CONTRACT = "deliveries"
 LINE_CREDITS_REWARD_CONTRACT = "line_credits_delta"
+FLEET_ACTION_CONTRACT = "explicit_locomotive_assignment_v1"
 
 _SCENARIO_KEYS_V1 = {"schemaVersion", "seed", "defaultDtMs", "operations"}
 _SCENARIO_KEYS_V2 = {*_SCENARIO_KEYS_V1, "environmentRewardContract"}
 _SCENARIO_KEYS_V3 = {*_SCENARIO_KEYS_V2, "overduePassengerThreshold"}
+_SCENARIO_KEYS_V4 = {*_SCENARIO_KEYS_V3, "fleetActionContract"}
 _INPUT_KEYS_V1 = {
     "schemaVersion",
     "runId",
@@ -33,7 +37,9 @@ _INPUT_KEYS_V1 = {
 }
 _INPUT_KEYS_V2 = {*_INPUT_KEYS_V1, "environmentRewardContract"}
 _INPUT_KEYS_V3 = {*_INPUT_KEYS_V2, "overduePassengerThreshold"}
+_INPUT_KEYS_V4 = {*_INPUT_KEYS_V3, "fleetActionContract"}
 _OPERATION_KEYS = {"name", "action", "expectedActionOk"}
+_FLEET_ACTION_TYPES = {"assign_locomotive", "unassign_locomotive"}
 
 
 def _exact_keys(
@@ -84,7 +90,7 @@ def _hash_seed(value: object) -> str:
 
 def _schema_version(value: object, label: str) -> int:
     if type(value) is not int or value not in _SUPPORTED_SCHEMA_VERSIONS:
-        raise ValueError(f"{label} schemaVersion must be 1, 2, or 3")
+        raise ValueError(f"{label} schemaVersion must be 1, 2, 3, or 4")
     return value
 
 
@@ -93,6 +99,15 @@ def _environment_reward_contract(value: object, label: str) -> str:
     if contract != DELIVERIES_REWARD_CONTRACT:
         raise ValueError(
             f"{label}.environmentRewardContract must be {DELIVERIES_REWARD_CONTRACT!r}"
+        )
+    return contract
+
+
+def _fleet_action_contract(value: object, label: str) -> str:
+    contract = _nonempty_string(value, f"{label}.fleetActionContract")
+    if contract != FLEET_ACTION_CONTRACT:
+        raise ValueError(
+            f"{label}.fleetActionContract must be {FLEET_ACTION_CONTRACT!r}"
         )
     return contract
 
@@ -112,6 +127,19 @@ def _overdue_threshold_for_document(document: dict[str, Any]) -> int:
         document["overduePassengerThreshold"],
         "document.overduePassengerThreshold",
     )
+
+
+def validate_replay_action(
+    action: object, *, fleet_actions_allowed: bool, label: str = "action"
+) -> None:
+    _validate_json(action, label)
+    if type(action) is not dict or action.get("type") not in _FLEET_ACTION_TYPES:
+        return
+    if not fleet_actions_allowed:
+        raise ValueError(f"{label} uses a fleet action before schema v4")
+    if set(action) != {"type", "path_index"}:
+        raise ValueError(f"{label} fleet actions require exactly type and path_index")
+    _nonnegative_int(action["path_index"], f"{label}.path_index")
 
 
 def _validate_json(value: object, label: str, seen: set[int] | None = None) -> None:
@@ -142,7 +170,7 @@ def _json_copy(value: Any, label: str = "value") -> Any:
     return json.loads(json.dumps(value, allow_nan=False, sort_keys=True))
 
 
-def _validate_operations(value: object) -> list[dict[str, Any]]:
+def _validate_operations(value: object, schema_version: int) -> list[dict[str, Any]]:
     if type(value) is not list or not value:
         raise ValueError("operations must be a nonempty array")
     result: list[dict[str, Any]] = []
@@ -157,7 +185,11 @@ def _validate_operations(value: object) -> list[dict[str, Any]]:
             raise ValueError(f"operations[{index}].expectedActionOk must be boolean")
         if "dtMs" in operation:
             _nonnegative_int(operation["dtMs"], f"operations[{index}].dtMs")
-        _validate_json(operation["action"], f"operations[{index}].action")
+        validate_replay_action(
+            operation["action"],
+            fleet_actions_allowed=schema_version == SCHEMA_VERSION_V4,
+            label=f"operations[{index}].action",
+        )
         result.append(_json_copy(operation, f"operations[{index}]"))
     return result
 
@@ -170,6 +202,7 @@ def validate_scenario(value: object) -> dict[str, Any]:
         SCHEMA_VERSION_V1: _SCENARIO_KEYS_V1,
         SCHEMA_VERSION_V2: _SCENARIO_KEYS_V2,
         SCHEMA_VERSION_V3: _SCENARIO_KEYS_V3,
+        SCHEMA_VERSION_V4: _SCENARIO_KEYS_V4,
     }
     required = required_by_version[version]
     document = _exact_keys(value, required, set(), "scenario")
@@ -179,16 +212,20 @@ def validate_scenario(value: object) -> dict[str, Any]:
         "defaultDtMs": _nonnegative_int(
             document["defaultDtMs"], "scenario.defaultDtMs"
         ),
-        "operations": _validate_operations(document["operations"]),
+        "operations": _validate_operations(document["operations"], version),
     }
-    if version in {SCHEMA_VERSION_V2, SCHEMA_VERSION_V3}:
+    if version in {SCHEMA_VERSION_V2, SCHEMA_VERSION_V3, SCHEMA_VERSION_V4}:
         result["environmentRewardContract"] = _environment_reward_contract(
             document["environmentRewardContract"], "scenario"
         )
-    if version == SCHEMA_VERSION_V3:
+    if version in {SCHEMA_VERSION_V3, SCHEMA_VERSION_V4}:
         result["overduePassengerThreshold"] = _positive_int(
             document["overduePassengerThreshold"],
             "scenario.overduePassengerThreshold",
+        )
+    if version == SCHEMA_VERSION_V4:
+        result["fleetActionContract"] = _fleet_action_contract(
+            document["fleetActionContract"], "scenario"
         )
     return _json_copy(result, "scenario")
 
@@ -201,6 +238,7 @@ def validate_inputs(value: object) -> dict[str, Any]:
         SCHEMA_VERSION_V1: _INPUT_KEYS_V1,
         SCHEMA_VERSION_V2: _INPUT_KEYS_V2,
         SCHEMA_VERSION_V3: _INPUT_KEYS_V3,
+        SCHEMA_VERSION_V4: _INPUT_KEYS_V4,
     }
     required = required_by_version[version]
     document = _exact_keys(value, required, set(), "inputs")
@@ -214,16 +252,20 @@ def validate_inputs(value: object) -> dict[str, Any]:
             document["pythonExecutable"], "inputs.pythonExecutable"
         ),
         "pythonHashSeed": _hash_seed(document["pythonHashSeed"]),
-        "operations": _validate_operations(document["operations"]),
+        "operations": _validate_operations(document["operations"], version),
     }
-    if version in {SCHEMA_VERSION_V2, SCHEMA_VERSION_V3}:
+    if version in {SCHEMA_VERSION_V2, SCHEMA_VERSION_V3, SCHEMA_VERSION_V4}:
         result["environmentRewardContract"] = _environment_reward_contract(
             document["environmentRewardContract"], "inputs"
         )
-    if version == SCHEMA_VERSION_V3:
+    if version in {SCHEMA_VERSION_V3, SCHEMA_VERSION_V4}:
         result["overduePassengerThreshold"] = _positive_int(
             document["overduePassengerThreshold"],
             "inputs.overduePassengerThreshold",
+        )
+    if version == SCHEMA_VERSION_V4:
+        result["fleetActionContract"] = _fleet_action_contract(
+            document["fleetActionContract"], "inputs"
         )
     return _json_copy(result, "inputs")
 

@@ -390,26 +390,18 @@ if loaded:
         self.assertIsNone(rebound.path_being_created)
         self.assertEqual(rebound.events, [("release-rebind",)])
 
-    def test_finish_uses_late_factory_then_same_metro_and_preserves_failures(self):
+    def test_finish_cleans_draft_without_allocating_and_preserves_button_failures(
+        self,
+    ):
         host = FakeHost(self.lifecycle)
         path = FakePath("draft", (1, 2, 3), host.events)
         path.is_being_created = True
         host.path_being_created = path
         host.is_creating_path = True
+        existing = FakeMetro("existing")
+        path.metros = [existing]
+        host.metros = [existing]
         snapshots = {}
-
-        def build_metro():
-            return FakeMetro("late")
-
-        def get_metro_factory():
-            snapshots["getter"] = (
-                host.is_creating_path,
-                path.is_being_created,
-                path.temp_point,
-                host.path_being_created,
-            )
-            host.events.append(("factory:metro:get",))
-            return EphemeralFactory("metro", host.events, build_metro)
 
         def assign():
             snapshots["assign"] = (
@@ -420,26 +412,17 @@ if loaded:
             host.events.append(("public:assign",))
 
         host.assign_paths_to_buttons = assign
-        self.lifecycle.finish_path_creation(host, get_metro_factory=get_metro_factory)
+        self.lifecycle.finish_path_creation(host)
 
-        metro = host.metros[0]
-        self.assertEqual(snapshots["getter"], (False, False, None, path))
-        self.assertEqual(snapshots["assign"], (None, (metro,), (metro,)))
-        self.assertIs(path.metros[0], metro)
+        self.assertFalse(host.is_creating_path)
+        self.assertFalse(path.is_being_created)
+        self.assertIsNone(path.temp_point)
+        self.assertIsNone(host.path_being_created)
+        self.assertEqual(snapshots["assign"], (None, (existing,), (existing,)))
+        self.assertEqual(path.metros, [existing])
+        self.assertEqual(host.metros, [existing])
         names = [event[0] for event in host.events]
-        self.assertLess(names.index("factory:metro:del"), names.index("path:add-metro"))
-
-        capped = FakeHost(self.lifecycle)
-        capped_path = FakePath("capped", (0, 0, 0), capped.events)
-        capped.path_being_created = capped_path
-        capped.is_creating_path = True
-        capped.metros = [FakeMetro("existing")]
-        capped.num_metros = 1
-        self.lifecycle.finish_path_creation(
-            capped, get_metro_factory=lambda: self.fail("factory resolved at cap")
-        )
-        self.assertIsNone(capped.path_being_created)
-        self.assertEqual(len(capped.metros), 1)
+        self.assertLess(names.index("path:remove-temp"), names.index("public:assign"))
 
         failing = FakeHost(self.lifecycle)
         failing_path = FakePath("failing", (0, 0, 0), failing.events)
@@ -448,17 +431,17 @@ if loaded:
         failing.is_creating_path = True
 
         def explode():
-            raise RuntimeError("factory failed")
+            raise RuntimeError("button assignment failed")
 
-        with self.assertRaisesRegex(RuntimeError, "factory failed"):
-            self.lifecycle.finish_path_creation(
-                failing, get_metro_factory=lambda: explode
-            )
+        failing.assign_paths_to_buttons = explode
+        with self.assertRaisesRegex(RuntimeError, "button assignment failed"):
+            self.lifecycle.finish_path_creation(failing)
         self.assertFalse(failing.is_creating_path)
         self.assertFalse(failing_path.is_being_created)
         self.assertIsNone(failing_path.temp_point)
-        self.assertIs(failing.path_being_created, failing_path)
-        self.assertNotIn(("public:assign",), failing.events)
+        self.assertIsNone(failing.path_being_created)
+        self.assertEqual(failing_path.metros, [])
+        self.assertEqual(failing.metros, [])
 
     def test_end_path_dispatches_exact_finish_loop_add_and_abort_branches(self):
         cases = (

@@ -77,7 +77,7 @@ class TestMediatorPathFailureContract(support.MediatorTestCase):
         self.assertEqual(rebound_paths, [])
         self.assertIsNone(mediator.path_being_created)
 
-    def test_finish_resolves_rebound_assignment_after_metro_installation(self):
+    def test_finish_resolves_rebound_button_assignment_after_draft_cleanup(self):
         mediator = Mediator(seed=0)
         mediator.start_path_on_station(mediator.stations[0])
         mediator.add_station_to_path(mediator.stations[1])
@@ -94,25 +94,24 @@ class TestMediatorPathFailureContract(support.MediatorTestCase):
                 )
             )
 
-        class AssignmentRebindingMetros(list):
-            def append(self, metro):
-                super().append(metro)
-                mediator.assign_paths_to_buttons = late_assign
+        original_remove_temporary_point = path.remove_temporary_point
 
-        mediator.metros = AssignmentRebindingMetros()
+        def remove_temporary_point():
+            original_remove_temporary_point()
+            mediator.assign_paths_to_buttons = late_assign
+
+        path.remove_temporary_point = remove_temporary_point
         early_assign = MagicMock(
-            side_effect=AssertionError(
-                "assignment hook resolved before metro installation"
-            )
+            side_effect=AssertionError("assignment hook resolved before draft cleanup")
         )
         mediator.assign_paths_to_buttons = early_assign
 
         mediator.finish_path_creation()
 
         early_assign.assert_not_called()
-        metro = mediator.metros[0]
-        self.assertIs(path.metros[0], metro)
-        self.assertEqual(events, [(None, (metro,), (metro,))])
+        self.assertEqual(path.metros, [])
+        self.assertEqual(mediator.metros, [])
+        self.assertEqual(events, [(None, (), ())])
 
     def test_programmatic_creation_uses_captured_path_and_current_paths(self):
         mediator = Mediator(seed=0)
@@ -181,7 +180,7 @@ class TestMediatorPathFailureContract(support.MediatorTestCase):
         self.assertIsNone(mediator.path_being_created)
         self.assertEqual(mediator.paths, [])
 
-    def test_metro_factory_exception_preserves_cleaned_partial_state(self):
+    def test_explicit_metro_factory_exception_preserves_completed_unserved_state(self):
         mediator = Mediator(seed=0)
         mediator.start_path_on_station(mediator.stations[0])
         mediator.add_station_to_path(mediator.stations[1])
@@ -191,6 +190,7 @@ class TestMediatorPathFailureContract(support.MediatorTestCase):
         error = LookupError("metro factory failure")
         snapshot = {}
         mediator.assign_paths_to_buttons = MagicMock()
+        mediator.finish_path_creation()
 
         def failing_factory():
             snapshot["state"] = (
@@ -204,18 +204,16 @@ class TestMediatorPathFailureContract(support.MediatorTestCase):
             raise error
 
         with patch.object(mediator_module, "Metro", failing_factory):
-            with self.assertRaises(LookupError) as raised:
-                mediator.finish_path_creation()
+            self.assertFalse(mediator.assign_locomotive(path))
 
-        self.assertIs(raised.exception, error)
         state = snapshot["state"]
         self.assertEqual(state[:3], (False, False, None))
-        self.assertIs(state[3], path)
+        self.assertIsNone(state[3])
         self.assertEqual(state[4:], ((), ()))
         self.assertFalse(mediator.is_creating_path)
         self.assertFalse(path.is_being_created)
         self.assertIsNone(path.temp_point)
-        self.assertIs(mediator.path_being_created, path)
+        self.assertIsNone(mediator.path_being_created)
         self.assertEqual(path.metros, [])
         self.assertEqual(mediator.metros, [])
-        mediator.assign_paths_to_buttons.assert_not_called()
+        mediator.assign_paths_to_buttons.assert_called_once_with()

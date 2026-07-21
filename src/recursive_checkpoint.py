@@ -1,43 +1,24 @@
 from __future__ import annotations
 
-import math
-from enum import Enum
 from typing import Any, Sequence
 
-import numpy as np
-
 from env import (
-    DELIVERIES_REWARD_MODE,
     LINE_CREDITS_DELTA_REWARD_MODE,
     MiniMetroEnv,
 )
+from recursive_checkpoint_schema import (
+    CHECKPOINT_SCHEMA_VERSION,
+    CHECKPOINT_SCHEMA_VERSION_V1,
+    CHECKPOINT_SCHEMA_VERSION_V2,
+    SUPPORTED_CHECKPOINT_SCHEMA_VERSIONS,
+    validate_checkpoint_v3,
+)
+from recursive_checkpoint_schema import (
+    normalize_checkpoint as normalize_checkpoint,
+)
+from recursive_checkpoint_schema import safe_checkpoint_value as _safe
 
-CHECKPOINT_SCHEMA_VERSION = 2
-LEGACY_CHECKPOINT_SCHEMA_VERSION = 1
-
-
-def _safe(value: Any) -> Any:
-    if value is None or type(value) in (bool, int, str):
-        return value
-    if isinstance(value, (float, np.floating)):
-        number = float(value)
-        if math.isfinite(number):
-            return number
-        label = (
-            "NaN" if math.isnan(number) else ("Infinity" if number > 0 else "-Infinity")
-        )
-        return {"$nonFinite": label}
-    if isinstance(value, np.integer):
-        return int(value)
-    if isinstance(value, Enum):
-        return _safe(value.value)
-    if isinstance(value, np.ndarray):
-        return _safe(value.tolist())
-    if isinstance(value, (list, tuple)):
-        return [_safe(item) for item in value]
-    if isinstance(value, dict):
-        return {str(key): _safe(item) for key, item in value.items()}
-    raise TypeError(f"checkpoint contains unsupported {type(value).__name__}")
+LEGACY_CHECKPOINT_SCHEMA_VERSION = CHECKPOINT_SCHEMA_VERSION_V1
 
 
 def _position(value: Any) -> list[Any] | None:
@@ -54,76 +35,9 @@ def _unique(objects: Sequence[Any]) -> list[Any]:
     return result
 
 
-def normalize_checkpoint(checkpoint: dict[str, Any]) -> dict[str, Any]:
-    """Return one schema-v2 checkpoint view without mutating recorded evidence."""
-
-    if type(checkpoint) is not dict:
-        raise ValueError("checkpoint must be an object")
-    normalized = _safe(checkpoint)
-    version = normalized.get("schemaVersion")
-    if type(version) is not int or version not in {
-        LEGACY_CHECKPOINT_SCHEMA_VERSION,
-        CHECKPOINT_SCHEMA_VERSION,
-    }:
-        raise ValueError("checkpoint schemaVersion must be 1 or 2")
-    try:
-        environment = normalized["environment"]
-        progression = normalized["progression"]
-        limits = progression["limits"]
-        last_score = environment["last_score"]
-        score = progression["score"]
-        deliveries = progression["total_travels_handled"]
-        overdue_threshold = limits["max_waiting_passengers"]
-    except (KeyError, TypeError) as error:
-        raise ValueError("checkpoint is missing legacy compatibility fields") from error
-
-    if version == LEGACY_CHECKPOINT_SCHEMA_VERSION:
-        normalized["schemaVersion"] = CHECKPOINT_SCHEMA_VERSION
-        environment["reward_mode"] = LINE_CREDITS_DELTA_REWARD_MODE
-        environment["last_deliveries"] = deliveries
-        environment["last_line_credits"] = last_score
-        progression["deliveries"] = deliveries
-        progression["line_credits"] = score
-        limits["overdue_passenger_threshold"] = overdue_threshold
-        return normalized
-
-    required = (
-        (environment, "reward_mode", "environment.reward_mode"),
-        (environment, "last_deliveries", "environment.last_deliveries"),
-        (environment, "last_line_credits", "environment.last_line_credits"),
-        (progression, "deliveries", "progression.deliveries"),
-        (progression, "line_credits", "progression.line_credits"),
-        (
-            limits,
-            "overdue_passenger_threshold",
-            "progression.limits.overdue_passenger_threshold",
-        ),
-    )
-    for container, key, label in required:
-        if key not in container:
-            raise ValueError(f"checkpoint is missing {label}")
-    if environment["reward_mode"] not in {
-        DELIVERIES_REWARD_MODE,
-        LINE_CREDITS_DELTA_REWARD_MODE,
-    }:
-        raise ValueError("checkpoint environment.reward_mode is unsupported")
-    compatibility_pairs = (
-        (environment["last_line_credits"], last_score, "environment line credits"),
-        (progression["deliveries"], deliveries, "progression deliveries"),
-        (progression["line_credits"], score, "progression line credits"),
-        (
-            limits["overdue_passenger_threshold"],
-            overdue_threshold,
-            "overdue passenger threshold",
-        ),
-    )
-    for explicit, legacy, label in compatibility_pairs:
-        if explicit != legacy:
-            raise ValueError(f"checkpoint {label} disagrees with its legacy alias")
-    return normalized
-
-
-def _normalize_observation(observation: dict[str, Any]) -> tuple[dict, dict]:
+def _normalize_observation(
+    observation: dict[str, Any], schema_version: int
+) -> tuple[dict, dict]:
     structured = observation["structured"]
     station_ids = {
         item["id"]: index for index, item in enumerate(structured["stations"])
@@ -167,6 +81,13 @@ def _normalize_observation(observation: dict[str, Any]) -> tuple[dict, dict]:
         }
         for item in structured["metros"]
     ]
+    if schema_version == CHECKPOINT_SCHEMA_VERSION:
+        for normalized_metro, source_metro in zip(
+            metros, structured["metros"], strict=True
+        ):
+            normalized_metro["unassignment_queued"] = source_metro[
+                "unassignment_queued"
+            ]
     passengers = []
     for item in structured["passengers"]:
         normalized_location = None
@@ -192,7 +113,34 @@ def _normalize_observation(observation: dict[str, Any]) -> tuple[dict, dict]:
         "is_paused": structured["is_paused"],
         "is_game_over": structured["is_game_over"],
     }
+    if schema_version == CHECKPOINT_SCHEMA_VERSION:
+        normalized["fleet"] = _safe(structured["fleet"])
     return _safe(normalized), _safe(observation["arrays"])
+
+
+def _validate_observation_metro_prefix(
+    env: MiniMetroEnv, observation: dict[str, Any]
+) -> None:
+    try:
+        observed_ids = [item["id"] for item in observation["structured"]["metros"]]
+    except (KeyError, TypeError) as error:
+        raise ValueError(
+            "checkpoint observation is missing structured Metro IDs"
+        ) from error
+    if any(type(value) is not str for value in observed_ids):
+        raise ValueError("checkpoint observation Metro IDs must be strings")
+    if len(set(observed_ids)) != len(observed_ids):
+        raise ValueError("checkpoint observation Metro IDs must be unique")
+    runtime_ids = [metro.id for metro in env.mediator.metros]
+    if observed_ids != runtime_ids:
+        raise ValueError("checkpoint observation Metro order is stale")
+
+
+def _metro_queue_state(metro: Any, *, required: bool) -> bool:
+    value = getattr(metro, "is_unassignment_queued", None if required else False)
+    if type(value) is not bool:
+        raise ValueError("checkpoint Metro queue state must be boolean")
+    return value
 
 
 def canonical_checkpoint(
@@ -201,11 +149,11 @@ def canonical_checkpoint(
     *,
     schema_version: int = CHECKPOINT_SCHEMA_VERSION,
 ) -> dict[str, Any]:
-    if type(schema_version) is not int or schema_version not in {
-        LEGACY_CHECKPOINT_SCHEMA_VERSION,
-        CHECKPOINT_SCHEMA_VERSION,
-    }:
-        raise ValueError("checkpoint schema_version must be 1 or 2")
+    if (
+        type(schema_version) is not int
+        or schema_version not in SUPPORTED_CHECKPOINT_SCHEMA_VERSIONS
+    ):
+        raise ValueError("checkpoint schema_version must be 1, 2, or 3")
     if (
         schema_version == LEGACY_CHECKPOINT_SCHEMA_VERSION
         and hasattr(env, "reward_mode")
@@ -214,12 +162,19 @@ def canonical_checkpoint(
         raise ValueError("checkpoint v1 requires line_credits_delta reward mode")
     mediator = env.mediator
     observation = env.observe() if observation is None else observation
-    structured, arrays = _normalize_observation(observation)
+    if schema_version == CHECKPOINT_SCHEMA_VERSION:
+        _validate_observation_metro_prefix(env, observation)
+    structured, arrays = _normalize_observation(observation, schema_version)
     stations = _unique([*mediator.all_stations, *mediator.stations])
     paths = _unique(mediator.paths)
     metros = _unique(
         [*mediator.metros, *(metro for path in paths for metro in path.metros)]
     )
+    if schema_version in {
+        CHECKPOINT_SCHEMA_VERSION_V1,
+        CHECKPOINT_SCHEMA_VERSION_V2,
+    } and any(_metro_queue_state(metro, required=False) for metro in metros):
+        raise ValueError("checkpoint v1/v2 cannot encode queued unassignment state")
     passengers = _unique(
         [
             *mediator.passengers,
@@ -382,6 +337,9 @@ def canonical_checkpoint(
                 "just_arrived_and_stopped": metro.just_arrived_and_stopped,
             }
         )
+    if schema_version == CHECKPOINT_SCHEMA_VERSION:
+        for item, metro in zip(metro_motion, metros, strict=True):
+            item["unassignment_queued"] = _metro_queue_state(metro, required=True)
     environment_state = {
         "dt_ms_default": env.dt_ms_default,
         "last_score": env.last_score,
@@ -418,7 +376,10 @@ def canonical_checkpoint(
             for button in mediator.path_buttons
         ],
     }
-    if schema_version == CHECKPOINT_SCHEMA_VERSION:
+    if schema_version in {
+        CHECKPOINT_SCHEMA_VERSION_V2,
+        CHECKPOINT_SCHEMA_VERSION,
+    }:
         deliveries = getattr(mediator, "deliveries", mediator.total_travels_handled)
         line_credits = getattr(mediator, "line_credits", mediator.score)
         overdue_threshold = getattr(
@@ -495,4 +456,7 @@ def canonical_checkpoint(
             "numpy": _safe(mediator.context.numpy_random.bit_generator.state),
         },
     }
-    return _safe(checkpoint)
+    checkpoint = _safe(checkpoint)
+    if schema_version == CHECKPOINT_SCHEMA_VERSION:
+        validate_checkpoint_v3(checkpoint)
+    return checkpoint

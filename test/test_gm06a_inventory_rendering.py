@@ -304,7 +304,9 @@ class TestGM06aInventoryRendering(unittest.TestCase):
         env = MiniMetroEnv(dt_ms=17)
         env.reset(seed=606)
         mediator = env.mediator
-        self.assertIsNotNone(mediator.create_path_from_station_indices([0, 1, 2]))
+        path = mediator.create_path_from_station_indices([0, 1, 2])
+        self.assertIsNotNone(path)
+        self.assertTrue(mediator.assign_locomotive(path))
         mediator.prepare_layout(config.screen_width, config.screen_height)
         renderer = GameRenderer()
         before = canonical_checkpoint(env)
@@ -353,11 +355,23 @@ class TestGM06aInventoryRendering(unittest.TestCase):
                     second_grid = _grid(mediator.stations[1].position, profile)
                     env.step(_action(ActionKind.DOWN, first_grid))
                     env.step(_action(ActionKind.MOTION, second_grid))
-                    created = env.step(_action(ActionKind.UP, second_grid))
+                    env.step(_action(ActionKind.UP, second_grid))
+                    self.assertEqual(
+                        (len(mediator.paths), len(mediator.metros)), (1, 0)
+                    )
+                    route = mediator.paths[0]
+                    plus = next(
+                        button
+                        for button in mediator.fleet_buttons
+                        if button.operation == "assign"
+                        and button.path_button is mediator.path_to_button[route]
+                    )
+                    plus_grid = _grid(plus.position, profile)
+                    env.step(_action(ActionKind.DOWN, plus_grid))
+                    assigned = env.step(_action(ActionKind.UP, plus_grid))
                     self.assertEqual(
                         (len(mediator.paths), len(mediator.metros)), (1, 1)
                     )
-                    route = mediator.paths[0]
                     button_grid = _grid(
                         mediator.path_to_button[route].position, profile
                     )
@@ -367,10 +381,10 @@ class TestGM06aInventoryRendering(unittest.TestCase):
                         (len(mediator.paths), len(mediator.metros)), (0, 0)
                     )
 
-                    infos = (fresh[4], created[4], removed[4])
+                    infos = (fresh[4], assigned[4], removed[4])
                     frames = tuple(
                         _mask_cursors(result[0], profile, infos)
-                        for result in (fresh, created, removed)
+                        for result in (fresh, assigned, removed)
                     )
                     rows, columns = _digit_crop(profile, font)
                     crops = tuple(frame[:, rows, columns] for frame in frames)

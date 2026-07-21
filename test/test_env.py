@@ -43,7 +43,7 @@ class TestEnv(unittest.TestCase):
         self.assertFalse(done)
         self.assertIsInstance(reward, int)
         self.assertEqual(len(env.mediator.paths), 1)
-        self.assertEqual(len(env.mediator.metros), 1)
+        self.assertEqual(len(env.mediator.metros), 0)
         self.assertIn("arrays", obs)
         self.assertIn("structured", obs)
 
@@ -287,6 +287,7 @@ class TestEnv(unittest.TestCase):
         ]
 
         env.step({"type": "create_path", "stations": [0, 1], "loop": False})
+        env.step({"type": "assign_locomotive", "path_index": 0}, dt_ms=0)
         env.step({"type": "noop"}, dt_ms=2000)
 
         metro = env.mediator.metros[0]

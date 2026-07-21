@@ -27,6 +27,10 @@ class TestCheckpoint(unittest.TestCase):
             {"type": "create_path", "stations": [0, 1, 2], "loop": False},
             dt_ms=1,
         )
+        _, _, _, assignment_info = self.env.step(
+            {"type": "assign_locomotive", "path_index": 0}, dt_ms=0
+        )
+        self.assertTrue(assignment_info["action_ok"])
         checkpoint = self.checkpoint()
         encoded = json.dumps(checkpoint, allow_nan=False, sort_keys=True)
 
@@ -38,7 +42,7 @@ class TestCheckpoint(unittest.TestCase):
         ):
             self.assertNotIn(entity.id, encoded)
         self.assertNotIn("_id_to_index", encoded)
-        self.assertEqual(checkpoint["schemaVersion"], 2)
+        self.assertEqual(checkpoint["schemaVersion"], 3)
         self.assertIn("structured", checkpoint)
         self.assertIn("arrays", checkpoint)
         self.assertIn("rng", checkpoint)
@@ -79,7 +83,7 @@ class TestCheckpoint(unittest.TestCase):
         self.assertNotIn("last_deliveries", legacy["environment"])
         self.assertNotIn("last_line_credits", legacy["environment"])
         self.assertEqual(json.dumps(legacy, allow_nan=False, sort_keys=True), encoded)
-        self.assertEqual(normalized["schemaVersion"], 2)
+        self.assertEqual(normalized["schemaVersion"], 3)
         self.assertEqual(
             normalized["progression"]["deliveries"],
             legacy["progression"]["total_travels_handled"],
@@ -137,7 +141,7 @@ class TestCheckpoint(unittest.TestCase):
     def test_checkpoint_normalizer_rejects_unknown_or_incomplete_schemas(self):
         checkpoint = self.checkpoint()
         with self.assertRaises(ValueError):
-            normalize_checkpoint({**checkpoint, "schemaVersion": 3})
+            normalize_checkpoint({**checkpoint, "schemaVersion": 4})
         incomplete = json.loads(json.dumps(checkpoint))
         del incomplete["progression"]["deliveries"]
         with self.assertRaises(ValueError):
@@ -192,6 +196,10 @@ class TestCheckpoint(unittest.TestCase):
             {"type": "create_path", "stations": [0, 1, 2], "loop": False},
             dt_ms=1,
         )
+        _, _, _, assignment_info = self.env.step(
+            {"type": "assign_locomotive", "path_index": 0}, dt_ms=0
+        )
+        self.assertTrue(assignment_info["action_ok"])
         baseline = self.checkpoint()
 
         metro = self.env.mediator.metros[0]

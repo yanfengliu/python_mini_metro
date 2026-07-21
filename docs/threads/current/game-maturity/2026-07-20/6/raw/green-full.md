@@ -1,0 +1,12 @@
+# GM-06b full local gates
+
+- Definitive Python command: `$env:PYTHONHASHSEED='0'; C:\Users\38909\miniconda3\envs\py313\python.exe -m unittest -v`.
+- Definitive Python result: 825 tests ran in 9.440 seconds; all passed with 12 expected optional-stack skips.
+- Direct canonical Node body: `node --test`.
+- Node result: 249 tests registered; 245 passed, four platform-specific tests skipped, zero failures, in 160.924 seconds.
+- Changed-Python Ruff result: all 47 paths passed `ruff check`; all 47 passed `ruff format --check`.
+- Exact-file pre-commit result: EOF, trailing whitespace, Ruff, and Ruff format passed; YAML correctly skipped because the payload has no YAML change. The first sandboxed attempts were blocked by cache/Git ownership ACLs; the approved exact-file run used a task-owned workspace cache, passed, and that cache was removed.
+- Frozen unaffected GM-03f differential: four cases, 90 events, 16 records, 7,123 bytes, and SHA-256 `147f90d827a9b4c3fb17f0aae212e2603c5c6bdc99915a87bbfde29f8d699f05` matched baseline and committed expected bytes exactly; its task-owned output was removed.
+- Fingerprints: protocol `69c604ac62d46d4a2339b3efad239372c61d0eb52e45ce6c9b6cf8da946dea8f`, default task `719362078a7d98f1e3c944a6a797f7147b29383495f37f417aa9d61e3416016d`, fidelity task `cd713a6891d8e74dab1aac2ded2edc88a727cb2b5b420948c65731d3a0eb3418`, and training `b195946ef62db7058b5ff8c295045d285019cce10b2a12d8b86d28f180670f93` remain exact. Intentional source/gameplay/render changes advance content identity from GM-06a `f776cb1f049bffa6b4a958d9c3c8b936dd224eb2e729ce6dfce0bdb5a8923e9f` to `78bd55440ffa49f65559aa15c2e806913fea59aca17f610ccb11083468c4ff21`.
+
+Changed handwritten production physical lines: `src/agent_play.py` 397; `src/config.py` 165; `src/entity/metro.py` 123; `src/env.py` 323; `src/fleet_input.py` 84; `src/fleet_management.py` 401; `src/input_coordinator.py` 492; `src/input_coordinator_host.py` 99; `src/mediator.py` 695; `src/path_lifecycle.py` 282; `src/recursive_checkpoint.py` 462; `src/recursive_checkpoint_schema.py` 249; `src/recursive_contract.py` 274; `src/recursive_playtest.py` 459; `src/rendering/game_renderer.py` 495; `src/rl/demonstrator.py` 206; `src/rl/privileged_oracle.py` 110; `src/ui/fleet_button.py` 174; `src/ui/path_button.py` 199; and `scripts/playtest-verify.mjs` 405. Only the established Mediator facade exceeds 500, and it remains below the 1,000-line ceiling.

@@ -7,7 +7,6 @@ from test.path_lifecycle_test_support import (
     IntSubclass,
     LoggingList,
     LoggingPlans,
-    assert_late_metro_factory,
     assert_late_path_factory,
     path_through,
 )
@@ -252,8 +251,20 @@ class TestMediatorPathContract(support.MediatorTestCase):
     def test_path_factory_is_resolved_after_color_claim_and_keeps_identity(self):
         assert_late_path_factory(self, Mediator(seed=0))
 
-    def test_metro_factory_is_resolved_after_draft_cleanup_and_keeps_identity(self):
-        assert_late_metro_factory(self, Mediator(seed=0))
+    def test_completed_path_stays_unserved_until_explicit_assignment(self):
+        mediator = Mediator(seed=0)
+        mediator.start_path_on_station(mediator.stations[0])
+        mediator.add_station_to_path(mediator.stations[1])
+        path = mediator.path_being_created
+        assert path is not None
+
+        mediator.finish_path_creation()
+
+        self.assertIsNone(mediator.path_being_created)
+        self.assertEqual(path.metros, [])
+        self.assertEqual(mediator.metros, [])
+        self.assertTrue(mediator.assign_locomotive(path))
+        self.assertIs(path.metros[0], mediator.metros[0])
 
     def test_creation_hooks_and_station_transitions_remain_live_and_ordered(self):
         mediator = Mediator(seed=0)

@@ -41,12 +41,16 @@ This document summarizes the game rules currently implemented in code.
 - When a line endpoint snaps onto a station during creation, that station emits a brief outward ring blip in the line color.
 - A line can only be created if there is an unlocked line slot available.
 - The locomotive inventory starts at 4 total. `Mediator.metros` contains assigned locomotives only, and available inventory is the nonnegative difference between the total and assigned counts; unassigned locomotives are fungible capacity rather than preconstructed entities.
+- Completing a line does not assign a locomotive. A completed line remains valid but unserved until the player uses its plus control or the `assign_locomotive` structured action. Multiple locomotives can serve one line while total inventory remains available.
+- The minus control and `unassign_locomotive` action select the last empty, nonqueued locomotive on the line. An empty locomotive at a real station returns immediately; otherwise it remains assigned, boards no new passengers, and is forced to stop and return at its next real station. Endpoint-coordinate equality alone does not count as a station arrival.
+- A queued return is a visible subset of assigned inventory and does not increase availability early. Repeated requests can queue distinct eligible locomotives; an already queued locomotive is never selected again. Redistribution is the explicit two-step sequence of returning a source locomotive and then assigning the newly available capacity to a destination line.
+- A paused game accepts a return request, but a moving locomotive does not advance until play resumes. A terminal game rejects fleet actions. GM-06b intentionally rejects occupied-locomotive return requests; occupied-return cancellation and destructive line-removal rider cleanup remain scheduled for GM-06d.
 - Removing a line removes its assigned metros from the active global collection, making those locomotive units available again in ordinary gameplay. The current removal behavior for onboard passengers is scheduled for GM-06d hardening.
 - Metro capacity is 6 passengers.
 - Metro movement is automatic along the line:
   - Non-loop lines reverse direction at endpoints.
   - Loop lines continue around the loop.
-- The current total locomotive limit is 4. Completing a new line automatically assigns one locomotive while inventory is available; a line still completes unserved when inventory is exhausted. Explicit assignment and redistribution controls are owned by GM-06b.
+- The current total locomotive limit is 4. Availability is always `max(0, total - assigned)`, including compatibility states that contain more assigned locomotives than the current total.
 
 ## Deliveries, Line Credits, and Progression
 
@@ -101,6 +105,7 @@ This document summarizes the game rules currently implemented in code.
   - Hold an assigned line button and release over empty in-view space to show its handles, then begin a separate drag on a filled endpoint or hollow insertion handle to edit one route edge.
   - Hover a locked line button to see a two-line buy hint (`Buy` + price).
   - Click a locked line button (empty ring) to purchase that slot if enough line credits remain.
+  - Click the plus above a completed line button to assign one available locomotive. Click its minus to request the return of the last eligible empty locomotive.
   - Click and release a line color button without capturing a station to remove its release-target line.
   - On game-over screen, click Restart or Exit buttons.
 - Keyboard:
@@ -113,6 +118,8 @@ This document summarizes the game rules currently implemented in code.
 
 - `create_path`: create a line from station indices (with optional loop flag).
 - `replace_path`: atomically replace one existing line selected by exactly one index or id, using a unique station-index sequence and optional loop flag.
+- `assign_locomotive`: assign one available locomotive to a completed line selected by exactly one index or id.
+- `unassign_locomotive`: immediately return or queue the return of an empty locomotive from a completed line selected by exactly one index or id.
 - `remove_path`: remove a line by index or id.
 - `buy_line`: purchase the next locked line, optionally targeting its sequential button index.
 - `pause`: pause simulation.

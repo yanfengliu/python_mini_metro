@@ -60,6 +60,8 @@ metro_size = 30
 metro_color = (200, 200, 200)
 metro_outline_color = (30, 30, 30)
 metro_outline_width = 2
+metro_queue_outline_color = (235, 145, 35)
+metro_queue_outline_width = 7
 metro_capacity = 6
 metro_speed_per_ms = 150 / 1000  # pixels / ms
 metro_accel_time_ms = 1000
@@ -106,6 +108,24 @@ path_button_locked_ring_width = 5
 path_button_buy_text_color = (0, 0, 0)
 path_button_buy_text_disabled_color = (140, 140, 140)
 path_button_buy_text_font_size = 26
+path_button_buy_text_bottom_gap = 48
+
+# fleet button
+fleet_button_radius = 16
+fleet_button_horizontal_offset = 19
+fleet_button_vertical_offset = 58
+fleet_button_border_width = 2
+fleet_button_icon_width = 3
+fleet_button_enabled_color = (245, 245, 245)
+fleet_button_disabled_color = (205, 205, 205)
+fleet_button_hover_color = (255, 228, 170)
+fleet_button_border_color = (30, 30, 30)
+fleet_button_icon_color = (30, 30, 30)
+fleet_button_disabled_icon_color = (135, 135, 135)
+fleet_button_badge_color = (235, 145, 35)
+fleet_button_badge_text_color = (20, 20, 20)
+fleet_button_badge_radius = 10
+fleet_button_badge_font_size = 18
 
 # speed button
 speed_button_width = 78

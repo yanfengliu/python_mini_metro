@@ -329,6 +329,7 @@ class GameRenderer:
             kwargs: dict[str, Any] = {
                 "current_time_ms": current_time_ms,
                 "resources": self.resources,
+                "state": state,
             }
             path_button_index = path_button_indexes.get(id(button))
             if path_button_index is not None:

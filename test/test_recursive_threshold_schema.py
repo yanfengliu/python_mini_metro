@@ -67,14 +67,15 @@ def checkpoint_threshold(checkpoint):
 
 
 class TestRecursiveThresholdSchema(unittest.TestCase):
-    def test_schema_versions_have_immutable_names_and_current_v3_alias(self):
+    def test_schema_versions_have_immutable_names_and_current_v4_alias(self):
         self.assertEqual(getattr(recursive_contract, "SCHEMA_VERSION_V1", None), 1)
         self.assertEqual(getattr(recursive_contract, "SCHEMA_VERSION_V2", None), 2)
         self.assertEqual(getattr(recursive_contract, "SCHEMA_VERSION_V3", None), 3)
+        self.assertEqual(getattr(recursive_contract, "SCHEMA_VERSION_V4", None), 4)
         self.assertEqual(recursive_contract.LEGACY_SCHEMA_VERSION, 1)
-        self.assertEqual(recursive_contract.SCHEMA_VERSION, 3)
+        self.assertEqual(recursive_contract.SCHEMA_VERSION, 4)
         self.assertEqual(recursive_playtest.LEGACY_SCHEMA_VERSION, 1)
-        self.assertEqual(recursive_playtest.SCHEMA_VERSION, 3)
+        self.assertEqual(recursive_playtest.SCHEMA_VERSION, 4)
 
     def test_v1_v2_and_v3_scenarios_are_supported_with_exact_versioned_keys(self):
         documents = (

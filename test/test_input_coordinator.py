@@ -50,6 +50,7 @@ class TestInputCoordinator(support.MediatorTestCase):
             {
                 "__future__",
                 "collections.abc",
+                "fleet_input",
                 "input_coordinator_host",
                 "path_handle_input",
                 "path_handles",

@@ -12,6 +12,8 @@ from config import (
     metro_outline_color,
     metro_outline_width,
     metro_passengers_per_row,
+    metro_queue_outline_color,
+    metro_queue_outline_width,
     metro_size,
     metro_speed_per_ms,
     passenger_size,
@@ -46,6 +48,7 @@ class Metro(Holder):
         self.boarding_progress_ms = 0
         self.boarding_time_per_passenger_ms = metro_boarding_time_per_passenger_ms
         self.just_arrived_and_stopped = False
+        self.is_unassignment_queued = False
 
     def draw(
         self,
@@ -81,11 +84,15 @@ class Metro(Holder):
             )
             for point in self.shape.points
         ]
+        if self.is_unassignment_queued:
+            pygame.draw.polygon(
+                surface,
+                metro_queue_outline_color,
+                outline_points,
+                metro_queue_outline_width,
+            )
         pygame.draw.polygon(
-            surface,
-            metro_outline_color,
-            outline_points,
-            metro_outline_width,
+            surface, metro_outline_color, outline_points, metro_outline_width
         )
 
         grid_cols = self.passengers_per_row

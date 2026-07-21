@@ -6,7 +6,6 @@ from typing import Any, Protocol
 from path_replacement import replace_path as replace_path_transaction
 
 PathFactoryGetter = Callable[[], Callable[[Any], Any]]
-MetroFactoryGetter = Callable[[], Callable[[], Any]]
 Resolver = Callable[[], Any]
 
 
@@ -23,7 +22,6 @@ class PathLifecycleHost(Protocol):
     path_to_color: dict[Any, Any]
     stations: list[Any]
     unlocked_num_paths: int
-    num_metros: int
     time_ms: int
     is_creating_path: bool
     path_being_created: Any | None
@@ -255,20 +253,11 @@ class PathLifecycle:
         host.path_colors[path.color] = False
         del host.path_to_color[path]
 
-    def finish_path_creation(
-        self,
-        host: PathLifecycleHost,
-        *,
-        get_metro_factory: MetroFactoryGetter,
-    ) -> None:
+    def finish_path_creation(self, host: PathLifecycleHost) -> None:
         assert host.path_being_created is not None
         host.is_creating_path = False
         host.path_being_created.is_being_created = False
         host.path_being_created.remove_temporary_point()
-        if len(host.metros) < host.num_metros:
-            metro = get_metro_factory()()
-            host.path_being_created.add_metro(metro)
-            host.metros.append(metro)
         host.path_being_created = None
         host.assign_paths_to_buttons()
 

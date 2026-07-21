@@ -72,6 +72,39 @@ class MiniMetroEnv:
             action = {"type": "noop"}
         action_ok = self.mediator.apply_action(action)
 
+        return self._complete_step(action_ok, dt_ms)
+
+    def step_legacy_auto_assignment(
+        self, action: Dict[str, Any] | None = None, dt_ms: int | None = None
+    ) -> Tuple[Dict[str, Any], int, bool, Dict[str, Any]]:
+        """Reproduce the pre-explicit-fleet create-and-assign transition."""
+
+        if self.mediator.is_game_over:
+            return self.step(action, dt_ms=dt_ms)
+        if type(action) is not dict or action.get("type") != "create_path":
+            return self.step(action, dt_ms=dt_ms)
+
+        had_capacity = len(self.mediator.metros) < self.mediator.num_metros
+        existing_paths = tuple(self.mediator.paths)
+        action_ok = self.mediator.apply_action(action)
+        if action_ok and had_capacity:
+            new_paths = [
+                path
+                for path in self.mediator.paths
+                if all(path is not existing for existing in existing_paths)
+            ]
+            if len(new_paths) != 1:
+                raise RuntimeError(
+                    "legacy create_path did not append exactly one active path"
+                )
+            if not self.mediator.assign_locomotive(new_paths[0]):
+                raise RuntimeError("legacy create_path locomotive assignment failed")
+
+        return self._complete_step(action_ok, dt_ms)
+
+    def _complete_step(
+        self, action_ok: bool, dt_ms: int | None
+    ) -> Tuple[Dict[str, Any], int, bool, Dict[str, Any]]:
         if dt_ms is None:
             dt_ms = self.dt_ms_default
         if action_ok and dt_ms is not None:
@@ -96,6 +129,12 @@ class MiniMetroEnv:
         passenger_id_to_index = {
             passenger.id: idx for idx, passenger in enumerate(self.mediator.passengers)
         }
+        metro_queue_states: Dict[int, bool] = {}
+        for metro in self.mediator.metros:
+            queue_state = getattr(metro, "is_unassignment_queued", None)
+            if type(queue_state) is not bool:
+                raise ValueError("metro unassignment queue state must be boolean")
+            metro_queue_states[id(metro)] = queue_state
 
         passenger_locations: Dict[str, Tuple[str, str] | None] = {
             passenger.id: None for passenger in self.mediator.passengers
@@ -140,6 +179,7 @@ class MiniMetroEnv:
                         metro.current_station.id if metro.current_station else None
                     ),
                     "passenger_ids": [p.id for p in metro.passengers],
+                    "unassignment_queued": metro_queue_states[id(metro)],
                 }
                 for metro in self.mediator.metros
             ],
@@ -156,6 +196,7 @@ class MiniMetroEnv:
                 "locomotives_total": self.mediator.num_metros,
                 "locomotives_assigned": len(self.mediator.metros),
                 "locomotives_available": self.mediator.available_locomotives,
+                "locomotives_queued": sum(metro_queue_states.values()),
             },
             "deliveries": self.mediator.deliveries,
             "line_credits": self.mediator.line_credits,
@@ -263,3 +304,20 @@ class MiniMetroEnv:
             "passenger_station_indices": passenger_station_indices,
             "passenger_metro_indices": passenger_metro_indices,
         }
+
+
+def legacy_auto_assignment_step(
+    env: MiniMetroEnv,
+    action: Dict[str, Any] | None = None,
+    dt_ms: int | None = None,
+) -> Tuple[Dict[str, Any], int, bool, Dict[str, Any]]:
+    """Run one historical transition without duplicating driver-side semantics."""
+
+    if type(action) is dict and action.get("type") == "create_path":
+        method = getattr(env, "step_legacy_auto_assignment", None)
+        if method is None:
+            raise ValueError(
+                "legacy create_path replay requires explicit assignment support"
+            )
+        return method(action, dt_ms=dt_ms)
+    return env.step(action, dt_ms=dt_ms)

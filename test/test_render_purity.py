@@ -135,6 +135,8 @@ def _build_renderable_env(seed: int = 41) -> MiniMetroEnv:
     created = mediator.create_path_from_station_indices([0, 1, 2], loop=False)
     if created is None:
         raise AssertionError("deterministic render fixture could not create a path")
+    if not mediator.assign_locomotive(created):
+        raise AssertionError("deterministic render fixture could not assign a Metro")
 
     station_passenger = Passenger(Triangle((20, 20, 20), 5))
     station_passenger.position = Point(7, 11)
@@ -218,6 +220,7 @@ class TestRenderPurity(unittest.TestCase):
             surface = _new_surface()
             actions = [
                 {"type": "create_path", "stations": [0, 1, 2], "loop": False},
+                {"type": "assign_locomotive", "path_index": 0},
                 *({"type": "noop"} for _ in range(89)),
             ]
 

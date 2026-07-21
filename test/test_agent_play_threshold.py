@@ -19,6 +19,7 @@ from agent_play import (
 V1_SCHEMA = "mini-metro-agent-play-v1"
 V2_SCHEMA = "mini-metro-agent-play-v2"
 V3_SCHEMA = "mini-metro-agent-play-v3"
+V4_SCHEMA = "mini-metro-agent-play-v4"
 _MISSING = object()
 
 
@@ -110,12 +111,13 @@ def record(
 
 
 class TestAgentPlayThresholdPersistence(unittest.TestCase):
-    def test_public_schema_aliases_keep_v1_immutable_and_advance_current_to_v3(self):
+    def test_public_schema_aliases_keep_v1_immutable_and_advance_current_to_v4(self):
         self.assertEqual(agent_play.PLAYTHROUGH_RECORD_SCHEMA_V1, V1_SCHEMA)
         self.assertEqual(agent_play.PLAYTHROUGH_RECORD_SCHEMA_V2, V2_SCHEMA)
         self.assertEqual(agent_play.PLAYTHROUGH_RECORD_SCHEMA_V3, V3_SCHEMA)
+        self.assertEqual(agent_play.PLAYTHROUGH_RECORD_SCHEMA_V4, V4_SCHEMA)
         self.assertEqual(agent_play.LEGACY_PLAYTHROUGH_RECORD_SCHEMA, V1_SCHEMA)
-        self.assertEqual(agent_play.PLAYTHROUGH_RECORD_SCHEMA, V3_SCHEMA)
+        self.assertEqual(agent_play.PLAYTHROUGH_RECORD_SCHEMA, V4_SCHEMA)
 
     def test_literal_v1_v2_and_v3_identifiers_remain_supported(self):
         cases = (
@@ -180,8 +182,12 @@ class TestAgentPlayThresholdPersistence(unittest.TestCase):
                     max_steps=0,
                 )
 
-                self.assertEqual(captured.schema, V3_SCHEMA)
+                self.assertEqual(captured.schema, V4_SCHEMA)
                 self.assertEqual(captured.overdue_passenger_threshold, threshold)
+                self.assertEqual(
+                    captured.fleet_action_contract,
+                    agent_play.FLEET_ACTION_CONTRACT,
+                )
 
     def test_v3_replay_applies_threshold_after_supplied_environment_reset(self):
         env = ResetReplacingEnv(reset_threshold=19)

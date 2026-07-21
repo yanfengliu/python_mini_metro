@@ -57,7 +57,7 @@ Set `PYTHON` to a specific interpreter path when `python` is not the intended ex
 * Activate the virtual environment by running `conda activate py313`
 * Run `python src/main.py`
 * The window uses a fixed 60 Hz simulation cadence with interpolated metro motion; resizing preserves the 1920x1080 player view without changing game timing.
-* Hold down the mouse left button on a station and drag onto other stations to create a path for the metro.
+* Hold down the mouse left button on a station and drag onto other stations to create a line. New lines start unserved.
 * Press SPACE to pause / unpause the game.
 * Press `1`, `2`, or `3` to set game speed to 1x, 2x, or 4x.
 * The top-left HUD shows lifetime passengers delivered, currently spendable line credits, and unassigned locomotives as separate values.
@@ -66,7 +66,8 @@ Set `PYTHON` to a specific interpreter path when `python` is not the intended ex
 * Hold an assigned colored circle and release over empty in-view space to select that line's edit handles. On a fresh drag, a filled endpoint handle extends to a new station or shortens by one station when released on its adjacent interior station; a hollow edge handle inserts a new station. Loops expose insertion handles, including the closing edge, but no endpoint handles.
 * Click and release a colored circle without leaving it to remove that established line.
 * Empty rings are locked line slots; hover to see their price and click the next one to buy it with line credits when affordable.
-* A fresh game has four total locomotives. Completing a line automatically assigns one while inventory is available; removing that line makes its assigned locomotive available again. Explicit assignment controls arrive in the next fleet increment.
+* A fresh game has four total locomotives. Each colored line button has a plus control above its left side to assign an available locomotive and a minus control above its right side to request the return of the last empty locomotive on that line.
+* An empty locomotive already stopped at a real station returns immediately. An empty moving locomotive marked for return remains assigned, boards no passengers, stops at its next real station, and only then returns to the available inventory. Use this return-then-assign sequence to move capacity between lines.
 
 ## To play programmatically
 
@@ -87,7 +88,13 @@ obs, reward, done, info = env.step(
     {"type": "create_path", "stations": [0, 1, 2], "loop": False}
 )
 obs, reward, done, info = env.step(
+    {"type": "assign_locomotive", "path_index": 0}
+)
+obs, reward, done, info = env.step(
     {"type": "replace_path", "path_index": 0, "stations": [0, 2, 1]}
+)
+obs, reward, done, info = env.step(
+    {"type": "unassign_locomotive", "path_index": 0}
 )
 obs, reward, done, info = env.step({"type": "remove_path", "path_index": 0})
 ```
@@ -133,6 +140,14 @@ obs, reward, done, info = env.step({"type": "remove_path", "path_index": 0})
   - `loop` is optional and defaults to `False`; when present it must be a boolean. Unrelated extra keys are tolerated.
   - A safe replacement preserves the path object, public id, color/button ownership, metros, riders, and each metro's physical pose while rebuilding route geometry. Waiting riders replan immediately; onboard riders keep a fresh marker to their next safe alight and replan there.
   - Invalid, ambiguous, or continuity-breaking replacements fail atomically with `action_ok=False`.
+- `{"type": "assign_locomotive", "path_index": k}`
+- `{"type": "assign_locomotive", "path_id": "..."}`
+  - Requires exactly one selector resolving to one active, completed line.
+  - Appends one new locomotive to that line when inventory is available. Multiple locomotives may serve the same line.
+- `{"type": "unassign_locomotive", "path_index": k}`
+- `{"type": "unassign_locomotive", "path_id": "..."}`
+  - Requires exactly one selector resolving to one active, completed line with an empty, nonqueued locomotive.
+  - Selects the last eligible locomotive on that line. A moving locomotive remains assigned until it reaches its next real station; a queued locomotive cannot board.
 - `{"type": "buy_line"}`
   - Buys the next locked line if affordable.
   - Price follows configured incremental unlock costs (derived from `path_unlock_milestones`).
@@ -158,7 +173,8 @@ Any unknown `type`, malformed action payload, or rejected replacement returns `i
 `observation` is:
 - `observation["structured"]`: Python dict/list representation
   - includes `stations`, `paths`, `metros`, `passengers`, labeled `fleet` counts, lifetime `deliveries`, spendable `line_credits`, `time_ms`, `steps`, `is_paused`, `is_game_over`, and ID-to-index maps in `index`.
-  - `fleet` contains `locomotives_total`, `locomotives_assigned`, and `locomotives_available`. `Mediator.available_locomotives` is a read-only value derived from total inventory and the assigned-only `Mediator.metros` collection, so it cannot drift from current ownership.
+  - `fleet` contains `locomotives_total`, `locomotives_assigned`, `locomotives_available`, and `locomotives_queued`. Queued locomotives are a subset of assigned locomotives until physical return. `Mediator.available_locomotives` is a read-only value derived from total inventory and the assigned-only `Mediator.metros` collection, so it cannot drift from current ownership.
+  - Each structured Metro entry includes the exact boolean `unassignment_queued`.
   - deprecated structured `score` mirrors `line_credits`; on `Mediator`, writable `score` and `total_travels_handled` compatibility properties alias `line_credits` and `deliveries` respectively.
 - `observation["arrays"]`: NumPy-friendly arrays/lists
   - includes station positions/types/counts, path station-index sequences, metro positions/path indices, passenger destination types and locations.
@@ -249,7 +265,7 @@ The recurrent default is a research-backed production baseline, not a claim that
 
 # Recursive self-improvement loop
 
-The deterministic v3 fixture at `scripts/fixtures/recursive-playtest.json` records the deliveries reward and overdue-passenger threshold `2`, then uses seed `42` to create a line, advance time, exercise pause/resume, remove the line, and verify rejected actions. `scripts/fixtures/recursive-playtest-v2.json` preserves the pre-threshold schema for fresh-process compatibility checks; v1/v2 evidence reconstructs historical threshold `1`. The harness drives `MiniMetroEnv` directly; it does not use the pygame GUI clock or an LLM.
+The deterministic v4 fixture at `scripts/fixtures/recursive-playtest.json` records the deliveries reward, overdue-passenger threshold `2`, and explicit-locomotive-assignment contract, then uses seed `42` to create a line, assign by replay-safe path index, advance time, exercise pause/resume, remove the line, and verify rejected actions. Frozen v1/v2/v3 fixtures retain their historical schemas and automatic-assignment meaning through a shared compatibility transition; persisted v4 fleet actions are index-only so evidence never stores process-local path UUIDs. The harness drives `MiniMetroEnv` directly; it does not use the pygame GUI clock or an LLM.
 
 Run the Node contract tests and one proposal-only recursive pass with:
 

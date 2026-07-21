@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 3,
+  "environmentRewardContract": "deliveries",
+  "overduePassengerThreshold": 2,
+  "seed": 42,
+  "defaultDtMs": 16,
+  "operations": [
+    {
+      "name": "create-initial-line",
+      "action": {
+        "type": "create_path",
+        "stations": [0, 1, 2],
+        "loop": false
+      },
+      "expectedActionOk": true
+    },
+    {
+      "name": "advance-simulation",
+      "action": {
+        "type": "noop"
+      },
+      "dtMs": 32,
+      "expectedActionOk": true
+    },
+    {
+      "name": "pause-simulation",
+      "action": {
+        "type": "pause"
+      },
+      "expectedActionOk": true
+    },
+    {
+      "name": "remain-paused",
+      "action": {
+        "type": "noop"
+      },
+      "expectedActionOk": true
+    },
+    {
+      "name": "resume-simulation",
+      "action": {
+        "type": "resume"
+      },
+      "expectedActionOk": true
+    },
+    {
+      "name": "remove-initial-line",
+      "action": {
+        "type": "remove_path",
+        "path_index": 0
+      },
+      "expectedActionOk": true
+    },
+    {
+      "name": "reject-missing-line-removal",
+      "action": {
+        "type": "remove_path",
+        "path_index": 0
+      },
+      "expectedActionOk": false
+    },
+    {
+      "name": "reject-unaffordable-line-purchase",
+      "action": {
+        "type": "buy_line"
+      },
+      "expectedActionOk": false
+    }
+  ]
+}

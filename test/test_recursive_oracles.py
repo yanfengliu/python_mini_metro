@@ -333,6 +333,11 @@ class TestRecursiveOracles(unittest.TestCase):
             {"type": "create_path", "stations": [0, 1, 2], "loop": False},
             dt_ms=1,
         )
+        _, _, _, assignment_info = env.step(
+            {"type": "assign_locomotive", "path_index": 0},
+            dt_ms=0,
+        )
+        self.assertTrue(assignment_info["action_ok"])
         checkpoint = canonical_checkpoint(env)
         self.assertEqual(reference_errors(checkpoint), [])
         mutations = {

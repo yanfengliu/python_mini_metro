@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "seed": 607,
+  "dtMs": 137,
+  "action": {
+    "type": "create_path",
+    "stations": [0, 1, 2],
+    "loop": false
+  },
+  "cases": [
+    {
+      "recursiveSchemaVersion": 1,
+      "agentRecordSchema": "mini-metro-agent-play-v1",
+      "rewardContract": "line_credits_delta",
+      "overduePassengerThreshold": 1,
+      "checkpointSchemaVersion": 1,
+      "recursiveCheckpointSha256": "dc0231f6ce3ec66b8e62666ae01cf392fc7e7e3fc25c4d52ba0c612eb8d63a0c",
+      "agentCheckpointSha256": "dc0231f6ce3ec66b8e62666ae01cf392fc7e7e3fc25c4d52ba0c612eb8d63a0c"
+    },
+    {
+      "recursiveSchemaVersion": 2,
+      "agentRecordSchema": "mini-metro-agent-play-v2",
+      "rewardContract": "deliveries",
+      "overduePassengerThreshold": 1,
+      "checkpointSchemaVersion": 2,
+      "recursiveCheckpointSha256": "dfd9798fb3712190121a5f5de29fbe6082d0c28af33a13711a7c18fea0b8714b",
+      "agentCheckpointSha256": "dfd9798fb3712190121a5f5de29fbe6082d0c28af33a13711a7c18fea0b8714b"
+    },
+    {
+      "recursiveSchemaVersion": 3,
+      "agentRecordSchema": "mini-metro-agent-play-v3",
+      "rewardContract": "deliveries",
+      "overduePassengerThreshold": 2,
+      "checkpointSchemaVersion": 2,
+      "recursiveCheckpointSha256": "805ecb45f7cf342f89813a3a745d6c78b252edb4421dd8f808432234106a40fc",
+      "agentCheckpointSha256": "805ecb45f7cf342f89813a3a745d6c78b252edb4421dd8f808432234106a40fc"
+    }
+  ],
+  "expected": {
+    "actionOk": true,
+    "transcriptRows": 1,
+    "timeMs": 137,
+    "steps": 1,
+    "metroCount": 1,
+    "metroPosition": [476.67596794027565, 333.48153888388276],
+    "currentStationIndex": null,
+    "currentSegmentIndex": 0,
+    "stopTimeRemainingMs": 0
+  }
+}

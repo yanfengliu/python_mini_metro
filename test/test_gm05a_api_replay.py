@@ -61,6 +61,7 @@ class TestGM05aApiReplay(unittest.TestCase):
         env.reset(seed=seed)
         path = env.mediator.create_path_from_station_indices(stations, loop=loop)
         self.assertIsNotNone(path)
+        self.assertTrue(env.mediator.assign_locomotive(path))
         return env, path
 
     def test_exact_replace_facade_and_private_replanner_signatures(self):
@@ -314,7 +315,7 @@ class TestGM05aApiReplay(unittest.TestCase):
                 self.assert_observation_topology_agrees(observation)
                 checkpoint = canonical_checkpoint(env, observation)
                 self.assertEqual(set(checkpoint), checkpoint_keys)
-                self.assertEqual(checkpoint["schemaVersion"], 2)
+                self.assertEqual(checkpoint["schemaVersion"], 3)
                 self.assertEqual(reference_errors(checkpoint), [])
 
     def test_rejected_linear_and_loop_actions_preserve_checkpoint_and_arrays(self):

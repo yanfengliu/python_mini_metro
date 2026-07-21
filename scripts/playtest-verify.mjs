@@ -276,11 +276,18 @@ export function replayableInputs(inputs) {
     pythonHashSeed: inputs.pythonHashSeed,
     operations: inputs.operations,
   };
-  if (inputs.schemaVersion === 2 || inputs.schemaVersion === 3) {
+  if (
+    inputs.schemaVersion === 2
+    || inputs.schemaVersion === 3
+    || inputs.schemaVersion === 4
+  ) {
     replayable.environmentRewardContract = inputs.environmentRewardContract;
   }
-  if (inputs.schemaVersion === 3) {
+  if (inputs.schemaVersion === 3 || inputs.schemaVersion === 4) {
     replayable.overduePassengerThreshold = inputs.overduePassengerThreshold;
+  }
+  if (inputs.schemaVersion === 4) {
+    replayable.fleetActionContract = inputs.fleetActionContract;
   }
   return replayable;
 }

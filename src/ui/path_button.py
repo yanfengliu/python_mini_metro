@@ -6,6 +6,7 @@ from config import (
     button_color,
     button_size,
     path_button_buffer,
+    path_button_buy_text_bottom_gap,
     path_button_buy_text_color,
     path_button_buy_text_disabled_color,
     path_button_buy_text_font_size,
@@ -133,7 +134,12 @@ class PathButton(Button):
                 total_text_height = (
                     buy_surface.get_height() + price_surface.get_height() + line_spacing
                 )
-                top = self.position.top - self.shape.radius - 8 - total_text_height
+                top = (
+                    self.position.top
+                    - self.shape.radius
+                    - path_button_buy_text_bottom_gap
+                    - total_text_height
+                )
                 buy_rect = buy_surface.get_rect(center=(self.position.left, top))
                 buy_rect.top = top
                 price_rect = price_surface.get_rect(

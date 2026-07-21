@@ -1,6 +1,6 @@
 # GM-06a conserved locomotive inventory plan
 
-Status: implementation Commit A is exact-head remote green; evidence-only Commit B is active and GM-06b remains closed
+Status: remotely finalized through evidence-only Commit B; GM-06b opened from that exact green baseline
 
 Transaction marker: `[GM-06a:B]`
 
@@ -54,6 +54,10 @@ Direct tests must prove runtime structured counts equal v1/v2 checkpoint-derived
 ## Commit A remote result
 
 Implementation Commit A `d587b63424348c90b3c2f2499dba737e4e18d2dc` passed exact [run 29795915449](https://github.com/yanfengliu/python_mini_metro/actions/runs/29795915449), run number 136. Exact-head `build` job `88527100922` passed in 1m15s and exact-head `rl-smoke` job `88527100934` passed in 5m06s. The active `[GM-06a:B]` payload is evidence-only; GM-06b remains closed until B's own exact workflow is green and reconciled downstream.
+
+## Commit B remote result
+
+Evidence-only Commit B `0a69d64c290f8f96dbb434a8620c1298ed6ca950` passed exact [run 29796331734](https://github.com/yanfengliu/python_mini_metro/actions/runs/29796331734), run number 137. Exact-head `build` job `88528312944` passed in 1m08s and exact-head `rl-smoke` job `88528312946` passed in 5m07s. GM-06b reconciled this immutable result before opening from the exact green Commit B baseline.
 
 ## Acceptance
 

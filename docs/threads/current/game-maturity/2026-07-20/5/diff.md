@@ -1,6 +1,6 @@
 # GM-06a conserved locomotive inventory diff ledger
 
-Status: implementation Commit A is exact-head remote green; evidence-only Commit B is active and GM-06b remains closed
+Status: remotely finalized through exact-green implementation Commit A and evidence-only Commit B
 
 ## Intended production surface
 
@@ -28,4 +28,4 @@ Status: implementation Commit A is exact-head remote green; evidence-only Commit
 - `test/test_game_renderer.py`: directly affected canonical/legacy HUD expectations and pixel sensitivity.
 - `README.md`, `GAME_RULES.md`, `ARCHITECTURE.md`, `PROGRESS.md`, parent D-021/STATE/EVIDENCE, and iteration 5 plan/review/raw evidence describe the same boundary.
 
-Commit A's exact staged payload contained 34 paths: four public/project documents, three parent roadmap documents, three reconciled GM-05c documents, 16 iteration-5 evidence documents, four production Python files, and four test files. Its 1,403 insertions and 41 deletions passed cached whitespace, forbidden-path, credential, and unstaged-drift audits; only the preserved `.agents/` tree remained untracked. Commit A `d587b63424348c90b3c2f2499dba737e4e18d2dc` passed exact [run 29795915449](https://github.com/yanfengliu/python_mini_metro/actions/runs/29795915449), run number 136: `build` job `88527100922` passed in 1m15s and `rl-smoke` job `88527100934` passed in 5m06s. Commit B changes only five evidence documents and leaves GM-06b closed pending B's exact remote workflow.
+Commit A's exact staged payload contained 34 paths: four public/project documents, three parent roadmap documents, three reconciled GM-05c documents, 16 iteration-5 evidence documents, four production Python files, and four test files. Its 1,403 insertions and 41 deletions passed cached whitespace, forbidden-path, credential, and unstaged-drift audits; only the preserved `.agents/` tree remained untracked. Commit A `d587b63` passed run `29795915449`; evidence-only Commit B `0a69d64` passed run `29796331734` and was reconciled by GM-06b.

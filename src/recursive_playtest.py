@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Callable, Sequence
 
 import recursive_contract as _recursive_contract
-from env import MiniMetroEnv
+from env import MiniMetroEnv, legacy_auto_assignment_step
 from recursive_checkpoint import canonical_checkpoint, normalize_checkpoint
 from recursive_contract import (
     DELIVERIES_REWARD_CONTRACT,
@@ -18,6 +18,7 @@ from recursive_contract import (
     SCHEMA_VERSION_V1,
     SCHEMA_VERSION_V2,
     SCHEMA_VERSION_V3,
+    SCHEMA_VERSION_V4,
     _json_copy,
     _nonempty_string,
     _overdue_threshold_for_document,
@@ -234,10 +235,16 @@ def _build_inputs(
         "pythonHashSeed": os.environ.get("PYTHONHASHSEED"),
         "operations": scenario["operations"],
     }
-    if scenario["schemaVersion"] in {SCHEMA_VERSION_V2, SCHEMA_VERSION_V3}:
+    if scenario["schemaVersion"] in {
+        SCHEMA_VERSION_V2,
+        SCHEMA_VERSION_V3,
+        SCHEMA_VERSION_V4,
+    }:
         document["environmentRewardContract"] = scenario["environmentRewardContract"]
-    if scenario["schemaVersion"] == SCHEMA_VERSION_V3:
+    if scenario["schemaVersion"] in {SCHEMA_VERSION_V3, SCHEMA_VERSION_V4}:
         document["overduePassengerThreshold"] = scenario["overduePassengerThreshold"]
+    if scenario["schemaVersion"] == SCHEMA_VERSION_V4:
+        document["fleetActionContract"] = scenario["fleetActionContract"]
     return validate_inputs(document)
 
 
@@ -279,6 +286,8 @@ def _checkpoint_version_for_schema(schema_version: int) -> int:
         return 1
     if schema_version in {SCHEMA_VERSION_V2, SCHEMA_VERSION_V3}:
         return 2
+    if schema_version == SCHEMA_VERSION_V4:
+        return 3
     raise ValueError("unsupported recursive schema version")
 
 
@@ -308,9 +317,14 @@ def run_scenario(
         effective_dt = inputs["defaultDtMs"] if requested_dt is None else requested_dt
         action_for_environment = _json_copy(operation["action"], "action")
         recorded_action = _json_copy(operation["action"], "action")
-        observation, reward, done, info = env.step(
-            action_for_environment, dt_ms=effective_dt
-        )
+        if inputs["schemaVersion"] == SCHEMA_VERSION_V4:
+            observation, reward, done, info = env.step(
+                action_for_environment, dt_ms=effective_dt
+            )
+        else:
+            observation, reward, done, info = legacy_auto_assignment_step(
+                env, action_for_environment, dt_ms=effective_dt
+            )
         transcript.append(
             {
                 "index": index,
@@ -396,14 +410,20 @@ def drive_from_file(
             "defaultDtMs": previous["defaultDtMs"],
             "operations": previous["operations"],
         }
-        if previous["schemaVersion"] in {SCHEMA_VERSION_V2, SCHEMA_VERSION_V3}:
+        if previous["schemaVersion"] in {
+            SCHEMA_VERSION_V2,
+            SCHEMA_VERSION_V3,
+            SCHEMA_VERSION_V4,
+        }:
             scenario["environmentRewardContract"] = previous[
                 "environmentRewardContract"
             ]
-        if previous["schemaVersion"] == SCHEMA_VERSION_V3:
+        if previous["schemaVersion"] in {SCHEMA_VERSION_V3, SCHEMA_VERSION_V4}:
             scenario["overduePassengerThreshold"] = previous[
                 "overduePassengerThreshold"
             ]
+        if previous["schemaVersion"] == SCHEMA_VERSION_V4:
+            scenario["fleetActionContract"] = previous["fleetActionContract"]
         source_path = previous["sourcePath"]
     else:
         scenario = validate_scenario(document)

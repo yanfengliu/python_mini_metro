@@ -54,6 +54,11 @@ def _create_line(env: MiniMetroEnv) -> None:
     _, _, _, info = env.step({"type": "create_path", "stations": [0, 1], "loop": False})
     if not info["action_ok"]:
         raise AssertionError("test setup could not create a line")
+    _, _, _, assignment_info = env.step(
+        {"type": "assign_locomotive", "path_index": len(env.mediator.paths) - 1}
+    )
+    if not assignment_info["action_ok"]:
+        raise AssertionError("test setup could not assign a locomotive")
 
 
 def _checkpoint_available(checkpoint: dict[str, Any]) -> int:
@@ -94,6 +99,7 @@ class TestGM06AInventoryState(unittest.TestCase):
                 "locomotives_total": total,
                 "locomotives_assigned": assigned,
                 "locomotives_available": available,
+                "locomotives_queued": 0,
             },
         )
         self.assertEqual(len(observation["structured"]["metros"]), assigned)
@@ -153,7 +159,16 @@ class TestGM06AInventoryState(unittest.TestCase):
         self.assertEqual(_checkpoint_available(checkpoint), 3)
         self.assertEqual(_checkpoint_available(normalized), 3)
         self.assertNotIn("fleet", checkpoint["structured"])
-        self.assertNotIn("fleet", normalized["structured"])
+        self.assertEqual(normalized["schemaVersion"], 3)
+        self.assertEqual(
+            normalized["structured"]["fleet"],
+            {
+                "locomotives_total": 4,
+                "locomotives_assigned": 1,
+                "locomotives_available": 3,
+                "locomotives_queued": 0,
+            },
+        )
         self.assert_fleet(env, total=4, assigned=1, available=3)
 
     def test_checkpoint_v1_reconstructs_without_a_new_field(self) -> None:
@@ -253,8 +268,8 @@ class TestGM06AInventoryState(unittest.TestCase):
 
         self.assertTrue(info["action_ok"])
         self.assertEqual(canonical_checkpoint(manual), canonical_checkpoint(structured))
-        self.assert_fleet(manual, total=4, assigned=1, available=3)
-        self.assert_fleet(structured, total=4, assigned=1, available=3)
+        self.assert_fleet(manual, total=4, assigned=0, available=4)
+        self.assert_fleet(structured, total=4, assigned=0, available=4)
 
     def test_successful_public_replacement_preserves_the_fleet_surface(self) -> None:
         env = _environment()
@@ -262,6 +277,10 @@ class TestGM06AInventoryState(unittest.TestCase):
             {"type": "create_path", "stations": [0, 1, 2], "loop": False}
         )
         self.assertTrue(info["action_ok"])
+        _, _, _, assignment_info = env.step(
+            {"type": "assign_locomotive", "path_index": 0}
+        )
+        self.assertTrue(assignment_info["action_ok"])
         path = env.mediator.paths[0]
         identities = tuple(env.mediator.metros)
 
@@ -276,6 +295,10 @@ class TestGM06AInventoryState(unittest.TestCase):
             {"type": "create_path", "stations": [0, 1, 2], "loop": False}
         )
         self.assertTrue(info["action_ok"])
+        _, _, _, assignment_info = env.step(
+            {"type": "assign_locomotive", "path_index": 0}
+        )
+        self.assertTrue(assignment_info["action_ok"])
         path = env.mediator.paths[0]
         identities = tuple(env.mediator.metros)
         before = canonical_checkpoint(env)
@@ -293,6 +316,10 @@ class TestGM06AInventoryState(unittest.TestCase):
             {"type": "create_path", "stations": [0, 1, 2], "loop": False}
         )
         self.assertTrue(info["action_ok"])
+        _, _, _, assignment_info = env.step(
+            {"type": "assign_locomotive", "path_index": 0}
+        )
+        self.assertTrue(assignment_info["action_ok"])
         path = env.mediator.paths[0]
         path.stations = _FailingTopologyList(path.stations)
         identities = tuple(env.mediator.metros)
@@ -311,6 +338,7 @@ class TestGM06AInventoryState(unittest.TestCase):
         path = env.mediator.create_path_from_station_indices([0, 1, 2])
         if path is None:
             raise AssertionError("test setup could not create a route")
+        self.assertTrue(env.mediator.assign_locomotive(path))
         session = GameSession(env.mediator)
         identities = tuple(env.mediator.metros)
         before = canonical_checkpoint(env)

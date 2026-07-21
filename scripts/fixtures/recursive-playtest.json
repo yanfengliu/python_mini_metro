@@ -1,7 +1,8 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "environmentRewardContract": "deliveries",
   "overduePassengerThreshold": 2,
+  "fleetActionContract": "explicit_locomotive_assignment_v1",
   "seed": 42,
   "defaultDtMs": 16,
   "operations": [
@@ -11,6 +12,14 @@
         "type": "create_path",
         "stations": [0, 1, 2],
         "loop": false
+      },
+      "expectedActionOk": true
+    },
+    {
+      "name": "assign-initial-locomotive",
+      "action": {
+        "type": "assign_locomotive",
+        "path_index": 0
       },
       "expectedActionOk": true
     },

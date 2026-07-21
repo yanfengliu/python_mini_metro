@@ -5,21 +5,24 @@ from dataclasses import dataclass, field
 from inspect import Parameter, signature
 from typing import Any, Dict, Iterable, List, Protocol
 
-from env import MiniMetroEnv
+from env import MiniMetroEnv, legacy_auto_assignment_step
+from recursive_contract import FLEET_ACTION_CONTRACT, validate_replay_action
 
 Action = Dict[str, Any]
 
 PLAYTHROUGH_RECORD_SCHEMA_V1 = "mini-metro-agent-play-v1"
 PLAYTHROUGH_RECORD_SCHEMA_V2 = "mini-metro-agent-play-v2"
 PLAYTHROUGH_RECORD_SCHEMA_V3 = "mini-metro-agent-play-v3"
+PLAYTHROUGH_RECORD_SCHEMA_V4 = "mini-metro-agent-play-v4"
 LEGACY_PLAYTHROUGH_RECORD_SCHEMA = PLAYTHROUGH_RECORD_SCHEMA_V1
-PLAYTHROUGH_RECORD_SCHEMA = PLAYTHROUGH_RECORD_SCHEMA_V3
+PLAYTHROUGH_RECORD_SCHEMA = PLAYTHROUGH_RECORD_SCHEMA_V4
 DELIVERIES_REWARD_CONTRACT = "deliveries"
 LINE_CREDITS_REWARD_CONTRACT = "line_credits_delta"
 _SUPPORTED_RECORD_SCHEMAS = {
     PLAYTHROUGH_RECORD_SCHEMA_V1,
     PLAYTHROUGH_RECORD_SCHEMA_V2,
     PLAYTHROUGH_RECORD_SCHEMA_V3,
+    PLAYTHROUGH_RECORD_SCHEMA_V4,
 }
 _SUPPORTED_REWARD_CONTRACTS = {
     DELIVERIES_REWARD_CONTRACT,
@@ -38,9 +41,11 @@ class Agent(Protocol):
 class SimpleAgent:
     def __init__(self) -> None:
         self.has_created_path = False
+        self.has_assigned_locomotive = False
 
     def reset(self, observation: Dict[str, Any]) -> None:
         self.has_created_path = False
+        self.has_assigned_locomotive = False
 
     def act(self, observation: Dict[str, Any]) -> Action:
         if not self.has_created_path:
@@ -48,6 +53,9 @@ class SimpleAgent:
             if len(stations) >= 2:
                 self.has_created_path = True
                 return {"type": "create_path", "stations": [0, 1], "loop": False}
+        if not self.has_assigned_locomotive and observation["structured"]["paths"]:
+            self.has_assigned_locomotive = True
+            return {"type": "assign_locomotive", "path_index": 0}
         return {"type": "noop"}
 
 
@@ -75,6 +83,7 @@ class PlaythroughRecord:
     final_deliveries: int = 0
     final_line_credits: int = 0
     overdue_passenger_threshold: int | None = None
+    fleet_action_contract: str | None = None
 
 
 def _coerce_contract(value: object) -> str | None:
@@ -121,11 +130,34 @@ def _record_overdue_passenger_threshold(record: PlaythroughRecord) -> int:
     if schema in {PLAYTHROUGH_RECORD_SCHEMA_V1, PLAYTHROUGH_RECORD_SCHEMA_V2}:
         return 1
     if not hasattr(record, "overdue_passenger_threshold"):
-        raise ValueError("v3 records require overdue_passenger_threshold")
+        raise ValueError("v3/v4 records require overdue_passenger_threshold")
     threshold = record.overdue_passenger_threshold
     if type(threshold) is not int or threshold <= 0:
-        raise ValueError("v3 overdue_passenger_threshold must be a positive integer")
+        raise ValueError("v3/v4 overdue_passenger_threshold must be a positive integer")
     return threshold
+
+
+def _record_fleet_action_contract(record: PlaythroughRecord) -> str | None:
+    schema = getattr(record, "schema", PLAYTHROUGH_RECORD_SCHEMA_V1)
+    contract = getattr(record, "fleet_action_contract", None)
+    if schema == PLAYTHROUGH_RECORD_SCHEMA_V4:
+        if contract != FLEET_ACTION_CONTRACT:
+            raise ValueError(
+                f"v4 records require fleet_action_contract {FLEET_ACTION_CONTRACT!r}"
+            )
+        return contract
+    if contract is not None:
+        raise ValueError("v1-v3 records must not declare fleet_action_contract")
+    return None
+
+
+def _validate_record_actions(record: PlaythroughRecord, *, allow_fleet: bool) -> None:
+    for index, action in enumerate(record.actions):
+        validate_replay_action(
+            action,
+            fleet_actions_allowed=allow_fleet,
+            label=f"record.actions[{index}]",
+        )
 
 
 def _environment_overdue_passenger_threshold(env: MiniMetroEnv) -> int:
@@ -246,11 +278,17 @@ def run_agent_playthrough(
         schema=PLAYTHROUGH_RECORD_SCHEMA,
         reward_contract=reward_contract,
         overdue_passenger_threshold=overdue_threshold,
+        fleet_action_contract=FLEET_ACTION_CONTRACT,
     )
 
     for _ in range(max_steps):
         action = agent.act(observation)
         action_snapshot = deepcopy(action)
+        validate_replay_action(
+            action_snapshot,
+            fleet_actions_allowed=True,
+            label="agent action",
+        )
         observation, reward, done, _ = env.step(action, dt_ms=dt_ms)
         deliveries, line_credits = _observation_metrics(observation, env)
         record.actions.append(action_snapshot)
@@ -301,11 +339,17 @@ def iter_playthrough_observations(
     env: MiniMetroEnv | None = None,
     max_steps: int | None = None,
 ) -> Iterable[Dict[str, Any]]:
+    schema = getattr(record, "schema", PLAYTHROUGH_RECORD_SCHEMA_V1)
     reward_contract = _record_reward_contract(record)
     overdue_threshold = _record_overdue_passenger_threshold(record)
+    _record_fleet_action_contract(record)
+    if schema != PLAYTHROUGH_RECORD_SCHEMA_V4:
+        _validate_record_actions(record, allow_fleet=False)
     if env is None:
         env, _ = _new_environment(record.dt_ms, reward_contract)
     observation = env.reset(seed=record.seed)
+    if schema == PLAYTHROUGH_RECORD_SCHEMA_V4:
+        _validate_record_actions(record, allow_fleet=True)
     _apply_overdue_passenger_threshold(env, overdue_threshold)
     yield observation
 
@@ -314,7 +358,12 @@ def iter_playthrough_observations(
         actions = actions[:max_steps]
 
     for action in actions:
-        observation, _, done, _ = env.step(action, dt_ms=record.dt_ms)
+        if schema == PLAYTHROUGH_RECORD_SCHEMA_V4:
+            observation, _, done, _ = env.step(action, dt_ms=record.dt_ms)
+        else:
+            observation, _, done, _ = legacy_auto_assignment_step(
+                env, action, dt_ms=record.dt_ms
+            )
         yield observation
         if done:
             break

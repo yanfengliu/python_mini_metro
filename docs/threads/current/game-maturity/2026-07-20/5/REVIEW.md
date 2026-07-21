@@ -1,6 +1,6 @@
 # GM-06a review synthesis
 
-Status: plan and implementation review are `CLEAN`; Commit A is exact-head remote green and evidence-only Commit B is active
+Status: plan and implementation review are `CLEAN`; Commit A and evidence-only Commit B are exact-head remote green
 
 All three research lanes agree that `Mediator.metros` must remain assigned-only and that unassigned inventory must not be represented by preconstructed Metro entities. They also agree current automatic allocation must remain temporarily so GM-06a does not make new lines unserved before GM-06b supplies explicit assignment controls.
 
@@ -28,6 +28,6 @@ Commit A's exact staged payload contained all and only the reviewed 34 paths wit
 
 The external multi-CLI workflow remains unavailable at the established repository-export authorization boundary. In-process plan review is compensating evidence only, and no external reviewer approval is claimed.
 
-Implementation Commit A `d587b63424348c90b3c2f2499dba737e4e18d2dc` passed exact [run 29795915449](https://github.com/yanfengliu/python_mini_metro/actions/runs/29795915449), run number 136. Exact-head `build` job `88527100922` passed in 1m15s and exact-head `rl-smoke` job `88527100934` passed in 5m06s. Evidence-only Commit B records that immutable result and leaves GM-06b closed; only GM-06b's opening transaction may reconcile B's own exact workflow, mark GM-06a remotely finalized, and open assignment work.
+Implementation Commit A `d587b63424348c90b3c2f2499dba737e4e18d2dc` passed exact [run 29795915449](https://github.com/yanfengliu/python_mini_metro/actions/runs/29795915449), run number 136. Exact-head `build` job `88527100922` passed in 1m15s and exact-head `rl-smoke` job `88527100934` passed in 5m06s. Evidence-only Commit B `0a69d64c290f8f96dbb434a8620c1298ed6ca950` then passed exact [run 29796331734](https://github.com/yanfengliu/python_mini_metro/actions/runs/29796331734), run number 137: `build` job `88528312944` passed in 1m08s and `rl-smoke` job `88528312946` passed in 5m07s. GM-06b's opening transaction reconciled that exact result and marked GM-06a remotely finalized.
 
-Commit B changes only the parent STATE/EVIDENCE and this iteration's PLAN/REVIEW/diff evidence documents.
+Commit B changed only the parent STATE/EVIDENCE and this iteration's PLAN/REVIEW/diff evidence documents.

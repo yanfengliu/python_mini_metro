@@ -176,9 +176,7 @@ class FakeHost:
 
     def finish_path_creation(self):
         self.events.append(("public:finish",))
-        self.lifecycle.finish_path_creation(
-            self, get_metro_factory=lambda: self.metro_factory
-        )
+        self.lifecycle.finish_path_creation(self)
 
     def end_path_on_station(self, station):
         self.events.append(("public:end", station.name))

@@ -35,6 +35,7 @@ from event.event import Event
 from event.keyboard import KeyboardEvent
 from event.mouse import MouseEvent
 from event.type import KeyboardEventType, MouseEventType
+from fleet_management import FleetManagement
 from geometry.point import Point
 from geometry.type import ShapeType
 from graph.graph_algo import bfs, build_station_nodes_dict
@@ -50,6 +51,7 @@ from simulation_context import SimulationContext
 from travel_plan import TravelPlan
 from type import Color
 from ui.button import Button
+from ui.fleet_button import get_fleet_buttons, update_fleet_button_positions
 from ui.path_button import PathButton, get_path_buttons, update_path_button_positions
 from ui.speed_button import (
     SpeedAction,
@@ -79,6 +81,7 @@ class Mediator:
             raise ValueError("seed and context are mutually exclusive")
         self.context = context if context is not None else SimulationContext(seed)
         self._input = InputCoordinator()
+        self._fleet = FleetManagement()
         self._passenger_flow = PassengerFlow()
         self._path_lifecycle = PathLifecycle()
         self._router = RoutePlanner()
@@ -98,9 +101,10 @@ class Mediator:
 
         # UI
         self.path_buttons = get_path_buttons(self.num_paths)
+        self.fleet_buttons = get_fleet_buttons(self.path_buttons)
         self.speed_buttons = get_speed_buttons()
         self.path_to_button: Dict[Path, PathButton] = {}
-        self.buttons = [*self.path_buttons, *self.speed_buttons]
+        self.buttons = [*self.path_buttons, *self.fleet_buttons, *self.speed_buttons]
         self.game_over_restart_rect: pygame.Rect | None = None
         self.game_over_exit_rect: pygame.Rect | None = None
         self._layout_size: tuple[int, int] | None = None
@@ -269,6 +273,7 @@ class Mediator:
             width,
             height,
             get_update_path_button_positions=lambda: update_path_button_positions,
+            get_update_fleet_button_positions=lambda: update_fleet_button_positions,
             get_update_speed_button_positions=lambda: update_speed_button_positions,
             get_game_over_font_size=lambda: game_over_font_size,
             get_rect_factory=lambda: pygame.Rect,
@@ -481,7 +486,22 @@ class Mediator:
         self._path_lifecycle.release_color_for_path(self, path)
 
     def finish_path_creation(self) -> None:
-        self._path_lifecycle.finish_path_creation(self, get_metro_factory=lambda: Metro)
+        self._path_lifecycle.finish_path_creation(self)
+
+    def can_assign_locomotive(self, path: Path) -> bool:
+        return self._fleet.can_assign(self, path)
+
+    def assign_locomotive(self, path: Path) -> bool:
+        return self._fleet.assign(self, path, get_metro_factory=lambda: Metro)
+
+    def can_queue_locomotive_unassignment(self, path: Path) -> bool:
+        return self._fleet.can_queue(self, path)
+
+    def queue_locomotive_unassignment(self, path: Path) -> bool:
+        return self._fleet.queue(self, path)
+
+    def queued_locomotives_for_path(self, path: Path) -> int:
+        return self._fleet.queued_count(self, path)
 
     def set_paused(self, paused: bool) -> None:
         self._input.set_paused(self, paused)
@@ -526,11 +546,14 @@ class Mediator:
         )
 
     def increment_time(self, dt_ms: int) -> None:
+        transition_active = not self.is_paused and not self.is_game_over
         self._passenger_flow.increment_time(
             self,
             dt_ms,
             get_graph_builder=lambda: build_station_nodes_dict,
         )
+        if transition_active:
+            self._fleet.settle(self)
 
     def get_next_station_for_metro(self, metro: Metro) -> Station | None:
         return self._passenger_flow.get_next_station_for_metro(self, metro)
@@ -542,6 +565,8 @@ class Mediator:
         station_nodes_dict: Dict[Station, Node],
         mutate_travel_plans: bool,
     ) -> List[Passenger]:
+        if metro.is_unassignment_queued:
+            return []
         return self._passenger_flow.get_boarding_candidates_for_metro(
             self,
             metro,
@@ -561,6 +586,8 @@ class Mediator:
     def should_stop_at_next_station(
         self, metro: Metro, station_nodes_dict: Dict[Station, Node]
     ) -> bool:
+        if metro.is_unassignment_queued:
+            return self.get_next_station_for_metro(metro) is not None
         return self._passenger_flow.should_stop_at_next_station(
             self, metro, station_nodes_dict
         )
@@ -576,6 +603,8 @@ class Mediator:
         )
 
     def can_board_at_station(self, metro: Metro, station: Station) -> bool:
+        if metro.is_unassignment_queued:
+            return False
         return self._passenger_flow.can_board_at_station(self, metro, station)
 
     def move_passengers(self, dt_ms: int) -> None:

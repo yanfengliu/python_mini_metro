@@ -8,6 +8,7 @@ class InputCoordinatorHost(Protocol):
 
     _progression: Any
     path_buttons: list[Any]
+    fleet_buttons: list[Any]
     speed_buttons: list[Any]
     buttons: list[Any]
     stations: list[Any]
@@ -88,6 +89,10 @@ class InputCoordinatorHost(Protocol):
     def remove_path_by_id(self, path_id: str) -> bool: ...
 
     def remove_path_by_index(self, path_index: int) -> bool: ...
+
+    def assign_locomotive(self, path: Any) -> bool: ...
+
+    def queue_locomotive_unassignment(self, path: Any) -> bool: ...
 
     def react_mouse_event(self, event: Any) -> None: ...
 

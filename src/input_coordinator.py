@@ -3,12 +3,14 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from fleet_input import FleetInput
 from input_coordinator_host import InputCoordinatorHost
 from path_handle_input import PathHandleInput
 from path_handles import build_path_handles_for_state
 
 Resolver = Callable[[], Any]
 _PATH_HANDLE_INPUT = PathHandleInput()
+_FLEET_INPUT = FleetInput()
 
 
 class InputCoordinator:
@@ -29,8 +31,13 @@ class InputCoordinator:
         get_game_over_button_width: Resolver,
         get_game_over_button_height: Resolver,
         get_game_over_button_spacing: Resolver,
+        get_update_fleet_button_positions: Resolver | None = None,
     ) -> None:
         get_update_path_button_positions()(host.path_buttons, width, height)
+        if get_update_fleet_button_positions is not None:
+            get_update_fleet_button_positions()(
+                getattr(host, "fleet_buttons", ()), width, height
+            )
         get_update_speed_button_positions()(host.speed_buttons, width, height)
         start_top = height // 2 + get_game_over_font_size() // 3 + 40
         restart_rect = get_rect_factory()(
@@ -259,10 +266,14 @@ class InputCoordinator:
             elif redraw is None or not redraw.stations:
                 if redraw is not None:
                     self._clear_redraw(host)
-                self._apply_release_target(
+                fleet_release = self._apply_release_target(
                     host, entity, get_path_button_type(), get_speed_button_type()
                 )
-                if entity and isinstance(entity, get_button_type()):
+                if (
+                    not fleet_release
+                    and entity
+                    and isinstance(entity, get_button_type())
+                ):
                     entity.on_hover()
             else:
                 if entity and isinstance(entity, station_type):
@@ -321,7 +332,9 @@ class InputCoordinator:
         _PATH_HANDLE_INPUT.clear(host)
 
     @staticmethod
-    def _apply_release_target(host, entity, path_type, speed_type) -> None:
+    def _apply_release_target(host, entity, path_type, speed_type) -> bool:
+        if _FLEET_INPUT.release(host, entity):
+            return True
         if entity and isinstance(entity, path_type):
             if entity.path:
                 host.remove_path(entity.path)
@@ -329,6 +342,7 @@ class InputCoordinator:
                 host.try_purchase_path_button(entity)
         elif entity and isinstance(entity, speed_type):
             host.apply_speed_action(entity.action)
+        return False
 
     def react_keyboard_event(
         self,
@@ -414,6 +428,9 @@ class InputCoordinator:
         action_type = action.get("type")
         if not isinstance(action_type, str):
             return False
+        fleet_result = _FLEET_INPUT.apply_action(host, action, action_type)
+        if fleet_result is not None:
+            return fleet_result
         if action_type == "create_path":
             stations = action.get("stations", [])
             loop = action.get("loop", False)

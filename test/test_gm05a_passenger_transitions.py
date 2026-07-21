@@ -56,6 +56,8 @@ def create_path(mediator: Mediator, indices: list[int], *, add_metro: bool):
     path = mediator.create_path_from_station_indices(indices, False)
     if path is None:
         raise AssertionError(f"failed to create path through {indices}")
+    if add_metro and not mediator.assign_locomotive(path):
+        raise AssertionError(f"failed to assign a locomotive to path {indices}")
     return path
 
 

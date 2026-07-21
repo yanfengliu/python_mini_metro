@@ -139,8 +139,12 @@ class TestDeliveryDemonstration(unittest.TestCase):
         self.assertIn(ActionKind.MOTION, kinds)
         self.assertIn(ActionKind.UP, kinds)
         route_action_count = len(result.metrics["route_station_indices"]) + 1
+        self.assertEqual(
+            kinds[route_action_count : route_action_count + 2],
+            [ActionKind.DOWN, ActionKind.UP],
+        )
         self.assertTrue(
-            all(kind is ActionKind.NOOP for kind in kinds[route_action_count:])
+            all(kind is ActionKind.NOOP for kind in kinds[route_action_count + 2 :])
         )
         self.assertEqual(len(capture_privileged_snapshot(env).path_station_indices), 1)
 

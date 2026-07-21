@@ -271,7 +271,7 @@ class TestPassengerFlowFacadeContract(support.MediatorTestCase):
         first, second = object(), object()
         first_plan, second_plan = object(), object()
         station = SimpleNamespace(passengers=[first, second])
-        metro = SimpleNamespace(path_id="path")
+        metro = SimpleNamespace(path_id="path", is_unassignment_queued=False)
         path = object()
         mediator.get_path_by_id = lambda _path_id: path
 

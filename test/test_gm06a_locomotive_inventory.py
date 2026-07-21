@@ -42,6 +42,13 @@ def _create_path(mediator: Mediator, indices: list[int]):
     return path
 
 
+def _create_assigned_path(mediator: Mediator, indices: list[int]):
+    path = _create_path(mediator, indices)
+    if not mediator.assign_locomotive(path):
+        raise AssertionError(f"locomotive assignment failed for {indices!r}")
+    return path
+
+
 def _begin_path(mediator: Mediator):
     mediator.start_path_on_station(mediator.stations[0])
     mediator.add_station_to_path(mediator.stations[1])
@@ -100,10 +107,10 @@ class TestGM06aLocomotiveInventory(unittest.TestCase):
         _unlock_all_paths(mediator)
         mediator.num_metros = 2
 
-        first = _create_path(mediator, [0, 1])
+        first = _create_assigned_path(mediator, [0, 1])
         first_metro = first.metros[0]
         self.assertFleet(mediator, (2, 1, 1))
-        second = _create_path(mediator, [1, 2])
+        second = _create_assigned_path(mediator, [1, 2])
         self.assertFleet(mediator, (2, 2, 0))
         unserved = _create_path(mediator, [0, 2])
         self.assertEqual(unserved.metros, [])
@@ -111,7 +118,7 @@ class TestGM06aLocomotiveInventory(unittest.TestCase):
 
         mediator.remove_path(first)
         self.assertFleet(mediator, (2, 1, 1))
-        recreated = _create_path(mediator, [0, 1])
+        recreated = _create_assigned_path(mediator, [0, 1])
         self.assertEqual(len(recreated.metros), 1)
         self.assertIsNot(recreated.metros[0], first_metro)
         self.assertNotEqual(recreated.metros[0].id, first_metro.id)
@@ -122,7 +129,7 @@ class TestGM06aLocomotiveInventory(unittest.TestCase):
         mediator = Mediator(seed=2)
         _unlock_all_paths(mediator)
         mediator.num_metros = 2
-        path = _create_path(mediator, [0, 1])
+        path = _create_assigned_path(mediator, [0, 1])
         _add_metro(mediator, path)
         identities = tuple(mediator.metros)
 
@@ -138,7 +145,7 @@ class TestGM06aLocomotiveInventory(unittest.TestCase):
             [(0, 2, 0), (1, 2, 0), (2, 2, 0), (3, 2, 1)],
         )
 
-        recovered = _create_path(mediator, [1, 2])
+        recovered = _create_assigned_path(mediator, [1, 2])
         self.assertEqual(len(recovered.metros), 1)
         self.assertEqual(tuple(mediator.metros[:2]), identities)
         self.assertFleet(mediator, (3, 3, 0))
@@ -147,21 +154,22 @@ class TestGM06aLocomotiveInventory(unittest.TestCase):
         mediator = Mediator(seed=3)
         _unlock_all_paths(mediator)
         mediator.num_metros = 2
-        _create_path(mediator, [0, 1])
-        _create_path(mediator, [1, 2])
+        _create_assigned_path(mediator, [0, 1])
+        _create_assigned_path(mediator, [1, 2])
         unserved = _create_path(mediator, [0, 2])
 
         self.assertEqual(unserved.metros, [])
         self.assertValidOwnership(mediator)
 
-    def test_exhausted_finish_never_resolves_late_metro_factory(self):
+    def test_exhausted_assignment_never_resolves_late_metro_factory(self):
         mediator = Mediator(seed=4)
         _unlock_all_paths(mediator)
         mediator.num_metros = 0
         factory = MagicMock(side_effect=AssertionError("factory resolved at cap"))
 
+        path = _create_path(mediator, [0, 1])
         with patch.object(mediator_module, "Metro", factory):
-            path = _create_path(mediator, [0, 1])
+            self.assertFalse(mediator.assign_locomotive(path))
 
         factory.assert_not_called()
         self.assertEqual(path.metros, [])
@@ -170,24 +178,22 @@ class TestGM06aLocomotiveInventory(unittest.TestCase):
     def test_factory_failure_leaves_inventory_available(self):
         mediator = Mediator(seed=5)
         mediator.num_metros = 1
-        path = _begin_path(mediator)
+        path = _create_path(mediator, [0, 1])
 
         with patch.object(mediator_module, "Metro", side_effect=LookupError("factory")):
-            with self.assertRaisesRegex(LookupError, "factory"):
-                mediator.finish_path_creation()
+            self.assertFalse(mediator.assign_locomotive(path))
 
-        self.assertIs(mediator.path_being_created, path)
+        self.assertIsNone(mediator.path_being_created)
         self.assertEqual(path.metros, [])
         self.assertFleet(mediator, (1, 0, 1))
 
     def test_route_add_failure_leaves_inventory_available(self):
         mediator = Mediator(seed=6)
         mediator.num_metros = 1
-        path = _begin_path(mediator)
+        path = _create_path(mediator, [0, 1])
         path.add_metro = MagicMock(side_effect=RuntimeError("route add"))
 
-        with self.assertRaisesRegex(RuntimeError, "route add"):
-            mediator.finish_path_creation()
+        self.assertFalse(mediator.assign_locomotive(path))
 
         self.assertEqual(path.metros, [])
         self.assertEqual(mediator.metros, [])
@@ -196,29 +202,28 @@ class TestGM06aLocomotiveInventory(unittest.TestCase):
     def test_global_append_failure_before_mutation_leaves_inventory_available(self):
         mediator = Mediator(seed=7)
         mediator.num_metros = 1
-        path = _begin_path(mediator)
+        path = _create_path(mediator, [0, 1])
         mediator.metros = _AppendFailureList([], mutate=False)
 
-        with self.assertRaisesRegex(RuntimeError, "global append fault"):
-            mediator.finish_path_creation()
+        self.assertFalse(mediator.assign_locomotive(path))
 
-        self.assertEqual(len(path.metros), 1)
+        self.assertEqual(path.metros, [])
         self.assertEqual(mediator.metros, [])
         self.assertFleet(mediator, (1, 0, 1))
 
-    def test_global_append_then_raise_consumes_available_inventory(self):
+    def test_global_append_then_raise_rolls_back_available_inventory(self):
         mediator = Mediator(seed=8)
         mediator.num_metros = 1
-        path = _begin_path(mediator)
+        path = _create_path(mediator, [0, 1])
         mediator.metros = _AppendFailureList([], mutate=True)
 
-        with self.assertRaisesRegex(RuntimeError, "global append fault"):
-            mediator.finish_path_creation()
+        self.assertFalse(mediator.assign_locomotive(path))
 
-        self.assertIs(path.metros[0], mediator.metros[0])
-        self.assertFleet(mediator, (1, 1, 0))
+        self.assertEqual(path.metros, [])
+        self.assertEqual(mediator.metros, [])
+        self.assertFleet(mediator, (1, 0, 1))
 
-    def test_button_assignment_failure_keeps_installed_identity_consumed(self):
+    def test_button_assignment_failure_finishes_without_consuming_inventory(self):
         mediator = Mediator(seed=9)
         mediator.num_metros = 1
         path = _begin_path(mediator)
@@ -230,13 +235,14 @@ class TestGM06aLocomotiveInventory(unittest.TestCase):
             mediator.finish_path_creation()
 
         self.assertIsNone(mediator.path_being_created)
-        self.assertIs(path.metros[0], mediator.metros[0])
-        self.assertFleet(mediator, (1, 1, 0))
+        self.assertEqual(path.metros, [])
+        self.assertEqual(mediator.metros, [])
+        self.assertFleet(mediator, (1, 0, 1))
 
     def test_removal_failure_before_global_effect_preserves_assignment(self):
         mediator = Mediator(seed=10)
         mediator.num_metros = 1
-        path = _create_path(mediator, [0, 1])
+        path = _create_assigned_path(mediator, [0, 1])
         mediator.path_to_button[path].remove_path = MagicMock(
             side_effect=RuntimeError("button clear")
         )
@@ -250,7 +256,7 @@ class TestGM06aLocomotiveInventory(unittest.TestCase):
     def test_partial_removal_in_valid_state_refunds_actual_global_effect(self):
         mediator = Mediator(seed=11)
         mediator.num_metros = 2
-        path = _create_path(mediator, [0, 1])
+        path = _create_assigned_path(mediator, [0, 1])
         _add_metro(mediator, path)
         mediator.metros = _RemoveAfterMutationList(mediator.metros)
 
@@ -264,7 +270,7 @@ class TestGM06aLocomotiveInventory(unittest.TestCase):
     def test_partial_over_cap_removals_clear_deficit_without_false_refund(self):
         mediator = Mediator(seed=12)
         mediator.num_metros = 2
-        path = _create_path(mediator, [0, 1])
+        path = _create_assigned_path(mediator, [0, 1])
         _add_metro(mediator, path)
         mediator.num_metros = 0
         mediator.metros = _RemoveAfterMutationList(mediator.metros)

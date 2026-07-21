@@ -129,6 +129,20 @@ def _validate_max_decisions(max_decisions: int) -> int:
     return max_decisions
 
 
+def _assign_locomotive_actions(env: DemonstrationEnv) -> tuple[ActionArray, ...]:
+    controls = capture_privileged_snapshot(env).fleet_control_positions
+    if not controls:
+        raise RuntimeError("completed route did not expose a fleet assignment control")
+    position = controls[0][0]
+    coordinate = canonical_to_action_coordinate(
+        position[0], position[1], env.task_spec.render_profile
+    )
+    return (
+        _action(ActionKind.DOWN, *coordinate),
+        _action(ActionKind.UP, *coordinate),
+    )
+
+
 def run_delivery_demonstration(
     env: DemonstrationEnv,
     max_decisions: int,
@@ -146,9 +160,10 @@ def run_delivery_demonstration(
         range(len(capture_privileged_snapshot(env).station_positions))
     )
     route_actions = drag_route_actions(env, station_indices)
-    if decision_limit < len(route_actions):
+    minimum_decisions = len(route_actions) + 2
+    if decision_limit < minimum_decisions:
         raise ValueError(
-            f"max_decisions must be at least {len(route_actions)} for the initial route"
+            f"max_decisions must be at least {minimum_decisions} for route and fleet"
         )
 
     executed: list[ActionArray] = []
@@ -158,7 +173,11 @@ def run_delivery_demonstration(
     total_reward = 0.0
 
     pending_actions: list[ActionArray] = list(route_actions)
+    fleet_actions_pending = True
     while len(executed) < decision_limit and not (terminated or truncated):
+        if not pending_actions and fleet_actions_pending:
+            pending_actions.extend(_assign_locomotive_actions(env))
+            fleet_actions_pending = False
         action = pending_actions.pop(0) if pending_actions else _action(ActionKind.NOOP)
         _, reward, terminated, truncated, final_info = env.step(action)
         executed.append(action.copy())

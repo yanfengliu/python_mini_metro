@@ -59,12 +59,13 @@ test('default recursive pass writes verified evidence and complete ledgers', asy
     const sourceState = JSON.parse(
       await readFile(path.join(runDir, 'source-state.json'), 'utf8'),
     );
-    assert.equal(inputs.schemaVersion, 3);
+    assert.equal(inputs.schemaVersion, 4);
     assert.equal(inputs.environmentRewardContract, 'deliveries');
     assert.equal(inputs.overduePassengerThreshold, 2);
+    assert.equal(inputs.fleetActionContract, 'explicit_locomotive_assignment_v1');
     assert.equal(transcriptRows.length, inputs.operations.length);
     assert.ok(transcriptRows.every((row) => (
-      row.checkpoint.schemaVersion === 2
+      row.checkpoint.schemaVersion === 3
       && row.checkpoint.progression.limits.overdue_passenger_threshold === 2
       && row.checkpoint.progression.limits.max_waiting_passengers === 2
     )));
