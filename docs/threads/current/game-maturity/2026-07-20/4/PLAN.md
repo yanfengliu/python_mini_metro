@@ -1,8 +1,8 @@
 # GM-05c endpoint and interior handle plan
 
-Status: implementation, 719-test validation, frozen compatibility, fresh independent review, exact hooks, scoped staging, and cached payload audits are locally `CLEAN`; Commit A delivery is active
+Status: implementation Commit A is exact-head remote green; evidence-only Commit B is active and GM-06a remains closed
 
-Transaction marker: `[GM-05c:A]`
+Transaction marker: `[GM-05c:B]`
 
 ## Baseline and reconciliation
 
@@ -56,6 +56,10 @@ No structured action, checkpoint field, replay version, reward mode, history con
 9. Run focused red/green tests, the full py313 `python -m unittest -v` suite, exact Ruff check/format on changed Python paths, the frozen GM-03f differential, genuine checkpoint/replay regressions, protocol/task/content fingerprints, and exact-file pre-commit. Inspect hook rewrites, stage only the exact reviewed payload, and run cached exclusion, credential, whitespace, and unstaged-drift audits.
 10. Obtain fresh independent adversarial input/state and rendering/cache reviews of the live plan and implementation. The fleet-pinned external multi-CLI workflow remains unavailable at the established repository-export authorization boundary; compensating in-process lanes must read live files, substantive findings must receive regressions, and no external approval may be claimed.
 11. Commit/push `[GM-05c:A]`, wait for that exact SHA's `build` and `rl-smoke` jobs, then create/push evidence-only `[GM-05c:B]` recording A's exact result and leaving GM-06a closed while B's own workflow is pending. Only GM-06a's opening Commit A may reconcile B's exact SHA/run/jobs, mark GM-05 and GM-05c remotely finalized, and open fleet work.
+
+## Commit A remote result
+
+Implementation Commit A `242f400bb64c9b08aa0d26de2ea2ff47c8bb4823` passed exact [run 29792200360](https://github.com/yanfengliu/python_mini_metro/actions/runs/29792200360), run number 134. Exact-head `build` job `88516178960` and exact-head `rl-smoke` job `88516179007` each passed in 4m03s. The active `[GM-05c:B]` payload is evidence-only; GM-06a remains closed until B's own exact workflow is green and reconciled downstream.
 
 ## Acceptance
 

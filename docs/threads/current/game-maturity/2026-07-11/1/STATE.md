@@ -8,21 +8,21 @@ Current increment: GM-05 - Route editing
 
 Current substep: GM-05c - endpoint and interior editing handles
 
-Current status: GM-05b evidence-only Commit B `0d6f5b906eb60de53f1f1eda72d63cba3b6df5c4` passed exact [run 29787168196](https://github.com/yanfengliu/python_mini_metro/actions/runs/29787168196); GM-05c implementation, full 719-test suite, frozen compatibility, independent rereview, exact hooks, scoped staging, and cached payload audits are locally green in the active Commit A transaction
+Current status: GM-05c implementation Commit A `242f400bb64c9b08aa0d26de2ea2ff47c8bb4823` passed exact [run 29792200360](https://github.com/yanfengliu/python_mini_metro/actions/runs/29792200360); evidence-only Commit B is active and GM-06a remains closed through B's own exact workflow
 
-Durability transaction: GM-05b is remotely finalized through Commit B; `[GM-05c:A]` is the active implementation transaction
+Durability transaction: GM-05b is remotely finalized through Commit B; GM-05c Commit A is exact-head remote green and evidence-only `[GM-05c:B]` is the active transaction
 
 Last remotely finalized work unit: GM-05b at Commit B `0d6f5b906eb60de53f1f1eda72d63cba3b6df5c4`, which passed [run 29787168196](https://github.com/yanfengliu/python_mini_metro/actions/runs/29787168196)
 
-Expected remote implementation baseline: `0d6f5b906eb60de53f1f1eda72d63cba3b6df5c4`, whose exact [run 29787168196](https://github.com/yanfengliu/python_mini_metro/actions/runs/29787168196) passed `build` job `88501112815` and `rl-smoke` job `88501112841`
+Expected remote implementation baseline: `242f400bb64c9b08aa0d26de2ea2ff47c8bb4823`, whose exact [run 29792200360](https://github.com/yanfengliu/python_mini_metro/actions/runs/29792200360) passed `build` job `88516178960` and `rl-smoke` job `88516179007`
 
-Current transaction marker: `[GM-05c:A]`
+Current transaction marker: `[GM-05c:B]`
 
 ## Resume here
 
-1. Preserve remotely finalized GM-05b history, the pre-existing `.agents/` tree, unrelated ignored `output/`, the retained isolated pin, and the live `../civ-engine` sibling outside GM-05c.
-2. Commit and push the exact reviewed `[GM-05c:A]` payload.
-3. Wait for Commit A's exact `build` and `rl-smoke` jobs, create/push evidence-only `[GM-05c:B]`, and wait for B's exact workflow. Only GM-06a's opening Commit A may reconcile that result, mark GM-05/GM-05c remotely finalized, and open fleet work.
+1. Preserve remotely finalized GM-05b history, exact green GM-05c Commit A, the pre-existing `.agents/` tree, unrelated ignored `output/`, the retained isolated pin, and the live `../civ-engine` sibling outside GM-05c.
+2. Self-review, stage, commit, and push only the four evidence documents in `[GM-05c:B]`.
+3. Wait for Commit B's exact `build` and `rl-smoke` jobs; only GM-06a's opening Commit A may reconcile that result, mark GM-05/GM-05c remotely finalized, and open fleet work.
 
 ## Increment ledger
 
@@ -33,7 +33,7 @@ Current transaction marker: `[GM-05c:A]`
 | GM-02 | complete | `bab6b15` / `ab8e6eb` / `a5744c0` / `53bc510` / `9b75f37` / `812e426` / `02ceb54` / `3c68472` / `36cf058` / `dc35cd6` / `27a0304` / `60b4174` | GM-02a through GM-02e A/B green | Long-history baseline and hybrid-memory research remotely finalized |
 | GM-03 | complete | `83d02d4` / `fbcb31d` / `36e89d9` / `00ea38c` / `1b751e4` / `5e6186d` / `9321dcd` / `b1e419e` / `7ac89cf` / `7ff9d9c` / `c676c30` / `be0b1e1` | GM-03a through GM-03f A/B green | Mediator decomposition remotely finalized |
 | GM-04 | complete | `8cff620` failed setup; `16d7860` failed downstream; `069973c` implementation success; `41ecfc6` GM-04b finalization; `60ac953` / `8c4ba85` GM-04c A/B | [run 29748574695](https://github.com/yanfengliu/python_mini_metro/actions/runs/29748574695) and [run 29753292420](https://github.com/yanfengliu/python_mini_metro/actions/runs/29753292420) failed; [run 29757294004](https://github.com/yanfengliu/python_mini_metro/actions/runs/29757294004), [run 29758092140](https://github.com/yanfengliu/python_mini_metro/actions/runs/29758092140), [run 29763804498](https://github.com/yanfengliu/python_mini_metro/actions/runs/29763804498), and [run 29764619993](https://github.com/yanfengliu/python_mini_metro/actions/runs/29764619993) succeeded | Isolated pinned recursive tooling remotely finalized |
-| GM-05 | in progress | `c7effd8` / `47b9349` / `37865d4` / `0d6f5b9` | GM-05a and GM-05b A/B succeeded | GM-05b remotely finalized; GM-05c Commit A active locally |
+| GM-05 | in progress | `c7effd8` / `47b9349` / `37865d4` / `0d6f5b9` / `242f400` | GM-05a/GM-05b A/B and [GM-05c A run 29792200360](https://github.com/yanfengliu/python_mini_metro/actions/runs/29792200360) succeeded | GM-05c Commit A remote green and Commit B active |
 | GM-06 | pending | - | - | Fleet and carriages |
 | GM-07 | pending | - | - | Menus, save/resume, high scores |
 | GM-08 | pending | - | - | Tutorial, settings, audio |
@@ -71,7 +71,7 @@ Current transaction marker: `[GM-05c:A]`
 | GM-04c | complete | `60ac953` / run `29763804498` success | `8c4ba85` / run `29764619993` success | Final reproducibility and mismatch proof remotely finalized |
 | GM-05a | complete | `c7effd8` / run `29776047898` success | `47b9349` / run `29776631928` success | Atomic replacement remotely finalized |
 | GM-05b | complete | `37865d4` / run `29786749550` success | `0d6f5b9` / run `29787168196` success | Selected-line redraw, preview, and no-tick continuity remotely finalized |
-| GM-05c | implementation-local-green | `[GM-05c:A]` active / pending | - | Endpoint/interior handles pass 719 tests and fresh input/rendering rereview; delivery gates remain |
+| GM-05c | implementation-ci-green | `242f400` / run `29792200360` success | `[GM-05c:B]` active | Endpoint/interior handles are exact-head remote green; evidence finalization remains |
 | GM-06a | pending | - | - | Locomotive inventory |
 | GM-06b | pending | - | - | Assignment and redistribution |
 | GM-06c | pending | - | - | Carriages |
@@ -118,7 +118,7 @@ Before GM-12c starts, replace its placeholder with one row per configuration and
 
 ## Known external state
 
-- GM-05b Commit B is remotely green at `0d6f5b906eb60de53f1f1eda72d63cba3b6df5c4`; before GM-05c edits, `main` and `origin/main` equaled that SHA and only the pre-existing `.agents/` tree was untracked. Unrelated ignored `output/` and the retained ignored pin remain outside the tracked transaction.
+- GM-05c Commit A is remotely green at `242f400bb64c9b08aa0d26de2ea2ff47c8bb4823`; before the evidence-only Commit B edit, `main` and `origin/main` equal that SHA and only the pre-existing `.agents/` tree is untracked. Unrelated ignored `output/` and the retained ignored pin remain outside the tracked transaction.
 - GM-05c intentionally advances the environment-content fingerprint from GM-05b's `81671dfe5457eaec53c4e64b3e3921587b470db470b2a7c6c54cf394da5dd4a0` to `7a5401c1c901ba7bdfb0283c5e8c482535c9b04d339c4ed0a5d9528944f2bfbc`; protocol `69c604ac62d46d4a2339b3efad239372c61d0eb52e45ce6c9b6cf8da946dea8f`, default-task `719362078a7d98f1e3c944a6a797f7147b29383495f37f417aa9d61e3416016d`, and fidelity-task `cd713a6891d8e74dab1aac2ded2edc88a727cb2b5b420948c65731d3a0eb3418` identities remain exact.
 - The live sibling `../civ-engine` is clean version 2.4.1 at commit `2632daca2ea1d1330cf1270962941005354f775b` while root resolution now targets the retained clean 2.2.0 pin at `e0cb614a516c449159a4562c2ac45bd40bffd3df`; the sibling remains untouched and outside setup.
 - Retained ignored recursive evidence lives at `output/recursive/recursive-2026-07-20T16-21-12-855Z-ea664784`. Repeated-setup stdout, the 245/241/four-skip suite output, and isolated-drill JSON were terminal-observed ephemeral evidence rather than retained artifacts; the exact isolated fixture was removed.
@@ -127,4 +127,4 @@ Before GM-12c starts, replace its placeholder with one row per configuration and
 
 ## Blockers
 
-- No blocker to GM-05c Commit A delivery. A pre-existing concurrent civ-engine setup lease remains outside this work and was not deleted or disturbed; the prior exact hosted builds passed the guarded Node suite. Safe cleanup of the four old ignored output cache roots remains ACL-limited and outside this payload.
+- No blocker to GM-05c evidence-only Commit B delivery. A pre-existing concurrent civ-engine setup lease remains outside this work and was not deleted or disturbed; Commit A's exact hosted build passed the guarded Node suite. Safe cleanup of the four old ignored output cache roots remains ACL-limited and outside this payload.
