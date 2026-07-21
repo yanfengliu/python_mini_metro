@@ -1,8 +1,8 @@
 # GM-06b explicit fleet assignment plan
 
-Status: implementation, compatibility migration, local validation, three clean implementation re-review lanes, and exact staged-integrity audits are complete; Commit A is ready
+Status: initial Commit A is pushed but its exact hosted build exposed one checkout-specific test assertion; corrective A2 is locally green, independently reviewed `CLEAN`, hook-clean, and staged as the exact audited nine-path payload ready to commit
 
-Transaction marker: `[GM-06b:A]`
+Transaction marker: `[GM-06b:A2]`
 
 ## Baseline and reconciliation
 
@@ -58,7 +58,7 @@ The accepted roadmap requires GM-06b to replace transitional automatic allocatio
 4. Update README controls/actions/observations, GAME_RULES fleet/queue/deferred limitations, ARCHITECTURE ownership/data flow/versions/file counts, PROGRESS, parent D-022/STATE/EVIDENCE, reconciled GM-06a evidence, and this iteration's diff/review/raw evidence.
 5. Run focused green; adjacent GM-05/GM-06/path/passenger/input/render/checkpoint/recursive/agent/PlayerPixel/demonstrator suites; the definitive py313 `python -m unittest -v`; exact Ruff check/format; genuine legacy/current replay matrices; the bounded transition proof and unaffected frozen compatibility; fingerprints; exact-file pre-commit; and physical line-count checks.
 6. Obtain independent implementation reviews in the same three lanes. The fleet-pinned external workflow remains unavailable at the established repository-export authorization boundary; compensating reviewers must read live code, findings require regression-backed disposition, and no external approval may be claimed.
-7. Stage only the exact reviewed payload and run cached whitespace, forbidden-path, high-confidence credential, dependency/workflow, and unstaged-drift audits. Commit/push `[GM-06b:A]`, wait for that exact SHA's `build` and `rl-smoke`, then deliver evidence-only `[GM-06b:B]`. GM-06c remains closed until B's own exact workflow is green and reconciled downstream.
+7. Stage only the exact reviewed corrective payload and run cached whitespace, forbidden-path, high-confidence credential, dependency/workflow, and unstaged-drift audits. Commit/push `[GM-06b:A2]`, wait for that exact SHA's `build` and `rl-smoke`, then deliver evidence-only `[GM-06b:B]` that preserves both A and A2 outcomes. GM-06c remains closed until B's own exact workflow is green and reconciled downstream.
 
 ## Acceptance
 
@@ -67,4 +67,4 @@ The accepted roadmap requires GM-06b to replace transitional automatic allocatio
 - Empty moving trains queue, receive no boarding candidates, stop, and detach at the next real station by identity, including settlement after same-tick terminal evaluation; fresh endpoint coordinates alone do not detach. Paused, terminal, malformed, repeated, replacement, removal, and over-cap cases follow the selected deterministic boundary. Occupied acceptance and destructive line-removal hardening remain honestly deferred to GM-06d.
 - Structured state and checkpoint v3 expose queue intent. Genuine checkpoint v1/v2, recursive v1-v3, and agent-play v1-v3 retain explicit tested normalization or legacy action meaning; current recursive/agent v4 requires explicit assignment and fails closed on incompatible fleet actions.
 - Manual controls and queued markers are deterministic, hit-reachable, handle-clear, render-pure, and visible in actual fast/fidelity CHW observations. The positive-delivery demonstrator and exact hosted RL smoke exercise explicit assignment.
-- Local gates, independent live-code review, scoped staging, two-commit delivery, and both exact remote workflows complete before GM-06c opens.
+- Local gates, independent live-code review, scoped staging, the preserved A/A2 corrective history, evidence-only B, and every exact remote workflow complete before GM-06c opens.

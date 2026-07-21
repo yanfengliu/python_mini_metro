@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from typing import Any
@@ -29,7 +30,7 @@ from rl.protocol import (
     protocol_fingerprint,
     task_fingerprint,
 )
-from rl.training import compute_training_fingerprint
+from rl.training import TRAINING_SOURCE_PATHS, compute_training_fingerprint
 from test.gm06b_fleet_ui_support import action, control_pair, create_path
 
 PROFILES = (FAST_RENDER_PROFILE, FIDELITY_RENDER_PROFILE)
@@ -38,7 +39,9 @@ EXPECTED_FAST_TASK = "719362078a7d98f1e3c944a6a797f7147b29383495f37f417aa9d61e34
 EXPECTED_FIDELITY_TASK = (
     "cd713a6891d8e74dab1aac2ded2edc88a727cb2b5b420948c65731d3a0eb3418"
 )
-EXPECTED_TRAINING = "b195946ef62db7058b5ff8c295045d285019cce10b2a12d8b86d28f180670f93"
+EXPECTED_LF_TRAINING = (
+    "f6fa3ad50bb992152ea0f24dff35603e8e906714cf58c5fcc359ede4af54f65c"
+)
 
 
 def _coordinate(value: Any) -> tuple[int, int]:
@@ -329,9 +332,6 @@ class TestGM06bFleetPlayerPixels(unittest.TestCase):
             task_fingerprint(TaskSpec(render_profile=FIDELITY_RENDER_PROFILE)),
             EXPECTED_FIDELITY_TASK,
         )
-        root = Path(__file__).resolve().parents[1]
-        self.assertEqual(compute_training_fingerprint(root), EXPECTED_TRAINING)
-
         env = PlayerPixelEnv(max_episode_steps=2)
         self.addCleanup(env.close)
         _, info = env.reset(seed=6252)
@@ -350,6 +350,36 @@ class TestGM06bFleetPlayerPixels(unittest.TestCase):
         )
         self.assertNotIn("fleet", info)
         self.assertEqual(tuple(env.action_space.nvec), (8, 192, 108))
+
+    def test_canonical_lf_training_sources_retain_exact_fingerprint(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as directory:
+            checkout = Path(directory)
+            for relative in TRAINING_SOURCE_PATHS:
+                target = checkout / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                # Freeze source identity through one checkout-independent text policy.
+                target.write_bytes(
+                    (root / relative)
+                    .read_bytes()
+                    .replace(bytes((13, 10)), bytes((10,)))
+                )
+
+            self.assertEqual(
+                compute_training_fingerprint(checkout),
+                EXPECTED_LF_TRAINING,
+            )
+
+            eol_variant = checkout / "src/rl/training.py"
+            canonical_bytes = eol_variant.read_bytes()
+            self.assertIn(bytes((10,)), canonical_bytes)
+            eol_variant.write_bytes(
+                canonical_bytes.replace(bytes((10,)), bytes((13, 10)))
+            )
+            self.assertNotEqual(
+                compute_training_fingerprint(checkout),
+                EXPECTED_LF_TRAINING,
+            )
 
 
 class TestGM06bDeliveryDemonstrator(unittest.TestCase):
