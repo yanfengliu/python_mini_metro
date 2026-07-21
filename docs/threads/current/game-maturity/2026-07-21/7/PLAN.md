@@ -1,6 +1,6 @@
 # GM-06c carriage composition plan
 
-Status: implementation and local Python/Node/static review gates are `CLEAN`; exact hook/staging and Commit A remain pending
+Status: delivered as Commit A `80cc611`, exact [run 29853718512](https://github.com/yanfengliu/python_mini_metro/actions/runs/29853718512) green; evidence-only Commit B active
 
 Transaction marker: `[GM-06c:A]`
 

@@ -1,6 +1,6 @@
 # GM-06c carriage composition diff ledger
 
-Status: reviewed implementation and local Python/Node/static gates complete; exact hook/staging and Commit A pending
+Status: delivered as Commit A `80cc611`, exact [run 29853718512](https://github.com/yanfengliu/python_mini_metro/actions/runs/29853718512) green; evidence-only Commit B active
 
 ## Implemented production surface
 
@@ -16,4 +16,4 @@ Status: reviewed implementation and local Python/Node/static gates complete; exa
 - Add focused resource, capacity/timing, controls/actions, rendering/pixels, checkpoint/replay, compatibility, demonstrator, line-count, and failure/rollback tests.
 - Update public/project docs, parent state/decision/evidence, this iteration's reviewed raw evidence, and exact local/remote A/B gates.
 
-The working candidate now contains the reviewed carriage behavior and evidence above. It remains uncommitted until the exact hook and staged-integrity gates pass; no Commit A or remote result is claimed yet.
+The reviewed carriage behavior and evidence above were delivered as Commit A `80cc611` (130 paths, +14890/-543), which excludes the pre-existing `.agents/` tree and three `.tmp-gm06c-*-precommit/` task-cache roots. Two full-`npm test`-only defects were fixed before staging: a `.gitattributes` `scripts/fixtures/*.json text eol=lf` hunk reverted to baseline because the recursive source-provenance guard rejects source-root attributes, and stale `playtest-recursive.test.mjs` default-pass assertions aligned to the v5/checkpoint-v4 advance. The exact pre-commit hook passed and the exact hosted [run 29853718512](https://github.com/yanfengliu/python_mini_metro/actions/runs/29853718512) passed `build` and `rl-smoke`. Evidence-only Commit B binds this result; GM-06d opens only after B's own exact workflow is green.
