@@ -1,6 +1,6 @@
 # GM-06a conserved locomotive inventory diff ledger
 
-Status: independently reviewed implementation, 34 focused regressions, 753-test full suite, frozen compatibility, exact fingerprints, exact hooks, and scoped staging audits are clean; Commit A delivery is active
+Status: implementation Commit A is exact-head remote green; evidence-only Commit B is active and GM-06b remains closed
 
 ## Intended production surface
 
@@ -28,4 +28,4 @@ Status: independently reviewed implementation, 34 focused regressions, 753-test 
 - `test/test_game_renderer.py`: directly affected canonical/legacy HUD expectations and pixel sensitivity.
 - `README.md`, `GAME_RULES.md`, `ARCHITECTURE.md`, `PROGRESS.md`, parent D-021/STATE/EVIDENCE, and iteration 5 plan/review/raw evidence describe the same boundary.
 
-The exact staged payload contains 34 paths: four public/project documents, three parent roadmap documents, three reconciled GM-05c documents, 16 iteration-5 evidence documents, four production Python files, and four test files. Its 1,403 insertions and 41 deletions pass cached whitespace, forbidden-path, credential, and unstaged-drift audits; only the preserved `.agents/` tree remains untracked. Commit A SHA and remote jobs remain to be recorded at delivery.
+Commit A's exact staged payload contained 34 paths: four public/project documents, three parent roadmap documents, three reconciled GM-05c documents, 16 iteration-5 evidence documents, four production Python files, and four test files. Its 1,403 insertions and 41 deletions passed cached whitespace, forbidden-path, credential, and unstaged-drift audits; only the preserved `.agents/` tree remained untracked. Commit A `d587b63424348c90b3c2f2499dba737e4e18d2dc` passed exact [run 29795915449](https://github.com/yanfengliu/python_mini_metro/actions/runs/29795915449), run number 136: `build` job `88527100922` passed in 1m15s and `rl-smoke` job `88527100934` passed in 5m06s. Commit B changes only five evidence documents and leaves GM-06b closed pending B's exact remote workflow.

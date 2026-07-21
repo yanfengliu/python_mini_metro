@@ -1,8 +1,8 @@
 # GM-06a conserved locomotive inventory plan
 
-Status: three live-code research lanes, corrected plan review, red-first implementation, full local/frozen gates, exact fingerprints, three independent implementation reviews, exact hooks, and scoped staging audits are complete and clean; Commit A delivery is active
+Status: implementation Commit A is exact-head remote green; evidence-only Commit B is active and GM-06b remains closed
 
-Transaction marker: `[GM-06a:A]`
+Transaction marker: `[GM-06a:B]`
 
 ## Baseline and scope
 
@@ -50,6 +50,10 @@ Direct tests must prove runtime structured counts equal v1/v2 checkpoint-derived
 7. Run focused red/green tests, the definitive full py313 `python -m unittest -v` suite, exact Ruff check/format on changed Python paths, genuine checkpoint/replay compatibility, relevant frozen differentials, fingerprints, exact-file pre-commit, and a post-change source line-count gate. `src/rendering/game_renderer.py` must remain below 500 physical lines; extract a focused helper if the small HUD change cannot stay within that budget. Inspect hook rewrites, stage only the reviewed payload, and run cached exclusion, credential, whitespace, and unstaged-drift audits.
 8. Obtain independent adversarial inventory/failure, observation/checkpoint, and HUD/pixel reviews of the live plan and implementation. The fleet-pinned external workflow remains unavailable at the established repository-export authorization boundary; compensating reviewers must read live files, substantive findings require regressions, and no external approval may be claimed.
 9. Commit/push `[GM-06a:A]`, wait for that exact SHA's `build` and `rl-smoke` jobs, then create/push evidence-only `[GM-06a:B]` recording A's exact result and leaving GM-06b closed while B's own workflow is pending. Only GM-06b's opening Commit A may reconcile B, mark GM-06a remotely finalized, and open assignment work.
+
+## Commit A remote result
+
+Implementation Commit A `d587b63424348c90b3c2f2499dba737e4e18d2dc` passed exact [run 29795915449](https://github.com/yanfengliu/python_mini_metro/actions/runs/29795915449), run number 136. Exact-head `build` job `88527100922` passed in 1m15s and exact-head `rl-smoke` job `88527100934` passed in 5m06s. The active `[GM-06a:B]` payload is evidence-only; GM-06b remains closed until B's own exact workflow is green and reconciled downstream.
 
 ## Acceptance
 

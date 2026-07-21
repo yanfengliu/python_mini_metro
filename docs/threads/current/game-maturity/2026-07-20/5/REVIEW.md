@@ -1,6 +1,6 @@
 # GM-06a review synthesis
 
-Status: live research, independent plan review, red-first implementation, full local/frozen validation, independent implementation review, exact hooks, and scoped staging audits are clean; Commit A delivery is active
+Status: plan and implementation review are `CLEAN`; Commit A is exact-head remote green and evidence-only Commit B is active
 
 All three research lanes agree that `Mediator.metros` must remain assigned-only and that unassigned inventory must not be represented by preconstructed Metro entities. They also agree current automatic allocation must remain temporarily so GM-06a does not make new lines unserved before GM-06b supplies explicit assignment controls.
 
@@ -24,8 +24,10 @@ The external multi-CLI workflow remains unavailable at the established repositor
 
 The definitive py313 suite passes 753 tests in 8.907 seconds with 12 expected optional-stack skips; 32 genuine checkpoint/recursive/agent compatibility tests and the exact frozen four-case/90-event/16-record GM-03f differential pass. Protocol/default/fidelity/training fingerprints remain exact, while content advances intentionally to `f776cb1f049bffa6b4a958d9c3c8b936dd224eb2e729ce6dfce0bdb5a8923e9f`. All eight changed Python paths pass Ruff check/format. The exact 34-path hook payload passes EOF, trailing whitespace, Ruff, and Ruff format with no edits after an isolated dependency bootstrap.
 
-Exact staging contains all and only the reviewed 34 paths with 1,403 insertions and 41 deletions. Cached whitespace, forbidden-path, and high-confidence credential audits pass with zero matches, there is no unstaged tracked drift, and the preserved `.agents/` tree is the only untracked path. Commit A is ready.
+Commit A's exact staged payload contained all and only the reviewed 34 paths with 1,403 insertions and 41 deletions. Cached whitespace, forbidden-path, and high-confidence credential audits passed with zero matches, there was no unstaged tracked drift, and the preserved `.agents/` tree was the only untracked path.
 
 The external multi-CLI workflow remains unavailable at the established repository-export authorization boundary. In-process plan review is compensating evidence only, and no external reviewer approval is claimed.
 
-Executable red/green evidence, plan-review findings/dispositions, implementation review, final validation, staging, and delivery results will be added before Commit A.
+Implementation Commit A `d587b63424348c90b3c2f2499dba737e4e18d2dc` passed exact [run 29795915449](https://github.com/yanfengliu/python_mini_metro/actions/runs/29795915449), run number 136. Exact-head `build` job `88527100922` passed in 1m15s and exact-head `rl-smoke` job `88527100934` passed in 5m06s. Evidence-only Commit B records that immutable result and leaves GM-06b closed; only GM-06b's opening transaction may reconcile B's own exact workflow, mark GM-06a remotely finalized, and open assignment work.
+
+Commit B changes only the parent STATE/EVIDENCE and this iteration's PLAN/REVIEW/diff evidence documents.
