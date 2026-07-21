@@ -1,8 +1,8 @@
 # GM-06b explicit fleet assignment plan
 
-Status: initial Commit A is pushed but its exact hosted build exposed one checkout-specific test assertion; corrective A2 is locally green, independently reviewed `CLEAN`, hook-clean, and staged as the exact audited nine-path payload ready to commit
+Status: initial Commit A's build failure is preserved, corrective A2 is exact-head remote green, and evidence-only Commit B is active while GM-06c remains closed
 
-Transaction marker: `[GM-06b:A2]`
+Transaction marker: `[GM-06b:B]`
 
 ## Baseline and reconciliation
 
@@ -59,6 +59,10 @@ The accepted roadmap requires GM-06b to replace transitional automatic allocatio
 5. Run focused green; adjacent GM-05/GM-06/path/passenger/input/render/checkpoint/recursive/agent/PlayerPixel/demonstrator suites; the definitive py313 `python -m unittest -v`; exact Ruff check/format; genuine legacy/current replay matrices; the bounded transition proof and unaffected frozen compatibility; fingerprints; exact-file pre-commit; and physical line-count checks.
 6. Obtain independent implementation reviews in the same three lanes. The fleet-pinned external workflow remains unavailable at the established repository-export authorization boundary; compensating reviewers must read live code, findings require regression-backed disposition, and no external approval may be claimed.
 7. Stage only the exact reviewed corrective payload and run cached whitespace, forbidden-path, high-confidence credential, dependency/workflow, and unstaged-drift audits. Commit/push `[GM-06b:A2]`, wait for that exact SHA's `build` and `rl-smoke`, then deliver evidence-only `[GM-06b:B]` that preserves both A and A2 outcomes. GM-06c remains closed until B's own exact workflow is green and reconciled downstream.
+
+## Commit A and corrective A2 remote results
+
+Implementation Commit A `df04fb6b191f3d8609e316623950b06416d61c19` triggered exact [run 29801037756](https://github.com/yanfengliu/python_mini_metro/actions/runs/29801037756): `rl-smoke` job `88542015196` passed, while `build` job `88542015227` failed only on the checkout-specific training-hash assertion preserved in the corrective evidence. Corrective Commit A2 `29cb64cdfea0fecbfcee2a1831c6f3cc47ef6ccd` then passed exact [run 29808842268](https://github.com/yanfengliu/python_mini_metro/actions/runs/29808842268), run number 139: `build` job `88565158756` passed in 1m18s and `rl-smoke` job `88565158714` passed in 4m29s. Active `[GM-06b:B]` changes only five evidence documents; GM-06c remains closed until B's own exact workflow is green and reconciled downstream.
 
 ## Acceptance
 
