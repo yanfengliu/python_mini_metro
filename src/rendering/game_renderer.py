@@ -371,18 +371,35 @@ class GameRenderer:
             return getattr(state, canonical_name)
         return getattr(state, legacy_name, 0)
 
+    @staticmethod
+    def _locomotive_availability(state: Any) -> Any:
+        missing = object()
+        available = getattr(state, "available_locomotives", missing)
+        if available is not missing:
+            return available
+        total = getattr(state, "num_metros", missing)
+        metros = getattr(state, "metros", missing)
+        if total is missing or metros is missing:
+            return 0
+        return max(0, total - len(metros))
+
     def _draw_hud(self, surface: pygame.Surface, state: Any) -> None:
         config = _config()
         font = self.resources.font(config.font_name, config.hud_font_size)
         deliveries = self._metric(state, "deliveries", "total_travels_handled")
         line_credits = self._metric(state, "line_credits", "score")
+        available = self._locomotive_availability(state)
         x, y = config.hud_display_coords
         delivery_surface = font.render(
             f"Passengers Delivered: {deliveries}", True, (0, 0, 0)
         )
         credit_surface = font.render(f"Line Credits: {line_credits}", True, (0, 0, 0))
+        fleet_surface = font.render(
+            f"Locomotives Available: {available}", True, (0, 0, 0)
+        )
         surface.blit(delivery_surface, (x, y))
         surface.blit(credit_surface, (x, y + config.hud_line_spacing))
+        surface.blit(fleet_surface, (x, y + 2 * config.hud_line_spacing))
 
     def _draw_score(self, surface: pygame.Surface, state: Any) -> None:
         """Deprecated private compatibility wrapper for the canonical HUD."""

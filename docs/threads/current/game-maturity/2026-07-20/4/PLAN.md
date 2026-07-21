@@ -1,6 +1,6 @@
 # GM-05c endpoint and interior handle plan
 
-Status: implementation Commit A is exact-head remote green; evidence-only Commit B is active and GM-06a remains closed
+Status: remotely finalized through evidence-only Commit B; GM-06a opened from that exact green baseline
 
 Transaction marker: `[GM-05c:B]`
 
@@ -60,6 +60,10 @@ No structured action, checkpoint field, replay version, reward mode, history con
 ## Commit A remote result
 
 Implementation Commit A `242f400bb64c9b08aa0d26de2ea2ff47c8bb4823` passed exact [run 29792200360](https://github.com/yanfengliu/python_mini_metro/actions/runs/29792200360), run number 134. Exact-head `build` job `88516178960` and exact-head `rl-smoke` job `88516179007` each passed in 4m03s. The active `[GM-05c:B]` payload is evidence-only; GM-06a remains closed until B's own exact workflow is green and reconciled downstream.
+
+## Commit B remote result
+
+Evidence-only Commit B `b5295c0304f99cd02105cb45755235769b18275d` passed exact [run 29792542962](https://github.com/yanfengliu/python_mini_metro/actions/runs/29792542962), run number 135. Exact-head `build` job `88517182528` and exact-head `rl-smoke` job `88517182555` each passed in 4m28s. GM-06a reconciled this immutable result before opening from the exact green Commit B baseline.
 
 ## Acceptance
 

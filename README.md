@@ -60,12 +60,13 @@ Set `PYTHON` to a specific interpreter path when `python` is not the intended ex
 * Hold down the mouse left button on a station and drag onto other stations to create a path for the metro.
 * Press SPACE to pause / unpause the game.
 * Press `1`, `2`, or `3` to set game speed to 1x, 2x, or 4x.
-* The top-left HUD shows lifetime passengers delivered and currently spendable line credits as separate values.
+* The top-left HUD shows lifetime passengers delivered, currently spendable line credits, and unassigned locomotives as separate values.
 * Each filled grey circle at the bottom is an unused unlocked metro line slot.
 * Hold an assigned colored circle, drag through the replacement station order, and release on the final station to redraw that line; the selected circle is outlined and an invalid repeated-station draft turns red.
 * Hold an assigned colored circle and release over empty in-view space to select that line's edit handles. On a fresh drag, a filled endpoint handle extends to a new station or shortens by one station when released on its adjacent interior station; a hollow edge handle inserts a new station. Loops expose insertion handles, including the closing edge, but no endpoint handles.
 * Click and release a colored circle without leaving it to remove that established line.
 * Empty rings are locked line slots; hover to see their price and click the next one to buy it with line credits when affordable.
+* A fresh game has four total locomotives. Completing a line automatically assigns one while inventory is available; removing that line makes its assigned locomotive available again. Explicit assignment controls arrive in the next fleet increment.
 
 ## To play programmatically
 
@@ -156,7 +157,8 @@ Any unknown `type`, malformed action payload, or rejected replacement returns `i
 ### Observation shape
 `observation` is:
 - `observation["structured"]`: Python dict/list representation
-  - includes `stations`, `paths`, `metros`, `passengers`, lifetime `deliveries`, spendable `line_credits`, `time_ms`, `steps`, `is_paused`, `is_game_over`, and ID-to-index maps in `index`.
+  - includes `stations`, `paths`, `metros`, `passengers`, labeled `fleet` counts, lifetime `deliveries`, spendable `line_credits`, `time_ms`, `steps`, `is_paused`, `is_game_over`, and ID-to-index maps in `index`.
+  - `fleet` contains `locomotives_total`, `locomotives_assigned`, and `locomotives_available`. `Mediator.available_locomotives` is a read-only value derived from total inventory and the assigned-only `Mediator.metros` collection, so it cannot drift from current ownership.
   - deprecated structured `score` mirrors `line_credits`; on `Mediator`, writable `score` and `total_travels_handled` compatibility properties alias `line_credits` and `deliveries` respectively.
 - `observation["arrays"]`: NumPy-friendly arrays/lists
   - includes station positions/types/counts, path station-index sequences, metro positions/path indices, passenger destination types and locations.

@@ -1,6 +1,6 @@
 # GM-05c diff ledger
 
-Status: implementation, 45 focused regressions, full-suite validation, frozen compatibility, independent rereview, exact hooks, scoped staging, and cached audits are clean; Commit A delivery is active
+Status: remotely finalized through exact-green implementation Commit A and evidence-only Commit B
 
 ## Production surface
 
@@ -18,4 +18,4 @@ Status: implementation, 45 focused regressions, full-suite validation, frozen co
 - All 20 changed Python files remain below 500 lines except the explicit 660-line Mediator facade, which remains below the 1,000 hard ceiling. `InputCoordinator` is 476 lines and `GameRenderer` is 477.
 - Updated public controls/rules, architecture, progress, parent maturity state/decision/evidence, GM-05b downstream reconciliation, and this iteration's reviewed evidence while preserving unrelated `.agents/`, ignored output/pin state, and the external review boundary.
 
-The exact 38-path stage excludes `.agents/`, ignored output/pin state, dependency/environment/workflow surfaces, and credentials; cached whitespace and unstaged-tracked-drift audits are clean. Commit A SHA and remote jobs will be recorded at delivery.
+The exact 38-path stage excludes `.agents/`, ignored output/pin state, dependency/environment/workflow surfaces, and credentials; cached whitespace and unstaged-tracked-drift audits are clean. Implementation Commit A `242f400` passed run `29792200360`; evidence-only Commit B `b5295c0` passed run `29792542962` and was reconciled by GM-06a.

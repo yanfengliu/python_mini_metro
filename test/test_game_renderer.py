@@ -317,7 +317,7 @@ class TestGameRenderer(unittest.TestCase):
         self.assertEqual(self.state.game_over_exit_rect, exit_before)
         self.assertGreaterEqual(self.renderer.resources.font_count, 3)
 
-    def test_hud_names_deliveries_and_line_credits(self) -> None:
+    def test_hud_names_deliveries_line_credits_and_available_locomotives(self) -> None:
         resources = RecordingResources()
         renderer = GameRenderer(network_renderer=self.network, resources=resources)
         surface = RecordingSurface((1920, 1080))
@@ -326,7 +326,11 @@ class TestGameRenderer(unittest.TestCase):
 
         self.assertEqual(
             resources.rendered_text,
-            ["Passengers Delivered: 23", "Line Credits: 4"],
+            [
+                "Passengers Delivered: 23",
+                "Line Credits: 4",
+                "Locomotives Available: 0",
+            ],
         )
         self.assertNotIn("999", " ".join(resources.rendered_text))
 
@@ -340,25 +344,33 @@ class TestGameRenderer(unittest.TestCase):
 
         self.assertEqual(
             resources.rendered_text,
-            ["Passengers Delivered: 7", "Line Credits: 2"],
+            [
+                "Passengers Delivered: 7",
+                "Line Credits: 2",
+                "Locomotives Available: 0",
+            ],
         )
 
     def test_hud_pixels_track_each_canonical_metric(self) -> None:
-        def render(deliveries: int, line_credits: int) -> bytes:
+        def render(
+            deliveries: int, line_credits: int, available_locomotives: int
+        ) -> bytes:
             surface = pygame.Surface((800, 600), pygame.SRCALPHA, 32)
             state = SimpleNamespace(
                 deliveries=deliveries,
                 line_credits=line_credits,
+                available_locomotives=available_locomotives,
                 total_travels_handled=999,
                 score=999,
             )
             self.renderer._draw_hud(surface, state)
             return pygame.image.tobytes(surface, "RGBA")
 
-        baseline = render(23, 4)
+        baseline = render(23, 4, 3)
 
-        self.assertNotEqual(render(24, 4), baseline)
-        self.assertNotEqual(render(23, 5), baseline)
+        self.assertNotEqual(render(24, 4, 3), baseline)
+        self.assertNotEqual(render(23, 5, 3), baseline)
+        self.assertNotEqual(render(23, 4, 2), baseline)
 
     def test_game_over_presents_deliveries_before_remaining_credits(self) -> None:
         resources = RecordingResources()

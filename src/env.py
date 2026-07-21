@@ -152,6 +152,11 @@ class MiniMetroEnv:
                 }
                 for passenger in self.mediator.passengers
             ],
+            "fleet": {
+                "locomotives_total": self.mediator.num_metros,
+                "locomotives_assigned": len(self.mediator.metros),
+                "locomotives_available": self.mediator.available_locomotives,
+            },
             "deliveries": self.mediator.deliveries,
             "line_credits": self.mediator.line_credits,
             "score": self.mediator.score,

@@ -40,13 +40,13 @@ This document summarizes the game rules currently implemented in code.
 - Handle previews and removal marks are transient interface feedback. Invalid, ambiguous, stale, off-station, button-targeted, outside-viewport, unsafe, and game-over-interrupted edits clear without partial mutation; a valid edit delegates once to the same atomic replacement used by programmatic play. The selected line remains operational throughout selection and preview.
 - When a line endpoint snaps onto a station during creation, that station emits a brief outward ring blip in the line color.
 - A line can only be created if there is an unlocked line slot available.
-- Removing a line also removes the metros assigned to it.
+- The locomotive inventory starts at 4 total. `Mediator.metros` contains assigned locomotives only, and available inventory is the nonnegative difference between the total and assigned counts; unassigned locomotives are fungible capacity rather than preconstructed entities.
+- Removing a line removes its assigned metros from the active global collection, making those locomotive units available again in ordinary gameplay. The current removal behavior for onboard passengers is scheduled for GM-06d hardening.
 - Metro capacity is 6 passengers.
 - Metro movement is automatic along the line:
   - Non-loop lines reverse direction at endpoints.
   - Loop lines continue around the loop.
-- Maximum metros in the game is 4 total.
-- When a new line is completed, one metro is added to it if the global metro limit is not reached.
+- The current total locomotive limit is 4. Completing a new line automatically assigns one locomotive while inventory is available; a line still completes unserved when inventory is exhausted. Explicit assignment and redistribution controls are owned by GM-06b.
 
 ## Deliveries, Line Credits, and Progression
 

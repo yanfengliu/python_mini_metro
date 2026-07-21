@@ -202,6 +202,12 @@ class Mediator:
         self._progression.line_credits = value
 
     @property
+    def available_locomotives(self) -> int:
+        """Return unassigned fleet capacity without owning duplicate state."""
+
+        return max(0, self.num_metros - len(self.metros))
+
+    @property
     def purchased_num_paths(self) -> int:
         return self._progression.purchased_num_paths
 
