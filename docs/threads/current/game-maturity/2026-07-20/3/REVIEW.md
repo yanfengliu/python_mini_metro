@@ -1,6 +1,6 @@
 # GM-05b review synthesis
 
-Status: plan and implementation review are `CLEAN`; Commit A is exact-head remote green and evidence-only Commit B is active
+Status: plan and implementation review are `CLEAN`; Commit A and evidence-only Commit B are exact-head remote green
 
 The first research lane recommends a continuous press-drag-release from an assigned colored path button through stations. It preserves the current plain-click and bare-up deletion paths, uses only existing low-level pixel actions, and occupies event branches that are otherwise no-ops. The draft remains off-live and dispatches exactly once through GM-05a's public atomic replacement hook.
 
@@ -20,6 +20,6 @@ The final py313 core run passed 674 tests in 6.887 seconds with 12 expected opti
 
 All 18 changed Python files pass exact Ruff check and format validation. The typing-only host split leaves `InputCoordinator` at 442 lines and its structural protocol at 92; all other changed handwritten files remain below 500 except the already explicit 655-line Mediator facade, below the 1,000 hard ceiling. The exact 38-path pre-commit set passed EOF, trailing-whitespace, Ruff, and Ruff-format hooks, with YAML correctly skipped. No dependency or checkpoint schema changed.
 
-Implementation Commit A `37865d454eb93887a726af74441eb2bc282174fb` passed exact [run 29786749550](https://github.com/yanfengliu/python_mini_metro/actions/runs/29786749550), run number 132. Exact-head `build` job `88499822031` passed in 1m08s and exact-head `rl-smoke` job `88499822004` passed in 1m07s. Evidence-only Commit B records that immutable result and leaves GM-05c closed; only GM-05c's opening transaction may reconcile B's own exact workflow and open the next substep.
+Implementation Commit A `37865d454eb93887a726af74441eb2bc282174fb` passed exact [run 29786749550](https://github.com/yanfengliu/python_mini_metro/actions/runs/29786749550), run number 132. Exact-head `build` job `88499822031` passed in 1m08s and exact-head `rl-smoke` job `88499822004` passed in 1m07s. Evidence-only Commit B `0d6f5b906eb60de53f1f1eda72d63cba3b6df5c4` then passed exact [run 29787168196](https://github.com/yanfengliu/python_mini_metro/actions/runs/29787168196), run number 133: `build` job `88501112815` passed in 3m23s and `rl-smoke` job `88501112841` passed in 3m21s. GM-05c's opening transaction reconciled that exact result and marked GM-05b remotely finalized.
 
-Commit A's exact staged payload contained 38 reviewed paths, no forbidden or credential-bearing path, zero cached whitespace or high-confidence credential matches, and no unstaged tracked drift. Commit B changes only the parent STATE/EVIDENCE and this iteration's PLAN/REVIEW documents.
+Commit A's exact staged payload contained 38 reviewed paths, no forbidden or credential-bearing path, zero cached whitespace or high-confidence credential matches, and no unstaged tracked drift. Commit B changed only the parent STATE/EVIDENCE and this iteration's PLAN/REVIEW documents.

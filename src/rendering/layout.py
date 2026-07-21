@@ -61,6 +61,8 @@ def centered_path_orders(count: int) -> tuple[float, ...]:
 
 
 def _position(value: Any) -> Position:
+    if isinstance(value, tuple) and len(value) == 2:
+        return (float(value[0]), float(value[1]))
     return (float(value.left), float(value.top))
 
 
@@ -194,6 +196,7 @@ def build_preview_visual_path(
     lane_spacing: float,
     loop: bool,
     temp_point: Any | None = None,
+    temp_insertion_index: int | None = None,
 ) -> VisualPath:
     """Build an immutable off-live route preview from station positions."""
 
@@ -202,13 +205,25 @@ def build_preview_visual_path(
     station_values = tuple(
         (_station_id(station), _position(station.position)) for station in stations
     )
+    preview_values = station_values
+    if temp_insertion_index is not None:
+        if not 0 <= temp_insertion_index <= len(station_values):
+            raise ValueError("temporary insertion index is outside the route")
+        if temp_point is not None:
+            pointer = (None, _position(temp_point))
+            preview_values = (
+                *station_values[:temp_insertion_index],
+                pointer,
+                *station_values[temp_insertion_index:],
+            )
+
     edges: list[tuple[tuple[str | None, Position], tuple[str | None, Position]]] = [
-        (start, end) for start, end in zip(station_values, station_values[1:])
+        (start, end) for start, end in zip(preview_values, preview_values[1:])
     ]
-    is_looped = bool(loop and len(station_values) >= 2)
+    is_looped = bool(loop and len(preview_values) >= 2)
     if is_looped:
-        edges.append((station_values[-1], station_values[0]))
-    elif station_values and temp_point is not None:
+        edges.append((preview_values[-1], preview_values[0]))
+    elif temp_insertion_index is None and station_values and temp_point is not None:
         pointer_position = _position(temp_point)
         if pointer_position != station_values[-1][1]:
             edges.append((station_values[-1], (None, pointer_position)))

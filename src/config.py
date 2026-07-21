@@ -73,6 +73,23 @@ num_paths = len(path_unlock_milestones)
 path_width = 10
 path_order_shift = 10
 
+# path editing handles
+path_handle_hit_radius = 36
+path_handle_marker_radius = 12
+path_handle_endpoint_outset = 64
+path_handle_lattice_step = 56
+path_handle_search_rings = 12
+path_handle_viewport_margin = 40
+path_handle_quantization_margin = 8
+path_handle_hud_exclusion = (0, 0, 700, 140)
+path_handle_ring_width = 3
+path_handle_outline_width = 4
+path_handle_leader_width = 3
+path_handle_color = (35, 35, 35)
+path_handle_selected_color = (255, 255, 255)
+path_handle_invalid_color = (215, 45, 45)
+path_handle_removal_width = 5
+
 # button
 button_color = (180, 180, 180)
 button_size = 30

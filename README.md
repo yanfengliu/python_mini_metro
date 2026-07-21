@@ -63,7 +63,8 @@ Set `PYTHON` to a specific interpreter path when `python` is not the intended ex
 * The top-left HUD shows lifetime passengers delivered and currently spendable line credits as separate values.
 * Each filled grey circle at the bottom is an unused unlocked metro line slot.
 * Hold an assigned colored circle, drag through the replacement station order, and release on the final station to redraw that line; the selected circle is outlined and an invalid repeated-station draft turns red.
-* Click and release a colored circle without dragging through a station to cancel that established line.
+* Hold an assigned colored circle and release over empty in-view space to select that line's edit handles. On a fresh drag, a filled endpoint handle extends to a new station or shortens by one station when released on its adjacent interior station; a hollow edge handle inserts a new station. Loops expose insertion handles, including the closing edge, but no endpoint handles.
+* Click and release a colored circle without leaving it to remove that established line.
 * Empty rings are locked line slots; hover to see their price and click the next one to buy it with line credits when affordable.
 
 ## To play programmatically

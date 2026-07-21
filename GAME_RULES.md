@@ -35,7 +35,9 @@ This document summarizes the game rules currently implemented in code.
 - Optional loop creation is supported by connecting the line back to its first station.
 - Programmatic line replacement requires unique active station indices and objects after removing at most one trailing copy of the first station for a loop. A safe replacement preserves the line, fleet, riders, and metro poses; an ambiguous or continuity-breaking edit is rejected atomically.
 - To redraw an established line manually, hold its assigned colored button, drag through the desired station order, and release on the final station. The completed old line remains live while an off-network preview follows the pointer; the selected button is outlined and a non-first repeated station marks the draft invalid in red.
-- A manual redraw commits only a valid route with at least two stations. Returning to the first station closes a loop, continuing to a new station reopens it, and a short, invalid, button-targeted, or off-station release cancels without changing the line. A press/release that captures no station retains the existing release-target behavior, including click deletion.
+- A manual redraw commits only a valid route with at least two stations. Returning to the first station closes a loop, continuing to a new station reopens it, and a short, invalid, or button-targeted release cancels without changing the line. A no-station release on a button retains the existing release-target behavior, including click deletion; a release over empty in-view space selects handles, and a release outside the viewport cancels.
+- Releasing an assigned-button drag over empty in-view space selects that exact live line and shows collision-resolved edit handles. A separate fresh drag from a filled linear endpoint handle extends to a station not already on the line or removes exactly that endpoint when released on the adjacent interior station; a hollow edge handle inserts a new station between its neighbors. Loops expose hollow insertion handles for every physical edge, including closure, and no endpoint handles; a two-station loop exposes one canonical physical-edge handle.
+- Handle previews and removal marks are transient interface feedback. Invalid, ambiguous, stale, off-station, button-targeted, outside-viewport, unsafe, and game-over-interrupted edits clear without partial mutation; a valid edit delegates once to the same atomic replacement used by programmatic play. The selected line remains operational throughout selection and preview.
 - When a line endpoint snaps onto a station during creation, that station emits a brief outward ring blip in the line color.
 - A line can only be created if there is an unlocked line slot available.
 - Removing a line also removes the metros assigned to it.
@@ -96,6 +98,7 @@ This document summarizes the game rules currently implemented in code.
 - Mouse:
   - Click and drag from station to station to create a line.
   - Hold an assigned line button, drag through stations, and release on the final station to redraw that line; invalid or incomplete drafts cancel without changing it.
+  - Hold an assigned line button and release over empty in-view space to show its handles, then begin a separate drag on a filled endpoint or hollow insertion handle to edit one route edge.
   - Hover a locked line button to see a two-line buy hint (`Buy` + price).
   - Click a locked line button (empty ring) to purchase that slot if enough line credits remain.
   - Click and release a line color button without capturing a station to remove its release-target line.

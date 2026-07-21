@@ -11,12 +11,23 @@ import pygame
 from .interpolation import MetroInterpolator
 from .layout import MetroPose
 from .network_renderer import NetworkRenderer
+from .path_handle_renderer import PathHandleRenderer, removal_on_layout
 
 
 def _config() -> Any:
     import config
 
     return config
+
+
+@lru_cache(maxsize=1)
+def _path_handle_api() -> tuple[Any, Any]:
+    if __package__ == "src.rendering":
+        from ..path_handles import PathHandleEdit, build_path_handles_for_state
+    else:
+        from path_handles import PathHandleEdit, build_path_handles_for_state
+
+    return PathHandleEdit, build_path_handles_for_state
 
 
 class LazyRenderResources:
@@ -79,10 +90,12 @@ class GameRenderer:
         network_renderer: Any | None = None,
         resources: LazyRenderResources | None = None,
         interpolator: MetroInterpolator | None = None,
+        path_handle_renderer: Any | None = None,
     ) -> None:
         self.network_renderer = network_renderer or NetworkRenderer()
         self.resources = resources or LazyRenderResources()
         self.interpolator = interpolator or MetroInterpolator()
+        self.path_handle_renderer = path_handle_renderer or PathHandleRenderer()
 
     def before_step(self, state: Any) -> None:
         self.interpolator.before_step(state)
@@ -108,6 +121,11 @@ class GameRenderer:
         current_time_ms = int(getattr(state, "time_ms", 0))
         max_wait_ms = getattr(state, "passenger_max_wait_time_ms", None)
         self._draw_redraw_preview(surface, state, paths, layouts)
+        handles, selected_handle, handle_invalid = self._path_handle_frame(
+            state, paths, surface.get_size()
+        )
+        if handles:
+            self.path_handle_renderer.draw_leaders(surface, handles)
 
         for station in getattr(state, "stations", ()):
             _call_flexibly(
@@ -134,6 +152,13 @@ class GameRenderer:
             pose = self.interpolator.pose_for(path, metro, layout, alpha)
             self._draw_metro(surface, metro, pose, current_time_ms, max_wait_ms)
 
+        if handles:
+            self.path_handle_renderer.draw_markers(
+                surface,
+                handles,
+                selected=selected_handle,
+                invalid=handle_invalid,
+            )
         self._draw_buttons(surface, state, current_time_ms)
         self._draw_hud(surface, state)
         if bool(getattr(state, "is_game_over", False)):
@@ -162,16 +187,107 @@ class GameRenderer:
             if callable(clear_preview):
                 clear_preview()
             return
-        draw_preview(
+        edit = getattr(redraw, "handle_edit", None)
+        preview = getattr(edit, "preview_spec", None)
+        preview_stations = (
+            getattr(preview, "stations", ())
+            if preview is not None
+            else getattr(redraw, "stations", ())
+        )
+        preview_loop = (
+            bool(getattr(preview, "loop", False))
+            if preview is not None
+            else bool(getattr(redraw, "loop", False))
+        )
+        preview_point = (
+            getattr(preview, "temp_point", None)
+            if preview is not None
+            else getattr(redraw, "temp_point", None)
+        )
+        preview_invalid = (
+            bool(getattr(preview, "invalid", False))
+            if preview is not None
+            else bool(getattr(redraw, "invalid", False))
+        )
+        _call_flexibly(
+            draw_preview,
             surface,
             path_id=selected_layout.path_id,
             color=selected_layout.color,
-            stations=getattr(redraw, "stations", ()),
+            stations=preview_stations,
             order=selected_layout.order,
-            loop=bool(getattr(redraw, "loop", False)),
-            temp_point=getattr(redraw, "temp_point", None),
-            invalid=bool(getattr(redraw, "invalid", False)),
+            loop=preview_loop,
+            temp_point=preview_point,
+            temp_insertion_index=getattr(preview, "temp_insertion_index", None),
+            invalid=preview_invalid,
         )
+        removal = removal_on_layout(
+            target,
+            selected_layout,
+            getattr(preview, "removal_segment", ()),
+        )
+        if removal is not None:
+            self.path_handle_renderer.draw_shortening_removal(
+                surface,
+                removal,
+                color=selected_layout.color,
+                invalid=preview_invalid,
+            )
+
+    @staticmethod
+    def _selected_path(state: Any, paths: tuple[Any, ...]) -> Any | None:
+        path_handle_edit, _ = _path_handle_api()
+        redraw = getattr(state, "path_redraw", None)
+        edit = getattr(redraw, "handle_edit", None)
+        if isinstance(edit, path_handle_edit):
+            path = edit.path
+            return path if sum(candidate is path for candidate in paths) == 1 else None
+        selection = getattr(state, "path_edit_selection", None)
+        resolve = getattr(selection, "resolve", None)
+        if callable(resolve):
+            return resolve(paths)
+        path = getattr(redraw, "path", None)
+        return path if sum(candidate is path for candidate in paths) == 1 else None
+
+    def _path_handle_frame(
+        self,
+        state: Any,
+        paths: tuple[Any, ...],
+        viewport_size: tuple[int, int],
+    ) -> tuple[tuple[Any, ...], Any | None, bool]:
+        path_handle_edit, build_path_handles_for_state = _path_handle_api()
+        redraw = getattr(state, "path_redraw", None)
+        edit = getattr(redraw, "handle_edit", None)
+        selection = getattr(state, "path_edit_selection", None)
+        if not isinstance(edit, path_handle_edit) and not callable(
+            getattr(selection, "resolve", None)
+        ):
+            return (), None, False
+        path = self._selected_path(state, paths)
+        if path is None:
+            return (), None, False
+        try:
+            handles = tuple(
+                build_path_handles_for_state(
+                    state,
+                    path,
+                    viewport_size=viewport_size,
+                )
+            )
+        except (AttributeError, IndexError, TypeError, ValueError):
+            return (), None, False
+        if not isinstance(edit, path_handle_edit):
+            return handles, None, False
+        selected = next(
+            (
+                handle
+                for handle in handles
+                if handle.kind == edit.kind and handle.slot == edit.slot
+            ),
+            None,
+        )
+        invalid = bool(getattr(getattr(edit, "preview_spec", None), "invalid", False))
+        return handles, selected, invalid
 
     def _draw_metro(
         self,
@@ -196,8 +312,14 @@ class GameRenderer:
         self, surface: pygame.Surface, state: Any, current_time_ms: int
     ) -> None:
         redraw = getattr(state, "path_redraw", None)
-        selected_path = getattr(redraw, "path", None)
-        redraw_invalid = bool(getattr(redraw, "invalid", False))
+        paths = tuple(getattr(state, "paths", ()))
+        selected_path = self._selected_path(state, paths)
+        preview = getattr(getattr(redraw, "handle_edit", None), "preview_spec", None)
+        redraw_invalid = bool(
+            getattr(preview, "invalid", False)
+            if preview is not None
+            else getattr(redraw, "invalid", False)
+        )
         path_buttons = tuple(getattr(state, "path_buttons", ()))
         path_button_indexes = {
             id(button): index for index, button in enumerate(path_buttons)

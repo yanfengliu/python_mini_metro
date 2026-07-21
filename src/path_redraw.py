@@ -15,6 +15,7 @@ class PathRedrawGesture:
     loop: bool = False
     temp_point: Any | None = None
     invalid: bool = False
+    handle_edit: Any | None = None
 
     @property
     def is_valid(self) -> bool:

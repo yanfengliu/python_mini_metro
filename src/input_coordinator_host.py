@@ -11,6 +11,7 @@ class InputCoordinatorHost(Protocol):
     speed_buttons: list[Any]
     buttons: list[Any]
     stations: list[Any]
+    paths: list[Any]
     game_over_restart_rect: Any | None
     game_over_exit_rect: Any | None
     _layout_size: tuple[int, int] | None
@@ -22,6 +23,7 @@ class InputCoordinatorHost(Protocol):
     is_creating_path: bool
     path_being_created: Any | None
     path_redraw: Any | None
+    path_edit_selection: Any | None
     is_paused: bool
     game_speed_multiplier: int
 

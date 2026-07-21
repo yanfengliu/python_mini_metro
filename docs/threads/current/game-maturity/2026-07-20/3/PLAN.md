@@ -1,6 +1,6 @@
 # GM-05b selected-line mouse-redraw plan
 
-Status: implementation Commit A is exact-head remote green; evidence-only Commit B is active and GM-05c remains closed
+Status: remotely finalized through evidence-only Commit B; GM-05c opened from that exact green baseline
 
 Transaction marker: `[GM-05b:B]`
 
@@ -52,7 +52,11 @@ The reproduced defect is reachable in the real main loop: input dispatch precede
 
 ## Commit A remote result
 
-Implementation Commit A `37865d454eb93887a726af74441eb2bc282174fb` passed exact [run 29786749550](https://github.com/yanfengliu/python_mini_metro/actions/runs/29786749550), run number 132. Exact-head `build` job `88499822031` passed in 1m08s and exact-head `rl-smoke` job `88499822004` passed in 1m07s. The active `[GM-05b:B]` payload is evidence-only; GM-05c remains closed until B's own exact workflow is green and reconciled downstream.
+Implementation Commit A `37865d454eb93887a726af74441eb2bc282174fb` passed exact [run 29786749550](https://github.com/yanfengliu/python_mini_metro/actions/runs/29786749550), run number 132. Exact-head `build` job `88499822031` passed in 1m08s and exact-head `rl-smoke` job `88499822004` passed in 1m07s.
+
+## Commit B remote result
+
+Evidence-only Commit B `0d6f5b906eb60de53f1f1eda72d63cba3b6df5c4` passed exact [run 29787168196](https://github.com/yanfengliu/python_mini_metro/actions/runs/29787168196), run number 133. Exact-head `build` job `88501112815` passed in 3m23s and exact-head `rl-smoke` job `88501112841` passed in 3m21s. GM-05c reconciled this immutable result before opening from the exact green Commit B baseline.
 
 ## Acceptance
 

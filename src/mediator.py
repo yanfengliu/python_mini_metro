@@ -41,6 +41,7 @@ from graph.graph_algo import bfs, build_station_nodes_dict
 from graph.node import Node
 from input_coordinator import InputCoordinator
 from passenger_flow import PassengerFlow
+from path_handles import PathEditSelection
 from path_lifecycle import PathLifecycle
 from path_redraw import PathRedrawGesture
 from progression import NetworkProgression
@@ -124,6 +125,7 @@ class Mediator:
         self.is_creating_path = False
         self.path_being_created: Path | None = None
         self.path_redraw: PathRedrawGesture | None = None
+        self.path_edit_selection: PathEditSelection | None = None
         self.travel_plans: TravelPlans = {}
         self.is_paused = False
         self.game_speed_multiplier = 1
@@ -580,7 +582,10 @@ class Mediator:
         )
 
     def update_waiting_and_game_over(self, dt_ms: int) -> None:
+        was_game_over = self.is_game_over
         self._passenger_flow.update_waiting_and_game_over(self, dt_ms)
+        if not was_game_over and self.is_game_over:
+            self._input.clear_transient_input(self)
 
     def get_stations_for_shape_type(self, shape_type: ShapeType) -> List[Station]:
         stations = self._router.get_stations_for_shape_type(self.stations, shape_type)

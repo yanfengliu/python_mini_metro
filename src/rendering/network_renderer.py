@@ -316,6 +316,7 @@ class NetworkRenderer:
         loop: bool,
         temp_point: Any | None,
         invalid: bool,
+        temp_insertion_index: int | None = None,
     ) -> VisualPath | None:
         """Draw one off-live route preview without retaining gameplay objects."""
 
@@ -327,6 +328,7 @@ class NetworkRenderer:
             lane_spacing=self.style.lane_spacing,
             loop=bool(loop),
             temp_point=temp_point,
+            temp_insertion_index=temp_insertion_index,
         )
         if not preview.segments:
             return None

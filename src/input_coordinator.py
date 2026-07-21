@@ -4,8 +4,11 @@ from collections.abc import Callable
 from typing import Any
 
 from input_coordinator_host import InputCoordinatorHost
+from path_handle_input import PathHandleInput
+from path_handles import build_path_handles_for_state
 
 Resolver = Callable[[], Any]
+_PATH_HANDLE_INPUT = PathHandleInput()
 
 
 class InputCoordinator:
@@ -170,6 +173,7 @@ class InputCoordinator:
         entity = host.get_containing_entity(event.position)
         event_type = get_mouse_event_type()
         redraw = getattr(host, "path_redraw", None)
+        selected_path = _PATH_HANDLE_INPUT.selected_path(host)
         creating = bool(getattr(host, "is_creating_path", False))
         creation_path = getattr(host, "path_being_created", None)
         redraw_type = (
@@ -206,6 +210,18 @@ class InputCoordinator:
                 return
             if was_mouse_down or redraw is not None:
                 return
+            if (
+                selected_path is not None
+                and get_path_redraw_factory is not None
+                and _PATH_HANDLE_INPUT.begin(
+                    host,
+                    event.position,
+                    build_handles=build_path_handles_for_state,
+                    redraw_factory=get_path_redraw_factory(),
+                    viewport_size=host._layout_size or (0, 0),
+                )
+            ):
+                return
             if entity and isinstance(entity, get_station_type()):
                 host.start_path_on_station(entity)
             elif entity and isinstance(entity, get_path_button_type()):
@@ -220,6 +236,10 @@ class InputCoordinator:
 
         elif event.event_type == event_type.MOUSE_UP:
             host.is_mouse_down = False
+            station_type = get_station_type()
+            station = entity if entity and isinstance(entity, station_type) else None
+            if redraw is not None and _PATH_HANDLE_INPUT.finish(host, redraw, station):
+                return
             if creating:
                 if redraw is not None:
                     self._clear_redraw(host)
@@ -232,6 +252,10 @@ class InputCoordinator:
             elif creation_path is not None:
                 if redraw is not None:
                     self._clear_redraw(host)
+            elif not _PATH_HANDLE_INPUT.is_inside_viewport(host, event.position):
+                _PATH_HANDLE_INPUT.clear(host)
+            elif redraw is not None and entity is None:
+                _PATH_HANDLE_INPUT.select_redraw_path(host, redraw)
             elif redraw is None or not redraw.stations:
                 if redraw is not None:
                     self._clear_redraw(host)
@@ -241,7 +265,6 @@ class InputCoordinator:
                 if entity and isinstance(entity, get_button_type()):
                     entity.on_hover()
             else:
-                station_type = get_station_type()
                 if entity and isinstance(entity, station_type):
                     redraw = redraw.enter_station(entity, event.position)
                 self._clear_redraw(host)
@@ -267,6 +290,12 @@ class InputCoordinator:
                             creation_path.set_temporary_point(event.position)
                     return
                 if redraw is not None:
+                    station_type = get_station_type()
+                    station = (
+                        entity if entity and isinstance(entity, station_type) else None
+                    )
+                    if _PATH_HANDLE_INPUT.move(host, redraw, event.position, station):
+                        return
                     host.path_redraw = (
                         redraw.enter_station(entity, event.position)
                         if entity and isinstance(entity, get_station_type())
@@ -286,6 +315,10 @@ class InputCoordinator:
         host.path_redraw = None
         for button in host.buttons:
             button.on_exit()
+
+    @staticmethod
+    def clear_transient_input(host: InputCoordinatorHost) -> None:
+        _PATH_HANDLE_INPUT.clear(host)
 
     @staticmethod
     def _apply_release_target(host, entity, path_type, speed_type) -> None:

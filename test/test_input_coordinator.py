@@ -47,7 +47,14 @@ class TestInputCoordinator(support.MediatorTestCase):
         )
         self.assertLessEqual(
             imports,
-            {"__future__", "collections.abc", "input_coordinator_host", "typing"},
+            {
+                "__future__",
+                "collections.abc",
+                "input_coordinator_host",
+                "path_handle_input",
+                "path_handles",
+                "typing",
+            },
         )
 
         renderer = RecordingRenderer(self.events)

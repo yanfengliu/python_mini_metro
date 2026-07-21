@@ -79,7 +79,10 @@ def run_game(max_frames: int | None = None) -> None:
                     position[0], position[1], screen_width, screen_height
                 )
                 if game_position is None:
-                    continue
+                    if pygame_event.type == pygame.MOUSEBUTTONUP:
+                        game_position = (-1, -1)
+                    else:
+                        continue
             event = convert_pygame_event(pygame_event, mouse_position=game_position)
             session.dispatch(event)
 
