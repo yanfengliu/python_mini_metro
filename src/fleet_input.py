@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from ui.carriage_button import CarriageButton
 from ui.fleet_button import FleetButton
 
 _ACTIONS = {
     "assign_locomotive": "assign_locomotive",
     "unassign_locomotive": "queue_locomotive_unassignment",
+    "attach_carriage": "attach_carriage",
+    "detach_carriage": "detach_carriage",
 }
 
 
@@ -54,13 +57,24 @@ class FleetInput:
         return bool(method(path))
 
     def release(self, host: Any, entity: Any) -> bool:
-        if not isinstance(entity, FleetButton):
+        if isinstance(entity, FleetButton):
+            controls = getattr(host, "fleet_buttons", ())
+            action_type = (
+                "assign_locomotive"
+                if entity.operation == "assign"
+                else "unassign_locomotive"
+            )
+        elif isinstance(entity, CarriageButton):
+            controls = getattr(host, "carriage_buttons", ())
+            action_type = (
+                "attach_carriage" if entity.operation == "attach" else "detach_carriage"
+            )
+        else:
             return False
         try:
-            fleet_buttons = getattr(host, "fleet_buttons", ())
             path_buttons = getattr(host, "path_buttons", ())
             if (
-                sum(button is entity for button in fleet_buttons) != 1
+                sum(button is entity for button in controls) != 1
                 or sum(button is entity.path_button for button in path_buttons) != 1
                 or entity.path_button.is_locked
             ):
@@ -69,11 +83,7 @@ class FleetInput:
             paths = getattr(host, "paths", ())
             if path is None or sum(candidate is path for candidate in paths) != 1:
                 return True
-            method_name = _ACTIONS[
-                "assign_locomotive"
-                if entity.operation == "assign"
-                else "unassign_locomotive"
-            ]
+            method_name = _ACTIONS[action_type]
             getattr(host, method_name)(path)
             return True
         finally:

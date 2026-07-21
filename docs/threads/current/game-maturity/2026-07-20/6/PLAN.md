@@ -1,6 +1,6 @@
 # GM-06b explicit fleet assignment plan
 
-Status: initial Commit A's build failure is preserved, corrective A2 is exact-head remote green, and evidence-only Commit B is active while GM-06c remains closed
+Status: remotely finalized through evidence-only Commit B `3319b48bfad9f989bfbe6fc8835e0d809593f8bb` and exact green run `29809810291`; GM-06c opened only in its downstream Commit A transaction
 
 Transaction marker: `[GM-06b:B]`
 
@@ -62,7 +62,7 @@ The accepted roadmap requires GM-06b to replace transitional automatic allocatio
 
 ## Commit A and corrective A2 remote results
 
-Implementation Commit A `df04fb6b191f3d8609e316623950b06416d61c19` triggered exact [run 29801037756](https://github.com/yanfengliu/python_mini_metro/actions/runs/29801037756): `rl-smoke` job `88542015196` passed, while `build` job `88542015227` failed only on the checkout-specific training-hash assertion preserved in the corrective evidence. Corrective Commit A2 `29cb64cdfea0fecbfcee2a1831c6f3cc47ef6ccd` then passed exact [run 29808842268](https://github.com/yanfengliu/python_mini_metro/actions/runs/29808842268), run number 139: `build` job `88565158756` passed in 1m18s and `rl-smoke` job `88565158714` passed in 4m29s. Active `[GM-06b:B]` changes only five evidence documents; GM-06c remains closed until B's own exact workflow is green and reconciled downstream.
+Implementation Commit A `df04fb6b191f3d8609e316623950b06416d61c19` triggered exact [run 29801037756](https://github.com/yanfengliu/python_mini_metro/actions/runs/29801037756): `rl-smoke` job `88542015196` passed, while `build` job `88542015227` failed only on the checkout-specific training-hash assertion preserved in the corrective evidence. Corrective Commit A2 `29cb64cdfea0fecbfcee2a1831c6f3cc47ef6ccd` then passed exact [run 29808842268](https://github.com/yanfengliu/python_mini_metro/actions/runs/29808842268), run number 139: `build` job `88565158756` passed in 1m18s and `rl-smoke` job `88565158714` passed in 4m29s. Evidence-only Commit B `3319b48bfad9f989bfbe6fc8835e0d809593f8bb` passed exact [run 29809810291](https://github.com/yanfengliu/python_mini_metro/actions/runs/29809810291), run number 140: `build` job `88568096644` passed in 1m08s and `rl-smoke` job `88568096702` passed in 4m52s. GM-06b is remotely finalized; GM-06c opened only in its downstream Commit A transaction.
 
 ## Acceptance
 

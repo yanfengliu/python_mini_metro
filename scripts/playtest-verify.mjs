@@ -280,14 +280,22 @@ export function replayableInputs(inputs) {
     inputs.schemaVersion === 2
     || inputs.schemaVersion === 3
     || inputs.schemaVersion === 4
+    || inputs.schemaVersion === 5
   ) {
     replayable.environmentRewardContract = inputs.environmentRewardContract;
   }
-  if (inputs.schemaVersion === 3 || inputs.schemaVersion === 4) {
+  if (
+    inputs.schemaVersion === 3
+    || inputs.schemaVersion === 4
+    || inputs.schemaVersion === 5
+  ) {
     replayable.overduePassengerThreshold = inputs.overduePassengerThreshold;
   }
-  if (inputs.schemaVersion === 4) {
+  if (inputs.schemaVersion === 4 || inputs.schemaVersion === 5) {
     replayable.fleetActionContract = inputs.fleetActionContract;
+  }
+  if (inputs.schemaVersion === 5) {
+    replayable.carriageActionContract = inputs.carriageActionContract;
   }
   return replayable;
 }

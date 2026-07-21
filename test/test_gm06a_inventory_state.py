@@ -100,6 +100,9 @@ class TestGM06AInventoryState(unittest.TestCase):
                 "locomotives_assigned": assigned,
                 "locomotives_available": available,
                 "locomotives_queued": 0,
+                "carriages_total": 2,
+                "carriages_assigned": 0,
+                "carriages_available": 2,
             },
         )
         self.assertEqual(len(observation["structured"]["metros"]), assigned)
@@ -159,7 +162,7 @@ class TestGM06AInventoryState(unittest.TestCase):
         self.assertEqual(_checkpoint_available(checkpoint), 3)
         self.assertEqual(_checkpoint_available(normalized), 3)
         self.assertNotIn("fleet", checkpoint["structured"])
-        self.assertEqual(normalized["schemaVersion"], 3)
+        self.assertEqual(normalized["schemaVersion"], 4)
         self.assertEqual(
             normalized["structured"]["fleet"],
             {
@@ -167,6 +170,9 @@ class TestGM06AInventoryState(unittest.TestCase):
                 "locomotives_assigned": 1,
                 "locomotives_available": 3,
                 "locomotives_queued": 0,
+                "carriages_total": 0,
+                "carriages_assigned": 0,
+                "carriages_available": 0,
             },
         )
         self.assert_fleet(env, total=4, assigned=1, available=3)

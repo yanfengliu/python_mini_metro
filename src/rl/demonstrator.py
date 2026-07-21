@@ -12,7 +12,7 @@ from rl.privileged_oracle import capture_privileged_snapshot
 from rl.protocol import ActionKind, TaskSpec, canonical_to_action_coordinate
 
 DEMONSTRATION_SEED = 0
-VERIFIED_DELIVERY_MAX_DECISIONS = 120
+VERIFIED_DELIVERY_MAX_DECISIONS = 122
 
 ActionArray = npt.NDArray[np.int64]
 
@@ -143,6 +143,20 @@ def _assign_locomotive_actions(env: DemonstrationEnv) -> tuple[ActionArray, ...]
     )
 
 
+def _attach_carriage_actions(env: DemonstrationEnv) -> tuple[ActionArray, ...]:
+    controls = capture_privileged_snapshot(env).carriage_control_positions
+    if not controls:
+        raise RuntimeError("completed route did not expose a carriage control")
+    position = controls[0][0]
+    coordinate = canonical_to_action_coordinate(
+        position[0], position[1], env.task_spec.render_profile
+    )
+    return (
+        _action(ActionKind.DOWN, *coordinate),
+        _action(ActionKind.UP, *coordinate),
+    )
+
+
 def run_delivery_demonstration(
     env: DemonstrationEnv,
     max_decisions: int,
@@ -160,7 +174,7 @@ def run_delivery_demonstration(
         range(len(capture_privileged_snapshot(env).station_positions))
     )
     route_actions = drag_route_actions(env, station_indices)
-    minimum_decisions = len(route_actions) + 2
+    minimum_decisions = len(route_actions) + 4
     if decision_limit < minimum_decisions:
         raise ValueError(
             f"max_decisions must be at least {minimum_decisions} for route and fleet"
@@ -174,15 +188,37 @@ def run_delivery_demonstration(
 
     pending_actions: list[ActionArray] = list(route_actions)
     fleet_actions_pending = True
+    carriage_actions_pending = True
+    expected_carriage_counts: tuple[int, int] | None = None
     while len(executed) < decision_limit and not (terminated or truncated):
         if not pending_actions and fleet_actions_pending:
             pending_actions.extend(_assign_locomotive_actions(env))
             fleet_actions_pending = False
+        elif not pending_actions and carriage_actions_pending:
+            before = capture_privileged_snapshot(env)
+            pending_actions.extend(_attach_carriage_actions(env))
+            carriage_actions_pending = False
+            expected_carriage_counts = (
+                before.carriages_assigned + 1,
+                before.carriages_available - 1,
+            )
         action = pending_actions.pop(0) if pending_actions else _action(ActionKind.NOOP)
         _, reward, terminated, truncated, final_info = env.step(action)
         executed.append(action.copy())
         total_reward += float(reward)
-        if capture_privileged_snapshot(env).deliveries >= 1:
+        if expected_carriage_counts is not None and not pending_actions:
+            attached = capture_privileged_snapshot(env)
+            actual = (attached.carriages_assigned, attached.carriages_available)
+            if actual != expected_carriage_counts:
+                raise RuntimeError("demonstration carriage attachment did not commit")
+            expected_carriage_counts = None
+        setup_complete = (
+            not fleet_actions_pending
+            and not carriage_actions_pending
+            and expected_carriage_counts is None
+            and not pending_actions
+        )
+        if setup_complete and capture_privileged_snapshot(env).deliveries >= 1:
             break
 
     snapshot = capture_privileged_snapshot(env)

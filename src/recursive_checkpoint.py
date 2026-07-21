@@ -6,12 +6,21 @@ from env import (
     LINE_CREDITS_DELTA_REWARD_MODE,
     MiniMetroEnv,
 )
+from recursive_checkpoint_carriages import (
+    metro_queue_state,
+    project_observation_fleet,
+    runtime_carriage_state,
+    validate_observation_metro_prefix,
+)
 from recursive_checkpoint_schema import (
     CHECKPOINT_SCHEMA_VERSION,
     CHECKPOINT_SCHEMA_VERSION_V1,
     CHECKPOINT_SCHEMA_VERSION_V2,
+    CHECKPOINT_SCHEMA_VERSION_V3,
+    CHECKPOINT_SCHEMA_VERSION_V4,
     SUPPORTED_CHECKPOINT_SCHEMA_VERSIONS,
     validate_checkpoint_v3,
+    validate_checkpoint_v4,
 )
 from recursive_checkpoint_schema import (
     normalize_checkpoint as normalize_checkpoint,
@@ -81,12 +90,23 @@ def _normalize_observation(
         }
         for item in structured["metros"]
     ]
-    if schema_version == CHECKPOINT_SCHEMA_VERSION:
+    if schema_version in {CHECKPOINT_SCHEMA_VERSION_V3, CHECKPOINT_SCHEMA_VERSION_V4}:
         for normalized_metro, source_metro in zip(
             metros, structured["metros"], strict=True
         ):
             normalized_metro["unassignment_queued"] = source_metro[
                 "unassignment_queued"
+            ]
+    if schema_version == CHECKPOINT_SCHEMA_VERSION_V4:
+        carriage_ids = {
+            item["id"]: index for index, item in enumerate(structured["carriages"])
+        }
+        for normalized_metro, source_metro in zip(
+            metros, structured["metros"], strict=True
+        ):
+            normalized_metro["capacity"] = source_metro["capacity"]
+            normalized_metro["carriage_indices"] = [
+                carriage_ids.get(key) for key in source_metro["carriage_ids"]
             ]
     passengers = []
     for item in structured["passengers"]:
@@ -106,6 +126,20 @@ def _normalize_observation(
         "stations": stations,
         "paths": paths,
         "metros": metros,
+        **(
+            {
+                "carriages": [
+                    {
+                        "capacity": item["capacity"],
+                        "metro_motion_index": metro_ids.get(item["metro_id"]),
+                        "attachment_index": item["attachment_index"],
+                    }
+                    for item in structured["carriages"]
+                ]
+            }
+            if schema_version == CHECKPOINT_SCHEMA_VERSION_V4
+            else {}
+        ),
         "passengers": passengers,
         "score": structured["score"],
         "time_ms": structured["time_ms"],
@@ -113,34 +147,14 @@ def _normalize_observation(
         "is_paused": structured["is_paused"],
         "is_game_over": structured["is_game_over"],
     }
-    if schema_version == CHECKPOINT_SCHEMA_VERSION:
-        normalized["fleet"] = _safe(structured["fleet"])
+    if schema_version in {CHECKPOINT_SCHEMA_VERSION_V3, CHECKPOINT_SCHEMA_VERSION_V4}:
+        normalized["fleet"] = _safe(
+            project_observation_fleet(
+                structured["fleet"],
+                include_carriages=schema_version == CHECKPOINT_SCHEMA_VERSION_V4,
+            )
+        )
     return _safe(normalized), _safe(observation["arrays"])
-
-
-def _validate_observation_metro_prefix(
-    env: MiniMetroEnv, observation: dict[str, Any]
-) -> None:
-    try:
-        observed_ids = [item["id"] for item in observation["structured"]["metros"]]
-    except (KeyError, TypeError) as error:
-        raise ValueError(
-            "checkpoint observation is missing structured Metro IDs"
-        ) from error
-    if any(type(value) is not str for value in observed_ids):
-        raise ValueError("checkpoint observation Metro IDs must be strings")
-    if len(set(observed_ids)) != len(observed_ids):
-        raise ValueError("checkpoint observation Metro IDs must be unique")
-    runtime_ids = [metro.id for metro in env.mediator.metros]
-    if observed_ids != runtime_ids:
-        raise ValueError("checkpoint observation Metro order is stale")
-
-
-def _metro_queue_state(metro: Any, *, required: bool) -> bool:
-    value = getattr(metro, "is_unassignment_queued", None if required else False)
-    if type(value) is not bool:
-        raise ValueError("checkpoint Metro queue state must be boolean")
-    return value
 
 
 def canonical_checkpoint(
@@ -153,7 +167,7 @@ def canonical_checkpoint(
         type(schema_version) is not int
         or schema_version not in SUPPORTED_CHECKPOINT_SCHEMA_VERSIONS
     ):
-        raise ValueError("checkpoint schema_version must be 1, 2, or 3")
+        raise ValueError("checkpoint schema_version must be 1, 2, 3, or 4")
     if (
         schema_version == LEGACY_CHECKPOINT_SCHEMA_VERSION
         and hasattr(env, "reward_mode")
@@ -162,9 +176,8 @@ def canonical_checkpoint(
         raise ValueError("checkpoint v1 requires line_credits_delta reward mode")
     mediator = env.mediator
     observation = env.observe() if observation is None else observation
-    if schema_version == CHECKPOINT_SCHEMA_VERSION:
-        _validate_observation_metro_prefix(env, observation)
-    structured, arrays = _normalize_observation(observation, schema_version)
+    if schema_version in {CHECKPOINT_SCHEMA_VERSION_V3, CHECKPOINT_SCHEMA_VERSION_V4}:
+        validate_observation_metro_prefix(env, observation)
     stations = _unique([*mediator.all_stations, *mediator.stations])
     paths = _unique(mediator.paths)
     metros = _unique(
@@ -173,8 +186,19 @@ def canonical_checkpoint(
     if schema_version in {
         CHECKPOINT_SCHEMA_VERSION_V1,
         CHECKPOINT_SCHEMA_VERSION_V2,
-    } and any(_metro_queue_state(metro, required=False) for metro in metros):
+    } and any(metro_queue_state(metro, required=False) for metro in metros):
         raise ValueError("checkpoint v1/v2 cannot encode queued unassignment state")
+    if schema_version != CHECKPOINT_SCHEMA_VERSION_V4 and any(
+        getattr(metro, "carriages", ()) for metro in metros
+    ):
+        raise ValueError("checkpoint v1/v2/v3 cannot encode attached carriages")
+    carriage_records: list[dict[str, int]] = []
+    carriage_references: dict[int, list[int]] = {}
+    if schema_version == CHECKPOINT_SCHEMA_VERSION_V4:
+        carriage_records, carriage_references = runtime_carriage_state(
+            env, observation, metros
+        )
+    structured, arrays = _normalize_observation(observation, schema_version)
     passengers = _unique(
         [
             *mediator.passengers,
@@ -337,9 +361,13 @@ def canonical_checkpoint(
                 "just_arrived_and_stopped": metro.just_arrived_and_stopped,
             }
         )
-    if schema_version == CHECKPOINT_SCHEMA_VERSION:
+    if schema_version in {CHECKPOINT_SCHEMA_VERSION_V3, CHECKPOINT_SCHEMA_VERSION_V4}:
         for item, metro in zip(metro_motion, metros, strict=True):
-            item["unassignment_queued"] = _metro_queue_state(metro, required=True)
+            item["unassignment_queued"] = metro_queue_state(metro, required=True)
+    if schema_version == CHECKPOINT_SCHEMA_VERSION_V4:
+        for item, metro in zip(metro_motion, metros, strict=True):
+            item["base_capacity"] = metro._base_capacity
+            item["carriage_indices"] = carriage_references[id(metro)]
     environment_state = {
         "dt_ms_default": env.dt_ms_default,
         "last_score": env.last_score,
@@ -352,6 +380,8 @@ def canonical_checkpoint(
         "passenger_max_wait_time_ms": mediator.passenger_max_wait_time_ms,
         "max_waiting_passengers": mediator.max_waiting_passengers,
     }
+    if schema_version == CHECKPOINT_SCHEMA_VERSION_V4:
+        limits["num_carriages"] = mediator.num_carriages
     progression = {
         "score": mediator.score,
         "total_travels_handled": mediator.total_travels_handled,
@@ -378,7 +408,8 @@ def canonical_checkpoint(
     }
     if schema_version in {
         CHECKPOINT_SCHEMA_VERSION_V2,
-        CHECKPOINT_SCHEMA_VERSION,
+        CHECKPOINT_SCHEMA_VERSION_V3,
+        CHECKPOINT_SCHEMA_VERSION_V4,
     }:
         deliveries = getattr(mediator, "deliveries", mediator.total_travels_handled)
         line_credits = getattr(mediator, "line_credits", mediator.score)
@@ -456,7 +487,11 @@ def canonical_checkpoint(
             "numpy": _safe(mediator.context.numpy_random.bit_generator.state),
         },
     }
+    if schema_version == CHECKPOINT_SCHEMA_VERSION_V4:
+        checkpoint["carriages"] = carriage_records
     checkpoint = _safe(checkpoint)
-    if schema_version == CHECKPOINT_SCHEMA_VERSION:
+    if schema_version == CHECKPOINT_SCHEMA_VERSION_V3:
         validate_checkpoint_v3(checkpoint)
+    elif schema_version == CHECKPOINT_SCHEMA_VERSION_V4:
+        validate_checkpoint_v4(checkpoint)
     return checkpoint

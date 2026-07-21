@@ -10,6 +10,7 @@ import { replayableInputs } from '../scripts/playtest-verify.mjs';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const fixtureRoot = path.join(repoRoot, 'scripts', 'fixtures');
 const fleetContract = 'explicit_locomotive_assignment_v1';
+const carriageContract = 'explicit_carriage_attachment_v1';
 
 function baseInputs(schemaVersion) {
   return {
@@ -56,12 +57,13 @@ test('frozen checkpoint and recursive fixture bytes are exact', async () => {
   }
 });
 
-test('the default recursive fixture is v4 and assigns by replay-safe index', async () => {
+test('the default recursive fixture is v5 and uses replay-safe resource indices', async () => {
   const document = JSON.parse(await readFixture('recursive-playtest.json'));
-  assert.equal(document.schemaVersion, 4);
+  assert.equal(document.schemaVersion, 5);
   assert.equal(document.environmentRewardContract, 'deliveries');
   assert.equal(document.overduePassengerThreshold, 2);
   assert.equal(document.fleetActionContract, fleetContract);
+  assert.equal(document.carriageActionContract, carriageContract);
 
   const assignment = document.operations.find(
     (operation) => operation.action.type === 'assign_locomotive',
@@ -69,6 +71,14 @@ test('the default recursive fixture is v4 and assigns by replay-safe index', asy
   assert.ok(assignment);
   assert.deepEqual(assignment.action, {
     type: 'assign_locomotive',
+    path_index: 0,
+  });
+  const attachment = document.operations.find(
+    (operation) => operation.action.type === 'attach_carriage',
+  );
+  assert.ok(attachment);
+  assert.deepEqual(attachment.action, {
+    type: 'attach_carriage',
     path_index: 0,
   });
   assert.equal(JSON.stringify(document).includes('path_id'), false);

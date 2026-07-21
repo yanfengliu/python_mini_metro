@@ -31,7 +31,7 @@ from rl.protocol import (  # noqa: E402
 )
 
 OLD_HUD_EXCLUSION = (0, 0, 700, 140)
-NEW_HUD_EXCLUSION = (0, 0, 840, 200)
+NEW_HUD_EXCLUSION = (0, 0, 840, 250)
 PROFILES = (FAST_RENDER_PROFILE, FIDELITY_RENDER_PROFILE)
 
 
@@ -223,8 +223,9 @@ class TestGM06aInventoryRendering(unittest.TestCase):
                         "Passengers Delivered: 23",
                         "Line Credits: 4",
                         f"Locomotives Available: {count}",
+                        "Carriages Available: 0",
                     ],
-                    [(20, 20), (20, 70), (20, 120)],
+                    [(20, 20), (20, 70), (20, 120), (20, 170)],
                 )
                 for count in expected_counts
             ],
@@ -237,15 +238,19 @@ class TestGM06aInventoryRendering(unittest.TestCase):
         self.assertIs(font, resources.font("ignored-by-renderer", config.hud_font_size))
         self.assertEqual(resources.font_count, 1)
         x, y = config.hud_display_coords
-        blocker = pygame.Rect(0, 0, 840, 200)
+        blocker = pygame.Rect(0, 0, 840, 250)
 
         for count in range(1000):
             with self.subTest(count=count):
-                rendered = font.render(
-                    f"Locomotives Available: {count}", True, (0, 0, 0)
-                )
-                rect = rendered.get_rect(topleft=(x, y + 2 * config.hud_line_spacing))
-                self.assertTrue(blocker.contains(rect), rect)
+                for label, row in (
+                    (f"Locomotives Available: {count}", 2),
+                    (f"Carriages Available: {count}", 3),
+                ):
+                    rendered = font.render(label, True, (0, 0, 0))
+                    rect = rendered.get_rect(
+                        topleft=(x, y + row * config.hud_line_spacing)
+                    )
+                    self.assertTrue(blocker.contains(rect), rect)
 
     def test_old_and_new_blockers_preserve_every_descriptor_round_trip(self) -> None:
         paths = (

@@ -424,7 +424,7 @@ class TestGM05aPassengerTransitions(unittest.TestCase):
         self.assertEqual(mediator.deliveries, deliveries + 1)
         mediator._replan_passenger_at_station.assert_not_called()
 
-    def test_full_station_preserves_marker_and_matches_legacy_rng_control(self):
+    def test_full_station_preserves_marker_and_rng_without_blocked_boarding(self):
         subject = build_onboard_network(seed=991, other_riders=1)
         control = build_onboard_network(seed=991, other_riders=1)
         for bundle in (subject, control):
@@ -484,7 +484,7 @@ class TestGM05aPassengerTransitions(unittest.TestCase):
         self.assertIs(marker.node_path, marker_state[3])
         self.assertEqual(marker.node_path, marker_state[4])
         subject_mediator._replan_passenger_at_station.assert_not_called()
-        self.assertNotEqual(
+        self.assertEqual(
             subject_mediator.context.python_random.getstate(), python_before
         )
         self.assertEqual(

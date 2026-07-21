@@ -317,7 +317,7 @@ class TestGameRenderer(unittest.TestCase):
         self.assertEqual(self.state.game_over_exit_rect, exit_before)
         self.assertGreaterEqual(self.renderer.resources.font_count, 3)
 
-    def test_hud_names_deliveries_line_credits_and_available_locomotives(self) -> None:
+    def test_hud_names_deliveries_line_credits_and_available_resources(self) -> None:
         resources = RecordingResources()
         renderer = GameRenderer(network_renderer=self.network, resources=resources)
         surface = RecordingSurface((1920, 1080))
@@ -330,6 +330,7 @@ class TestGameRenderer(unittest.TestCase):
                 "Passengers Delivered: 23",
                 "Line Credits: 4",
                 "Locomotives Available: 0",
+                "Carriages Available: 0",
             ],
         )
         self.assertNotIn("999", " ".join(resources.rendered_text))
@@ -348,6 +349,7 @@ class TestGameRenderer(unittest.TestCase):
                 "Passengers Delivered: 7",
                 "Line Credits: 2",
                 "Locomotives Available: 0",
+                "Carriages Available: 0",
             ],
         )
 
@@ -417,7 +419,8 @@ class TestGameRenderer(unittest.TestCase):
         renderer = GameRenderer(network_renderer=self.network, resources=resources)
         surface = RecordingSurface((800, 600))
         layout_state = Mediator(seed=1)
-        layout_state.prepare_layout(800, 600)
+        with patch("mediator.validate_resource_control_layout"):
+            layout_state.prepare_layout(800, 600)
         self.state.game_over_restart_rect = layout_state.game_over_restart_rect
         self.state.game_over_exit_rect = layout_state.game_over_exit_rect
 

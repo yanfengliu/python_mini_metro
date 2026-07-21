@@ -267,7 +267,7 @@ class TestGM06aLocomotiveInventory(unittest.TestCase):
         self.assertEqual(len(path.metros), 2)
         self.assertFleet(mediator, (2, 1, 1))
 
-    def test_partial_over_cap_removals_clear_deficit_without_false_refund(self):
+    def test_partial_over_cap_failure_becomes_explicitly_malformed(self):
         mediator = Mediator(seed=12)
         mediator.num_metros = 2
         path = _create_assigned_path(mediator, [0, 1])
@@ -280,9 +280,9 @@ class TestGM06aLocomotiveInventory(unittest.TestCase):
             mediator.remove_path(path)
         self.assertFleet(mediator, (0, 1, 0))
 
-        with self.assertRaisesRegex(RuntimeError, "global removal fault"):
-            mediator.remove_path(path)
-        self.assertFleet(mediator, (0, 0, 0))
+        mediator.remove_path(path)
+        self.assertFleet(mediator, (0, 1, 0))
+        self.assertIn(path, mediator.paths)
 
 
 if __name__ == "__main__":

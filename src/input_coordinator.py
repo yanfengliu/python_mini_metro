@@ -14,8 +14,6 @@ _FLEET_INPUT = FleetInput()
 
 
 class InputCoordinator:
-    """Stateless player-input and layout algorithms over canonical facade state."""
-
     __slots__ = ()
 
     def prepare_layout(
@@ -32,11 +30,19 @@ class InputCoordinator:
         get_game_over_button_height: Resolver,
         get_game_over_button_spacing: Resolver,
         get_update_fleet_button_positions: Resolver | None = None,
+        get_update_carriage_button_positions: Resolver | None = None,
+        get_validate_resource_control_layout: Resolver | None = None,
     ) -> None:
+        if get_validate_resource_control_layout is not None:
+            get_validate_resource_control_layout()(width, height)
         get_update_path_button_positions()(host.path_buttons, width, height)
         if get_update_fleet_button_positions is not None:
             get_update_fleet_button_positions()(
                 getattr(host, "fleet_buttons", ()), width, height
+            )
+        if get_update_carriage_button_positions is not None:
+            get_update_carriage_button_positions()(
+                getattr(host, "carriage_buttons", ()), width, height
             )
         get_update_speed_button_positions()(host.speed_buttons, width, height)
         start_top = height // 2 + get_game_over_font_size() // 3 + 40

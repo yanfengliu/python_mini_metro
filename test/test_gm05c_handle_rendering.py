@@ -162,11 +162,11 @@ class TestGM05cHandleRendering(unittest.TestCase):
         pygame.quit()
 
     def setUp(self) -> None:
-        self.size = (520, 320)
+        self.size = (520, 360)
         self.stations = [
-            StationStub("A", 100, 150),
-            StationStub("B", 260, 150),
-            StationStub("C", 420, 150),
+            StationStub("A", 100, 240),
+            StationStub("B", 260, 240),
+            StationStub("C", 420, 240),
         ]
         self.path = build_path(self.stations)
         self.state = make_state([self.path], self.stations)
@@ -190,8 +190,8 @@ class TestGM05cHandleRendering(unittest.TestCase):
         module = path_handles_module()
         log: list[str] = []
         stations = [
-            StationStub("A", 100, 150, log),
-            StationStub("B", 260, 150, log),
+            StationStub("A", 100, 240, log),
+            StationStub("B", 260, 240, log),
         ]
         path = build_path(stations)
         state = make_state(

@@ -11,7 +11,14 @@ from path_replacement_geometry import (
     is_canonical_point,
     validate_path_geometry,
 )
-from path_replacement_snapshot import restore_state, snapshot_state
+from path_replacement_snapshot import (
+    exact_graph_value,
+    finalize_replacement,
+    identity_unique,
+    restore_state,
+    snapshot_state,
+    validated_carriage_storage,
+)
 
 _POSITION_TOLERANCE = 1e-6
 _MISSING = object()
@@ -35,11 +42,6 @@ class _Binding:
 
 def _point(value: Any) -> tuple[Any, Any]:
     return (value.left, value.top)
-
-
-def _identity_unique(values: Any) -> bool:
-    items = tuple(values)
-    return len({id(value) for value in items}) == len(items)
 
 
 def _is_path_segment(segment: Any) -> bool:
@@ -222,7 +224,7 @@ def _normalize(host: Any, station_indices: Any, loop: Any):
     if len(normalized) < 2 or len(set(normalized)) != len(normalized):
         return None
     stations = [host.stations[index] for index in normalized]
-    if not _identity_unique(stations):
+    if not identity_unique(stations):
         return None
     return stations
 
@@ -242,8 +244,8 @@ def _preflight(
         or getattr(host, "path_redraw", None) is not None
         or sum(path is target for path in paths) != 1
         or bool(getattr(target, "is_being_created", False))
-        or not _identity_unique(paths)
-        or not _identity_unique(stations)
+        or not identity_unique(paths)
+        or not identity_unique(stations)
     ):
         return None
     mutable_collections = [
@@ -265,7 +267,7 @@ def _preflight(
     ]
     if any(not isinstance(collection, list) for collection in mutable_collections):
         return None
-    if not _identity_unique(mutable_collections):
+    if not identity_unique(mutable_collections):
         return None
     path_ids = [getattr(path, "id", _MISSING) for path in paths]
     if any(type(path_id) is not str or not path_id for path_id in path_ids):
@@ -316,13 +318,16 @@ def _preflight(
             if metro.path_id != path.id:
                 return None
     global_metros = tuple(host.metros)
-    if not _identity_unique(global_metros) or {
+    if not identity_unique(global_metros) or {
         id(item) for item in global_metros
     } != set(owners):
         return None
+    carriage_lists = validated_carriage_storage(host, mutable_collections)
+    if carriage_lists is None:
+        return None
 
     global_passengers = tuple(host.passengers)
-    if not _identity_unique(global_passengers):
+    if not identity_unique(global_passengers):
         return None
     holder_lists = [
         *(station.passengers for station in stations),
@@ -330,7 +335,7 @@ def _preflight(
     ]
     if any(not isinstance(collection, list) for collection in holder_lists):
         return None
-    if not _identity_unique([*mutable_collections, *holder_lists]):
+    if not identity_unique([*mutable_collections, *carriage_lists, *holder_lists]):
         return None
     holders: dict[int, tuple[Any, Any | None]] = {}
     for station in stations:
@@ -356,15 +361,18 @@ def _preflight(
         for _, plan in plan_items
     ):
         return None
-    if not _identity_unique(plan for _, plan in plan_items):
+    if not identity_unique(plan for _, plan in plan_items):
         return None
     node_lists = [plan.node_path for _, plan in plan_items]
-    if not _identity_unique([*mutable_collections, *holder_lists, *node_lists]):
+    if not identity_unique(
+        [*mutable_collections, *carriage_lists, *holder_lists, *node_lists]
+    ):
         return None
     live_storage_ids = {
         id(collection)
         for collection in (
             *mutable_collections,
+            *carriage_lists,
             *holder_lists,
             *node_lists,
         )
@@ -406,13 +414,6 @@ def _preflight(
         for passenger in tuple(station.passengers)
     ]
     return motions, onboard, waiting, live_storage_ids, live_geometry_ids
-
-
-def _graph_value(graph: Any, station: Any):
-    matches = [value for key, value in graph.items() if key is station]
-    if len(matches) != 1 or getattr(matches[0], "station", None) is not station:
-        raise ValueError("fresh graph does not contain the exact active station")
-    return matches[0]
 
 
 def replace_path(
@@ -475,7 +476,7 @@ def replace_path(
         graph = get_graph_builder()(host.stations, host.paths)
         markers = []
         for passenger, owner, plan, station in onboard:
-            node = _graph_value(graph, station)
+            node = exact_graph_value(graph, station)
             if not any(value is owner for value in node.paths):
                 raise ValueError("fresh marker node does not contain the owning path")
             markers.append((plan, owner, station, node))
@@ -486,6 +487,7 @@ def replace_path(
             plan.next_path = owner
         for station, passenger in waiting:
             get_scoped_replanner()(passenger, station, graph)
+        finalize_replacement(host, state)
     except BaseException as error:
         traceback = error.__traceback__
         try:

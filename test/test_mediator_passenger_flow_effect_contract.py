@@ -257,7 +257,7 @@ class TestPassengerFlowEffectContract(support.MediatorTestCase):
         self.assertEqual(metro.passengers, [boarder])
         self.assertEqual(station.passengers, [transfer])
 
-    def test_station_stop_dispatches_unload_board_can_board_in_baseline_order(
+    def test_station_stop_short_circuits_queries_after_destination_priority(
         self,
     ) -> None:
         mediator = Mediator()
@@ -281,7 +281,7 @@ class TestPassengerFlowEffectContract(support.MediatorTestCase):
 
         mediator.start_station_stop_if_needed(metro, station, {})
 
-        self.assertEqual(events, ["unload", "board", "can-board"])
+        self.assertEqual(events, ["unload"])
         self.assertEqual(metro.stop_time_remaining_ms, 500)
         self.assertEqual(metro.boarding_progress_ms, 0)
         self.assertEqual(metro.speed, 0)

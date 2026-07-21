@@ -137,6 +137,9 @@ class TestMediatorInputContract(support.MediatorTestCase):
             mediator_module.update_speed_button_positions = late_speed
             mediator_module.game_over_font_size = 18
 
+        def validate_layout(width, height):
+            events.append(("validate", width, height))
+
         def early_speed(*_args):
             raise AssertionError("speed updater captured before path updater")
 
@@ -149,6 +152,7 @@ class TestMediatorInputContract(support.MediatorTestCase):
                 mediator_module,
                 update_path_button_positions=path_positions,
                 update_speed_button_positions=early_speed,
+                validate_resource_control_layout=validate_layout,
                 game_over_font_size=3,
                 game_over_button_width=10,
                 game_over_button_height=6,
@@ -158,9 +162,10 @@ class TestMediatorInputContract(support.MediatorTestCase):
         ):
             Mediator.prepare_layout(mediator, 200, 100)
 
-        self.assertEqual(events[0], ("path", mediator.path_buttons, 200, 100))
-        self.assertEqual(events[1], ("speed", mediator.speed_buttons, 200, 100))
-        self.assertEqual(events[2], ("rect", 44, 12))
+        self.assertEqual(events[0], ("validate", 200, 100))
+        self.assertEqual(events[1], ("path", mediator.path_buttons, 200, 100))
+        self.assertEqual(events[2], ("speed", mediator.speed_buttons, 200, 100))
+        self.assertEqual(events[3], ("rect", 44, 12))
         self.assertEqual(mediator.game_over_restart_rect.centerx, 100)
         self.assertEqual(mediator.game_over_restart_rect.top, 96)
         self.assertEqual(mediator.game_over_exit_rect.top, 121)

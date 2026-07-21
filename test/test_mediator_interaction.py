@@ -93,18 +93,21 @@ class TestMediatorInteraction(support.MediatorTestCase):
             "restart",
         )
 
-    def test_compatibility_render_reuses_renderer_and_adapts_layout(self):
-        surface = pygame.Surface((800, 600))
+    def test_compatibility_render_reuses_renderer_on_supported_layout(self):
+        surface = pygame.Surface((screen_width, screen_height))
 
         self.mediator.render(surface)
         compatibility_renderer = self.mediator._compat_renderer
         self.mediator.render(surface)
 
         self.assertIs(self.mediator._compat_renderer, compatibility_renderer)
-        self.assertLess(self.mediator.path_buttons[-1].position.left, 800)
-        self.assertLess(self.mediator.path_buttons[-1].position.top, 600)
+        self.assertLess(self.mediator.path_buttons[-1].position.left, screen_width)
+        self.assertLess(self.mediator.path_buttons[-1].position.top, screen_height)
         assert self.mediator.game_over_restart_rect is not None
-        self.assertEqual(self.mediator.game_over_restart_rect.centerx, 400)
+        self.assertEqual(
+            self.mediator.game_over_restart_rect.centerx,
+            screen_width // 2,
+        )
 
     def test_mouse_motion_no_entity_triggers_exit(self):
         mediator = Mediator()

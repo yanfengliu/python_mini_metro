@@ -394,8 +394,12 @@ class TestGM06bDeliveryDemonstrator(unittest.TestCase):
             kinds[route_action_count : route_action_count + 2],
             [ActionKind.DOWN, ActionKind.UP],
         )
+        self.assertEqual(
+            kinds[route_action_count + 2 : route_action_count + 4],
+            [ActionKind.DOWN, ActionKind.UP],
+        )
         self.assertTrue(
-            all(kind is ActionKind.NOOP for kind in kinds[route_action_count + 2 :])
+            all(kind is ActionKind.NOOP for kind in kinds[route_action_count + 4 :])
         )
         plus, _ = _snapshot_fleet_coordinates(capture_privileged_snapshot(env))[0]
         expected = canonical_to_action_coordinate(*plus, env.task_spec.render_profile)

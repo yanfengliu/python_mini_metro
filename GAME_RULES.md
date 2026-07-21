@@ -12,6 +12,7 @@ This document summarizes the game rules currently implemented in code.
 - Interactive play advances the simulation on a deterministic 60 Hz cadence of 17, 17, then 16 milliseconds; delayed frames are bounded so a stall cannot create an unlimited catch-up spiral.
 - Player input is applied before the simulation updates for that frame.
 - Metro positions are visually interpolated between completed simulation updates. Interpolation changes only presentation, not travel timing, stops, scoring, or passenger state.
+- Attached carriage bodies follow the rendered route through bends, loops, and terminal turns. Passenger order is sliced across the locomotive first and then each attached carriage in order; a queued-return outline covers the whole consist.
 - Multiple lines through the same station pair occupy symmetric visual lanes around their shared logical centerline. The logical path and padding segment sequence used for metro movement is unchanged.
 - Drawing is observational: rendering does not advance time, rebuild logical routes, expire effects, or change hitboxes.
 
@@ -44,9 +45,12 @@ This document summarizes the game rules currently implemented in code.
 - Completing a line does not assign a locomotive. A completed line remains valid but unserved until the player uses its plus control or the `assign_locomotive` structured action. Multiple locomotives can serve one line while total inventory remains available.
 - The minus control and `unassign_locomotive` action select the last empty, nonqueued locomotive on the line. An empty locomotive at a real station returns immediately; otherwise it remains assigned, boards no new passengers, and is forced to stop and return at its next real station. Endpoint-coordinate equality alone does not count as a station arrival.
 - A queued return is a visible subset of assigned inventory and does not increase availability early. Repeated requests can queue distinct eligible locomotives; an already queued locomotive is never selected again. Redistribution is the explicit two-step sequence of returning a source locomotive and then assigning the newly available capacity to a destination line.
-- A paused game accepts a return request, but a moving locomotive does not advance until play resumes. A terminal game rejects fleet actions. GM-06b intentionally rejects occupied-locomotive return requests; occupied-return cancellation and destructive line-removal rider cleanup remain scheduled for GM-06d.
-- Removing a line removes its assigned metros from the active global collection, making those locomotive units available again in ordinary gameplay. The current removal behavior for onboard passengers is scheduled for GM-06d hardening.
-- Metro capacity is 6 passengers.
+- A paused game accepts a return request, but a moving locomotive does not advance until play resumes. A terminal game rejects fleet actions. GM-06c retains the intentional rejection of occupied-locomotive return requests; occupied-return cancellation and destructive line-removal rider cleanup remain scheduled for GM-06d.
+- The carriage inventory starts at 2 total. Unassigned carriages are fungible capacity and exist as entities only after attachment; assigned and available counts derive from carriage lists owned by canonical global Metros.
+- A line's carriage-plus control or `attach_carriage` action selects the eligible nonqueued locomotive with the fewest carriages, breaking ties by earliest line order, and appends one new six-seat carriage. A paused game permits the immediate composition change; a terminal game rejects it.
+- A line's carriage-minus control or `detach_carriage` action selects the eligible nonqueued locomotive with the most carriages, breaking ties by latest line order, and removes that locomotive's last carriage only if all current riders still fit. Removed carriage identities are retired rather than pooled or reused.
+- Removing a line removes its assigned metros from the active global collection, making those locomotive and carriage units available again in ordinary gameplay. Detached historical path graphs do not count as live inventory. The current destructive behavior for onboard passengers and recovery from a late malformed line-removal failure remain scheduled for GM-06d hardening.
+- A locomotive has 6 base passenger spaces, and each attached carriage adds 6 more. Passengers remain canonically owned by the locomotive and are rendered across the locomotive slice followed by ordered carriage slices.
 - Metro movement is automatic along the line:
   - Non-loop lines reverse direction at endpoints.
   - Loop lines continue around the loop.
@@ -82,6 +86,7 @@ This document summarizes the game rules currently implemented in code.
 ## Timing and Spawning
 
 - Game updates at 60 FPS.
+- Station service is timed one executable passenger at a time in 500 ms intervals: destination unload first, then a transfer when the station has room, then boarding when the locomotive has room and boarding is permitted. Eligibility is recomputed after every completed action, so blocked transfers or full trains create no phantom dwell interval and larger time steps retain residual progress across successive actions.
 - Each active station is initialized ready to spawn and attempts its first passenger on the first unpaused fixed update.
 - Each station samples its own recurring spawn interval once, uniformly and inclusively from 70% to 130% of the 900-step base: 630-1,170 simulated steps, or 10.5-19.5 simulated seconds at 60 Hz.
 - On each station spawn tick, that station attempts to spawn 1 passenger if it has room and then resets its counter even when full.
@@ -106,6 +111,7 @@ This document summarizes the game rules currently implemented in code.
   - Hover a locked line button to see a two-line buy hint (`Buy` + price).
   - Click a locked line button (empty ring) to purchase that slot if enough line credits remain.
   - Click the plus above a completed line button to assign one available locomotive. Click its minus to request the return of the last eligible empty locomotive.
+  - Use the carriage plus and minus in the same four-control line-slot group to attach one available carriage or safely detach the selected locomotive's last carriage.
   - Click and release a line color button without capturing a station to remove its release-target line.
   - On game-over screen, click Restart or Exit buttons.
 - Keyboard:
@@ -120,12 +126,15 @@ This document summarizes the game rules currently implemented in code.
 - `replace_path`: atomically replace one existing line selected by exactly one index or id, using a unique station-index sequence and optional loop flag.
 - `assign_locomotive`: assign one available locomotive to a completed line selected by exactly one index or id.
 - `unassign_locomotive`: immediately return or queue the return of an empty locomotive from a completed line selected by exactly one index or id.
+- `attach_carriage`: attach one available carriage to a completed line selected by exactly one index or id; the eligible nonqueued locomotive with the fewest carriages wins, with earliest line order breaking ties.
+- `detach_carriage`: safely detach the last carriage from a completed line selected by exactly one index or id; the eligible nonqueued locomotive with the most carriages wins, with latest line order breaking ties, and every rider must fit afterward.
 - `remove_path`: remove a line by index or id.
 - `buy_line`: purchase the next locked line, optionally targeting its sequential button index.
 - `pause`: pause simulation.
 - `resume`: resume simulation.
 - `noop` (or `None`): do nothing this step.
 - Malformed or unsafe actions are rejected without mutating game state or advancing programmatic time.
+- Locomotive and carriage resource actions are accepted while paused and rejected after game over; queued locomotives cannot receive carriage mutations.
 
 ## Player-Equivalent RL Controls
 

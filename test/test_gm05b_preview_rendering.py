@@ -14,7 +14,7 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 import pygame
 
-from config import screen_color
+from config import screen_color, screen_height, screen_width
 from entity.path import Path
 from geometry.circle import Circle
 from geometry.point import Point
@@ -458,9 +458,9 @@ class TestGM05bPreviewRendering(unittest.TestCase):
             list(state.stations[:3]),
             temp_point=Point(500, 400),
         )
-        state.prepare_layout(640, 360)
+        state.prepare_layout(screen_width, screen_height)
         renderer = GameRenderer()
-        surface = pygame.Surface((640, 360), pygame.SRCALPHA, 32)
+        surface = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA, 32)
         modules = (
             "entity.metro",
             "entity.padding_segment",

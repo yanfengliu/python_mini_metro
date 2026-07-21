@@ -69,6 +69,11 @@ class PathLifecycle:
         host.update_path_button_lock_states()
 
     def remove_path(self, host: PathLifecycleHost, path: Any) -> None:
+        if hasattr(host, "num_carriages"):
+            from fleet_management import _path_is_complete, _queue_state_is_canonical
+
+            if not _path_is_complete(host, path) or not _queue_state_is_canonical(host):
+                return
         host.path_to_button[path].remove_path()
         for metro in list(path.metros):
             for passenger in list(metro.passengers):
@@ -77,6 +82,10 @@ class PathLifecycle:
                 host.travel_plans.pop(passenger, None)
             if metro in host.metros:
                 host.metros.remove(metro)
+                if hasattr(metro, "_station_service_action"):
+                    metro._station_service_action = None
+                    metro.stop_time_remaining_ms = 0
+                    metro.boarding_progress_ms = 0
         host.invalidate_travel_plans_for_path(path)
         host.release_color_for_path(path)
         host.paths.remove(path)

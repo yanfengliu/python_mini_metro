@@ -1,0 +1,239 @@
+{
+  "agentV4": {
+    "actions": [
+      {
+        "loop": false,
+        "stations": [
+          0,
+          1
+        ],
+        "type": "create_path"
+      },
+      {
+        "path_index": 0,
+        "type": "assign_locomotive"
+      }
+    ],
+    "actions_digest": {
+      "canonical_bytes": 98,
+      "sha256": "a6b0c78f3d92bc498f82256d0eb4943b5125e60eb4a5617edb590b1ab7b678cd"
+    },
+    "checkpoint_count": 3,
+    "checkpoint_sha256": [
+      "dfccce5c230045cbc6b45ced920bd297d71297447c3aa8ef41794eded5208a39",
+      "983fb61f19a271c5926e1734ea8e514ed727b4ee283d179cd134f2d3e62db1a4",
+      "be84a87f6cdc69c2aacfc65bce019f8d6aab5296882919a7178e9e4abbd8bf3d"
+    ],
+    "checkpoint_vector": {
+      "canonical_bytes": 44500,
+      "sha256": "17b99afc85b32402ff3c5e56ed72b37ed33329563f19902f4660e4491da04c16"
+    },
+    "dt_ms": 0,
+    "fleet_action_contract": "explicit_locomotive_assignment_v1",
+    "max_steps": 2,
+    "outcome": {
+      "canonical_bytes": 45386,
+      "sha256": "6dc0b88475066cc243be45be936619068fdce9a8d24fb055644d0f719263f2ad"
+    },
+    "overdue_passenger_threshold": 2,
+    "record": {
+      "canonical_bytes": 655,
+      "sha256": "2ef343170401cf8f776e34f9d75635b0e700cb888702891eb64d325f2b9b68e6"
+    },
+    "result": {
+      "final_deliveries": 0,
+      "final_line_credits": 0,
+      "observation_count": 3,
+      "returned_score": 0
+    },
+    "result_digest": {
+      "canonical_bytes": 86,
+      "sha256": "f01a25b5cfcd818c671af88e2c848d77241490ecbdf93eff48235e74ef6ccd49"
+    },
+    "reward_contract": "deliveries",
+    "schema": "mini-metro-agent-play-v4",
+    "seed": 653
+  },
+  "canonicalization": {
+    "encoding": "ascii",
+    "ensure_ascii": true,
+    "json_separators": [
+      ",",
+      ":"
+    ],
+    "sort_keys": true,
+    "trailing_newline_in_digest": false
+  },
+  "recursiveV4": {
+    "checkpoint_sha256": [
+      "e831bb8a698d005f952a47c34eb20d83d05dad76755c8f870118beac88755b72",
+      "69e8b3f89343bf1493116b5d181293250b7f3ba041c4fa2a6c5ff8cd64edd727",
+      "0735448b7a82653d8f4ae935c13b76a5fc706677ac98512d9c7f71d851bd9882",
+      "21c5f6f0aa29c49cc1647e779f1eacb78ce458ea9e44d3a22e2256452cbb0be0",
+      "21c5f6f0aa29c49cc1647e779f1eacb78ce458ea9e44d3a22e2256452cbb0be0",
+      "667a590faa145947ae902c5a1425cfd69e7d633da757762c2ad9ac63a0da31a5",
+      "c0c0888aae79950cb61095b21a425b5dcc3b6f25b3fe1ecd219a6b09936d2ceb",
+      "c0c0888aae79950cb61095b21a425b5dcc3b6f25b3fe1ecd219a6b09936d2ceb",
+      "c0c0888aae79950cb61095b21a425b5dcc3b6f25b3fe1ecd219a6b09936d2ceb"
+    ],
+    "checkpoint_vector": {
+      "canonical_bytes": 141025,
+      "sha256": "f1b1929e8c2851d89e25bb4943073c15525437b6849bad713f3e58df757e23fa"
+    },
+    "findings": [],
+    "fixture": "scripts/fixtures/recursive-playtest-v4.json",
+    "fixture_bytes": 1608,
+    "fixture_sha256": "807429bf99283a79341c1e78d4984880ec53deaccab1d5bc36ec2b4cf9610cee",
+    "operation_names": [
+      "create-initial-line",
+      "assign-initial-locomotive",
+      "advance-simulation",
+      "pause-simulation",
+      "remain-paused",
+      "resume-simulation",
+      "remove-initial-line",
+      "reject-missing-line-removal",
+      "reject-unaffordable-line-purchase"
+    ],
+    "outcome": {
+      "canonical_bytes": 142772,
+      "sha256": "cadcb48d7e6ef754ac1d93a38e3110620168a378e5537239ae879e2925a393b9"
+    },
+    "result": {
+      "completed": true,
+      "findingCount": 0,
+      "operationCount": 9,
+      "runId": "gm06c-pre-carriage-recursive-v4",
+      "schemaVersion": 4,
+      "seed": 42,
+      "transcriptRows": 9
+    },
+    "run_id": "gm06c-pre-carriage-recursive-v4",
+    "source_path": "scripts/fixtures/recursive-playtest-v4.json",
+    "transcript": {
+      "canonical_bytes": 142590,
+      "sha256": "875265403cbeeb03c8b6861347d1f056e5766ecc2a0864a14fca33efdf2e0908"
+    },
+    "transcript_evidence": [
+      {
+        "action": {
+          "loop": false,
+          "stations": [
+            0,
+            1,
+            2
+          ],
+          "type": "create_path"
+        },
+        "actionOk": true,
+        "done": false,
+        "effectiveDtMs": 16,
+        "index": 0,
+        "name": "create-initial-line",
+        "requestedDtMs": null,
+        "reward": 0
+      },
+      {
+        "action": {
+          "path_index": 0,
+          "type": "assign_locomotive"
+        },
+        "actionOk": true,
+        "done": false,
+        "effectiveDtMs": 16,
+        "index": 1,
+        "name": "assign-initial-locomotive",
+        "requestedDtMs": null,
+        "reward": 0
+      },
+      {
+        "action": {
+          "type": "noop"
+        },
+        "actionOk": true,
+        "done": false,
+        "effectiveDtMs": 32,
+        "index": 2,
+        "name": "advance-simulation",
+        "requestedDtMs": 32,
+        "reward": 0
+      },
+      {
+        "action": {
+          "type": "pause"
+        },
+        "actionOk": true,
+        "done": false,
+        "effectiveDtMs": 16,
+        "index": 3,
+        "name": "pause-simulation",
+        "requestedDtMs": null,
+        "reward": 0
+      },
+      {
+        "action": {
+          "type": "noop"
+        },
+        "actionOk": true,
+        "done": false,
+        "effectiveDtMs": 16,
+        "index": 4,
+        "name": "remain-paused",
+        "requestedDtMs": null,
+        "reward": 0
+      },
+      {
+        "action": {
+          "type": "resume"
+        },
+        "actionOk": true,
+        "done": false,
+        "effectiveDtMs": 16,
+        "index": 5,
+        "name": "resume-simulation",
+        "requestedDtMs": null,
+        "reward": 0
+      },
+      {
+        "action": {
+          "path_index": 0,
+          "type": "remove_path"
+        },
+        "actionOk": true,
+        "done": false,
+        "effectiveDtMs": 16,
+        "index": 6,
+        "name": "remove-initial-line",
+        "requestedDtMs": null,
+        "reward": 0
+      },
+      {
+        "action": {
+          "path_index": 0,
+          "type": "remove_path"
+        },
+        "actionOk": false,
+        "done": false,
+        "effectiveDtMs": 16,
+        "index": 7,
+        "name": "reject-missing-line-removal",
+        "requestedDtMs": null,
+        "reward": 0
+      },
+      {
+        "action": {
+          "type": "buy_line"
+        },
+        "actionOk": false,
+        "done": false,
+        "effectiveDtMs": 16,
+        "index": 8,
+        "name": "reject-unaffordable-line-purchase",
+        "requestedDtMs": null,
+        "reward": 0
+      }
+    ],
+    "transcript_rows": 9
+  },
+  "schemaVersion": 1
+}

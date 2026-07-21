@@ -16,6 +16,7 @@ from event.type import MouseEventType
 from geometry.point import Point
 from mediator import Mediator
 from rl.protocol import ActionKind
+from ui.fleet_button import FleetButton
 
 _ASSIGN_NAMES = frozenset(("+", "add", "assign", "assign_locomotive", "plus"))
 _UNASSIGN_NAMES = frozenset(("-", "minus", "remove", "unassign", "unassign_locomotive"))
@@ -56,10 +57,11 @@ def operation(control: Any) -> str:
 
 
 def fleet_controls(mediator: Mediator) -> tuple[Any, ...]:
-    established = {id(button) for button in mediator.path_buttons}
-    established.update(id(button) for button in mediator.speed_buttons)
+    registered = tuple(getattr(mediator, "fleet_buttons", ()))
     controls = tuple(
-        button for button in mediator.buttons if id(button) not in established
+        button
+        for button in mediator.buttons
+        if any(button is registered_button for registered_button in registered)
     )
     expected_count = 2 * len(mediator.path_buttons)
     if len(controls) != expected_count:
@@ -69,6 +71,16 @@ def fleet_controls(mediator: Mediator) -> tuple[Any, ...]:
         )
     if len({id(control) for control in controls}) != len(controls):
         raise AssertionError("FleetButtons must occur exactly once in Mediator.buttons")
+    if not all(isinstance(control, FleetButton) for control in controls):
+        raise AssertionError(
+            "Mediator.fleet_buttons must contain FleetButton instances"
+        )
+    if tuple(id(control) for control in controls) != tuple(
+        id(control) for control in registered
+    ):
+        raise AssertionError(
+            "Mediator.fleet_buttons must identify only the locomotive controls"
+        )
     return controls
 
 

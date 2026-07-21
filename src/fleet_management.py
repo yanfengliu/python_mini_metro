@@ -5,7 +5,13 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from carriage_transaction_snapshot import (
+    restore_transaction_state,
+    snapshot_transaction_state,
+    transaction_state_matches,
+)
 from config import path_order_shift, path_width
+from fleet_validation import carriage_state_is_canonical
 from path_replacement_geometry import validate_path_geometry
 
 MetroFactoryGetter = Callable[[], Callable[[], Any]]
@@ -136,7 +142,7 @@ def _ownership_is_canonical(host: Any) -> bool:
 
 
 def _queue_state_is_canonical(host: Any) -> bool:
-    if not _ownership_is_canonical(host):
+    if not _ownership_is_canonical(host) or not carriage_state_is_canonical(host):
         return False
     return all(
         type(getattr(metro, "is_unassignment_queued", _MISSING)) is bool
@@ -307,6 +313,9 @@ class FleetManagement:
                 pass
             return False
         if _real_station(path, metro):
+            metro._station_service_action = None
+            metro.stop_time_remaining_ms = 0
+            metro.boarding_progress_ms = 0
             self._detach(host, path, metro)
         return True
 
@@ -362,6 +371,7 @@ class FleetManagement:
             or sum(candidate is metro for candidate in host.metros) != 1
         ):
             return False
+        state = snapshot_transaction_state(host)
         path_collection = path.metros
         path_contents = tuple(path_collection)
         global_collection = host.metros
@@ -384,18 +394,24 @@ class FleetManagement:
                 _same_identity_contents(global_collection, expected_global)
             ):
                 raise ValueError("detachment removed the wrong identity")
-            if not _ownership_is_canonical(host):
+            metro._station_service_action = None
+            metro.stop_time_remaining_ms = 0
+            metro.boarding_progress_ms = 0
+            if not transaction_state_matches(
+                host,
+                state,
+                allow_service_change=metro,
+                removed_owner=(path, metro),
+            ):
+                raise ValueError("detachment changed unrelated fleet state")
+            if not _ownership_is_canonical(host) or not carriage_state_is_canonical(
+                host
+            ):
                 raise ValueError("detachment failed its ownership postcondition")
         except BaseException as error:
-            _restore_owner_lists(
-                host,
-                path,
-                path_collection,
-                path_contents,
-                global_collection,
-                global_contents,
-            )
+            traceback = error.__traceback__
+            restore_transaction_state(host, state)
             if not isinstance(error, Exception):
-                raise
+                raise error.with_traceback(traceback)
             return False
         return True

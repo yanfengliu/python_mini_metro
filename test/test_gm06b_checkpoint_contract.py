@@ -82,14 +82,17 @@ class TestGM06bCheckpointContract(unittest.TestCase):
                 "locomotives_assigned": 1,
                 "locomotives_available": env.mediator.num_metros - 1,
                 "locomotives_queued": 0,
+                "carriages_total": env.mediator.num_carriages,
+                "carriages_assigned": 0,
+                "carriages_available": env.mediator.num_carriages,
             },
         )
 
-    def test_default_checkpoint_v3_has_complete_fleet_and_two_queue_encodings(self):
+    def test_default_checkpoint_v4_has_complete_fleet_and_two_queue_encodings(self):
         env, _ = build_env_with_path()
         checkpoint = canonical_checkpoint(env)
 
-        self.assertEqual(checkpoint["schemaVersion"], 3)
+        self.assertEqual(checkpoint["schemaVersion"], 4)
         fleet = checkpoint["structured"]["fleet"]
         self.assertEqual(
             fleet,
@@ -98,6 +101,9 @@ class TestGM06bCheckpointContract(unittest.TestCase):
                 "locomotives_assigned": 1,
                 "locomotives_available": env.mediator.num_metros - 1,
                 "locomotives_queued": 0,
+                "carriages_total": env.mediator.num_carriages,
+                "carriages_assigned": 0,
+                "carriages_available": env.mediator.num_carriages,
             },
         )
         self.assertIs(
@@ -141,7 +147,7 @@ class TestGM06bCheckpointContract(unittest.TestCase):
 
                 self.assertNotIn(suffix, env.mediator.metros)
                 current = canonical_checkpoint(env)
-                self.assertEqual(current["schemaVersion"], 3)
+                self.assertEqual(current["schemaVersion"], 4)
                 prefix_length = len(current["structured"]["metros"])
                 self.assertEqual(len(current["metroMotion"]), prefix_length + 1)
                 self.assertIn(
@@ -169,7 +175,7 @@ class TestGM06bCheckpointContract(unittest.TestCase):
                 normalized = normalize_checkpoint(legacy)
 
                 self.assertEqual(legacy, before)
-                self.assertEqual(normalized["schemaVersion"], 3)
+                self.assertEqual(normalized["schemaVersion"], 4)
                 self.assertTrue(
                     all(
                         item["unassignment_queued"] is False
@@ -191,14 +197,17 @@ class TestGM06bCheckpointContract(unittest.TestCase):
                         "locomotives_assigned": assigned,
                         "locomotives_available": max(0, total - assigned),
                         "locomotives_queued": 0,
+                        "carriages_total": 0,
+                        "carriages_assigned": 0,
+                        "carriages_available": 0,
                     },
                 )
 
     def test_v3_normalizer_rejects_every_fleet_alias_or_prefix_disagreement(self):
         env, _ = build_env_with_path(seed=623)
-        valid = canonical_checkpoint(env)
+        valid = canonical_checkpoint(env, schema_version=3)
         self.assertEqual(valid["schemaVersion"], 3)
-        self.assertEqual(normalize_checkpoint(valid), valid)
+        self.assertEqual(normalize_checkpoint(valid)["schemaVersion"], 4)
 
         def total_alias(value):
             fleet = value["structured"]["fleet"]

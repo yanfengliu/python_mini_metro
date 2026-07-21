@@ -1,8 +1,9 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "environmentRewardContract": "deliveries",
   "overduePassengerThreshold": 2,
   "fleetActionContract": "explicit_locomotive_assignment_v1",
+  "carriageActionContract": "explicit_carriage_attachment_v1",
   "seed": 42,
   "defaultDtMs": 16,
   "operations": [
@@ -19,6 +20,14 @@
       "name": "assign-initial-locomotive",
       "action": {
         "type": "assign_locomotive",
+        "path_index": 0
+      },
+      "expectedActionOk": true
+    },
+    {
+      "name": "attach-initial-carriage",
+      "action": {
+        "type": "attach_carriage",
         "path_index": 0
       },
       "expectedActionOk": true

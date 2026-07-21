@@ -7,6 +7,7 @@ from unittest.mock import patch
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 from agent_play import (
+    CARRIAGE_ACTION_CONTRACT,
     FLEET_ACTION_CONTRACT,
     LEGACY_PLAYTHROUGH_RECORD_SCHEMA,
     LINE_CREDITS_REWARD_CONTRACT,
@@ -114,6 +115,7 @@ class TestAgentPlay(unittest.TestCase):
             reward_contract="deliveries",
             overdue_passenger_threshold=2,
             fleet_action_contract=FLEET_ACTION_CONTRACT,
+            carriage_action_contract=CARRIAGE_ACTION_CONTRACT,
         )
         legacy_record = PlaythroughRecord(
             seed=1,

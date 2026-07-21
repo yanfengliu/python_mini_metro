@@ -44,6 +44,21 @@ class MiniMetroEnv:
         self.last_line_credits = value
 
     def reset(self, seed: int | None = None) -> Dict[str, Any]:
+        retired: list[Any] = []
+        seen: set[int] = set()
+        old_mediator = getattr(self, "mediator", None)
+        old_metros = list(getattr(old_mediator, "metros", ()))
+        for path in getattr(old_mediator, "paths", ()):
+            old_metros.extend(getattr(path, "metros", ()))
+        for metro in old_metros:
+            if id(metro) in seen:
+                continue
+            seen.add(id(metro))
+            retired.append(metro)
+        for metro in retired:
+            metro._station_service_action = None
+            metro.stop_time_remaining_ms = 0
+            metro.boarding_progress_ms = 0
         self.mediator = Mediator(seed=seed)
         self.last_deliveries = self.mediator.deliveries
         self.last_line_credits = self.mediator.line_credits
@@ -180,8 +195,20 @@ class MiniMetroEnv:
                     ),
                     "passenger_ids": [p.id for p in metro.passengers],
                     "unassignment_queued": metro_queue_states[id(metro)],
+                    "capacity": metro.capacity,
+                    "carriage_ids": [carriage.id for carriage in metro.carriages],
                 }
                 for metro in self.mediator.metros
+            ],
+            "carriages": [
+                {
+                    "id": carriage.id,
+                    "capacity": carriage.capacity,
+                    "metro_id": metro.id,
+                    "attachment_index": attachment_index,
+                }
+                for metro in self.mediator.metros
+                for attachment_index, carriage in enumerate(metro.carriages)
             ],
             "passengers": [
                 {
@@ -197,6 +224,9 @@ class MiniMetroEnv:
                 "locomotives_assigned": len(self.mediator.metros),
                 "locomotives_available": self.mediator.available_locomotives,
                 "locomotives_queued": sum(metro_queue_states.values()),
+                "carriages_total": self.mediator.num_carriages,
+                "carriages_assigned": self.mediator.assigned_carriages,
+                "carriages_available": self.mediator.available_carriages,
             },
             "deliveries": self.mediator.deliveries,
             "line_credits": self.mediator.line_credits,

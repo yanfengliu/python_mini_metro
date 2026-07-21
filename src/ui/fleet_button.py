@@ -14,12 +14,12 @@ from config import (
     fleet_button_disabled_color,
     fleet_button_disabled_icon_color,
     fleet_button_enabled_color,
-    fleet_button_horizontal_offset,
     fleet_button_hover_color,
     fleet_button_icon_color,
     fleet_button_icon_width,
     fleet_button_radius,
-    fleet_button_vertical_offset,
+    resource_control_horizontal_offsets,
+    resource_control_vertical_offset,
 )
 from geometry.circle import Circle
 from geometry.point import Point
@@ -165,10 +165,10 @@ def update_fleet_button_positions(
 ) -> None:
     del surface_width, surface_height
     for button in fleet_buttons:
-        direction = -1 if button.operation == "assign" else 1
+        offset_index = 0 if button.operation == "assign" else 1
         button.position = Point(
             button.path_button.position.left
-            + direction * fleet_button_horizontal_offset,
-            button.path_button.position.top - fleet_button_vertical_offset,
+            + resource_control_horizontal_offsets[offset_index],
+            button.path_button.position.top - resource_control_vertical_offset,
         )
         button.shape.position = button.position

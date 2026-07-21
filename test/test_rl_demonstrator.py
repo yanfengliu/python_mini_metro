@@ -143,8 +143,12 @@ class TestDeliveryDemonstration(unittest.TestCase):
             kinds[route_action_count : route_action_count + 2],
             [ActionKind.DOWN, ActionKind.UP],
         )
+        self.assertEqual(
+            kinds[route_action_count + 2 : route_action_count + 4],
+            [ActionKind.DOWN, ActionKind.UP],
+        )
         self.assertTrue(
-            all(kind is ActionKind.NOOP for kind in kinds[route_action_count + 2 :])
+            all(kind is ActionKind.NOOP for kind in kinds[route_action_count + 4 :])
         )
         self.assertEqual(len(capture_privileged_snapshot(env).path_station_indices), 1)
 

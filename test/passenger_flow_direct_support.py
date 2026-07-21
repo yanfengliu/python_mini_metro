@@ -139,6 +139,7 @@ class FakeMetro:
         self.stop_time_remaining_ms = 0
         self.boarding_progress_ms = 0
         self.boarding_time_per_passenger_ms = 500
+        self._station_service_action = None
         self.speed = 10
 
     def has_room(self):
@@ -385,3 +386,13 @@ def assert_component_boundary(test_case, flow, component_type):
     test_case.assertIsNone(iterator_ref())
     test_case.assertIsNone(host_ref())
     assert_import_isolated(test_case)
+
+
+def assert_station_service_action(test_case, metro, expected_kind, expected_passenger):
+    action = metro._station_service_action
+    test_case.assertIsInstance(action, tuple)
+    test_case.assertEqual(len(action), 2)
+    action_kind, action_passenger = action
+    normalized_kind = str(getattr(action_kind, "value", action_kind)).lower()
+    test_case.assertIn(expected_kind, normalized_kind)
+    test_case.assertIs(action_passenger, expected_passenger)

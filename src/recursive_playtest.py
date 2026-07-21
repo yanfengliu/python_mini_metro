@@ -19,6 +19,7 @@ from recursive_contract import (
     SCHEMA_VERSION_V2,
     SCHEMA_VERSION_V3,
     SCHEMA_VERSION_V4,
+    SCHEMA_VERSION_V5,
     _json_copy,
     _nonempty_string,
     _overdue_threshold_for_document,
@@ -239,12 +240,19 @@ def _build_inputs(
         SCHEMA_VERSION_V2,
         SCHEMA_VERSION_V3,
         SCHEMA_VERSION_V4,
+        SCHEMA_VERSION_V5,
     }:
         document["environmentRewardContract"] = scenario["environmentRewardContract"]
-    if scenario["schemaVersion"] in {SCHEMA_VERSION_V3, SCHEMA_VERSION_V4}:
+    if scenario["schemaVersion"] in {
+        SCHEMA_VERSION_V3,
+        SCHEMA_VERSION_V4,
+        SCHEMA_VERSION_V5,
+    }:
         document["overduePassengerThreshold"] = scenario["overduePassengerThreshold"]
-    if scenario["schemaVersion"] == SCHEMA_VERSION_V4:
+    if scenario["schemaVersion"] in {SCHEMA_VERSION_V4, SCHEMA_VERSION_V5}:
         document["fleetActionContract"] = scenario["fleetActionContract"]
+    if scenario["schemaVersion"] == SCHEMA_VERSION_V5:
+        document["carriageActionContract"] = scenario["carriageActionContract"]
     return validate_inputs(document)
 
 
@@ -288,6 +296,8 @@ def _checkpoint_version_for_schema(schema_version: int) -> int:
         return 2
     if schema_version == SCHEMA_VERSION_V4:
         return 3
+    if schema_version == SCHEMA_VERSION_V5:
+        return 4
     raise ValueError("unsupported recursive schema version")
 
 
@@ -317,7 +327,7 @@ def run_scenario(
         effective_dt = inputs["defaultDtMs"] if requested_dt is None else requested_dt
         action_for_environment = _json_copy(operation["action"], "action")
         recorded_action = _json_copy(operation["action"], "action")
-        if inputs["schemaVersion"] == SCHEMA_VERSION_V4:
+        if inputs["schemaVersion"] in {SCHEMA_VERSION_V4, SCHEMA_VERSION_V5}:
             observation, reward, done, info = env.step(
                 action_for_environment, dt_ms=effective_dt
             )
@@ -414,16 +424,23 @@ def drive_from_file(
             SCHEMA_VERSION_V2,
             SCHEMA_VERSION_V3,
             SCHEMA_VERSION_V4,
+            SCHEMA_VERSION_V5,
         }:
             scenario["environmentRewardContract"] = previous[
                 "environmentRewardContract"
             ]
-        if previous["schemaVersion"] in {SCHEMA_VERSION_V3, SCHEMA_VERSION_V4}:
+        if previous["schemaVersion"] in {
+            SCHEMA_VERSION_V3,
+            SCHEMA_VERSION_V4,
+            SCHEMA_VERSION_V5,
+        }:
             scenario["overduePassengerThreshold"] = previous[
                 "overduePassengerThreshold"
             ]
-        if previous["schemaVersion"] == SCHEMA_VERSION_V4:
+        if previous["schemaVersion"] in {SCHEMA_VERSION_V4, SCHEMA_VERSION_V5}:
             scenario["fleetActionContract"] = previous["fleetActionContract"]
+        if previous["schemaVersion"] == SCHEMA_VERSION_V5:
+            scenario["carriageActionContract"] = previous["carriageActionContract"]
         source_path = previous["sourcePath"]
     else:
         scenario = validate_scenario(document)

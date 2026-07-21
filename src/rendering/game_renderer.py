@@ -1,5 +1,3 @@
-"""Player-facing pygame rendering isolated from simulation updates."""
-
 from __future__ import annotations
 
 import inspect
@@ -8,6 +6,7 @@ from typing import Any
 
 import pygame
 
+from .consist_layout import consist_passenger_slices
 from .interpolation import MetroInterpolator
 from .layout import MetroPose
 from .network_renderer import NetworkRenderer
@@ -150,7 +149,20 @@ class GameRenderer:
                 )
                 continue
             pose = self.interpolator.pose_for(path, metro, layout, alpha)
-            self._draw_metro(surface, metro, pose, current_time_ms, max_wait_ms)
+            carriage_poses = self.interpolator.poses_for_consist(
+                path,
+                metro,
+                layout,
+                alpha,
+            )
+            self._draw_metro(
+                surface,
+                metro,
+                pose,
+                carriage_poses,
+                current_time_ms,
+                max_wait_ms,
+            )
 
         if handles:
             self.path_handle_renderer.draw_markers(
@@ -294,19 +306,26 @@ class GameRenderer:
         surface: pygame.Surface,
         metro: Any,
         pose: MetroPose,
+        carriage_poses: tuple[MetroPose, ...],
         current_time_ms: int,
         max_wait_ms: int | None,
     ) -> None:
-        draw = metro.draw
-        _call_flexibly(
-            draw,
-            surface,
-            display_position=pose.position,
-            rotation_degrees=pose.heading_degrees,
-            current_time_ms=current_time_ms,
-            passenger_max_wait_time_ms=max_wait_ms,
-            resources=self.resources,
-        )
+        queued = bool(getattr(metro, "is_unassignment_queued", False))
+        poses = (pose, *carriage_poses)
+        for (body, passengers), body_pose in zip(
+            consist_passenger_slices(metro), poses
+        ):
+            _call_flexibly(
+                body.draw,
+                surface,
+                passengers=passengers,
+                display_position=body_pose.position,
+                rotation_degrees=body_pose.heading_degrees,
+                current_time_ms=current_time_ms,
+                passenger_max_wait_time_ms=max_wait_ms,
+                is_unassignment_queued=queued,
+                resources=self.resources,
+            )
 
     def _draw_buttons(
         self, surface: pygame.Surface, state: Any, current_time_ms: int
@@ -373,38 +392,38 @@ class GameRenderer:
         return getattr(state, legacy_name, 0)
 
     @staticmethod
-    def _locomotive_availability(state: Any) -> Any:
+    def _availability(state: Any, resource: str) -> Any:
         missing = object()
-        available = getattr(state, "available_locomotives", missing)
+        available = getattr(state, f"available_{resource}", missing)
         if available is not missing:
             return available
-        total = getattr(state, "num_metros", missing)
+        total_name = "num_metros" if resource == "locomotives" else "num_carriages"
+        total = getattr(state, total_name, missing)
         metros = getattr(state, "metros", missing)
         if total is missing or metros is missing:
             return 0
-        return max(0, total - len(metros))
+        assigned = len(metros)
+        if resource == "carriages":
+            assigned = sum(len(getattr(metro, "carriages", ())) for metro in metros)
+        return max(0, total - assigned)
 
     def _draw_hud(self, surface: pygame.Surface, state: Any) -> None:
         config = _config()
         font = self.resources.font(config.font_name, config.hud_font_size)
-        deliveries = self._metric(state, "deliveries", "total_travels_handled")
-        line_credits = self._metric(state, "line_credits", "score")
-        available = self._locomotive_availability(state)
         x, y = config.hud_display_coords
-        delivery_surface = font.render(
-            f"Passengers Delivered: {deliveries}", True, (0, 0, 0)
+        lines = (
+            f"Passengers Delivered: {self._metric(state, 'deliveries', 'total_travels_handled')}",
+            f"Line Credits: {self._metric(state, 'line_credits', 'score')}",
+            f"Locomotives Available: {self._availability(state, 'locomotives')}",
+            f"Carriages Available: {self._availability(state, 'carriages')}",
         )
-        credit_surface = font.render(f"Line Credits: {line_credits}", True, (0, 0, 0))
-        fleet_surface = font.render(
-            f"Locomotives Available: {available}", True, (0, 0, 0)
-        )
-        surface.blit(delivery_surface, (x, y))
-        surface.blit(credit_surface, (x, y + config.hud_line_spacing))
-        surface.blit(fleet_surface, (x, y + 2 * config.hud_line_spacing))
+        for row, text in enumerate(lines):
+            surface.blit(
+                font.render(text, True, (0, 0, 0)),
+                (x, y + row * config.hud_line_spacing),
+            )
 
     def _draw_score(self, surface: pygame.Surface, state: Any) -> None:
-        """Deprecated private compatibility wrapper for the canonical HUD."""
-
         self._draw_hud(surface, state)
 
     def _draw_game_over(self, surface: pygame.Surface, state: Any) -> None:
@@ -414,71 +433,50 @@ class GameRenderer:
         overlay.fill(config.game_over_overlay_color)
         surface.blit(overlay, (0, 0))
 
+        deliveries = self._metric(state, "deliveries", "total_travels_handled")
+        line_credits = self._metric(state, "line_credits", "score")
         metric_font = self.resources.font(config.font_name, config.hud_font_size)
-        title_font = self.resources.font(config.font_name, config.game_over_font_size)
+        content = (
+            self.resources.font(config.font_name, config.game_over_font_size).render(
+                "Game Over", True, config.game_over_text_color
+            ),
+            metric_font.render(
+                f"Passengers Delivered: {deliveries}",
+                True,
+                config.game_over_text_color,
+            ),
+            metric_font.render(
+                f"Line Credits Remaining: {line_credits}",
+                True,
+                config.game_over_text_color,
+            ),
+        )
+        spacings = (
+            config.game_over_title_metric_spacing,
+            config.game_over_metric_spacing,
+        )
+        restart_rect = getattr(state, "game_over_restart_rect", None)
+        content_height = sum(item.get_height() for item in content) + sum(spacings)
+        top = max(
+            config.game_over_content_top_margin,
+            (restart_rect.top if isinstance(restart_rect, pygame.Rect) else height)
+            - config.game_over_content_button_gap
+            - content_height,
+        )
+        for index, item in enumerate(content):
+            rect = item.get_rect(midtop=(width // 2, top))
+            surface.blit(item, rect)
+            if index < len(spacings):
+                top = rect.bottom + spacings[index]
+
         hint_font = self.resources.font(
             config.font_name, config.game_over_hint_font_size
         )
-        title_surface = title_font.render(
-            "Game Over", True, config.game_over_text_color
-        )
-        deliveries = self._metric(state, "deliveries", "total_travels_handled")
-        line_credits = self._metric(state, "line_credits", "score")
-        delivery_surface = metric_font.render(
-            f"Passengers Delivered: {deliveries}",
-            True,
-            config.game_over_text_color,
-        )
-        credit_surface = metric_font.render(
-            f"Line Credits Remaining: {line_credits}",
-            True,
-            config.game_over_text_color,
-        )
-
-        restart_rect = getattr(state, "game_over_restart_rect", None)
-        button_top = (
-            restart_rect.top if isinstance(restart_rect, pygame.Rect) else height
-        )
-        content_height = (
-            title_surface.get_height()
-            + config.game_over_title_metric_spacing
-            + delivery_surface.get_height()
-            + config.game_over_metric_spacing
-            + credit_surface.get_height()
-        )
-        content_bottom = button_top - config.game_over_content_button_gap
-        content_top = max(
-            config.game_over_content_top_margin,
-            content_bottom - content_height,
-        )
-        title_rect = title_surface.get_rect(midtop=(width // 2, content_top))
-        delivery_rect = delivery_surface.get_rect(
-            midtop=(
-                width // 2,
-                title_rect.bottom + config.game_over_title_metric_spacing,
-            )
-        )
-        credit_rect = credit_surface.get_rect(
-            midtop=(
-                width // 2,
-                delivery_rect.bottom + config.game_over_metric_spacing,
-            )
-        )
-        surface.blit(title_surface, title_rect)
-        surface.blit(delivery_surface, delivery_rect)
-        surface.blit(credit_surface, credit_rect)
-
-        buttons = (
-            (
-                hint_font.render("Restart (R)", True, config.game_over_text_color),
-                getattr(state, "game_over_restart_rect", None),
-            ),
-            (
-                hint_font.render("Exit (Esc)", True, config.game_over_text_color),
-                getattr(state, "game_over_exit_rect", None),
-            ),
-        )
-        for text, prepared_rect in buttons:
+        for label, attribute in (
+            ("Restart (R)", "game_over_restart_rect"),
+            ("Exit (Esc)", "game_over_exit_rect"),
+        ):
+            prepared_rect = getattr(state, attribute, None)
             if not isinstance(prepared_rect, pygame.Rect):
                 continue
             rect = prepared_rect.copy()
@@ -492,4 +490,5 @@ class GameRenderer:
                 config.game_over_button_border_width,
                 border_radius=8,
             )
+            text = hint_font.render(label, True, config.game_over_text_color)
             surface.blit(text, text.get_rect(center=rect.center))

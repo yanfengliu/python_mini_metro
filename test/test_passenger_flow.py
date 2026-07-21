@@ -15,6 +15,7 @@ from test.passenger_flow_direct_support import (
     RaisingAppendList,
     RaisingCounterMap,
     assert_component_boundary,
+    assert_station_service_action,
 )
 
 sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
@@ -315,10 +316,10 @@ class TestPassengerFlow(unittest.TestCase):
         self.assertEqual(unload, ([destination], [transfer]))
         self.assertTrue(self.flow.can_board_at_station(host, metro, here))
         self.assertTrue(self.flow.should_stop_at_next_station(host, metro, {}))
-
         self.flow.start_station_stop_if_needed(host, metro, here, {})
-        self.assertEqual(metro.stop_time_remaining_ms, 1500)
+        self.assertEqual(metro.stop_time_remaining_ms, 500)
         self.assertEqual(metro.boarding_progress_ms, 0)
+        assert_station_service_action(self, metro, "destination", destination)
         self.assertEqual(metro.speed, 0)
 
     def test_move_prioritizes_delivery_transfer_then_board_and_reresolves_award(self):

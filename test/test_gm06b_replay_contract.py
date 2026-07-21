@@ -24,6 +24,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_ROOT = REPO_ROOT / "scripts" / "fixtures"
 FLEET_CONTRACT = "explicit_locomotive_assignment_v1"
 AGENT_V4 = "mini-metro-agent-play-v4"
+AGENT_V5 = "mini-metro-agent-play-v5"
 
 
 def load_fixture(name):
@@ -72,18 +73,19 @@ class ResetCountingEnv(MiniMetroEnv):
 
 
 class TestGM06bRecursiveReplayContract(unittest.TestCase):
-    def test_recursive_schema_aliases_advance_to_v4_without_renaming_history(self):
+    def test_recursive_schema_aliases_advance_to_v5_without_renaming_history(self):
         self.assertEqual(getattr(recursive_contract, "SCHEMA_VERSION_V1", None), 1)
         self.assertEqual(getattr(recursive_contract, "SCHEMA_VERSION_V2", None), 2)
         self.assertEqual(getattr(recursive_contract, "SCHEMA_VERSION_V3", None), 3)
         self.assertEqual(getattr(recursive_contract, "SCHEMA_VERSION_V4", None), 4)
+        self.assertEqual(getattr(recursive_contract, "SCHEMA_VERSION_V5", None), 5)
         self.assertEqual(recursive_contract.LEGACY_SCHEMA_VERSION, 1)
-        self.assertEqual(recursive_contract.SCHEMA_VERSION, 4)
+        self.assertEqual(recursive_contract.SCHEMA_VERSION, 5)
         self.assertEqual(recursive_playtest.LEGACY_SCHEMA_VERSION, 1)
-        self.assertEqual(recursive_playtest.SCHEMA_VERSION, 4)
+        self.assertEqual(recursive_playtest.SCHEMA_VERSION, 5)
 
     def test_default_v4_fixture_is_strict_and_maps_to_checkpoint_v3(self):
-        document = load_fixture("recursive-playtest.json")
+        document = load_fixture("recursive-playtest-v4.json")
         self.assertEqual(recursive_playtest.validate_scenario(document), document)
 
         with patch.dict(os.environ, {"PYTHONHASHSEED": "0"}):
@@ -292,16 +294,23 @@ class TestGM06bRecursiveReplayContract(unittest.TestCase):
 
 
 class TestGM06bAgentReplayContract(unittest.TestCase):
-    def test_agent_schema_aliases_advance_to_v4_and_simple_agent_assigns_by_index(self):
+    def test_agent_schema_aliases_advance_to_v5_and_simple_agent_assigns_by_index(self):
         self.assertEqual(
             getattr(agent_play, "PLAYTHROUGH_RECORD_SCHEMA_V4", None), AGENT_V4
         )
-        self.assertEqual(agent_play.PLAYTHROUGH_RECORD_SCHEMA, AGENT_V4)
+        self.assertEqual(
+            getattr(agent_play, "PLAYTHROUGH_RECORD_SCHEMA_V5", None), AGENT_V5
+        )
+        self.assertEqual(agent_play.PLAYTHROUGH_RECORD_SCHEMA, AGENT_V5)
 
         _, record = run_agent_playthrough(seed=653, max_steps=2, dt_ms=0)
 
-        self.assertEqual(record.schema, AGENT_V4)
+        self.assertEqual(record.schema, AGENT_V5)
         self.assertEqual(record.fleet_action_contract, FLEET_CONTRACT)
+        self.assertEqual(
+            record.carriage_action_contract,
+            agent_play.CARRIAGE_ACTION_CONTRACT,
+        )
         self.assertEqual(
             record.actions,
             [

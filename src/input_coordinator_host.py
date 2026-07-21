@@ -9,6 +9,7 @@ class InputCoordinatorHost(Protocol):
     _progression: Any
     path_buttons: list[Any]
     fleet_buttons: list[Any]
+    carriage_buttons: list[Any]
     speed_buttons: list[Any]
     buttons: list[Any]
     stations: list[Any]
@@ -93,6 +94,10 @@ class InputCoordinatorHost(Protocol):
     def assign_locomotive(self, path: Any) -> bool: ...
 
     def queue_locomotive_unassignment(self, path: Any) -> bool: ...
+
+    def attach_carriage(self, path: Any) -> bool: ...
+
+    def detach_carriage(self, path: Any) -> bool: ...
 
     def react_mouse_event(self, event: Any) -> None: ...
 

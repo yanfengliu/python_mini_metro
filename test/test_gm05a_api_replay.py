@@ -315,7 +315,7 @@ class TestGM05aApiReplay(unittest.TestCase):
                 self.assert_observation_topology_agrees(observation)
                 checkpoint = canonical_checkpoint(env, observation)
                 self.assertEqual(set(checkpoint), checkpoint_keys)
-                self.assertEqual(checkpoint["schemaVersion"], 3)
+                self.assertEqual(checkpoint["schemaVersion"], 4)
                 self.assertEqual(reference_errors(checkpoint), [])
 
     def test_rejected_linear_and_loop_actions_preserve_checkpoint_and_arrays(self):

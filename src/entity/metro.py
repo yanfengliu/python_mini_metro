@@ -1,4 +1,5 @@
 from math import ceil, cos, radians, sin
+from typing import Any, Iterable
 
 import pygame
 from shortuuid import uuid  # type: ignore
@@ -28,6 +29,8 @@ from geometry.rect import Rect
 class Metro(Holder):
     def __init__(self) -> None:
         self.size = metro_size
+        self.carriages: list[Any] = []
+        self._base_capacity = 0
         metro_shape = Rect(color=metro_color, width=2 * self.size, height=self.size)
         super().__init__(
             shape=metro_shape,
@@ -49,6 +52,25 @@ class Metro(Holder):
         self.boarding_time_per_passenger_ms = metro_boarding_time_per_passenger_ms
         self.just_arrived_and_stopped = False
         self.is_unassignment_queued = False
+        self._station_service_action: tuple[Any, Any] | None = None
+
+    @property
+    def capacity(self) -> int:
+        return self._base_capacity + sum(
+            carriage.capacity for carriage in self.carriages
+        )
+
+    @capacity.setter
+    def capacity(self, value: int) -> None:
+        if type(value) is not int:
+            raise TypeError("Metro capacity must be an integer")
+        attached_capacity = sum(
+            carriage.capacity for carriage in getattr(self, "carriages", ())
+        )
+        passenger_count = len(getattr(self, "passengers", ()))
+        if value < attached_capacity or value < passenger_count:
+            raise ValueError("Metro capacity cannot strand attached capacity or riders")
+        self._base_capacity = value - attached_capacity
 
     def draw(
         self,
@@ -57,6 +79,9 @@ class Metro(Holder):
         passenger_max_wait_time_ms: int | None = None,
         display_position: Point | tuple[float, float] | None = None,
         rotation_degrees: float | None = None,
+        *,
+        passengers: Iterable[Any] | None = None,
+        is_unassignment_queued: bool | None = None,
     ) -> None:
         draw_position = self.position if display_position is None else display_position
         center_x, center_y = (
@@ -84,7 +109,12 @@ class Metro(Holder):
             )
             for point in self.shape.points
         ]
-        if self.is_unassignment_queued:
+        queued = (
+            self.is_unassignment_queued
+            if is_unassignment_queued is None
+            else is_unassignment_queued
+        )
+        if queued:
             pygame.draw.polygon(
                 surface,
                 metro_queue_outline_color,
@@ -96,7 +126,7 @@ class Metro(Holder):
         )
 
         grid_cols = self.passengers_per_row
-        grid_rows = ceil(self.capacity / grid_cols)
+        grid_rows = ceil(self._base_capacity / grid_cols)
         metro_width = 2 * self.size
         metro_height = self.size
         passenger_diameter = 2 * passenger_size
@@ -107,7 +137,8 @@ class Metro(Holder):
         x_start = (-metro_width / 2) + x_gap + passenger_size
         y_start = (-metro_height / 2) + y_gap + passenger_size
 
-        for idx, passenger in enumerate(self.passengers):
+        displayed_passengers = self.passengers if passengers is None else passengers
+        for idx, passenger in enumerate(displayed_passengers):
             col = idx % grid_cols
             row = idx // grid_cols
             x_offset = x_start + col * x_step

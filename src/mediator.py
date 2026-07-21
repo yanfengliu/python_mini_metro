@@ -4,12 +4,14 @@ from typing import Dict, List
 
 import pygame
 
+from carriage_management import CarriageManagement
 from config import (
     game_over_button_height,
     game_over_button_spacing,
     game_over_button_width,
     game_over_font_size,
     initial_num_stations,
+    num_carriages,
     num_metros,
     num_paths,
     num_stations,
@@ -26,6 +28,7 @@ from config import (
     screen_width,
     station_unlock_milestones,
 )
+from entity.carriage import Carriage
 from entity.get_entity import get_random_stations
 from entity.metro import Metro
 from entity.passenger import Passenger
@@ -51,6 +54,11 @@ from simulation_context import SimulationContext
 from travel_plan import TravelPlan
 from type import Color
 from ui.button import Button
+from ui.carriage_button import (
+    get_carriage_buttons,
+    update_carriage_button_positions,
+    validate_resource_control_layout,
+)
 from ui.fleet_button import get_fleet_buttons, update_fleet_button_positions
 from ui.path_button import PathButton, get_path_buttons, update_path_button_positions
 from ui.speed_button import (
@@ -82,6 +90,7 @@ class Mediator:
         self.context = context if context is not None else SimulationContext(seed)
         self._input = InputCoordinator()
         self._fleet = FleetManagement()
+        self._carriage_fleet = CarriageManagement()
         self._passenger_flow = PassengerFlow()
         self._path_lifecycle = PathLifecycle()
         self._router = RoutePlanner()
@@ -98,13 +107,20 @@ class Mediator:
         )
         self.path_purchase_prices = self.get_path_purchase_prices()
         self.num_metros = num_metros
+        self.num_carriages = num_carriages
 
         # UI
         self.path_buttons = get_path_buttons(self.num_paths)
         self.fleet_buttons = get_fleet_buttons(self.path_buttons)
+        self.carriage_buttons = get_carriage_buttons(self.path_buttons)
         self.speed_buttons = get_speed_buttons()
         self.path_to_button: Dict[Path, PathButton] = {}
-        self.buttons = [*self.path_buttons, *self.fleet_buttons, *self.speed_buttons]
+        self.buttons = [
+            *self.path_buttons,
+            *self.fleet_buttons,
+            *self.carriage_buttons,
+            *self.speed_buttons,
+        ]
         self.game_over_restart_rect: pygame.Rect | None = None
         self.game_over_exit_rect: pygame.Rect | None = None
         self._layout_size: tuple[int, int] | None = None
@@ -212,6 +228,18 @@ class Mediator:
         return max(0, self.num_metros - len(self.metros))
 
     @property
+    def assigned_carriages(self) -> int:
+        """Return the number of carriages attached to canonical global Metros."""
+
+        return sum(len(metro.carriages) for metro in self.metros)
+
+    @property
+    def available_carriages(self) -> int:
+        """Return fungible carriage capacity without owning an object pool."""
+
+        return max(0, self.num_carriages - self.assigned_carriages)
+
+    @property
     def purchased_num_paths(self) -> int:
         return self._progression.purchased_num_paths
 
@@ -274,6 +302,12 @@ class Mediator:
             height,
             get_update_path_button_positions=lambda: update_path_button_positions,
             get_update_fleet_button_positions=lambda: update_fleet_button_positions,
+            get_update_carriage_button_positions=lambda: (
+                update_carriage_button_positions
+            ),
+            get_validate_resource_control_layout=lambda: (
+                validate_resource_control_layout
+            ),
             get_update_speed_button_positions=lambda: update_speed_button_positions,
             get_game_over_font_size=lambda: game_over_font_size,
             get_rect_factory=lambda: pygame.Rect,
@@ -503,6 +537,34 @@ class Mediator:
     def queued_locomotives_for_path(self, path: Path) -> int:
         return self._fleet.queued_count(self, path)
 
+    def can_attach_carriage(self, path: Path) -> bool:
+        return self._carriage_fleet.can_attach(self, path)
+
+    def attach_carriage(self, path: Path) -> bool:
+        return self._carriage_fleet.attach(
+            self,
+            path,
+            get_carriage_factory=lambda: Carriage,
+            reconcile_station_service=self._reconcile_station_service,
+        )
+
+    def can_detach_carriage(self, path: Path) -> bool:
+        return self._carriage_fleet.can_detach(self, path)
+
+    def detach_carriage(self, path: Path) -> bool:
+        return self._carriage_fleet.detach(
+            self,
+            path,
+            reconcile_station_service=self._reconcile_station_service,
+        )
+
+    def _reconcile_station_service(self, metro: Metro) -> None:
+        self._passenger_flow.reconcile_station_service(
+            self,
+            metro,
+            get_graph_builder=lambda: build_station_nodes_dict,
+        )
+
     def set_paused(self, paused: bool) -> None:
         self._input.set_paused(self, paused)
 
@@ -603,7 +665,7 @@ class Mediator:
         )
 
     def can_board_at_station(self, metro: Metro, station: Station) -> bool:
-        if metro.is_unassignment_queued:
+        if getattr(metro, "is_unassignment_queued", False):
             return False
         return self._passenger_flow.can_board_at_station(self, metro, station)
 

@@ -56,6 +56,7 @@ max_waiting_passengers = overdue_passenger_threshold
 
 # metro
 num_metros = 4
+num_carriages = 2
 metro_size = 30
 metro_color = (200, 200, 200)
 metro_outline_color = (30, 30, 30)
@@ -68,6 +69,18 @@ metro_accel_time_ms = 1000
 metro_decel_time_ms = 1000
 metro_boarding_time_per_passenger_ms = 500
 metro_passengers_per_row = 3
+
+# carriage
+carriage_capacity = 6
+carriage_size = 30
+carriage_body_length = 2 * carriage_size
+carriage_gap = 10
+carriage_color = (185, 185, 185)
+carriage_outline_color = metro_outline_color
+carriage_outline_width = metro_outline_width
+carriage_queue_outline_color = metro_queue_outline_color
+carriage_queue_outline_width = metro_queue_outline_width
+carriage_passengers_per_row = 3
 
 # path
 path_unlock_milestones = [0, 90, 300, 650]
@@ -83,7 +96,7 @@ path_handle_lattice_step = 56
 path_handle_search_rings = 12
 path_handle_viewport_margin = 40
 path_handle_quantization_margin = 8
-path_handle_hud_exclusion = (0, 0, 840, 200)
+path_handle_hud_exclusion = (0, 0, 840, 250)
 path_handle_ring_width = 3
 path_handle_outline_width = 4
 path_handle_leader_width = 3
@@ -94,13 +107,13 @@ path_handle_removal_width = 5
 
 # button
 button_color = (180, 180, 180)
-button_size = 30
+button_size = 24
 unlock_blink_count = 3
 unlock_blink_duration_ms = 1000
 
 # path button
-path_button_buffer = 20
-path_button_dist_to_bottom = 50
+path_button_buffer = 32
+path_button_dist_to_bottom = 24
 path_button_start_left = 500
 path_button_cross_size = 25
 path_button_cross_width = 5
@@ -111,9 +124,9 @@ path_button_buy_text_font_size = 26
 path_button_buy_text_bottom_gap = 48
 
 # fleet button
-fleet_button_radius = 16
-fleet_button_horizontal_offset = 19
-fleet_button_vertical_offset = 58
+fleet_button_radius = 8
+fleet_button_horizontal_offset = 31
+fleet_button_vertical_offset = 37
 fleet_button_border_width = 2
 fleet_button_icon_width = 3
 fleet_button_enabled_color = (245, 245, 245)
@@ -124,8 +137,22 @@ fleet_button_icon_color = (30, 30, 30)
 fleet_button_disabled_icon_color = (135, 135, 135)
 fleet_button_badge_color = (235, 145, 35)
 fleet_button_badge_text_color = (20, 20, 20)
-fleet_button_badge_radius = 10
-fleet_button_badge_font_size = 18
+fleet_button_badge_radius = 7
+fleet_button_badge_font_size = 14
+
+# four-control resource band, ordered locomotive +, locomotive -, carriage +,
+# carriage - from left to right around each stable path-button slot
+resource_control_horizontal_offsets = (-31, -14, 14, 31)
+resource_control_vertical_offset = 37
+carriage_button_radius = fleet_button_radius
+carriage_button_enabled_color = fleet_button_enabled_color
+carriage_button_disabled_color = fleet_button_disabled_color
+carriage_button_hover_color = fleet_button_hover_color
+carriage_button_border_color = fleet_button_border_color
+carriage_button_border_width = fleet_button_border_width
+carriage_button_icon_color = fleet_button_icon_color
+carriage_button_disabled_icon_color = fleet_button_disabled_icon_color
+carriage_button_icon_width = fleet_button_icon_width
 
 # speed button
 speed_button_width = 78

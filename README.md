@@ -60,14 +60,15 @@ Set `PYTHON` to a specific interpreter path when `python` is not the intended ex
 * Hold down the mouse left button on a station and drag onto other stations to create a line. New lines start unserved.
 * Press SPACE to pause / unpause the game.
 * Press `1`, `2`, or `3` to set game speed to 1x, 2x, or 4x.
-* The top-left HUD shows lifetime passengers delivered, currently spendable line credits, and unassigned locomotives as separate values.
+* The top-left HUD shows lifetime passengers delivered, currently spendable line credits, unassigned locomotives, and unassigned carriages as separate values.
 * Each filled grey circle at the bottom is an unused unlocked metro line slot.
 * Hold an assigned colored circle, drag through the replacement station order, and release on the final station to redraw that line; the selected circle is outlined and an invalid repeated-station draft turns red.
 * Hold an assigned colored circle and release over empty in-view space to select that line's edit handles. On a fresh drag, a filled endpoint handle extends to a new station or shortens by one station when released on its adjacent interior station; a hollow edge handle inserts a new station. Loops expose insertion handles, including the closing edge, but no endpoint handles.
 * Click and release a colored circle without leaving it to remove that established line.
 * Empty rings are locked line slots; hover to see their price and click the next one to buy it with line credits when affordable.
-* A fresh game has four total locomotives. Each colored line button has a plus control above its left side to assign an available locomotive and a minus control above its right side to request the return of the last empty locomotive on that line.
+* A fresh game has four total locomotives and two fungible carriages. Every stable line slot has four resource controls: locomotive plus/minus followed by carriage plus/minus. Locked or unbound controls remain visible but disabled.
 * An empty locomotive already stopped at a real station returns immediately. An empty moving locomotive marked for return remains assigned, boards no passengers, stops at its next real station, and only then returns to the available inventory. Use this return-then-assign sequence to move capacity between lines.
+* Carriage plus attaches a new six-seat body to the eligible locomotive with the fewest carriages on that line; carriage minus safely removes the last body from the eligible locomotive with the most carriages. Queued locomotives are ineligible, and a carriage cannot be removed when doing so would overfill its locomotive.
 
 ## To play programmatically
 
@@ -91,7 +92,13 @@ obs, reward, done, info = env.step(
     {"type": "assign_locomotive", "path_index": 0}
 )
 obs, reward, done, info = env.step(
+    {"type": "attach_carriage", "path_index": 0}
+)
+obs, reward, done, info = env.step(
     {"type": "replace_path", "path_index": 0, "stations": [0, 2, 1]}
+)
+obs, reward, done, info = env.step(
+    {"type": "detach_carriage", "path_index": 0}
 )
 obs, reward, done, info = env.step(
     {"type": "unassign_locomotive", "path_index": 0}
@@ -148,6 +155,14 @@ obs, reward, done, info = env.step({"type": "remove_path", "path_index": 0})
 - `{"type": "unassign_locomotive", "path_id": "..."}`
   - Requires exactly one selector resolving to one active, completed line with an empty, nonqueued locomotive.
   - Selects the last eligible locomotive on that line. A moving locomotive remains assigned until it reaches its next real station; a queued locomotive cannot board.
+- `{"type": "attach_carriage", "path_index": k}`
+- `{"type": "attach_carriage", "path_id": "..."}`
+  - Requires exactly one selector resolving to one active, completed line with an eligible nonqueued locomotive and available carriage inventory.
+  - Selects the eligible locomotive with the fewest attached carriages, breaking ties by line order, and attaches one new six-seat carriage.
+- `{"type": "detach_carriage", "path_index": k}`
+- `{"type": "detach_carriage", "path_id": "..."}`
+  - Requires exactly one selector resolving to one active, completed line with a safely detachable carriage.
+  - Selects the eligible locomotive with the most carriages, breaking ties by latest line order, and removes its last carriage only when the remaining capacity can hold every onboard passenger.
 - `{"type": "buy_line"}`
   - Buys the next locked line if affordable.
   - Price follows configured incremental unlock costs (derived from `path_unlock_milestones`).
@@ -160,7 +175,7 @@ obs, reward, done, info = env.step({"type": "remove_path", "path_index": 0})
 - `{"type": "resume"}`
   - Resumes simulation updates.
 
-Any unknown `type`, malformed action payload, or rejected replacement returns `info["action_ok"] == False` without mutating game state or advancing time.
+Any unknown `type`, malformed action payload, or rejected action returns `info["action_ok"] == False` without mutating game state or advancing time.
 
 ### `step(..., dt_ms=...)` behavior
 - `dt_ms` argument to `step(...)` overrides constructor `dt_ms` for that call.
@@ -172,9 +187,9 @@ Any unknown `type`, malformed action payload, or rejected replacement returns `i
 ### Observation shape
 `observation` is:
 - `observation["structured"]`: Python dict/list representation
-  - includes `stations`, `paths`, `metros`, `passengers`, labeled `fleet` counts, lifetime `deliveries`, spendable `line_credits`, `time_ms`, `steps`, `is_paused`, `is_game_over`, and ID-to-index maps in `index`.
-  - `fleet` contains `locomotives_total`, `locomotives_assigned`, `locomotives_available`, and `locomotives_queued`. Queued locomotives are a subset of assigned locomotives until physical return. `Mediator.available_locomotives` is a read-only value derived from total inventory and the assigned-only `Mediator.metros` collection, so it cannot drift from current ownership.
-  - Each structured Metro entry includes the exact boolean `unassignment_queued`.
+  - includes `stations`, `paths`, `metros`, `carriages`, `passengers`, labeled `fleet` counts, lifetime `deliveries`, spendable `line_credits`, `time_ms`, `steps`, `is_paused`, `is_game_over`, and station/path/metro/passenger ID-to-index maps in `index`.
+  - `fleet` contains locomotive total/assigned/available/queued and carriage total/assigned/available counts. Both available values are read-only nonnegative differences derived from canonical assigned Metro compositions; there is no preconstructed carriage object pool.
+  - Each structured Metro entry includes its total `capacity`, ordered `carriage_ids`, and exact boolean `unassignment_queued`; each structured carriage records its ID, immutable capacity, owning Metro ID, and attachment index.
   - deprecated structured `score` mirrors `line_credits`; on `Mediator`, writable `score` and `total_travels_handled` compatibility properties alias `line_credits` and `deliveries` respectively.
 - `observation["arrays"]`: NumPy-friendly arrays/lists
   - includes station positions/types/counts, path station-index sequences, metro positions/path indices, passenger destination types and locations.
@@ -261,11 +276,11 @@ Every run immediately writes a recovery checkpoint and `training-manifest.json`,
 
 Resume and evaluation fail closed on protocol, task, history, content, trainer-source, runtime, or artifact drift. History mismatch has no drift override because it changes channel meaning. `--allow-content-drift`, `--allow-training-drift`, and `--allow-runtime-drift` are explicit, tagged compatibility overrides; use the content override when intentionally testing an old model against new stations, mechanics, or graphics, and use the other overrides only when the reported implementation/runtime difference is understood. Legacy feed-forward PPO artifacts created before the recurrent dependency and training-source contract may require `--allow-training-drift` and/or `--allow-runtime-drift` after the reported differences have been reviewed.
 
-The recurrent default is a research-backed production baseline, not a claim that a short smoke run learns competent play. Low-level line construction is a sparse multi-action problem, so `rl.demonstrator.run_delivery_demonstration` provides a deterministic curriculum trajectory that creates a route through player actions and reaches a real delivery for the reference seed. See [RL model selection for the player-pixel task](docs/rl-model-selection.md) for the CNN, recurrent PPO, Transformer, visual-transformer, and Dreamer comparison plus the experiment and reporting protocol.
+The recurrent default is a research-backed production baseline, not a claim that a short smoke run learns competent play. Low-level line construction is a sparse multi-action problem, so `rl.demonstrator.run_delivery_demonstration` provides a deterministic curriculum trajectory that creates a route, assigns a locomotive, attaches one carriage through the visible player controls, and reaches a real delivery for the reference seed. See [RL model selection for the player-pixel task](docs/rl-model-selection.md) for the CNN, recurrent PPO, Transformer, visual-transformer, and Dreamer comparison plus the experiment and reporting protocol.
 
 # Recursive self-improvement loop
 
-The deterministic v4 fixture at `scripts/fixtures/recursive-playtest.json` records the deliveries reward, overdue-passenger threshold `2`, and explicit-locomotive-assignment contract, then uses seed `42` to create a line, assign by replay-safe path index, advance time, exercise pause/resume, remove the line, and verify rejected actions. Frozen v1/v2/v3 fixtures retain their historical schemas and automatic-assignment meaning through a shared compatibility transition; persisted v4 fleet actions are index-only so evidence never stores process-local path UUIDs. The harness drives `MiniMetroEnv` directly; it does not use the pygame GUI clock or an LLM.
+The deterministic v5 fixture at `scripts/fixtures/recursive-playtest.json` records the deliveries reward, overdue-passenger threshold `2`, explicit-locomotive-assignment contract, and explicit-carriage-attachment contract, then uses seed `42` to create a line, assign and attach by replay-safe path index, advance time, exercise pause/resume, remove the line, and verify rejected actions. Frozen v1/v2/v3/v4 fixtures retain their historical schemas and action meanings through shared compatibility transitions; fleet actions in v4/v5 and carriage actions in v5 are index-only so evidence never stores process-local path UUIDs. Recursive v5 uses UUID-free checkpoint schema v4, whose Metro and carriage records form an exhaustive indexed ownership bijection. The harness drives `MiniMetroEnv` directly; it does not use the pygame GUI clock or an LLM.
 
 Run the Node contract tests and one proposal-only recursive pass with:
 
