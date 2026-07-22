@@ -56,11 +56,12 @@ Set `PYTHON` to a specific interpreter path when `python` is not the intended ex
 * If you are running for the first time, install the requirements using `python -m pip install -r requirements-locked.txt`
 * Activate the virtual environment by running `conda activate py313`
 * Run `python src/main.py`
-* The game opens on a title screen: click New Game (or press ENTER) to start, or click Exit to quit. Programmatic runs with a frame limit (`PYTHON_MINI_METRO_MAX_FRAMES` or `run_game(max_frames=...)`) start directly in gameplay; an explicit `run_game(start_state=...)` overrides both.
+* The game opens on a title screen: click New Game (or press ENTER) to start, click Continue to resume the autosaved game (shown only when a save exists), or click Exit to quit. Programmatic runs with a frame limit (`PYTHON_MINI_METRO_MAX_FRAMES` or `run_game(max_frames=...)`) start directly in gameplay; an explicit `run_game(start_state=...)` overrides both.
 * The window uses a fixed 60 Hz simulation cadence with interpolated metro motion; resizing preserves the 1920x1080 player view without changing game timing.
 * Hold down the mouse left button on a station and drag onto other stations to create a line. New lines start unserved.
 * Press SPACE to pause / unpause the game.
 * Press ESC while playing to open the pause menu (any in-progress drag is cancelled first): Resume (click or ESC) returns to play, Restart starts a fresh game, and Exit to Title returns to the title screen. The menu freezes the game independently of SPACE, so gameplay input, including the SPACE toggle, cannot dismiss it, and resuming keeps a SPACE pause in place until you unpause.
+* Opening the pause menu autosaves your game to `saves/autosave.json`; Exit to Title rewrites the same save before leaving, and closing the window mid-run keeps it, so Continue on the title screen resumes exactly where you left off. Reaching game over deletes the autosave, so a finished run cannot be Continued.
 * Press `1`, `2`, or `3` to set game speed to 1x, 2x, or 4x.
 * The top-left HUD shows lifetime passengers delivered, currently spendable line credits, unassigned locomotives, and unassigned carriages as separate values.
 * Each filled grey circle at the bottom is an unused unlocked metro line slot.
@@ -203,7 +204,7 @@ Any unknown `type`, malformed action payload, or rejected action returns `info["
 
 ### Save and load
 
-`src/save_game.py` exposes the programmatic save/load API for `Mediator` state (GM-07b; menu integration arrives with GM-07c):
+`src/save_game.py` exposes the programmatic save/load API for `Mediator` state (GM-07b; the human application shell autosaves through it since GM-07c):
 
 ```python
 import save_game
@@ -217,6 +218,7 @@ mediator = save_game.deserialize_game(document)             # reconstruct from a
 - Save documents are versioned strict JSON (`save_schema.SAVE_SCHEMA_VERSION == 1`, `stateContract "mini-metro-save-v1"`, `rulesVersion "rules-v1"`). `save_schema.validate_save(document)` rejects unknown/missing keys, wrong scalar types (including bool-as-int), forward versions, malformed or out-of-domain RNG state, ID-grammar violations, path or metro references to locked stations, inconsistent bound-service records, and duplicate or dangling entity references; `load_game` additionally rejects duplicate JSON object keys at every level. Every rejection raises `ValueError`.
 - Bytes on disk are the pinned canonical encoding (`save_schema.canonical_save_bytes`: sorted-key, ASCII, compact separators, trailing LF). Saves go through a save-local atomic writer (mkstemp, fsync, `os.replace`), so a failed save leaves an existing destination untouched and no temporary file behind. The default directory name is `config.save_dir_name` (`saves/`, git-ignored); all functions accept explicit paths.
 - Saving is permitted only at a quiescent input boundary: an active path-creation, redraw, or edit gesture raises `ValueError` (a bare pressed mouse button does not block).
+- The human application shell (`src/main.py`) drives one canonical autosave slot at `saves/autosave.json`: it writes on opening the pause menu and on Exit to Title, keeps that save on a mid-run window close, deletes it at game over, and offers Continue on the title screen. Every autosave is best-effort and never blocks play or exit; the isolation-scanned headless, agent, recursive, and RL surfaces gain no save import.
 - A loaded game is checkpoint-identical to the saved one, both RNG streams included, and replays the identical seeded trajectory as a never-saved control, in the same process and across fresh processes replaying the same save file. Each metro's bound station-service action (with its fractional boarding timers) persists in the document and restores verbatim — including boundaries where the bound action is legitimately stale after a same-tick cross-metro effect — so post-load service resumes exactly like the never-saved game. Held pause reasons (`user`, `menu`) restore verbatim, so a game saved from the pause menu loads paused; `release_pause_reason("menu")` resumes it.
 - Entity ID strings survive save/load. Path IDs are structured-action selectors: a `path_id` observed before saving keeps selecting the same line against the loaded `Mediator`. Station, metro, carriage, and passenger IDs are stable observation/reference identity only — no structured action currently selects by them. IDs are minted per process, so two independently built games never share IDs (and their save files differ even under the same seed); determinism guarantees apply to reloading and replaying a given save file.
 - A save whose `numPaths`, `numMetros`, or `numCarriages` disagrees with the running config is rejected; any trajectory-affecting balance-config change bumps the save schema version (see D-026). The frozen v1 example lives at `scripts/fixtures/save-v1.json`.

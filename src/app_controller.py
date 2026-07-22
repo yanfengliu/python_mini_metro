@@ -24,6 +24,7 @@ from ui.menu_screens import pause_menu_layout, title_layout
 
 GameTriple = tuple[object, object, object]
 _MENU_REASON = "menu"
+_LOAD_FAILURE_NOTICE = "Could not load the saved game."
 
 
 class AppScreen(Enum):
@@ -66,17 +67,39 @@ class AppController:
         self,
         build_game: Callable[[], GameTriple],
         start_state: AppScreen = AppScreen.TITLE,
+        *,
+        build_from: Callable[[object], GameTriple] | None = None,
+        autosave: object | None = None,
     ) -> None:
         self._build_game = build_game
+        # Both seams are optional with inert defaults (D-027/F6): a controller
+        # built without them never autosaves, keeps Continue unavailable, and
+        # behaves exactly as the GM-07a baseline did.
+        self._build_from = build_from
+        self._autosave = autosave
         self.state = start_state
         self._armed_menu_control: str | None = None
+        self.notice: str | None = None
         self.mediator, self.renderer, self.session = build_game()
+
+    def _autosave_save(self) -> None:
+        # Persistence is best-effort: the seam swallows its own failures, so a
+        # save that cannot run still lets play or exit proceed (D-027/F3).
+        if self._autosave is not None:
+            self._autosave.save(self.mediator)
+
+    def _autosave_delete(self) -> None:
+        if self._autosave is not None:
+            self._autosave.delete()
 
     def handle_event(self, event: object) -> None:
         """Route one converted event according to the current screen."""
 
         if self.state is AppScreen.PLAYING and self.mediator.is_game_over is True:
             self.state = AppScreen.GAME_OVER
+            # A finished run must never be resumable: drop the autosave at the
+            # promotion, the same handle_event call as any game-over exit below.
+            self._autosave_delete()
         if self.state is AppScreen.PLAYING:
             self._handle_playing(event)
         elif self.state is AppScreen.PAUSE_MENU:
@@ -88,6 +111,24 @@ class AppController:
 
     def _start_new_game(self) -> None:
         self.mediator, self.renderer, self.session = self._build_game()
+        self.notice = None
+        self.state = AppScreen.PLAYING
+
+    def _continue_game(self) -> None:
+        # Continue is inert without a proven-loadable autosave: peek gates the
+        # attempt (F4), a failed load surfaces a notice and stays on TITLE, and
+        # success releases only the menu reason before swapping in the triple.
+        autosave = self._autosave
+        if autosave is None or not autosave.peek():
+            return
+        try:
+            loaded = autosave.load()
+        except (ValueError, OSError):
+            self.notice = _LOAD_FAILURE_NOTICE
+            return
+        loaded.release_pause_reason(_MENU_REASON)
+        self.mediator, self.renderer, self.session = self._build_from(loaded)
+        self.notice = None
         self.state = AppScreen.PLAYING
 
     def _handle_playing(self, event: object) -> None:
@@ -96,6 +137,10 @@ class AppController:
             # semantics strictly before freezing gameplay under the menu hold.
             self.session.dispatch(MouseEvent(MouseEventType.MOUSE_UP, Point(-1, -1)))
             self.mediator.hold_pause_reason(_MENU_REASON)
+            # Save AFTER holding the menu reason so the document records it; the
+            # letterbox cancel already cleared every armed gesture, so the
+            # saver's quiescence preflight passes (D-027/F1).
+            self._autosave_save()
             self.state = AppScreen.PAUSE_MENU
             return
         self.session.dispatch(event)
@@ -136,6 +181,9 @@ class AppController:
             self._close_pause_menu(AppScreen.PLAYING)
             self._start_new_game()
         elif armed == "exit_to_title":
+            # Rewrite the byte-identical boundary save BEFORE the menu reason is
+            # released, so a later Continue reloads the menu-entry document.
+            self._autosave_save()
             self._close_pause_menu(AppScreen.TITLE)
 
     def _handle_title(self, event: object) -> None:
@@ -148,6 +196,8 @@ class AppController:
         layout = title_layout(screen_width, screen_height)
         if _clicked(layout, "new_game", position):
             self._start_new_game()
+        elif _clicked(layout, "continue", position):
+            self._continue_game()
         elif _clicked(layout, "exit", position):
             raise SystemExit
 
@@ -158,6 +208,7 @@ class AppController:
             if _is_key_up(event, pygame.K_r):
                 self._start_new_game()
             elif _is_key_up(event, pygame.K_ESCAPE):
+                self._autosave_delete()
                 raise SystemExit
             return
         position = _mouse_up_position(event)
@@ -167,4 +218,5 @@ class AppController:
         if action == "restart":
             self._start_new_game()
         elif action == "exit":
+            self._autosave_delete()
             raise SystemExit

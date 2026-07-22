@@ -1,15 +1,83 @@
 import os
+from pathlib import Path
+from types import SimpleNamespace
 
 import pygame
 
 from app_controller import AppController, AppScreen
-from config import framerate, screen_color, screen_height, screen_width
+from config import (
+    framerate,
+    game_over_button_border_color,
+    game_over_button_border_width,
+    game_over_button_color,
+    game_over_hint_font_size,
+    game_over_text_color,
+    save_dir_name,
+    screen_color,
+    screen_height,
+    screen_width,
+)
 from event.convert import convert_pygame_event
 from game_session import GameSession
 from mediator import Mediator
 from rendering.game_renderer import GameRenderer
-from ui.menu_screens import draw_pause_menu, draw_title_screen
+from save_game import load_game, save_game
+from ui.menu_screens import (
+    draw_notice,
+    draw_pause_menu,
+    draw_title_screen,
+    title_layout,
+)
 from ui.viewport import get_viewport_transform
+
+# Single canonical autosave slot (D-027); patchable so tests never touch it.
+AUTOSAVE_PATH = Path(save_dir_name) / "autosave.json"
+
+
+def write_autosave(mediator: object) -> None:
+    # Best-effort atomic save that must never crash or block the game loop: the
+    # real app raises only ValueError (a mid-gesture boundary) or OSError, and
+    # the atomic writer leaves the previous valid autosave intact on failure.
+    try:
+        save_game(mediator, AUTOSAVE_PATH)
+    except Exception:
+        pass
+
+
+def delete_autosave() -> None:
+    try:
+        AUTOSAVE_PATH.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+def peek_autosave() -> bool:
+    return AUTOSAVE_PATH.exists()
+
+
+def load_autosave() -> Mediator:
+    return load_game(AUTOSAVE_PATH)
+
+
+def _draw_title_continue_button(surface: pygame.Surface) -> None:
+    # Painted through main's own pygame -- not menu_screens' -- so the GM-07a
+    # run-loop harness (which mocks main.pygame and stubs main.draw_title_screen
+    # with a single-argument callable) stays inert; the base title chrome is
+    # still drawn by draw_title_screen and this button reuses its style.
+    width, height = surface.get_size()
+    rect = title_layout(width, height)["continue"]
+    pygame.draw.rect(surface, game_over_button_color, rect, border_radius=8)
+    pygame.draw.rect(
+        surface,
+        game_over_button_border_color,
+        rect,
+        game_over_button_border_width,
+        border_radius=8,
+    )
+    text = pygame.font.Font(None, game_over_hint_font_size).render(
+        "Continue", True, game_over_text_color
+    )
+    surface.blit(text, text.get_rect(center=rect.center))
 
 
 def get_window_size(window_surface: pygame.surface.Surface) -> tuple[int, int]:
@@ -41,9 +109,29 @@ def run_game(
         session.prepare_layout(game_surface)
         return mediator, renderer, session
 
+    def build_from(mediator):
+        # Wrap a loaded Mediator into the live triple exactly as build_game does
+        # (prepare_layout included), returning the SAME loaded mediator.
+        renderer = GameRenderer()
+        session = GameSession(mediator, step_observer=renderer)
+        session.prepare_layout(game_surface)
+        return mediator, renderer, session
+
+    autosave = SimpleNamespace(
+        save=write_autosave,
+        delete=delete_autosave,
+        peek=peek_autosave,
+        load=load_autosave,
+    )
+
     if start_state is None:
         start_state = AppScreen.PLAYING if max_frames is not None else AppScreen.TITLE
-    controller = AppController(build_game, start_state=start_state)
+    controller = AppController(
+        build_game,
+        start_state=start_state,
+        build_from=build_from,
+        autosave=autosave,
+    )
     presentation_surface: pygame.Surface | None = None
     previous_session = controller.session
     frames = 0
@@ -56,6 +144,14 @@ def run_game(
         )
         for pygame_event in pygame.event.get():
             if pygame_event.type == pygame.QUIT:
+                # State-gated window-close autosave (D-027/F1): persist a mid-run
+                # boundary, drop a finished run's save, and touch nothing on the
+                # title screen (nor for a non-game controller).
+                if controller.state in (AppScreen.PLAYING, AppScreen.PAUSE_MENU):
+                    if controller.mediator.is_game_over:
+                        delete_autosave()
+                    else:
+                        write_autosave(controller.mediator)
                 raise SystemExit
             game_position = None
             if pygame_event.type in (
@@ -86,6 +182,10 @@ def run_game(
         game_surface.fill(screen_color)
         if state == AppScreen.TITLE:
             draw_title_screen(game_surface)
+            if peek_autosave():
+                _draw_title_continue_button(game_surface)
+            if controller.notice:
+                draw_notice(game_surface, controller.notice)
         else:
             controller.renderer.draw(
                 game_surface, controller.mediator, alpha=advance.alpha

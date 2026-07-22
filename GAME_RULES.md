@@ -115,7 +115,7 @@ This document summarizes the game rules currently implemented in code.
   - Click the plus above a completed line button to assign one available locomotive. Click its minus to request the return of the last eligible empty locomotive.
   - Use the carriage plus and minus in the same four-control line-slot group to attach one available carriage or safely detach the selected locomotive's last carriage.
   - Click and release a line color button without capturing a station to remove its release-target line.
-  - On the title screen, click New Game to start a fresh game or Exit to quit.
+  - On the title screen, click New Game to start a fresh game, Continue to resume the autosave (shown only when one exists), or Exit to quit.
   - On the pause menu, click Resume, Restart, or Exit to Title. A menu button fires only when pressed and released on that same button, so releasing a drag that was in progress when the menu opened does nothing.
   - On game-over screen, click Restart or Exit buttons.
 - Keyboard:
@@ -126,6 +126,7 @@ This document summarizes the game rules currently implemented in code.
   - R: restart (game-over screen).
   - ESC: exit (game-over screen).
 - The pause menu holds its own pause reason: opening it while SPACE-paused keeps both, and resuming from the menu releases only the menu hold, so the game stays paused until SPACE (or a speed button) clears the user pause. Speed-button selections still clear only the user pause and never the menu hold; the keyboard speed keys only set the speed and never unpause.
+- Autosave: opening the pause menu and Exit to Title each write a single autosave to `saves/autosave.json`, and closing the window mid-run keeps it, so the title screen's Continue reloads the game exactly where you left off (releasing the menu pause, honoring a held SPACE pause). Reaching game over deletes the autosave, so a finished run cannot be Continued; every autosave is best-effort and never blocks play or exit.
 
 ## Programmatic Actions (Environment / API)
 
