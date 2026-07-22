@@ -1,6 +1,6 @@
 # GM-07b review synthesis
 
-Status: review-clean; local gates green at 1147/0 Python and 249/0 Node; Commit A staging active
+Status: delivered as Commit A `5906370` (rebased over the owner-launched oracle fix `d99d9e8` with one additive PROGRESS merge and a byte-exact fixture re-materialization), exact [run 29941339839](https://github.com/yanfengliu/python_mini_metro/actions/runs/29941339839) green; evidence-only Commit B active
 
 Two research lanes (`raw/research-serialization-surface.md`, `raw/research-determinism-versioning.md`) mapped the full canonical/derived/transient state surface, the shortuuid-off-stream ID fact, the RNG round-trip idioms, the versioning and frozen-fixture recipes, and the reusable oracles. The plan gate ran two adversarial lanes (`raw/plan-review-loader.md`: one blocker — the load-time reconcile wiping persisted mid-boarding timers — plus four majors and eight minors; `raw/plan-review-schema.md`: one major and three mediums, with the missing-scalar gap found independently by both lanes and the deep-tuple `setstate` trap probe-verified) and a narrow recheck that closed all twenty-one findings while catching two fold-introduced contradictions (ref-filtered node path-ID sets; a stale pending-layout sentence), both dispositioned.
 

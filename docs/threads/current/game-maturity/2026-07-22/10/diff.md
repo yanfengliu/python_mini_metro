@@ -1,6 +1,6 @@
 # GM-07b versioned save-snapshot diff ledger
 
-Status: review-clean; local gates green; Commit A staging active
+Status: delivered as Commit A `5906370` (rebased over the owner-launched oracle fix `d99d9e8` with one additive PROGRESS merge and a byte-exact fixture re-materialization), exact [run 29941339839](https://github.com/yanfengliu/python_mini_metro/actions/runs/29941339839) green; evidence-only Commit B active
 
 ## Implemented production surface
 

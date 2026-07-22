@@ -8,21 +8,21 @@ Current increment: GM-07 - Application shell and persistence
 
 Current substep: GM-07b - strict versioned save/load snapshots
 
-Current status: GM-07a is remotely finalized through evidence-only Commit B `272ba2d` ([run 29907985159](https://github.com/yanfengliu/python_mini_metro/actions/runs/29907985159)); GM-07b implementation, the Codex-plus-harness high-risk review battery, and the blocker-fix round are locally clean at 1147/0 Python and 249/0 Node with a CLEAN final re-review, and Commit A staging is active
+Current status: GM-07b Commit A `590637057946a0351b665f3f63cb9ec50df776a2` (rebased over the owner-launched oracle fix `d99d9e8`) passed exact [run 29941339839](https://github.com/yanfengliu/python_mini_metro/actions/runs/29941339839); evidence-only Commit B is active while GM-07c remains closed
 
-Durability transaction: GM-07a is remotely finalized through Commit B; `[GM-07b:A]` is the active implementation transaction
+Durability transaction: GM-07a is remotely finalized through Commit B; GM-07b Commit A `5906370` is exact-head remote green, and evidence-only `[GM-07b:B]` is the active transaction
 
 Last remotely finalized work unit: GM-07a at Commit B `272ba2d`, which passed [run 29907985159](https://github.com/yanfengliu/python_mini_metro/actions/runs/29907985159)
 
-Expected remote implementation baseline: `272ba2d`, whose exact [run 29907985159](https://github.com/yanfengliu/python_mini_metro/actions/runs/29907985159) succeeded
+Expected remote implementation baseline: `590637057946a0351b665f3f63cb9ec50df776a2`, whose exact [run 29941339839](https://github.com/yanfengliu/python_mini_metro/actions/runs/29941339839) passed `build` job `88995690167` and `rl-smoke` job `88995690090`
 
-Current transaction marker: `[GM-07b:A]`
+Current transaction marker: `[GM-07b:B]`
 
 ## Resume here
 
 1. Preserve remotely finalized GM-06/GM-07a history, the pre-existing `.agents/` tree, unrelated ignored `output/`, the retained isolated pin, and the live `../civ-engine` sibling outside GM-07b.
-2. Stage only the reviewed GM-07b payload (production, tests, fixture, docs, D-026, and thread evidence) and deliver `[GM-07b:A]`.
-3. Wait for that exact SHA's `build` and `rl-smoke`, then bind the result in evidence-only `[GM-07b:B]`; GM-07c remains closed until B is remotely reconciled.
+2. Self-review, stage, commit, and push only the evidence documents in `[GM-07b:B]` without touching production or unrelated state.
+3. Wait for Commit B's exact `build` and `rl-smoke` jobs; only GM-07c's opening Commit A may reconcile that result, mark GM-07b remotely finalized, and open the autosave/Continue work.
 
 ## Increment ledger
 
@@ -35,7 +35,7 @@ Current transaction marker: `[GM-07b:A]`
 | GM-04 | complete | `8cff620` failed setup; `16d7860` failed downstream; `069973c` implementation success; `41ecfc6` GM-04b finalization; `60ac953` / `8c4ba85` GM-04c A/B | [run 29748574695](https://github.com/yanfengliu/python_mini_metro/actions/runs/29748574695) and [run 29753292420](https://github.com/yanfengliu/python_mini_metro/actions/runs/29753292420) failed; [run 29757294004](https://github.com/yanfengliu/python_mini_metro/actions/runs/29757294004), [run 29758092140](https://github.com/yanfengliu/python_mini_metro/actions/runs/29758092140), [run 29763804498](https://github.com/yanfengliu/python_mini_metro/actions/runs/29763804498), and [run 29764619993](https://github.com/yanfengliu/python_mini_metro/actions/runs/29764619993) succeeded | Isolated pinned recursive tooling remotely finalized |
 | GM-05 | complete | `c7effd8` / `47b9349` / `37865d4` / `0d6f5b9` / `242f400` / `b5295c0` | GM-05a through GM-05c A/B green | Atomic replacement, full redraw, and route handles remotely finalized |
 | GM-06 | complete | `d587b63` / `0a69d64` / `df04fb6` / `29cb64c` / `3319b48` / `80cc611` / `a21a3c0` / `62d26a2` / `325a055` | GM-06a A/B green; GM-06b A/A2/B preserved with B run 29809810291 green; GM-06c A/B runs 29853718512 and 29854939135 green; GM-06d A/B runs 29893340731 and 29893673381 green | Fleet and carriage resource management remotely finalized |
-| GM-07 | in progress | `baa5bf8` / `272ba2d` | GM-07a A/B runs 29907589648 and 29907985159 green | GM-07b review-clean; Commit A staging active |
+| GM-07 | in progress | `baa5bf8` / `272ba2d` / `5906370` | GM-07a A/B green; GM-07b A run 29941339839 succeeded | GM-07b evidence-only Commit B active |
 | GM-08 | pending | - | - | Tutorial, settings, audio |
 | GM-09 | pending | - | - | Maps, rivers/tunnels |
 | GM-10 | pending | - | - | Weekly progression and upgrades |
@@ -77,7 +77,7 @@ Current transaction marker: `[GM-07b:A]`
 | GM-06c | complete | `80cc611` / run `29853718512` success | `a21a3c0` / run `29854939135` success | Carriage composition remotely finalized; the delivery corrected the pre-commit record by clearing the stale setup lock, running the full `npm test`, and fixing two focused-only-missed Node defects |
 | GM-06d | complete | `62d26a2` / run `29893340731` success | `325a055` / run `29893673381` success | Fleet edge-case hardening remotely finalized after rebasing over the owner-launched CI-actions commits |
 | GM-07a | complete | `baa5bf8` / run `29907589648` success | `272ba2d` / run `29907985159` success | App shell, screen states, and the pause-reason model remotely finalized |
-| GM-07b | implementation-reviewed | `[GM-07b:A]` active | - | Versioned v1 save/load passes the Codex-plus-harness high-risk battery, the blocker-fix round, and a CLEAN re-review at 1147/0 Python and 249/0 Node; staging pending |
+| GM-07b | implementation-ci-green | `5906370` / run `29941339839` success | `[GM-07b:B]` active | Versioned v1 save/load delivered exact-head remote green after rebasing over the owner-launched oracle fix; evidence finalization remains |
 | GM-07c | pending | - | - | Atomic autosave/Continue |
 | GM-07d | pending | - | - | Map/rules high scores |
 | GM-08a | pending | - | - | Typed settings |
