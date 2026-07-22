@@ -34,8 +34,13 @@ def _valid_host_and_path(host: Any, path: Any) -> bool:
         and total >= 0
         and not bool(getattr(host, "is_game_over", False))
         and _command_target_is_complete(host, path)
-        and _queue_state_is_canonical(host)
-        and carriage_state_is_canonical(host)
+        and _queue_state_is_canonical(host, allow_stale_bound=True)
+        # A carriage op is orthogonal to another Metro's transient stale-bound
+        # service cache (the reachable same-tick sibling-board window GM-07b
+        # persists verbatim), so tolerate it here exactly as the checkpoint
+        # verifier does; the target Metro's own reconciled cache is still
+        # checked strictly in the attach/detach postcondition.
+        and carriage_state_is_canonical(host, allow_stale_bound=True)
     )
 
 
@@ -136,14 +141,14 @@ class CarriageManagement:
                 raise ValueError("carriage reconciliation changed unrelated state")
             if (
                 (candidate.id, candidate.capacity, candidate.shape) != candidate_state
-                or not carriage_state_is_canonical(host)
+                or not carriage_state_is_canonical(host, allow_stale_bound=True)
                 or (
                     at_station
                     and not service_cache_is_canonical(
                         host, target, allow_unbound=False
                     )
                 )
-                or not _queue_state_is_canonical(host)
+                or not _queue_state_is_canonical(host, allow_stale_bound=True)
             ):
                 raise ValueError("carriage attachment failed its postcondition")
         except BaseException as error:
@@ -189,14 +194,14 @@ class CarriageManagement:
             ):
                 raise ValueError("carriage reconciliation changed unrelated state")
             if (
-                not carriage_state_is_canonical(host)
+                not carriage_state_is_canonical(host, allow_stale_bound=True)
                 or (
                     at_station
                     and not service_cache_is_canonical(
                         host, target, allow_unbound=False
                     )
                 )
-                or not _queue_state_is_canonical(host)
+                or not _queue_state_is_canonical(host, allow_stale_bound=True)
             ):
                 raise ValueError("carriage detachment failed its postcondition")
         except BaseException as error:

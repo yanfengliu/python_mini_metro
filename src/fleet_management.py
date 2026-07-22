@@ -143,8 +143,10 @@ def _ownership_is_canonical(host: Any) -> bool:
     return {id(metro) for metro in global_metros} == set(owners)
 
 
-def _queue_state_is_canonical(host: Any) -> bool:
-    if not _ownership_is_canonical(host) or not carriage_state_is_canonical(host):
+def _queue_state_is_canonical(host: Any, *, allow_stale_bound: bool = False) -> bool:
+    if not _ownership_is_canonical(host) or not carriage_state_is_canonical(
+        host, allow_stale_bound=allow_stale_bound
+    ):
         return False
     return all(
         type(getattr(metro, "is_unassignment_queued", _MISSING)) is bool

@@ -11,6 +11,7 @@ from entity.metro import Metro
 from entity.passenger import Passenger
 from entity.path import Path
 from env import MiniMetroEnv
+from fleet_validation import service_cache_is_canonical
 from graph.graph_algo import build_station_nodes_dict
 from passenger_capacity import pure_service_action, same_service_action
 from test.gm06c_simulation_ui_support import (
@@ -410,13 +411,12 @@ class TestGM06cMalformedServiceCachePreflight(unittest.TestCase):
         return mediator, start, end, path, metro, first
 
     def test_bound_cache_malformed_states_reject_queries_and_actions_exactly(self):
-        for case in (
-            "moving",
-            "nonexact-kind",
-            "wrong-holder",
-            "wrong-oracle",
-            "wrong-timer",
-        ):
+        # Structurally malformed caches -- a bound action off-station, an
+        # unknown kind, or a broken boarding timer -- still fail the carriage
+        # preflight exactly and leave the graph untouched. (A merely stale but
+        # well-formed cache is legitimate GM-07b state, not malformed: see
+        # test_stale_but_structural_cache_permits_attach_and_reconciles.)
+        for case in ("moving", "nonexact-kind", "wrong-timer"):
             with self.subTest(case=case):
                 mediator, start, end, path, metro, first = self._cache_network(
                     61940 + len(case)
@@ -425,16 +425,6 @@ class TestGM06cMalformedServiceCachePreflight(unittest.TestCase):
                     metro.current_station = None
                 elif case == "nonexact-kind":
                     metro._station_service_action = ("boarding", first)
-                elif case == "wrong-holder":
-                    wrong = boardable_passenger(
-                        mediator, end, start, path, name="wrong-holder"
-                    )
-                    metro._station_service_action = ("board", wrong)
-                elif case == "wrong-oracle":
-                    second = boardable_passenger(
-                        mediator, start, end, path, name="wrong-oracle"
-                    )
-                    metro._station_service_action = ("board", second)
                 else:
                     metro.stop_time_remaining_ms -= 1
                 before = _snapshot(mediator)
@@ -444,6 +434,49 @@ class TestGM06cMalformedServiceCachePreflight(unittest.TestCase):
                 self.assertFalse(mediator.attach_carriage(path))
                 self.assertFalse(mediator.detach_carriage(path))
                 _assert_snapshot(self, mediator, before)
+
+    def test_stale_but_structural_cache_permits_attach_and_reconciles(self):
+        # A well-formed bound cache that merely disagrees with the re-derivable
+        # oracle is legitimate GM-07b state, not corruption: a live rider held
+        # elsewhere ('wrong-holder', the reachable same-tick sibling-board
+        # shape) or a non-preferred boarding candidate ('wrong-oracle'). The
+        # carriage preflight tolerates it exactly as the checkpoint verifier
+        # does, and the transaction reconciles the touched metro back to the
+        # strict oracle -- so the op succeeds instead of silently no-opping.
+        nodes = build_station_nodes_dict
+        for case in ("wrong-holder", "wrong-oracle"):
+            with self.subTest(case=case):
+                mediator, start, end, path, metro, first = self._cache_network(
+                    61940 + len(case)
+                )
+                if case == "wrong-holder":
+                    passenger = boardable_passenger(
+                        mediator, end, start, path, name="wrong-holder"
+                    )
+                else:
+                    passenger = boardable_passenger(
+                        mediator, start, end, path, name="wrong-oracle"
+                    )
+                metro._station_service_action = ("board", passenger)
+                self.assertFalse(
+                    same_service_action(
+                        metro._station_service_action,
+                        pure_service_action(
+                            mediator,
+                            metro,
+                            metro.current_station,
+                            nodes(mediator.stations, mediator.paths),
+                        ),
+                    )
+                )
+
+                self.assertTrue(mediator.can_attach_carriage(path))
+                self.assertTrue(mediator.can_detach_carriage(path))
+                self.assertTrue(mediator.attach_carriage(path))
+                # The touched metro was reconciled to the strict oracle.
+                self.assertTrue(
+                    service_cache_is_canonical(mediator, metro, allow_unbound=False)
+                )
 
     def test_zero_timer_real_station_fixture_can_bind_during_first_mutation(self):
         mediator, start, end, path, metro = make_two_station_game(seed=61960)
