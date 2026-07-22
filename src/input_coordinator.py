@@ -363,7 +363,7 @@ class InputCoordinator:
     ) -> None:
         if event.event_type == get_keyboard_event_type().KEY_UP:
             if event.key == get_pause_key():
-                host.is_paused = not host.is_paused
+                host.is_paused = not getattr(host, "_user_pause_held", host.is_paused)
             elif event.key == get_speed_1_key():
                 host.set_game_speed(1)
             elif event.key == get_speed_2_key():

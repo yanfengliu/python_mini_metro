@@ -1,0 +1,21 @@
+# GM-07a plan adversarial review — verdict: NOT CLEAN (verbatim)
+
+Baseline verified: HEAD == origin/main == `325a055` ([GM-06d:B]). All research anchors re-verified against live code.
+
+## Findings
+
+- F1 MAJOR — Property conversion breaks on bare `Mediator.__new__` hosts. `test/test_mediator_input_contract.py:16-21` builds `Mediator.__new__(Mediator)` and line 393 writes `mediator.is_paused = False`; the GM-03f differential scripts (`scripts/input_coordinator_differential_support.py:86-93` plus actions/input writes) replay the same bare pattern against baseline `7ff9d9c`. A property touching an `__init__`-created store raises AttributeError there; a class-level mutable default would leak a held `menu` reason across reconstructed mediators. Fix: per-instance lazy store (getter treats missing store as empty; setter creates on first write), explicit class-default prohibition, red test on a bare instance.
+- F2 MAJOR — `start_state=PLAYING` does not rescue `test_main.py`; patch seams break if construction moves into `app_controller.py`. The four `run_game` tests patch `main.Mediator`/`main.GameSession`/`main.GameRenderer` (test_main.py:31-37,86-88,122-126,163-166) and the runpy test patches source modules, which cannot reach a `from mediator import Mediator` binding cached inside app_controller. Also the loop's locals go stale after menu-restart. Fix: `main.run_game` supplies the construction callable (closure over main-module globals); the controller owns only when to invoke it; the loop reads the current mediator/renderer/session through the controller each frame; red test that a menu-restart routes the next frame's dispatch/draw to the new session/renderer.
+- F3 MAJOR — Escape mid-gesture leaves a live pointer gesture armed with no public clear facade. Transient input clears only on the game-over edge (`mediator.py:715-719`; `clear_transient_input` at `input_coordinator.py:336-338` has no Mediator wrapper); the renderer draws the armed preview each frame. Fix: on PLAYING→PAUSE_MENU dispatch the existing letterbox cancel (`MouseEvent(MOUSE_UP, Point(-1,-1))`, semantics pinned by `test_main.py:18-81`) before holding the menu reason, or add a narrow transient-clear facade; red test: open menu mid-drag, release over menu, resume, assert no stale gesture and zero release actions.
+- F4 MINOR — `start_state` mechanism unpinned for the headless hook and the four direct-call tests (none pass it; runpy passes nothing). Fix: state the exact mechanism.
+- F5 MINOR — TITLE-state game existence undefined (does a triple exist on TITLE?). Fix: pin eager construction.
+- F6 MINOR — Settings-state deferral to GM-08a amends the GM-07 roadmap scope bullet (roadmap PLAN.md:180); record as an explicit decision line, not a per-unit aside. No other scope leak found.
+- F7 MINOR — The getter must return exact `bool` for JSON byte-identity (env.py:236; recursive_checkpoint.py:147,396; oracle equality). Add the type pin to red tests.
+- F8 MINOR — Baseline paragraph misattributes the reconciliation SHA: B is `325a055` (run 29893673381/#147); `62d26a2` is A (run 29893340731/#146).
+- Cosmetic: while the menu reason is held, the pause speed-button renders lit behind the menu.
+
+## Confirmed sound
+
+Writer/reader inventory complete (no writers beyond plan + F1's bare hosts). Protocols static-only; property satisfies them. No snapshot/pickle touches `is_paused` or `__dict__`. Escape genuinely free while playing (only game-over binds it; gesture cancel is mouse-based; GM-05 suites mouse-only). Menu-hold double defense coherent (no dispatch + user-only reason writers; `apply_action` unreachable from the human loop). Checkpoint/oracle neutrality holds with a derived bool and process-local reasons; no fixture pins the live content fingerprint; content-identity advance matches precedent (`training.py:282-309`). Space rerouting compatible with fake hosts, signature pins, speed-action dynamic pin, and the GM-03f differential (conditional on F1). Rendering: menu chrome outside `GameRenderer`; purity suites unaffected; repeated paused draw byte-stable; game-over overlay stays renderer-owned. Headless isolation exact. Line budgets confirmed.
+
+## Verdict: NOT CLEAN — no blockers; fold F1-F3 (and one-line F4-F8) before implementation.

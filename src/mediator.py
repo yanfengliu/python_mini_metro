@@ -71,6 +71,8 @@ from utils import get_shape_from_type, hue_to_rgb, pick_distinct_hue
 
 TravelPlans = Dict[Passenger, TravelPlan]
 
+_PAUSE_REASONS = frozenset({"user", "menu"})
+
 
 def _get_game_renderer_factory():
     from rendering.game_renderer import GameRenderer
@@ -578,6 +580,44 @@ class Mediator:
             metro,
             get_graph_builder=lambda: build_station_nodes_dict,
         )
+
+    @property
+    def is_paused(self) -> bool:
+        """Project the active pause reasons to one effective exact bool."""
+
+        return bool(getattr(self, "_pause_reasons", None))
+
+    @is_paused.setter
+    def is_paused(self, paused: bool) -> None:
+        if paused:
+            self.hold_pause_reason("user")
+        else:
+            self.release_pause_reason("user")
+
+    @property
+    def _user_pause_held(self) -> bool:
+        return "user" in getattr(self, "_pause_reasons", ())
+
+    def hold_pause_reason(self, reason: str) -> None:
+        """Hold one validated pause reason; repeated holds are idempotent."""
+
+        self._pause_reason_store(reason).add(reason)
+
+    def release_pause_reason(self, reason: str) -> None:
+        """Release one validated pause reason; a non-held reason is a no-op."""
+
+        self._pause_reason_store(reason).discard(reason)
+
+    def _pause_reason_store(self, reason: str) -> set[str]:
+        # The store is created lazily per instance so bare hosts stay safe and
+        # no class-level mutable default can leak holds across reconstructions.
+        if reason not in _PAUSE_REASONS:
+            raise ValueError(f"unknown pause reason: {reason!r}")
+        store = getattr(self, "_pause_reasons", None)
+        if store is None:
+            store = set()
+            self._pause_reasons = store
+        return store
 
     def set_paused(self, paused: bool) -> None:
         self._input.set_paused(self, paused)

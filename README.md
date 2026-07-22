@@ -56,9 +56,11 @@ Set `PYTHON` to a specific interpreter path when `python` is not the intended ex
 * If you are running for the first time, install the requirements using `python -m pip install -r requirements-locked.txt`
 * Activate the virtual environment by running `conda activate py313`
 * Run `python src/main.py`
+* The game opens on a title screen: click New Game (or press ENTER) to start, or click Exit to quit. Programmatic runs with a frame limit (`PYTHON_MINI_METRO_MAX_FRAMES` or `run_game(max_frames=...)`) start directly in gameplay; an explicit `run_game(start_state=...)` overrides both.
 * The window uses a fixed 60 Hz simulation cadence with interpolated metro motion; resizing preserves the 1920x1080 player view without changing game timing.
 * Hold down the mouse left button on a station and drag onto other stations to create a line. New lines start unserved.
 * Press SPACE to pause / unpause the game.
+* Press ESC while playing to open the pause menu (any in-progress drag is cancelled first): Resume (click or ESC) returns to play, Restart starts a fresh game, and Exit to Title returns to the title screen. The menu freezes the game independently of SPACE, so gameplay input, including the SPACE toggle, cannot dismiss it, and resuming keeps a SPACE pause in place until you unpause.
 * Press `1`, `2`, or `3` to set game speed to 1x, 2x, or 4x.
 * The top-left HUD shows lifetime passengers delivered, currently spendable line credits, unassigned locomotives, and unassigned carriages as separate values.
 * Each filled grey circle at the bottom is an unused unlocked metro line slot.
