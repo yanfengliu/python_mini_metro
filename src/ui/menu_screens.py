@@ -23,6 +23,7 @@ from config import (
 
 _TITLE_HEADING = "MINI METRO"
 _PAUSE_HEADING = "PAUSED"
+_BEST_INDICATOR_TEXT = "NEW BEST"
 _HEADING_FONT_SIZE = 96
 _HEADING_GAP = 60
 
@@ -133,6 +134,32 @@ def draw_notice(surface: pygame.Surface, message: str) -> None:
     )
     # An opaque banner painted in the same call keeps repeated draws identical.
     banner = text.get_rect(center=(width // 2, height // 6)).inflate(60, 30)
+    pygame.draw.rect(surface, game_over_button_color, banner, border_radius=8)
+    pygame.draw.rect(
+        surface,
+        game_over_button_border_color,
+        banner,
+        game_over_button_border_width,
+        border_radius=8,
+    )
+    surface.blit(text, text.get_rect(center=banner.center))
+
+
+def draw_best_indicator(surface: pygame.Surface, result: object) -> None:
+    """Paint a byte-stable "new best" banner, but only for an is_best result.
+
+    A ``None`` or non-best result leaves the surface untouched, so ``main`` can
+    call this unconditionally after the game-over frame (D-028). The opaque fill
+    is repainted before the text every call, so redraws stay byte-identical.
+    """
+
+    if result is None or not result.is_best:
+        return
+    width, height = surface.get_size()
+    text = _font(font_name, game_over_hint_font_size).render(
+        _BEST_INDICATOR_TEXT, True, game_over_text_color
+    )
+    banner = text.get_rect(center=(width // 2, height // 4)).inflate(60, 30)
     pygame.draw.rect(surface, game_over_button_color, banner, border_radius=8)
     pygame.draw.rect(
         surface,

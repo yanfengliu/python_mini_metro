@@ -74,6 +74,7 @@ def _drive_window_close(
     game_over: bool,
     write_spy: MagicMock | None,
     delete_spy: MagicMock | None,
+    record_spy: MagicMock | None = None,
     extra_patches=(),
 ):
     """Pump exactly one ``pygame.QUIT`` and assert it exits via ``SystemExit``.
@@ -97,6 +98,19 @@ def _drive_window_close(
             patch("main.GameSession", side_effect=lambda m, **k: _LoopSession(m))
         )
         stack.enter_context(patch("main.GameRenderer", side_effect=_LoopRenderer))
+        # GM-07d contract edit: insulate the new window-close highscore record so
+        # it neither errors on the fake mediator's missing ``deliveries`` nor
+        # touches a real ``saves/highscores.json``.
+        directory = stack.enter_context(tempfile.TemporaryDirectory())
+        stack.enter_context(
+            patch(
+                "main.HIGHSCORES_PATH",
+                Path(directory) / "highscores.json",
+                create=True,
+            )
+        )
+        if record_spy is not None:
+            stack.enter_context(patch("main.record_highscore", record_spy, create=True))
         if write_spy is not None:
             stack.enter_context(patch("main.write_autosave", write_spy, create=True))
         if delete_spy is not None:
@@ -151,17 +165,23 @@ class TestGM07cWindowCloseAutosaveGate(unittest.TestCase):
         delete_spy.assert_not_called()
 
     def test_quit_when_game_over_deletes_and_never_saves(self):
+        # GM-07d contract edit (RED until the product exists): the game-over
+        # window close also records the high score exactly once, patched here so
+        # it neither errors on the fake mediator nor touches a real leaderboard.
         write_spy = MagicMock()
         delete_spy = MagicMock()
-        _drive_window_close(
+        record_spy = MagicMock()
+        mediator = _drive_window_close(
             self,
             start_state=AppScreen.PLAYING,
             game_over=True,
             write_spy=write_spy,
             delete_spy=delete_spy,
+            record_spy=record_spy,
         )
         delete_spy.assert_called_once_with()
         write_spy.assert_not_called()
+        record_spy.assert_called_once_with(mediator)
 
     def test_quit_on_title_neither_saves_nor_deletes(self):
         # regression guard: green at baseline

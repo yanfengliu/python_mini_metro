@@ -103,6 +103,7 @@ This document summarizes the game rules currently implemented in code.
   - Simulation time and gameplay updates stop.
   - `MiniMetroEnv.step(...)` calls become stable no-ops until reset; `PlayerPixelEnv.step(...)` rejects further actions until its required reset.
   - The game-over overlay presents lifetime passengers delivered as the primary result and remaining line credits as a secondary value.
+  - The run's lifetime deliveries are recorded once to the high-score leaderboard at `saves/highscores.json` (ranked descending and capped at ten per map and rules version); if the run set a new best for its key, a compact indicator is shown on the game-over screen. A missing or corrupt leaderboard starts empty and never blocks play.
 
 ## Controls
 

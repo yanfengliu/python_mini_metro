@@ -26,7 +26,13 @@ SRC_ROOT = REPO_ROOT / "src"
 FIXTURE_PATH = REPO_ROOT / "scripts" / "fixtures" / "save-v1.json"
 SAVE_GAME_MODULE = "save_game"
 SAVE_SCHEMA_MODULE = "save_schema"
-SAVE_MODULE_NAMES = {"save_game", "save_schema", "save_load", "save_schema_records"}
+SAVE_MODULE_NAMES = {
+    "save_game",
+    "save_schema",
+    "save_load",
+    "save_schema_records",
+    "highscores",
+}
 
 # PLACEHOLDER pins — the implementer freezes scripts/fixtures/save-v1.json by
 # writing the exact bytes of _fixture_bytes() (the seeded scenario below) and

@@ -70,16 +70,22 @@ class AppController:
         *,
         build_from: Callable[[object], GameTriple] | None = None,
         autosave: object | None = None,
+        highscores: object | None = None,
     ) -> None:
         self._build_game = build_game
-        # Both seams are optional with inert defaults (D-027/F6): a controller
-        # built without them never autosaves, keeps Continue unavailable, and
-        # behaves exactly as the GM-07a baseline did.
+        # Every seam is optional with an inert default (D-027/D-028): a
+        # controller built without them never autosaves, never records a high
+        # score, keeps Continue unavailable, and behaves exactly as the GM-07a
+        # baseline did.
         self._build_from = build_from
         self._autosave = autosave
+        self._highscores = highscores
         self.state = start_state
         self._armed_menu_control: str | None = None
         self.notice: str | None = None
+        # The most recent game-over record result, or None when the last
+        # promotion had no seam or minted no record (D-028/MINOR-7).
+        self.last_highscore_result: object | None = None
         self.mediator, self.renderer, self.session = build_game()
 
     def _autosave_save(self) -> None:
@@ -92,6 +98,19 @@ class AppController:
         if self._autosave is not None:
             self._autosave.delete()
 
+    def _record_highscore(self) -> None:
+        # Record the finished run's lifetime deliveries exactly once at the
+        # promotion (D-028). deliveries is read ONLY when the seam is present,
+        # so a seam-less controller never touches a mediator that lacks it
+        # (MAJOR-3). Every promotion (re)assigns the result -- to None when the
+        # seam is absent or minted nothing -- so a restart shows no stale best.
+        if self._highscores is not None:
+            self.last_highscore_result = self._highscores.record(
+                self.mediator.deliveries
+            )
+        else:
+            self.last_highscore_result = None
+
     def handle_event(self, event: object) -> None:
         """Route one converted event according to the current screen."""
 
@@ -100,6 +119,9 @@ class AppController:
             # A finished run must never be resumable: drop the autosave at the
             # promotion, the same handle_event call as any game-over exit below.
             self._autosave_delete()
+            # Record the run's high score at the same promotion (D-028); the
+            # window-close race in main covers the un-promoted game-over exit.
+            self._record_highscore()
         if self.state is AppScreen.PLAYING:
             self._handle_playing(event)
         elif self.state is AppScreen.PAUSE_MENU:

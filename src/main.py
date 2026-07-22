@@ -19,10 +19,19 @@ from config import (
 )
 from event.convert import convert_pygame_event
 from game_session import GameSession
+from highscores import (
+    HIGHSCORES_MAP_CLASSIC,
+    RecordResult,
+    load_highscores,
+    record_score,
+    save_highscores,
+)
 from mediator import Mediator
 from rendering.game_renderer import GameRenderer
 from save_game import load_game, save_game
+from save_schema import SAVE_RULES_VERSION
 from ui.menu_screens import (
+    draw_best_indicator,
     draw_notice,
     draw_pause_menu,
     draw_title_screen,
@@ -32,6 +41,30 @@ from ui.viewport import get_viewport_transform
 
 # Single canonical autosave slot (D-027); patchable so tests never touch it.
 AUTOSAVE_PATH = Path(save_dir_name) / "autosave.json"
+# Persistent high-score leaderboard (D-028); patchable so tests never touch it.
+HIGHSCORES_PATH = Path(save_dir_name) / "highscores.json"
+
+
+def record_highscore(mediator: object) -> RecordResult | None:
+    # The single best-effort recorder BOTH game-over surfaces funnel through --
+    # the controller promotion seam and the window-close race -- so patching this
+    # one symbol (or HIGHSCORES_PATH) intercepts all recording (codex MINOR-4).
+    # It reads the objective off the mediator and must never crash or block the
+    # game loop: any failure (a corrupt board, an unwritable directory, or even a
+    # RecursionError from a pathologically nested file -- MAJOR-2) is swallowed to
+    # None, exactly as the proven autosave writer does.
+    try:
+        document = load_highscores(HIGHSCORES_PATH)
+        result = record_score(
+            document,
+            deliveries=mediator.deliveries,
+            map=HIGHSCORES_MAP_CLASSIC,
+            rules_version=SAVE_RULES_VERSION,
+        )
+        save_highscores(result.document, HIGHSCORES_PATH)
+        return result
+    except Exception:
+        return None
 
 
 def write_autosave(mediator: object) -> None:
@@ -124,6 +157,16 @@ def run_game(
         load=load_autosave,
     )
 
+    # The controller records the high score at the PLAYING->GAME_OVER promotion
+    # and hands back the result for the best indicator (D-028). The promotion
+    # passes the deliveries scalar; route it through the one patchable
+    # record_highscore (looked up at call time) so both game-over surfaces share
+    # a single recorder and a single test seam (codex MINOR-4).
+    def _record_promotion(deliveries: int) -> RecordResult | None:
+        return record_highscore(SimpleNamespace(deliveries=deliveries))
+
+    highscores = SimpleNamespace(record=_record_promotion)
+
     if start_state is None:
         start_state = AppScreen.PLAYING if max_frames is not None else AppScreen.TITLE
     controller = AppController(
@@ -131,6 +174,7 @@ def run_game(
         start_state=start_state,
         build_from=build_from,
         autosave=autosave,
+        highscores=highscores,
     )
     presentation_surface: pygame.Surface | None = None
     previous_session = controller.session
@@ -150,6 +194,10 @@ def run_game(
                 if controller.state in (AppScreen.PLAYING, AppScreen.PAUSE_MENU):
                     if controller.mediator.is_game_over:
                         delete_autosave()
+                        # Record the finished run at the window-close race,
+                        # mutually exclusive with the controller promotion which
+                        # never fires for a QUIT event (D-028).
+                        record_highscore(controller.mediator)
                     else:
                         write_autosave(controller.mediator)
                 raise SystemExit
@@ -192,6 +240,11 @@ def run_game(
             )
             if state == AppScreen.PAUSE_MENU:
                 draw_pause_menu(game_surface)
+            elif state == AppScreen.GAME_OVER:
+                # Painted after the renderer's game-over frame so the near-ceiling
+                # game_renderer stays untouched; the primitive no-ops unless the
+                # result is a new best (D-028).
+                draw_best_indicator(game_surface, controller.last_highscore_result)
         window_surface.fill(screen_color)
         target_size = (viewport.width, viewport.height)
         if viewport.width > 0 and viewport.height > 0:
