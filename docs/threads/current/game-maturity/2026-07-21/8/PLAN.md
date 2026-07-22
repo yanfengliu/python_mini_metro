@@ -1,6 +1,6 @@
 # GM-06d fleet edge-case hardening plan
 
-Status: revised after two independent adversarial plan reviews and one combined re-review (`raw/plan-rereview-combined.md`: all 16 original findings verified closed; NEW-1/NEW-2/NEW-3 dispositioned below); final narrow recheck pending before red tests
+Status: delivered as Commit A `62d26a2`, exact [run 29893340731](https://github.com/yanfengliu/python_mini_metro/actions/runs/29893340731) green; evidence-only Commit B active
 
 Transaction marker: `[GM-06d:A]`
 

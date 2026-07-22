@@ -1,6 +1,6 @@
 # GM-06d fleet edge-case hardening diff ledger
 
-Status: implementation complete and review-clean; local gates green; Commit A staging pending
+Status: delivered as Commit A `62d26a2` (rebased over the owner-launched CI-actions commits with one additive PROGRESS.md merge), exact [run 29893340731](https://github.com/yanfengliu/python_mini_metro/actions/runs/29893340731) green; evidence-only Commit B active
 
 ## Implemented production surface
 
@@ -17,4 +17,4 @@ Status: implementation complete and review-clean; local gates green; Commit A st
 - Update `README.md` (widened unassignment, `cancel_unassignment`, conserving removal), `GAME_RULES.md` (occupied return and drain rules, soft-cap semantics, conserving removal, programmatic action list), and `ARCHITECTURE.md` (new modules, boundary prose, test listing).
 - File two out-of-scope background tasks: CI Node-20 actions deprecation; pre-existing padding-segment recursive-oracle false positives, pinned by the new harness regression.
 
-Local gates: full py313 suite 1043/0 with 12 expected skips; guarded `npm test` 249/0 with 4 expected skips; Ruff and per-file pre-commit clean; all line budgets held. Commit A staging, the exact-payload hook run, push, and remote CI remain.
+Local gates: full py313 suite 1043/0 with 12 expected skips (re-verified on the rebased tree); guarded `npm test` 249/0 with 4 expected skips; Ruff and per-file pre-commit clean; all line budgets held. Commit A `62d26a2` passed exact [run 29893340731](https://github.com/yanfengliu/python_mini_metro/actions/runs/29893340731); evidence-only Commit B binds this result, and GM-07 opens only after B's own exact workflow is green.
