@@ -102,17 +102,10 @@ class TestRecursiveHarnessPausedOccupiedQueue(unittest.TestCase):
         self.assertTrue(all(row["actionOk"] for row in rows))
         self.assertTrue(all(row["checkpoint"]["schemaVersion"] == 4 for row in rows))
         self.assertTrue(result["completed"])
-        # The paused occupied queue itself is finding-free; the only
-        # findings are the pre-existing padding-traversal invalid-reference
-        # rows on two pre-pause noop steps (reproduced by a pure-noop
-        # document), pinned exactly so a queue regression cannot hide.
-        self.assertEqual(
-            [
-                (finding["data"]["class"], finding["data"]["stepIndex"])
-                for finding in findings
-            ],
-            [("invalid-reference", 7), ("invalid-reference", 8)],
-        )
+        # The whole scenario is finding-free, including the pre-pause noop
+        # steps that checkpoint the metro mid-PaddingSegment; pinned exactly
+        # so a queue or padding-traversal regression cannot hide.
+        self.assertEqual(findings, [])
 
 
 class TestRemovalReconcilesSurvivingService(unittest.TestCase):

@@ -180,6 +180,7 @@ def reference_errors(checkpoint: dict[str, Any]) -> list[str]:
                     current_segment[key],
                     "station",
                     f"metroMotion {number} current segment {key}",
+                    (None,),
                 )
             owner_index = metro["path_index"]
             if type(owner_index) is int and 0 <= owner_index < latent_counts["path"]:

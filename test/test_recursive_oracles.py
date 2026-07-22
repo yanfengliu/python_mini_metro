@@ -399,6 +399,34 @@ class TestRecursiveOracles(unittest.TestCase):
                 mutate(broken)
                 self.assertTrue(reference_errors(broken))
 
+    def test_reference_errors_accept_mid_padding_segment_checkpoint(self):
+        env = MiniMetroEnv()
+        env.reset(seed=0)
+        env.step(
+            {"type": "create_path", "stations": [0, 1, 2], "loop": False},
+            dt_ms=1,
+        )
+        _, _, _, assignment_info = env.step(
+            {"type": "assign_locomotive", "path_index": 0},
+            dt_ms=0,
+        )
+        self.assertTrue(assignment_info["action_ok"])
+        for _ in range(64):
+            metro = env.mediator.metros[0]
+            if type(metro.current_segment).__name__ == "PaddingSegment":
+                break
+            env.step({"type": "noop"}, dt_ms=250)
+        else:
+            self.fail("metro never reached a padding segment")
+
+        checkpoint = canonical_checkpoint(env)
+
+        motion = checkpoint["metroMotion"][0]
+        self.assertEqual(motion["current_segment"]["kind"], "PaddingSegment")
+        self.assertIsNone(motion["current_segment"]["start_station_index"])
+        self.assertIsNone(motion["current_segment"]["end_station_index"])
+        self.assertEqual(reference_errors(checkpoint), [])
+
 
 if __name__ == "__main__":
     unittest.main()
