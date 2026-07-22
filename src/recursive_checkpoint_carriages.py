@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from fleet_validation import carriage_state_is_canonical, identity_unique
-from graph.graph_algo import build_station_nodes_dict
-from passenger_capacity import pure_service_action, same_service_action
+from fleet_validation import (
+    carriage_state_is_canonical,
+    identity_unique,
+    service_action_passenger_is_live,
+)
+from passenger_capacity import BOARD, DESTINATION, TRANSFER
 
 _LOCOMOTIVE_FLEET_KEYS = (
     "locomotives_total",
@@ -78,30 +81,33 @@ def validate_topology_metro_ownership(
 
 
 def _validate_service_cache(mediator: Any, metro: Any) -> None:
+    """Validate a Metro's bound service cache structurally, not against the oracle.
+
+    A bound cache may legitimately disagree with the re-derivable action at a
+    tick boundary (a later metro consumed its rider inside the same tick); GM-07b
+    save/load persists that shape verbatim. Mirror that contract: require a
+    well-formed action referencing a live passenger with timers on the boarding
+    invariant, and an unbound cache with zeroed timers.
+    """
+
     cache = getattr(metro, "_station_service_action", None)
     station = getattr(metro, "current_station", None)
-    expected = (
-        None
-        if station is None
-        else pure_service_action(
-            mediator,
-            metro,
-            station,
-            build_station_nodes_dict(mediator.stations, mediator.paths),
-        )
-    )
-    if expected is None:
-        if cache is not None or any(
-            getattr(metro, name, 0)
-            for name in ("stop_time_remaining_ms", "boarding_progress_ms")
-        ):
-            raise ValueError("checkpoint Metro service cache is stale")
-        return
-    if not same_service_action(cache, expected):
-        raise ValueError("checkpoint Metro service cache is stale")
-    interval = getattr(metro, "boarding_time_per_passenger_ms", None)
     progress = getattr(metro, "boarding_progress_ms", None)
     remaining = getattr(metro, "stop_time_remaining_ms", None)
+    if cache is None:
+        if remaining or progress:
+            raise ValueError("checkpoint Metro service cache is stale")
+        return
+    if (
+        station is None
+        or not isinstance(cache, tuple)
+        or len(cache) != 2
+        or type(cache[0]) is not str
+        or cache[0] not in {DESTINATION, TRANSFER, BOARD}
+        or not service_action_passenger_is_live(mediator, cache[1])
+    ):
+        raise ValueError("checkpoint Metro service cache is malformed")
+    interval = getattr(metro, "boarding_time_per_passenger_ms", None)
     if (
         type(interval) is not int
         or interval <= 0
@@ -155,7 +161,7 @@ def runtime_carriage_state(
     """Validate v4 runtime/raw composition and return its UUID-free projection."""
 
     mediator = env.mediator
-    if not carriage_state_is_canonical(mediator):
+    if not carriage_state_is_canonical(mediator, allow_stale_bound=True):
         raise ValueError("checkpoint runtime carriage graph is malformed")
     global_metros = list(mediator.metros)
     if not identity_unique(global_metros):

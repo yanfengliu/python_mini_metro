@@ -53,7 +53,29 @@ def assigned_carriage_count(host: Any) -> int:
     )
 
 
-def service_cache_is_canonical(host: Any, metro: Any, *, allow_unbound: bool) -> bool:
+def service_action_passenger_is_live(host: Any, passenger: Any) -> bool:
+    """True when a bound service cache references a real in-play passenger.
+
+    The global passenger registry is the authoritative superset of every
+    boarding, onboard, and transferring rider, so identity membership there
+    separates a legitimately stale-bound cache (its rider merely moved onto a
+    sibling metro this tick) from a dangling reference to a passenger that
+    never belonged to the game.
+    """
+
+    passengers = getattr(host, "passengers", None)
+    if not isinstance(passengers, list):
+        return False
+    return any(passenger is rider for rider in passengers)
+
+
+def service_cache_is_canonical(
+    host: Any,
+    metro: Any,
+    *,
+    allow_unbound: bool,
+    allow_stale_bound: bool = False,
+) -> bool:
     action = getattr(metro, "_station_service_action", None)
     station = getattr(metro, "current_station", None)
     remaining = getattr(metro, "stop_time_remaining_ms", _MISSING)
@@ -97,6 +119,14 @@ def service_cache_is_canonical(host: Any, metro: Any, *, allow_unbound: bool) ->
         or remaining != interval - progress
     ):
         return False
+    if allow_stale_bound:
+        # A bound cache may legitimately disagree with the re-derivable oracle
+        # at a tick boundary: move_passengers walks the metros in order, so a
+        # later metro can consume this metro's rider inside the same tick,
+        # leaving a well-formed cache pending the next reconcile. Accept it when
+        # it still references a live passenger — exactly the shape GM-07b
+        # save/load persists verbatim — instead of demanding the oracle match.
+        return service_action_passenger_is_live(host, action[1])
     expected = pure_service_action(
         host,
         metro,
@@ -111,8 +141,16 @@ def carriage_state_is_canonical(
     *,
     extra_storage: Iterable[Any] = (),
     require_bound_service: bool = False,
+    allow_stale_bound: bool = False,
 ) -> bool:
-    """Validate composition without mutating or constructing entity state."""
+    """Validate composition without mutating or constructing entity state.
+
+    ``allow_stale_bound`` relaxes each metro's bound service cache to the
+    structural contract (a well-formed action referencing a live passenger with
+    boarding-invariant timers) instead of demanding it match the re-derivable
+    oracle. The checkpoint verifier opts in; carriage-lifecycle guards keep the
+    strict oracle match so their post-reconcile postconditions stay exact.
+    """
 
     try:
         metros = canonical_metros(host)
@@ -191,7 +229,10 @@ def carriage_state_is_canonical(
             if type(capacity) is not int or capacity != expected:
                 return False
             if len(passengers) > capacity or not service_cache_is_canonical(
-                host, metro, allow_unbound=not require_bound_service
+                host,
+                metro,
+                allow_unbound=not require_bound_service,
+                allow_stale_bound=allow_stale_bound,
             ):
                 return False
         return True
