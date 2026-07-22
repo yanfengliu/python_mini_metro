@@ -141,3 +141,4 @@
 ## 2026-07-21
 
 - Added attached-only carriage composition with two derived fungible units, deterministic rollback-safe attach/detach and whole-consist lifecycle accounting, executable-action station timing, route-following consist rendering and player controls, structured composition, UUID-free checkpoint v4, and replay-safe recursive/agent v5 while preserving frozen legacy behavior and the GM-06d rider/removal deferrals.
+- Bumped the deprecated Node 20 GitHub Actions in `.github/workflows/test.yml` (`actions/checkout` v4→v7, `actions/setup-python` v5→v7, `actions/setup-node` v4→v7) onto the Node 24 runtime, verifying against each action's v7 `action.yml` that every used input still exists and that the only removed inputs are unused ones; adversarially reviewed (Codex plus an independent harness reviewer; the Claude CLI reviewer was unreachable on an expired OAuth session) with the change gated on both hosted CI jobs passing.
