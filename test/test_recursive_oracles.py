@@ -350,6 +350,9 @@ class TestRecursiveOracles(unittest.TestCase):
             "topology path metro": lambda value: value["topology"]["paths"][0][
                 "metro_indices"
             ].append(999),
+            "topology path segment": lambda value: value["topology"]["paths"][0][
+                "segments"
+            ][0].update(start_station_index=999),
             "passenger": lambda value: value["passengers"].append(
                 {
                     "destination_shape_type": "1",
@@ -426,6 +429,52 @@ class TestRecursiveOracles(unittest.TestCase):
         self.assertIsNone(motion["current_segment"]["start_station_index"])
         self.assertIsNone(motion["current_segment"]["end_station_index"])
         self.assertEqual(reference_errors(checkpoint), [])
+
+    def test_reference_errors_require_stations_on_path_segments(self):
+        env = MiniMetroEnv()
+        env.reset(seed=14)
+        env.step(
+            {"type": "create_path", "stations": [0, 1, 2], "loop": False},
+            dt_ms=1,
+        )
+        _, _, _, assignment_info = env.step(
+            {"type": "assign_locomotive", "path_index": 0},
+            dt_ms=0,
+        )
+        self.assertTrue(assignment_info["action_ok"])
+        checkpoint = canonical_checkpoint(env)
+        self.assertEqual(
+            checkpoint["topology"]["paths"][0]["segments"][0]["kind"], "PathSegment"
+        )
+        self.assertEqual(
+            checkpoint["metroMotion"][0]["current_segment"]["kind"], "PathSegment"
+        )
+        padding = next(
+            segment
+            for segment in checkpoint["topology"]["paths"][0]["segments"]
+            if segment["kind"] == "PaddingSegment"
+        )
+        self.assertIsNone(padding["start_station_index"])
+        self.assertIsNone(padding["end_station_index"])
+        self.assertEqual(reference_errors(checkpoint), [])
+        sites = (
+            (
+                "topology segment",
+                lambda value: value["topology"]["paths"][0]["segments"][0],
+                "topology path 0 segment 0 {key}",
+            ),
+            (
+                "metro current segment",
+                lambda value: value["metroMotion"][0]["current_segment"],
+                "metroMotion 0 current segment {key}",
+            ),
+        )
+        for label, target, template in sites:
+            for key in ("start_station_index", "end_station_index"):
+                with self.subTest(site=label, key=key):
+                    broken = deepcopy(checkpoint)
+                    target(broken)[key] = None
+                    self.assertIn(template.format(key=key), reference_errors(broken))
 
 
 if __name__ == "__main__":

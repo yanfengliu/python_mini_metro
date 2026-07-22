@@ -120,7 +120,7 @@ def reference_errors(checkpoint: dict[str, Any]) -> list[str]:
                     segment[key],
                     "station",
                     f"topology path {number} segment {segment_number} {key}",
-                    (None,),
+                    _segment_absent_stations(segment),
                 )
     for number, value in enumerate(topology["path_to_button"]):
         latent(
@@ -180,7 +180,7 @@ def reference_errors(checkpoint: dict[str, Any]) -> list[str]:
                     current_segment[key],
                     "station",
                     f"metroMotion {number} current segment {key}",
-                    (None,),
+                    _segment_absent_stations(current_segment),
                 )
             owner_index = metro["path_index"]
             if type(owner_index) is int and 0 <= owner_index < latent_counts["path"]:
@@ -211,6 +211,10 @@ def reference_errors(checkpoint: dict[str, Any]) -> list[str]:
             (None,),
         )
     return errors
+
+
+def _segment_absent_stations(segment: dict[str, Any]) -> tuple[Any, ...]:
+    return (None,) if segment["kind"] == "PaddingSegment" else ()
 
 
 def _check_location(
