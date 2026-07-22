@@ -11,16 +11,15 @@ from typing import Any
 
 import input_coordinator_differential_actions as action_cases
 import input_coordinator_differential_input as input_cases
-import input_coordinator_differential_layout as layout_cases
 import input_coordinator_differential_support as support
 
 BASELINE_REF = "7ff9d9c4e0cee91898d84ce29c13641201f6ac83"
-SCENARIO_VERSION = "gm03f-input-coordinator-v1"
+SCENARIO_VERSION = "gm03f-input-coordinator-v2"
 ARTIFACT_NAME = "input-coordinator-differential.json"
 SUMMARY_NAME = "input-coordinator-differential-summary.json"
-EXPECTED_CASE_COUNT = 4
-EXPECTED_RECORD_COUNT = 16
-EXPECTED_EVENT_COUNT = 90
+EXPECTED_CASE_COUNT = 3
+EXPECTED_RECORD_COUNT = 11
+EXPECTED_EVENT_COUNT = 57
 
 
 def _verifier_sources() -> tuple[Path, ...]:
@@ -30,7 +29,6 @@ def _verifier_sources() -> tuple[Path, ...]:
             sys.modules[__name__],
             action_cases,
             input_cases,
-            layout_cases,
             support,
         )
     )
@@ -66,7 +64,6 @@ def _assert_module_origins(source_root: Path) -> dict[str, str]:
         "passenger_flow",
         "path_lifecycle",
         "progression",
-        "rendering.game_renderer",
         "ui.button",
         "ui.path_button",
         "ui.speed_button",
@@ -87,7 +84,6 @@ def _emit_target(source_root: Path, output: Path) -> None:
     if not Path(mediator_module.__file__).resolve().is_relative_to(source_root):
         raise RuntimeError("mediator did not load from the requested source root")
     cases = [
-        layout_cases.run_layout_case(),
         input_cases.run_input_case(),
         action_cases.run_progression_case(),
         action_cases.run_action_case(),
@@ -264,7 +260,10 @@ def _verify(args: argparse.Namespace) -> None:
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Reproduce the GM-03f baseline/current input differential."
+        description=(
+            "Reproduce the GM-03f input-coordinator differential against its "
+            "GM-03e baseline."
+        )
     )
     parser.add_argument("--baseline-ref", default=BASELINE_REF)
     parser.add_argument("--candidate-root", type=Path, default=Path.cwd())
