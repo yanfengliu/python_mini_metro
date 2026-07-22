@@ -1,6 +1,6 @@
 # GM-07a application shell and pause-reason diff ledger
 
-Status: implementation and fix round complete; local gates green; final narrow re-review pending, then Commit A staging
+Status: delivered as Commit A `baa5bf8` (27 files, +2160/-55, atop the owner-launched padding-segment oracle fix `83b62e5`), exact [run 29907589648](https://github.com/yanfengliu/python_mini_metro/actions/runs/29907589648) green; evidence-only Commit B active
 
 ## Implemented production surface
 

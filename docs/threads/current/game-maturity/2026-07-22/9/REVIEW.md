@@ -1,6 +1,6 @@
 # GM-07a review synthesis
 
-Status: implementation and fix round complete; local gates green at 1081/0 Python and 249/0 Node; final narrow re-review pending, then Commit A staging
+Status: delivered as Commit A `baa5bf8`, exact [run 29907589648](https://github.com/yanfengliu/python_mini_metro/actions/runs/29907589648) green; evidence-only Commit B active
 
 The runtime research (`raw/research-runtime-pause.md`) mapped the loop, the boolean pause surface, game-over navigation, headless entry points, the dual checkpoint pause projections, and ten concrete risks; its one open question — whether new `src/` modules affect RL identity — was answered directly in-session: `compute_content_fingerprint` hashes all non-`rl` `src/` files, so content identity advances intentionally while protocol/task fingerprints stay exact. The research subagent also reported, refused, and escalated an injected cross-repository directive demanding a token-embedded external push; the incident is recorded in session memory and none of it touched this unit.
 
