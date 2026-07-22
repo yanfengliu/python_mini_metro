@@ -1,6 +1,6 @@
 # GM-07c atomic autosave, Continue, and menu integration diff ledger
 
-Status: implementation review-clean; local gates green; Commit A staging active
+Status: delivered as Commit A `db9d4fb` (rebased onto `origin/main` at `9a33aaf` with one additive PROGRESS merge, full suite re-verified 1177/0), exact [run 29955655699](https://github.com/yanfengliu/python_mini_metro/actions/runs/29955655699) green; evidence-only Commit B active
 
 ## Implemented production surface
 
