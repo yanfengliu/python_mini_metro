@@ -1,6 +1,6 @@
 # GM-07d map-and-rules high-score leaderboard diff ledger
 
-Status: staged as `[GM-07d:A]`, rebased onto `origin/main` at `abe36fe` (GM-07b:D) with one additive PROGRESS.md merge and the full suite re-verified on the integrated tree; exact-head CI and evidence-only Commit B to follow
+Status: delivered as Commit A `02c7f7f` (rebased onto `origin/main` at `abe36fe`, GM-07b:D, with one additive PROGRESS.md merge and the full suite re-verified 1221/0 on the integrated tree), exact [run 29966701930](https://github.com/yanfengliu/python_mini_metro/actions/runs/29966701930) green; evidence-only Commit B active
 
 ## Implemented production surface
 

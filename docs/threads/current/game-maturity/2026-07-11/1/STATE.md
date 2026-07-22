@@ -8,21 +8,21 @@ Current increment: GM-07 - Application shell and persistence
 
 Current substep: GM-07d - map-and-rules high-score leaderboard
 
-Current status: GM-07c is remotely finalized through evidence-only Commit B `3625087` ([run 29956050082](https://github.com/yanfengliu/python_mini_metro/actions/runs/29956050082)), with the follow-up fix `abe36fe` (GM-07b:D) on `origin/main`; GM-07d implementation and D-028 passed local product gates, a harness review lane with a windowed run, and an escalated external Codex persistence lane whose nine findings were folded (six fixed red-first, one MAJOR accepted per D-027, two minors accepted with note) and re-reviewed, with all gates green at 1216/0 Python and 249/0 Node, so Commit A staging (rebasing onto `origin/main`) is active
+Current status: GM-07d Commit A `02c7f7f` (rebased onto `origin/main` at `abe36fe`, GM-07b:D) passed exact [run 29966701930](https://github.com/yanfengliu/python_mini_metro/actions/runs/29966701930); evidence-only Commit B is active while GM-08 remains closed
 
-Durability transaction: GM-07c is remotely finalized through Commit B; `[GM-07d:A]` is the active implementation transaction
+Durability transaction: GM-07c is remotely finalized through Commit B; GM-07d Commit A `02c7f7f` is exact-head remote green, and evidence-only `[GM-07d:B]` is the active transaction
 
-Last remotely finalized work unit: GM-07c at Commit B `3625087`, which passed [run 29956050082](https://github.com/yanfengliu/python_mini_metro/actions/runs/29956050082)
+Last remotely finalized work unit: GM-07c at Commit B `3625087`; GM-07d Commit A `02c7f7f` is exact-head remote green pending its evidence Commit B
 
-Expected remote implementation baseline: `origin/main` at `abe36fe` (GM-07c Commit B `3625087` plus the reconciled follow-up fix GM-07b:D); GM-07d Commit A rebases onto it before its own exact workflow
+Expected remote implementation baseline: `02c7f7f`, whose exact [run 29966701930](https://github.com/yanfengliu/python_mini_metro/actions/runs/29966701930) passed `build` job `89079678011` and `rl-smoke` job `89079677979`
 
-Current transaction marker: `[GM-07d:A]`
+Current transaction marker: `[GM-07d:B]`
 
 ## Resume here
 
-1. Preserve remotely finalized GM-06/GM-07a/GM-07b/GM-07c history, the `origin/main` follow-up fix `abe36fe` (GM-07b:D), the pre-existing `.agents/` tree, unrelated ignored `output/`, the retained isolated pin, and the live `../civ-engine` sibling outside GM-07d.
-2. Rebase the reviewed GM-07d payload onto `origin/main`, re-verify the full suite, then stage and deliver `[GM-07d:A]`.
-3. Wait for that exact SHA's `build` and `rl-smoke`, then bind the result in evidence-only `[GM-07d:B]`; GM-08 remains closed until B is remotely reconciled.
+1. Preserve remotely finalized GM-06/GM-07a/GM-07b/GM-07c history, exact-green GM-07d Commit A `02c7f7f`, the pre-existing `.agents/` tree, unrelated ignored `output/`, the retained isolated pin, and the live `../civ-engine` sibling outside GM-07d.
+2. Self-review, stage, commit, and push only the evidence documents in `[GM-07d:B]` without touching production or unrelated state.
+3. Wait for Commit B's exact `build` and `rl-smoke` jobs; only GM-08's opening Commit A may reconcile that result, mark GM-07d remotely finalized, complete GM-07, and open the tutorial/settings/audio work.
 
 ## Increment ledger
 
@@ -35,7 +35,7 @@ Current transaction marker: `[GM-07d:A]`
 | GM-04 | complete | `8cff620` failed setup; `16d7860` failed downstream; `069973c` implementation success; `41ecfc6` GM-04b finalization; `60ac953` / `8c4ba85` GM-04c A/B | [run 29748574695](https://github.com/yanfengliu/python_mini_metro/actions/runs/29748574695) and [run 29753292420](https://github.com/yanfengliu/python_mini_metro/actions/runs/29753292420) failed; [run 29757294004](https://github.com/yanfengliu/python_mini_metro/actions/runs/29757294004), [run 29758092140](https://github.com/yanfengliu/python_mini_metro/actions/runs/29758092140), [run 29763804498](https://github.com/yanfengliu/python_mini_metro/actions/runs/29763804498), and [run 29764619993](https://github.com/yanfengliu/python_mini_metro/actions/runs/29764619993) succeeded | Isolated pinned recursive tooling remotely finalized |
 | GM-05 | complete | `c7effd8` / `47b9349` / `37865d4` / `0d6f5b9` / `242f400` / `b5295c0` | GM-05a through GM-05c A/B green | Atomic replacement, full redraw, and route handles remotely finalized |
 | GM-06 | complete | `d587b63` / `0a69d64` / `df04fb6` / `29cb64c` / `3319b48` / `80cc611` / `a21a3c0` / `62d26a2` / `325a055` | GM-06a A/B green; GM-06b A/A2/B preserved with B run 29809810291 green; GM-06c A/B runs 29853718512 and 29854939135 green; GM-06d A/B runs 29893340731 and 29893673381 green | Fleet and carriage resource management remotely finalized |
-| GM-07 | in progress | `baa5bf8` / `272ba2d` / `5906370` / `5e388cc` / `db9d4fb` / `3625087` | GM-07a/GM-07b/GM-07c A/B green | GM-07d reviewed, persistence-lane findings folded; Commit A staging active |
+| GM-07 | in progress | `baa5bf8` / `272ba2d` / `5906370` / `5e388cc` / `db9d4fb` / `3625087` / `02c7f7f` | GM-07a/GM-07b/GM-07c A/B green; GM-07d A run 29966701930 succeeded | GM-07d evidence-only Commit B active |
 | GM-08 | pending | - | - | Tutorial, settings, audio |
 | GM-09 | pending | - | - | Maps, rivers/tunnels |
 | GM-10 | pending | - | - | Weekly progression and upgrades |
@@ -79,7 +79,7 @@ Current transaction marker: `[GM-07d:A]`
 | GM-07a | complete | `baa5bf8` / run `29907589648` success | `272ba2d` / run `29907985159` success | App shell, screen states, and the pause-reason model remotely finalized |
 | GM-07b | complete | `5906370` / run `29941339839` success | `5e388cc` / run `29941743007` success | Versioned v1 save/load remotely finalized; the stale-service-cache follow-ups landed separately as `9a33aaf` (GM-07b:C, checkpoint verifier) and `abe36fe` (GM-07b:D, carriage attach/detach) |
 | GM-07c | complete | `db9d4fb` / run `29955655699` success | `3625087` / run `29956050082` success | Atomic autosave, Continue, and menu integration remotely finalized |
-| GM-07d | implementation-reviewed | `[GM-07d:A]` active | - | Map/rules high-score leaderboard passes local product, a harness lane with a windowed run, and an escalated external Codex persistence lane whose nine findings were folded (six fixed red-first, one MAJOR accepted per D-027 with a follow-up chip, two minors accepted with note) and re-reviewed clean-of-the-fixes at 1216/0 Python and 249/0 Node; staging pending |
+| GM-07d | implementation-ci-green | `02c7f7f` / run `29966701930` success | `[GM-07d:B]` active | Map/rules high-score leaderboard delivered exact-head remote green after rebasing onto GM-07b:D and folding the escalated external Codex persistence lane's findings (six fixed, one MAJOR accepted per D-027 with a follow-up chip, two minors accepted with note); evidence finalization remains |
 | GM-08a | pending | - | - | Typed settings |
 | GM-08b | pending | - | - | Domain events/audio/null backend |
 | GM-08c | pending | - | - | Real-control tutorial |

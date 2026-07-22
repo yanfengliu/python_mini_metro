@@ -1,6 +1,6 @@
 # GM-07d review synthesis
 
-Status: staged as Commit A `[GM-07d:A]`, to be rebased onto `origin/main` at `abe36fe` (GM-07b:D) with one additive PROGRESS.md merge and the full suite re-verified on the integrated tree; exact-head CI and evidence-only Commit B to follow
+Status: delivered as Commit A `02c7f7f` (rebased onto `origin/main` at `abe36fe`, GM-07b:D, with one additive PROGRESS.md merge and the full suite re-verified 1221/0 on the integrated tree), exact [run 29966701930](https://github.com/yanfengliu/python_mini_metro/actions/runs/29966701930) green; evidence-only Commit B active
 
 Research (`raw/research-highscores.md`) mapped the leaderboard onto the GM-07b save infrastructure and the GM-07a/GM-07c controller and main game-over surfaces, resolving the persisted shape, the record-once policy, and the isolation obligation as D-028. The combined adversarial plan review (`raw/plan-review-combined.md`, NOT CLEAN — 0 blockers, 4 majors, 5 minors) folded every finding: the window-close record breaks an existing GM-07c test whose fake mediator lacks `deliveries` (required test edit, MAJOR-1), the load catch must be `Exception` not `(ValueError, OSError)` because a deeply nested document raises `RecursionError` (MAJOR-2), the `deliveries` read must sit inside the seam guard (MAJOR-3), and the GM-07b atomic writer is not importable so it is re-inlined (MAJOR-4). A self-verified narrow recheck (`raw/plan-recheck.md`) reconciled the MINOR-5/MINOR-8 tie-order tension as stable-over-append.
 
