@@ -201,6 +201,26 @@ Any unknown `type`, malformed action payload, or rejected action returns `info["
 - `observation["arrays"]`: NumPy-friendly arrays/lists
   - includes station positions/types/counts, path station-index sequences, metro positions/path indices, passenger destination types and locations.
 
+### Save and load
+
+`src/save_game.py` exposes the programmatic save/load API for `Mediator` state (GM-07b; menu integration arrives with GM-07c):
+
+```python
+import save_game
+
+document = save_game.serialize_game(env.mediator)   # strict schema-v1 dict, never mutates the game
+save_game.save_game(env.mediator, "saves/slot1.save.json")  # atomic canonical write
+mediator = save_game.load_game("saves/slot1.save.json")     # read + validate + reconstruct
+mediator = save_game.deserialize_game(document)             # reconstruct from an in-memory document
+```
+
+- Save documents are versioned strict JSON (`save_schema.SAVE_SCHEMA_VERSION == 1`, `stateContract "mini-metro-save-v1"`, `rulesVersion "rules-v1"`). `save_schema.validate_save(document)` rejects unknown/missing keys, wrong scalar types (including bool-as-int), forward versions, malformed or out-of-domain RNG state, ID-grammar violations, path or metro references to locked stations, inconsistent bound-service records, and duplicate or dangling entity references; `load_game` additionally rejects duplicate JSON object keys at every level. Every rejection raises `ValueError`.
+- Bytes on disk are the pinned canonical encoding (`save_schema.canonical_save_bytes`: sorted-key, ASCII, compact separators, trailing LF). Saves go through a save-local atomic writer (mkstemp, fsync, `os.replace`), so a failed save leaves an existing destination untouched and no temporary file behind. The default directory name is `config.save_dir_name` (`saves/`, git-ignored); all functions accept explicit paths.
+- Saving is permitted only at a quiescent input boundary: an active path-creation, redraw, or edit gesture raises `ValueError` (a bare pressed mouse button does not block).
+- A loaded game is checkpoint-identical to the saved one, both RNG streams included, and replays the identical seeded trajectory as a never-saved control, in the same process and across fresh processes replaying the same save file. Each metro's bound station-service action (with its fractional boarding timers) persists in the document and restores verbatim — including boundaries where the bound action is legitimately stale after a same-tick cross-metro effect — so post-load service resumes exactly like the never-saved game. Held pause reasons (`user`, `menu`) restore verbatim, so a game saved from the pause menu loads paused; `release_pause_reason("menu")` resumes it.
+- Entity ID strings survive save/load. Path IDs are structured-action selectors: a `path_id` observed before saving keeps selecting the same line against the loaded `Mediator`. Station, metro, carriage, and passenger IDs are stable observation/reference identity only — no structured action currently selects by them. IDs are minted per process, so two independently built games never share IDs (and their save files differ even under the same seed); determinism guarantees apply to reloading and replaying a given save file.
+- A save whose `numPaths`, `numMetros`, or `numCarriages` disagrees with the running config is rejected; any trajectory-affecting balance-config change bumps the save schema version (see D-026). The frozen v1 example lives at `scripts/fixtures/save-v1.json`.
+
 # Player-equivalent reinforcement learning
 
 `PlayerPixelEnv` is the official learning boundary. A policy receives only the same rendered game pixels a player can see, including a deterministic software cursor, and acts through low-level mouse motion/button and keyboard events routed through the normal player event path. The older `MiniMetroEnv` remains available for structured debugging and recursive verification; its privileged state is not the learning observation.

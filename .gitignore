@@ -11,3 +11,4 @@ myenv/
 /.civ-engine-setup.lock
 /.civ-engine-setup-*/
 /output/
+/saves/

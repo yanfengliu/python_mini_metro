@@ -31,7 +31,8 @@ python_mini_metro/
 |  |  |- recursive-playtest-v2.json
 |  |  |- recursive-playtest-v3.json
 |  |  |- recursive-playtest-v4.json
-|  |  \- recursive-playtest.json
+|  |  |- recursive-playtest.json
+|  |  \- save-v1.json
 |  |- playtest-recursive.mjs
 |  |- playtest-verify.mjs
 |  |- input_coordinator_differential_actions.py
@@ -105,6 +106,10 @@ python_mini_metro/
 |  |- recursive_contract.py
 |  |- recursive_oracles.py
 |  |- recursive_playtest.py
+|  |- save_game.py
+|  |- save_load.py
+|  |- save_schema.py
+|  |- save_schema_records.py
 |  |- simulation_context.py
 |  |- travel_plan.py
 |  |- type.py
@@ -299,6 +304,10 @@ python_mini_metro/
 |  |- test_gm06d_line_removal.py
 |  |- test_gm06d_occupied_return.py
 |  |- test_gm06d_reconcile.py
+|  |- test_gm07b_load_reconstruction.py
+|  |- test_gm07b_save_determinism.py
+|  |- test_gm07b_save_roundtrip.py
+|  |- test_gm07b_save_schema.py
 |  |- test_player_env.py
 |  |- test_path_handles.py
 |  |- test_path_redraw.py
@@ -374,6 +383,8 @@ python_mini_metro/
 - `src/rl/provenance.py` captures immutable runtime package/Python metadata, including Shapely and shortuuid because they affect player transitions and identity-bearing state, plus Git revision/dirty paths. `src/rl/manifest_schema.py` owns the immutable v1/v2 record and strict JSON key migration; `src/rl/manifest.py` owns atomic I/O and compatibility validation. Manifest v2 records the descriptor plus an independently recomputed `historyFingerprint`, while genuine v1 bytes normalize their positive `frameStack` to contiguous offsets and reserialize without v2 keys. Fresh, resumed, and evaluated environments now consume that exact descriptor through the temporal ring; an explicit equal-channel but semantically different request is rejected by history fingerprint before artifact access, and SB3 separately rejects observation-shape mismatches before learning or evaluation. Evaluation reconstructs the manifest-declared task, defaults to the saved evaluation seed, and refuses silent protocol, task, history, content, trainer, runtime, or model-byte drift; every supported override is explicit and tagged.
 - `src/agent_play.py` writes v5 playthrough records with explicit per-step/final deliveries, line credits, reward/threshold identity, and exact locomotive plus carriage action contracts; persisted v4/v5 fleet actions and v5 carriage actions are replay-safe and index-only. Its legacy return and `score`/`final_score` fields continue to mean line credits. Schema-less/v1 and literal v2 records reconstruct historical threshold `1`, v3 validates its threshold, v1-v3 create operations use the shared legacy assignment adapter, v4 uses explicit locomotive transitions, and v1-v4 reject carriage actions before stepping.
 - `src/recursive_contract.py` owns strict immutable v1-v5 scenario and recorded-input validation plus reward/threshold/fleet/carriage reconstruction. V1 reconstructs `line_credits_delta` and threshold `1`; v2 preserves `deliveries` and threshold `1`; v3 requires deliveries plus a positive non-boolean threshold; v4 requires the locomotive contract and index-only fleet actions; v5 additionally requires the carriage contract and index-only carriage actions. `src/recursive_playtest.py` executes every ordered operation and writes strict inputs, transcript rows, findings, and result. Historical v1-v3 create operations use the legacy adapter, v4/v5 use ordinary explicit transitions, and scenario versions map v1 to checkpoint v1, v2/v3 to checkpoint v2, v4 to checkpoint v3, and v5 to checkpoint v4.
+- `src/save_schema.py` owns the versioned save-document contract (v1 constants, strict fail-closed `validate_save`, pinned ASCII `canonical_save_bytes`) with per-record and reference validation split into `src/save_schema_records.py`; `src/save_game.py` owns pure attribute-only serialization plus the save-local atomic writer, and `src/save_load.py` owns the strict JSON-to-`Mediator` loader (`deserialize_game`/`load_game`, re-exported through `save_game`). Unlike the UUID-free checkpoint family, save documents deliberately retain real entity ID strings so pre-save path IDs stay valid as post-load structured-action selectors while station/metro/carriage/passenger IDs remain stable observation/reference identity; the checkpoint therefore remains a one-way verifier and state-equality oracle — the save modules reuse only its safe value coercion, and no checkpoint or runtime surface (`env.py`, `agent_play.py`, `recursive_playtest.py`, `recursive_checkpoint.py`, `src/rl/`) imports the save modules. Loads rebuild derived structure (segments, button assignment, metro shape color) instead of trusting persisted copies, but each metro's bound station-service action persists as a nullable `serviceAction` record and restores VERBATIM — never re-derived at load — because a cache that disagrees with the re-derivable action at the save boundary is real reachable game state (a later metro can consume the bound passenger inside the same tick) whose next-tick reconcile semantics must replay exactly.
+
 - `src/recursive_checkpoint.py` converts observations and latent simulation state into UUID-free canonical JSON; `src/recursive_checkpoint_schema.py` owns version validation/normalization and `src/recursive_checkpoint_carriages.py` owns strict composition/topology correspondence so every module remains below 500 lines. Checkpoint v4 records exact locomotive/carriage inventory, queue booleans, derived capacities, ordered attachment references, and the exhaustive global-plus-path motion/owner bijection without entity UUIDs. Generation validates the live ownership graph, exact entity types, service cache, capacity equations, and caller observation before serialization. Genuine v1-v3 generation rejects any forward carriage surface; normalization deep-copies and synthesizes only historically valid missing state while preserving frozen bytes/projections. Checkpoints also cover reward identity, topology, passengers/plans, progression/unlocks, spawning, dwell/service state, and Python/NumPy RNG state.
 - `src/recursive_oracles.py` checks reference integrity and non-finite values; `src/recursive_playtest.py` combines those checks with action-result, selected-contract reward, rejected-action, pause, terminal-state, topology, and transcript-cardinality oracles. Findings are born unverified and carry a stable class in `data.class`.
 

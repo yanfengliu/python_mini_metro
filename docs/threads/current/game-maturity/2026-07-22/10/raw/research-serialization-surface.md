@@ -1,0 +1,19 @@
+# GM-07b research — live state surface for save/load (synthesis of the verbatim lane report)
+
+Complete field-by-field inventory of `Mediator.__init__` (mediator.py:83-160), every entity (Station/Passenger/Metro/Carriage/Path/Segment/TravelPlan/Node), progression, RNG, clocks, and UI state, with a canonical-vs-derived-vs-transient classification table. Key extracts:
+
+- Canonical: `time_ms`/`steps`; per-station spawn timer dicts; `travel_plans`; `game_speed_multiplier`; `is_game_over`; the GM-07a `_pause_reasons` set (mediator.py:611-620, projection `is_paused` at :585-595); `path_colors`/`path_to_color`/`path_to_button`; all `NetworkProgression` fields (progression.py:18-29); both RNG streams (simulation_context.py:20-21); station position/shape/passengers/blink/snap-blips; passenger id/destination/`is_at_destination`/`wait_ms`; metro position/binding/kinematics/service timers/queue flag/`_base_capacity`; carriage id/capacity/order; path id/color/stations/metros/loop/`path_order`; per-button `is_locked`/`unlock_blink_start_time_ms`.
+- Derived (rebuild on load, never deserialize): `Path.segments`/`path_segments`/`padding_segments` plus every `Segment.id` (`update_segments()`, path.py:39-117, which also re-binds each metro's `current_segment` object); the station-node graph (`build_station_nodes_dict`); button geometry (`prepare_layout`); `Metro._station_service_action` (validated derived cache, recursive_checkpoint_carriages.py:80-112); passenger `position` (holder-relative display).
+- Transient (quiescent at the menu-paused boundary; never serialized): `is_mouse_down`, creation/redraw/edit gestures, renderer interpolation, `FixedStepClock` accumulators (reset while paused, game_session.py:54-58).
+
+Decisive facts:
+
+1. Every entity ID is `shortuuid.uuid()` at construction (station.py:27, passenger.py:11, metro.py:39, carriage.py:30, path.py:20, segment.py:16, node.py:13) from a module RNG independent of `SimulationContext` — a loader must assign persisted id strings onto reconstructed objects; constructors mint fresh ids; no counter needs restoring and collisions are impossible.
+2. All visual timing (passenger warning blink, station unlock blink, snap blips) is a pure function of `time_ms` — restoring `time_ms` restores blink phase exactly; the wall-clock accumulators are transient.
+3. RNG round-trip patterns already exist in-repo: `getstate()`/`setstate()` for `python_random` and `deepcopy(bit_generator.state)` for `numpy_random` (carriage_transaction_snapshot.py:53-54/281-282 et al.; canonical checkpoint captures both at recursive_checkpoint.py:485-488).
+4. `write_json_atomic` (rl/artifacts.py:58-83) is a proven mkstemp→fsync→`os.replace` atomic JSON writer with canonical dumps settings; `recursive_contract._json_copy`/`_validate_json` provide the strict-JSON validation idiom.
+5. The canonical checkpoint is UUID-free (all references positional) and must remain a one-way verifier; a save schema differs precisely by retaining real id strings so a pre-save id stays valid for a post-load structured action, with checkpoint equality as the supplementary state-equality oracle.
+6. Object-keyed dicts (`travel_plans`, `path_to_color`, spawn-timer dicts) hash by entity id — rehydration order matters (entities before maps).
+7. Persisting only `is_paused` loses the user/menu distinction — the save must carry the `_pause_reasons` set contents and the loader must reconcile the AppController screen state.
+
+Nine flagged risks retained verbatim in the lane output: ID minting on reconstruction; derived geometry divergence; dual metro ownership via the `path_id` string binding; object-keyed dict rehydration; dual-stream RNG exactness; service-timing invariants (`stop_time_remaining_ms == interval - progress`); pause-reason/screen reconciliation; transient gesture state at the save boundary; the non-serialized service cache needing post-load consistency.

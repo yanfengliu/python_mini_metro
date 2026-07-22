@@ -1,0 +1,18 @@
+# GM-07b adversarial review — versioned save/load (persistence, high-risk)
+
+You are an independent adversarial reviewer for the python_mini_metro repository (current working directory). The unit under review adds the game's first real save/load: a strict versioned JSON snapshot schema, an atomic saver, and a JSON-to-Mediator loader with exact determinism guarantees. Your job is to REFUTE its correctness against the live code — do not trust any claim you cannot verify by reading the code.
+
+Review surface (all uncommitted working-tree changes):
+- New: `src/save_schema.py`, `src/save_schema_records.py`, `src/save_game.py`, `src/save_load.py`, `scripts/fixtures/save-v1.json`, four `test/test_gm07b_*.py` modules.
+- Modified: `src/config.py` (save_dir_name), `.gitignore` (/saves/), `README.md`, `ARCHITECTURE.md`, `PROGRESS.md`, `docs/threads/current/game-maturity/2026-07-11/1/DECISIONS.md` (D-026).
+- Contract: `docs/threads/current/game-maturity/2026-07-22/10/PLAN.md` (the thrice-reviewed plan — the schema field list, loader order, validation rules, and inverse transforms are the binding contract) and `red-evidence.md` (minted API + the oracle-correction note).
+
+Attack priorities:
+1. Loader correctness: the exact reconstruction order vs the plan (RNG overwrite after construction; ID assignment post-construction; `update_segments` while `path.metros` empty; manual metro binding never `add_metro`; `segments[idx]` re-derivation; direct-append over-capacity station queues; metro-overfill rejection; travel-plan node rehydration with ref-filtered path-ID sets; ordered-array decodings with tuple-ified color keys; synchronous `assign_paths_to_buttons` + blink restore + validate-equal lock; the service reconcile followed by persisted-timer re-application with the full invariant including the 0 <= progress < interval range). Hunt for any state restored incompletely, out of order, or with silent divergence from a never-saved control.
+2. Schema strictness: exact-key/exact-type validation actually rejecting unknown keys, missing keys, bool-as-int, forward versions, duplicate/dangling IDs, malformed RNG shapes (including the outer-tuple-only setstate mistake), bad pause vocabulary, bad speed domain, wrong spawn coverage. Look for any validation the plan promises that the code does not perform, or fail-open paths.
+3. Determinism: both RNG streams round-tripped exactly (deep-tuple reconstruction for the Python stream); any RNG consumption during load that would desync; any dict/set iteration feeding serialized order; hash-seed sensitivity.
+4. Atomicity and purity: the save-local mkstemp→fsync→os.replace writer (no `rl.` import), temp cleanup on failure, destination untouched on failed saves; `serialize_game` never mutating the Mediator (including the `TravelPlan.next_station` attribute-vs-getter subtlety); no partially constructed Mediator escaping a failed load.
+5. Isolation and compatibility: `env.py`/`agent_play.py`/`recursive_playtest.py`/`src/rl/` gain no save imports; `recursive_checkpoint.py` remains a one-way verifier; frozen v1-v5 replay fixtures untouched; no gameplay-behavior change.
+6. Process regressions, stale documentation, and missing validation anywhere in the changed surface (README/ARCHITECTURE/D-026 honesty included).
+
+Verify claims by reading the live code and tests; run focused Python commands if needed (py313 interpreter at C:\Users\38909\miniconda3\envs\py313\python.exe; e.g. `-m unittest test.test_gm07b_save_roundtrip -v`). For each finding give: SEVERITY (blocker/major/minor), exact file:line evidence, a concrete failure scenario, and a suggested fix. Then list the claims you attacked and confirmed sound. End with a verdict line: CLEAN or NOT CLEAN.

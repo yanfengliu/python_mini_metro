@@ -3,6 +3,9 @@ from geometry.type import ShapeType
 # game
 framerate = 60
 
+# save
+save_dir_name = "saves"
+
 # screen
 screen_width = 1920
 screen_height = 1080
