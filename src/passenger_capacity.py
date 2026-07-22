@@ -158,6 +158,79 @@ def pure_service_action(
         _restore_query(host, snapshot)
 
 
+def _real_station_stop(path: Any, metro: Any) -> Any | None:
+    station = getattr(metro, "current_station", None)
+    if station is None:
+        return None
+    stations = getattr(path, "stations", ())
+    if any(station is candidate for candidate in stations):
+        return station
+    return None
+
+
+def _plan_alight_station(plan: Any) -> Any | None:
+    node_path = getattr(plan, "node_path", None)
+    index = getattr(plan, "next_station_idx", 0)
+    if not isinstance(node_path, list) or not node_path:
+        return None
+    if type(index) is not int or not 0 <= index < len(node_path):
+        return None
+    return getattr(node_path[index], "station", None)
+
+
+def _stranded_riders(host: Any, path: Any, metro: Any, station: Any) -> list[Any]:
+    """Riders matching the D-024 drain sub-cases, in exact holder order."""
+
+    stranded = []
+    for rider in metro.passengers:
+        plan = host.travel_plans.get(rider)
+        if plan is None:
+            stranded.append(rider)
+            continue
+        alight = _plan_alight_station(plan)
+        # An alight on the stop itself is blocked only by station capacity
+        # (the oracle is quiet); any alight off this line can never execute.
+        if alight is station or not any(
+            alight is candidate for candidate in getattr(path, "stations", ())
+        ):
+            stranded.append(rider)
+    return stranded
+
+
+def drain_queued_returns(host: Any, *, build_graph: Any) -> None:
+    """Force-alight riders stuck aboard queued Metros when the oracle is quiet.
+
+    Ordinary destination/transfer service always runs first through the
+    unchanged oracle; the batch fires only when the pure oracle resolves no
+    executable action while riders remain, under the D-024 overflow-permitted
+    placement. The queued stop-override's ``None`` service cache is untouched.
+    """
+
+    candidates = []
+    for path in getattr(host, "paths", ()):
+        for metro in getattr(path, "metros", ()):
+            if getattr(metro, "is_unassignment_queued", False) is not True:
+                continue
+            riders = getattr(metro, "passengers", None)
+            if not isinstance(riders, list) or not riders:
+                continue
+            station = _real_station_stop(path, metro)
+            remaining = getattr(metro, "stop_time_remaining_ms", 0)
+            if station is not None and not (type(remaining) is int and remaining > 0):
+                candidates.append((path, metro, station))
+    if not candidates:
+        return
+    station_nodes_dict = build_graph()
+    for path, metro, station in candidates:
+        if pure_service_action(host, metro, station, station_nodes_dict) is not None:
+            continue
+        for rider in _stranded_riders(host, path, metro, station):
+            metro.passengers.remove(rider)
+            station.passengers.append(rider)
+            host.travel_plans.pop(rider, None)
+            rider.wait_ms = 0
+
+
 def reconcile_service_action(
     host: Any,
     metro: Any,

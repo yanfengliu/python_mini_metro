@@ -93,12 +93,22 @@ class TestMediatorPathContract(support.MediatorTestCase):
 
     def test_removal_order_snapshots_and_detached_graph_are_preserved(self):
         mediator = Mediator(seed=0)
+        self.assertNotEqual(
+            mediator.stations[0].shape.type, mediator.stations[1].shape.type
+        )
         path = path_through(*mediator.stations[:2])
         metros = [Metro(), Metro()]
-        passengers = [Passenger(mediator.stations[1].shape) for _ in metros]
+        # Both metros alight at the segment-start station (stations[0]):
+        # passenger-0's destination matches it (credited delivery) while
+        # passenger-1's does not (conserved overflow-permitted alight).
+        passengers = [
+            Passenger(mediator.stations[0].shape),
+            Passenger(mediator.stations[1].shape),
+        ]
         for metro, passenger in zip(metros, passengers):
             path.add_metro(metro)
             metro.add_passenger(passenger)
+            passenger.wait_ms = 4321
         late_metro = Metro()
         late_passenger = Passenger(mediator.stations[1].shape)
         events = []
@@ -140,19 +150,19 @@ class TestMediatorPathContract(support.MediatorTestCase):
         mediator.find_travel_plan_for_passengers = MagicMock(
             side_effect=lambda: events.append("replan")
         )
+        before_deliveries = mediator.deliveries
 
         mediator.remove_path(path)
 
         self.assertEqual(
             events,
             [
-                "button",
-                "passenger:passenger-0",
                 "plan:passenger-0",
+                "passenger:passenger-0",
                 "metro:metro-0",
-                "passenger:passenger-1",
                 "plan:passenger-1",
                 "metro:metro-1",
+                "button",
                 "invalidate",
                 "release",
                 "path:path",
@@ -161,10 +171,17 @@ class TestMediatorPathContract(support.MediatorTestCase):
             ],
         )
         self.assertEqual(path.metros, [*metros, late_metro])
-        self.assertEqual(metros[0].passengers, [passengers[0], late_passenger])
-        self.assertEqual(metros[1].passengers, [passengers[1]])
+        self.assertEqual(metros[0].passengers, [late_passenger])
+        self.assertEqual(metros[1].passengers, [])
         self.assertEqual(mediator.metros, [])
-        self.assertEqual(mediator.passengers, [])
+        self.assertEqual(mediator.passengers, [passengers[1]])
+        self.assertEqual(mediator.travel_plans, {})
+        self.assertEqual(mediator.deliveries, before_deliveries + 1)
+        self.assertTrue(passengers[0].is_at_destination)
+        self.assertNotIn(passengers[0], mediator.stations[0].passengers)
+        self.assertIn(passengers[1], mediator.stations[0].passengers)
+        self.assertEqual(passengers[1].wait_ms, 0)
+        self.assertFalse(passengers[1].is_at_destination)
 
     def test_removal_re_resolves_public_hooks_and_rebound_collections(self):
         mediator = Mediator(seed=0)

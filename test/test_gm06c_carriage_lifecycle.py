@@ -183,9 +183,7 @@ class TestGM06cWholeConsistLifecycle(unittest.TestCase):
             self.assertIsNot(replacement, old)
             self.assertNotEqual(replacement.id, old.id)
 
-    def test_late_line_removal_failure_is_explicitly_malformed_until_gm06d(
-        self,
-    ) -> None:
+    def test_late_line_removal_failure_restores_exact_state(self) -> None:
         mediator, path = _network(60806)
         metro = path.metros[0]
         self.assertTrue(mediator.attach_carriage(path))
@@ -194,19 +192,16 @@ class TestGM06cWholeConsistLifecycle(unittest.TestCase):
             side_effect=RuntimeError("late removal fault")
         )
 
-        with self.assertRaisesRegex(RuntimeError, "late removal fault"):
-            mediator.remove_path(path)
+        mediator.remove_path(path)
 
         self.assertTrue(_contains_identity(mediator.paths, path))
         self.assertTrue(_contains_identity(path.metros, metro))
-        self.assertFalse(_contains_identity(mediator.metros, metro))
+        self.assertTrue(_contains_identity(mediator.metros, metro))
         _assert_identities(self, metro.carriages, retained)
-        self.assertEqual(mediator.assigned_carriages, 0)
-        self.assertEqual(mediator.available_carriages, mediator.num_carriages)
-        self.assertFalse(mediator.can_attach_carriage(path))
-        self.assertFalse(mediator.can_detach_carriage(path))
-        with self.assertRaises(ValueError):
-            canonical_checkpoint(_as_env(mediator))
+        self.assertEqual(_counts(mediator), (2, 1, 1))
+        self.assertTrue(mediator.can_attach_carriage(path))
+        self.assertTrue(mediator.can_detach_carriage(path))
+        self.assertIsInstance(canonical_checkpoint(_as_env(mediator)), dict)
 
     def test_attached_consist_owner_remove_failures_rollback_immediate_and_delayed(
         self,

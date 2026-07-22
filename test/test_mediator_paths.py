@@ -20,18 +20,24 @@ from travel_plan import TravelPlan
 
 
 class TestMediatorPaths(support.MediatorTestCase):
-    def test_remove_path_cleans_passengers(self):
-        mediator, _, station_b, path, metro = self._build_two_station_mediator()
+    def test_remove_path_conserves_onboard_riders(self):
+        mediator, station_a, station_b, path, metro = self._build_two_station_mediator()
         passenger = Passenger(station_b.shape)
         metro.add_passenger(passenger)
         mediator.passengers.append(passenger)
-        mediator.travel_plans[passenger] = TravelPlan([Node(station_b)])
+        plan = TravelPlan([Node(station_b)])
+        mediator.travel_plans[passenger] = plan
         mediator.path_buttons[0].assign_path(path)
         mediator.path_to_button[path] = mediator.path_buttons[0]
         mediator.path_to_color[path] = path.color
+        passenger.wait_ms = 4321
         mediator.remove_path(path)
-        self.assertNotIn(passenger, mediator.passengers)
-        self.assertNotIn(passenger, mediator.travel_plans)
+        self.assertIn(passenger, mediator.passengers)
+        self.assertIn(passenger, station_a.passengers)
+        self.assertNotIn(passenger, metro.passengers)
+        self.assertIsNot(mediator.travel_plans.get(passenger), plan)
+        self.assertEqual(passenger.wait_ms, 0)
+        self.assertFalse(passenger.is_at_destination)
         self.assertNotIn(path, mediator.paths)
 
     def test_remove_path_recomputes_waiting_passenger_plan(self):

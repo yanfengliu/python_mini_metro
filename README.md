@@ -140,6 +140,7 @@ obs, reward, done, info = env.step({"type": "remove_path", "path_index": 0})
   - Valid only when `0 <= k < len(observation["structured"]["paths"])`.
 - `{"type": "remove_path", "path_id": "..."}`
   - Removes an existing path by path id string from `observation["structured"]["paths"][*]["id"]`.
+  - Removal conserves riders: onboard passengers alight at their locomotive's current or nearest route station (destination-shape matches count as deliveries), rejoin station queues past the normal capacity if needed, and replan; the whole transaction restores exact prior state if any step fails.
 - `{"type": "replace_path", "path_index": k, "stations": [i0, i1, ...], "loop": bool}`
 - `{"type": "replace_path", "path_id": "...", "stations": [i0, i1, ...], "loop": bool}`
   - Requires exactly one selector: either an existing path index or its nonempty id string.
@@ -153,8 +154,12 @@ obs, reward, done, info = env.step({"type": "remove_path", "path_index": 0})
   - Appends one new locomotive to that line when inventory is available. Multiple locomotives may serve the same line.
 - `{"type": "unassign_locomotive", "path_index": k}`
 - `{"type": "unassign_locomotive", "path_id": "..."}`
-  - Requires exactly one selector resolving to one active, completed line with an empty, nonqueued locomotive.
-  - Selects the last eligible locomotive on that line. A moving locomotive remains assigned until it reaches its next real station; a queued locomotive cannot board.
+  - Requires exactly one selector resolving to one active, completed line with a nonqueued locomotive.
+  - Prefers the last empty eligible locomotive; when every nonqueued locomotive is occupied, selects the one with the fewest riders (latest line order breaks ties). A queued locomotive cannot board; an occupied queued locomotive drains its riders at real stations and returns to inventory once empty.
+- `{"type": "cancel_unassignment", "path_index": k}`
+- `{"type": "cancel_unassignment", "path_id": "..."}`
+  - Requires exactly one selector resolving to one active, completed line with at least one queued locomotive.
+  - Restores the earliest queued locomotive to normal service with riders and carriages intact. Live-only: persisted recursive and agent-play recordings reject this action at every schema version.
 - `{"type": "attach_carriage", "path_index": k}`
 - `{"type": "attach_carriage", "path_id": "..."}`
   - Requires exactly one selector resolving to one active, completed line with an eligible nonqueued locomotive and available carriage inventory.

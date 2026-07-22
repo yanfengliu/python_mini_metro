@@ -7,6 +7,7 @@ from passenger_capacity import (
     BOARD,
     DESTINATION,
     TRANSFER,
+    drain_queued_returns,
     next_service_action,
     pure_service_action,
     reconcile_service_action,
@@ -270,6 +271,17 @@ class PassengerFlow:
         station_nodes_dict: dict[Any, Any],
     ) -> None:
         reconcile_service_action(host, metro, station, station_nodes_dict)
+
+    def drain_queued_returns(
+        self,
+        host: PassengerFlowHost,
+        *,
+        get_graph_builder: Resolver,
+    ) -> None:
+        drain_queued_returns(
+            host,
+            build_graph=lambda: get_graph_builder()(host.stations, host.paths),
+        )
 
     def reconcile_station_service(
         self,

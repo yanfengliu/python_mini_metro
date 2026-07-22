@@ -429,7 +429,7 @@ class TestGM06bFleetQueue(unittest.TestCase):
                 self.assertTrue(metro.is_unassignment_queued)
                 self.assert_conserved(mediator)
 
-    def test_rider_injected_after_queue_blocks_destructive_settlement(self) -> None:
+    def test_rider_injected_after_queue_force_alights_and_settles(self) -> None:
         mediator = Mediator(seed=6317)
         _quiet_simulation(mediator)
         path, _, _ = _unserved_path(mediator)
@@ -438,15 +438,25 @@ class TestGM06bFleetQueue(unittest.TestCase):
         rider = Passenger(path.stations[0].shape)
         metro.add_passenger(rider)
         mediator.passengers.append(rider)
+        rider.wait_ms = 777
         metro.position = metro.current_segment.segment_end
 
         mediator.increment_time(1)
 
-        self.assertIn(rider, metro.passengers)
+        # GM-06d Case 1: the planless rider force-alights at the real-station
+        # stop (D-024 overflow-permitted, plan cleared, wait reset) and the
+        # emptied metro settles the same tick instead of freezing the rider.
+        arrival = path.stations[1]
+        self.assertEqual(metro.passengers, [])
+        self.assertIn(rider, arrival.passengers)
         self.assertIn(rider, mediator.passengers)
-        self.assertIn(metro, path.metros)
-        self.assertIn(metro, mediator.metros)
-        self.assertTrue(metro.is_unassignment_queued)
+        self.assertNotIn(rider, mediator.travel_plans)
+        self.assertEqual(rider.wait_ms, 0)
+        self.assertFalse(rider.is_at_destination)
+        self.assertNotIn(metro, path.metros)
+        self.assertNotIn(metro, mediator.metros)
+        self.assertEqual(mediator.available_locomotives, mediator.num_metros)
+        self.assert_conserved(mediator)
 
 
 if __name__ == "__main__":

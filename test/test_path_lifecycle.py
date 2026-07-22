@@ -5,7 +5,6 @@ import unittest
 from pathlib import Path
 
 from test.path_lifecycle_direct_support import (
-    CallbackList,
     EphemeralFactory,
     FakeButton,
     FakeHost,
@@ -100,13 +99,20 @@ if loaded:
         self.assertEqual(old_mapping, {paths[0]: host.path_buttons[2]})
         self.assertEqual(host.path_to_button, dict(zip(paths, host.path_buttons)))
 
-    def test_remove_path_preserves_snapshots_and_plan_invalidation_contract(self):
+    def test_remove_path_conserves_onboard_riders_and_plan_invalidation_contract(self):
         host = FakeHost(self.lifecycle)
         removed = FakePath("removed", (1, 2, 3), host.events)
         surviving = FakePath("surviving", (4, 5, 6), host.events)
         doomed_metro = FakeMetro("doomed")
         late_metro = FakeMetro("late")
-        doomed_passenger = object()
+        # The doomed Metro alights at a resolvable station: an unplaceable
+        # rider now refuses the whole removal (OBS-1) instead of leaving a
+        # holderless limbo rider, so this success-contract test parks the
+        # Metro at a real alight target.
+        alight_station = FakeStation("alight", host.events)
+        alight_station.passengers = []
+        doomed_metro.current_station = alight_station
+        doomed_passenger = type("FakeRider", (), {})()
         late_passenger = object()
         onboard_passenger = object()
         waiting_immediate = object()
@@ -116,16 +122,7 @@ if loaded:
         late_metro.passengers = [late_passenger, onboard_passenger]
         removed.metros = [doomed_metro]
         host.metros = [doomed_metro, late_metro]
-
-        def mutate_snapshotted_sources(value):
-            if value is doomed_passenger:
-                removed.metros.append(late_metro)
-                doomed_metro.passengers.append(late_passenger)
-
-        host.passengers = CallbackList(
-            [doomed_passenger, late_passenger, onboard_passenger],
-            mutate_snapshotted_sources,
-        )
+        host.passengers = [doomed_passenger, late_passenger, onboard_passenger]
         kept_plan = FakeTravelPlan(surviving, [FakeNode(removed)])
         unrelated_plan = FakeTravelPlan(surviving, [FakeNode(surviving)])
         host.travel_plans = {
@@ -150,18 +147,24 @@ if loaded:
 
         self.lifecycle.remove_path(host, removed)
 
-        self.assertEqual(removed.metros, [doomed_metro, late_metro])
-        self.assertEqual(doomed_metro.passengers, [doomed_passenger, late_passenger])
+        # GM-06d Case 3: removal conserves every onboard rider instead of
+        # deleting it; the removed line's rider keeps its global membership
+        # with a cleared travel plan while the removed Metro alone leaves the
+        # canonical global collection.
+        self.assertIn(doomed_passenger, host.passengers)
+        self.assertNotIn(doomed_passenger, host.travel_plans)
+        self.assertIn(doomed_passenger, alight_station.passengers)
+        self.assertEqual(doomed_passenger.wait_ms, 0)
+        self.assertNotIn(doomed_metro, host.metros)
         self.assertIn(late_metro, host.metros)
         self.assertIn(late_passenger, host.passengers)
-        self.assertNotIn(doomed_passenger, host.passengers)
+        self.assertIn(onboard_passenger, host.passengers)
         self.assertNotIn(removed, host.paths)
         self.assertIs(host.travel_plans[onboard_passenger], kept_plan)
         self.assertIs(host.travel_plans[unrelated], unrelated_plan)
         self.assertNotIn(waiting_immediate, host.travel_plans)
         self.assertNotIn(waiting_later, host.travel_plans)
         markers = [event[0] for event in host.events]
-        self.assertEqual(markers[0], "button:clear")
         self.assertLess(
             markers.index("public:invalidate"), markers.index("public:release")
         )

@@ -3,10 +3,93 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, Protocol
 
+from path_removal_snapshot import restore_removal_state, snapshot_removal_state
 from path_replacement import replace_path as replace_path_transaction
 
 PathFactoryGetter = Callable[[], Callable[[Any], Any]]
 Resolver = Callable[[], Any]
+
+
+def _squared_distance(first: Any, second: Any) -> float:
+    dx = first.left - second.left
+    dy = first.top - second.top
+    return dx * dx + dy * dy
+
+
+def _nearest_endpoint_station(metro: Any, segment: Any) -> Any:
+    position = getattr(metro, "position", None)
+    start = getattr(segment, "segment_start", None)
+    end = getattr(segment, "segment_end", None)
+    if position is None or start is None or end is None:
+        return segment.start_station
+    if _squared_distance(position, start) <= _squared_distance(position, end):
+        return segment.start_station
+    return segment.end_station
+
+
+def _padding_adjacent_station(
+    path: Any, segments: list[Any], index: int, metro: Any
+) -> Any | None:
+    forward = getattr(metro, "is_forward", True) is not False
+    looped = bool(getattr(path, "is_looped", False))
+    count = len(segments)
+    step = 1 if forward else -1
+    cursor = index
+    for _ in range(count):
+        cursor += step
+        if looped:
+            cursor %= count
+        elif not 0 <= cursor < count:
+            break
+        candidate = segments[cursor]
+        start_station = getattr(candidate, "start_station", None)
+        end_station = getattr(candidate, "end_station", None)
+        if start_station is None or end_station is None:
+            continue
+        return start_station if forward else end_station
+    return None
+
+
+def _alight_station_for_metro(path: Any, metro: Any) -> Any | None:
+    station = getattr(metro, "current_station", None)
+    if station is not None:
+        return station
+    segment = getattr(metro, "current_segment", None)
+    segments = getattr(path, "segments", None)
+    if segment is None or not isinstance(segments, list) or not segments:
+        return None
+    index = getattr(metro, "current_segment_idx", None)
+    if type(index) is not int or not (
+        0 <= index < len(segments) and segments[index] is segment
+    ):
+        index = next(
+            (idx for idx, candidate in enumerate(segments) if candidate is segment),
+            None,
+        )
+        if index is None:
+            return None
+    if (
+        getattr(segment, "start_station", None) is not None
+        and getattr(segment, "end_station", None) is not None
+    ):
+        return _nearest_endpoint_station(metro, segment)
+    return _padding_adjacent_station(path, segments, index, metro)
+
+
+def _destination_matches(station: Any, rider: Any) -> bool:
+    station_shape = getattr(getattr(station, "shape", None), "type", None)
+    rider_shape = getattr(getattr(rider, "destination_shape", None), "type", None)
+    return station_shape is not None and station_shape == rider_shape
+
+
+def _credit_delivery(host: Any) -> None:
+    record = getattr(getattr(host, "_progression", None), "record_delivery", None)
+    if callable(record):
+        record()
+    for name in ("update_unlocked_num_paths", "update_unlocked_num_stations"):
+        hook = getattr(host, name, None)
+        if callable(hook):
+            hook()
 
 
 class PathLifecycleHost(Protocol):
@@ -68,29 +151,88 @@ class PathLifecycle:
             host.path_to_button[path] = button
         host.update_path_button_lock_states()
 
-    def remove_path(self, host: PathLifecycleHost, path: Any) -> None:
+    def remove_path(
+        self,
+        host: PathLifecycleHost,
+        path: Any,
+        *,
+        get_reconcile_station_service: Resolver | None = None,
+    ) -> None:
         if hasattr(host, "num_carriages"):
             from fleet_management import _path_is_complete, _queue_state_is_canonical
 
             if not _path_is_complete(host, path) or not _queue_state_is_canonical(host):
                 return
-        host.path_to_button[path].remove_path()
-        for metro in list(path.metros):
-            for passenger in list(metro.passengers):
-                if passenger in host.passengers:
-                    host.passengers.remove(passenger)
-                host.travel_plans.pop(passenger, None)
-            if metro in host.metros:
-                host.metros.remove(metro)
-                if hasattr(metro, "_station_service_action"):
-                    metro._station_service_action = None
-                    metro.stop_time_remaining_ms = 0
-                    metro.boarding_progress_ms = 0
-        host.invalidate_travel_plans_for_path(path)
-        host.release_color_for_path(path)
-        host.paths.remove(path)
-        host.assign_paths_to_buttons()
-        host.find_travel_plan_for_passengers()
+        state = snapshot_removal_state(host)
+        try:
+            # Riders alight before any collection mutation; only after every
+            # rider is safe does the Metro leave the canonical global fleet.
+            for metro in list(path.metros):
+                self._alight_metro_riders(host, path, metro)
+                if metro in host.metros:
+                    host.metros.remove(metro)
+                    if hasattr(metro, "_station_service_action"):
+                        metro._station_service_action = None
+                        metro.stop_time_remaining_ms = 0
+                        metro.boarding_progress_ms = 0
+            host.path_to_button[path].remove_path()
+            host.invalidate_travel_plans_for_path(path)
+            host.release_color_for_path(path)
+            host.paths.remove(path)
+            host.assign_paths_to_buttons()
+            host.find_travel_plan_for_passengers()
+            if get_reconcile_station_service is not None:
+                self._reconcile_surviving_service(host, get_reconcile_station_service())
+        except BaseException as error:
+            traceback = error.__traceback__
+            restore_removal_state(host, state)
+            if not isinstance(error, Exception):
+                raise error.with_traceback(traceback)
+
+    @staticmethod
+    def _reconcile_surviving_service(host: PathLifecycleHost, reconcile: Any) -> None:
+        """Rebind surviving stopped Metros' caches after the conserving dump.
+
+        The alights and replan sweep can change another line's stopped
+        Metro's executable actions, so the removal transaction reconciles
+        every surviving at-station Metro inside the snapshot scope.
+        """
+
+        from fleet_management import _real_station
+
+        for surviving in host.paths:
+            for metro in surviving.metros:
+                if _real_station(surviving, metro):
+                    reconcile(metro)
+
+    @staticmethod
+    def _alight_metro_riders(host: PathLifecycleHost, path: Any, metro: Any) -> None:
+        """Conserve every onboard rider at a deterministic real station (D-024)."""
+
+        station = _alight_station_for_metro(path, metro)
+        riders = getattr(metro, "passengers", None)
+        if not isinstance(riders, list):
+            return
+        if riders and station is None:
+            # Refuse rather than silently drop: the removal transaction
+            # restores the exact prior state when no station can host the
+            # rider (unreachable through the canonically-gated facade).
+            raise ValueError(
+                "line removal could not resolve an alight station for a rider"
+            )
+        for rider in list(riders):
+            riders.remove(rider)
+            host.travel_plans.pop(rider, None)
+            if _destination_matches(station, rider):
+                rider.is_at_destination = True
+                if rider in host.passengers:
+                    host.passengers.remove(rider)
+                _credit_delivery(host)
+            else:
+                # D-024 overflow-permitted placement bypasses the capacity
+                # assert; ordinary spawn/boarding/transfer gates stay exact.
+                station.passengers.append(rider)
+                rider.wait_ms = 0
 
     def invalidate_travel_plans_for_path(
         self, host: PathLifecycleHost, path: Any

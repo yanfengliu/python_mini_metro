@@ -239,50 +239,64 @@ class TestGM06aLocomotiveInventory(unittest.TestCase):
         self.assertEqual(mediator.metros, [])
         self.assertFleet(mediator, (1, 0, 1))
 
-    def test_removal_failure_before_global_effect_preserves_assignment(self):
+    def test_removal_failure_at_button_clear_restores_exact_assignment(self):
         mediator = Mediator(seed=10)
         mediator.num_metros = 1
         path = _create_assigned_path(mediator, [0, 1])
+        metro = path.metros[0]
         mediator.path_to_button[path].remove_path = MagicMock(
             side_effect=RuntimeError("button clear")
         )
 
-        with self.assertRaisesRegex(RuntimeError, "button clear"):
-            mediator.remove_path(path)
+        mediator.remove_path(path)
 
         self.assertIn(path, mediator.paths)
+        self.assertEqual(path.metros, [metro])
+        self.assertEqual(list(mediator.metros), [metro])
+        self.assertIs(mediator.path_to_button[path].path, path)
         self.assertFleet(mediator, (1, 1, 0))
+        self.assertValidOwnership(mediator)
 
-    def test_partial_removal_in_valid_state_refunds_actual_global_effect(self):
+    def test_partial_removal_failure_restores_exact_state_without_refund(self):
         mediator = Mediator(seed=11)
         mediator.num_metros = 2
         path = _create_assigned_path(mediator, [0, 1])
         _add_metro(mediator, path)
         mediator.metros = _RemoveAfterMutationList(mediator.metros)
+        identities = tuple(mediator.metros)
 
-        with self.assertRaisesRegex(RuntimeError, "global removal fault"):
-            mediator.remove_path(path)
+        mediator.remove_path(path)
 
         self.assertIn(path, mediator.paths)
-        self.assertEqual(len(path.metros), 2)
-        self.assertFleet(mediator, (2, 1, 1))
+        self.assertEqual(tuple(path.metros), identities)
+        self.assertEqual(tuple(mediator.metros), identities)
+        self.assertFleet(mediator, (2, 2, 0))
+        self.assertValidOwnership(mediator)
 
-    def test_partial_over_cap_failure_becomes_explicitly_malformed(self):
+    def test_over_cap_failure_restores_state_and_second_removal_succeeds(self):
         mediator = Mediator(seed=12)
         mediator.num_metros = 2
         path = _create_assigned_path(mediator, [0, 1])
         _add_metro(mediator, path)
         mediator.num_metros = 0
         mediator.metros = _RemoveAfterMutationList(mediator.metros)
+        identities = tuple(mediator.metros)
         self.assertFleet(mediator, (0, 2, 0))
 
-        with self.assertRaisesRegex(RuntimeError, "global removal fault"):
-            mediator.remove_path(path)
-        self.assertFleet(mediator, (0, 1, 0))
-
         mediator.remove_path(path)
-        self.assertFleet(mediator, (0, 1, 0))
+
         self.assertIn(path, mediator.paths)
+        self.assertEqual(tuple(path.metros), identities)
+        self.assertEqual(tuple(mediator.metros), identities)
+        self.assertFleet(mediator, (0, 2, 0))
+
+        mediator.metros = list(mediator.metros)
+        mediator.remove_path(path)
+
+        self.assertNotIn(path, mediator.paths)
+        self.assertEqual(mediator.metros, [])
+        self.assertEqual(tuple(path.metros), identities)
+        self.assertFleet(mediator, (0, 0, 0))
 
 
 if __name__ == "__main__":

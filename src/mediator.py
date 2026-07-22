@@ -459,7 +459,11 @@ class Mediator:
         return self._input.get_containing_entity(self, position)
 
     def remove_path(self, path: Path) -> None:
-        self._path_lifecycle.remove_path(self, path)
+        self._path_lifecycle.remove_path(
+            self,
+            path,
+            get_reconcile_station_service=lambda: self._reconcile_station_service,
+        )
 
     def invalidate_travel_plans_for_path(self, path: Path) -> None:
         self._path_lifecycle.invalidate_travel_plans_for_path(self, path)
@@ -532,10 +536,20 @@ class Mediator:
         return self._fleet.can_queue(self, path)
 
     def queue_locomotive_unassignment(self, path: Path) -> bool:
-        return self._fleet.queue(self, path)
+        return self._fleet.queue(
+            self, path, reconcile_station_service=self._reconcile_station_service
+        )
 
     def queued_locomotives_for_path(self, path: Path) -> int:
         return self._fleet.queued_count(self, path)
+
+    def can_cancel_unassignment(self, path: Path) -> bool:
+        return self._fleet.can_cancel(self, path)
+
+    def cancel_unassignment(self, path: Path) -> bool:
+        return self._fleet.cancel(
+            self, path, reconcile_station_service=self._reconcile_station_service
+        )
 
     def can_attach_carriage(self, path: Path) -> bool:
         return self._carriage_fleet.can_attach(self, path)
@@ -609,13 +623,33 @@ class Mediator:
 
     def increment_time(self, dt_ms: int) -> None:
         transition_active = not self.is_paused and not self.is_game_over
+        # The narrow reconcile runs unconditionally — including paused and
+        # terminal states — so a repairable shape never survives a tick.
+        self._fleet.reconcile(self)
+        if transition_active:
+            self._drain_and_settle_queued_returns()
         self._passenger_flow.increment_time(
             self,
             dt_ms,
             get_graph_builder=lambda: build_station_nodes_dict,
         )
         if transition_active:
-            self._fleet.settle(self)
+            self._drain_and_settle_queued_returns()
+
+    def _drain_and_settle_queued_returns(self) -> None:
+        """Force-alight stranded riders, then settle emptied queued returns.
+
+        The drain is gated on the live game-over flag so a tick that flips
+        the game terminal never moves a rider afterwards; settle keeps its
+        pre-existing terminal-tick behavior.
+        """
+
+        if not self.is_game_over:
+            self._passenger_flow.drain_queued_returns(
+                self,
+                get_graph_builder=lambda: build_station_nodes_dict,
+            )
+        self._fleet.settle(self)
 
     def get_next_station_for_metro(self, metro: Metro) -> Station | None:
         return self._passenger_flow.get_next_station_for_metro(self, metro)

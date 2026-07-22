@@ -46,6 +46,9 @@ _INPUT_KEYS_V5 = {*_INPUT_KEYS_V4, "carriageActionContract"}
 _OPERATION_KEYS = {"name", "action", "expectedActionOk"}
 _FLEET_ACTION_TYPES = {"assign_locomotive", "unassign_locomotive"}
 _CARRIAGE_ACTION_TYPES = {"attach_carriage", "detach_carriage"}
+# Live/structured-only actions: explicitly rejected at every persisted
+# version v1-v5 until a future contract version owns persisting them.
+_LIVE_ONLY_ACTION_TYPES = {"cancel_unassignment"}
 
 
 def _exact_keys(
@@ -159,6 +162,8 @@ def validate_replay_action(
     action_type = action.get("type")
     if carriage_actions_allowed and type(action_type) is not str:
         raise ValueError(f"{label}.type must be a string in schema v5")
+    if action_type in _LIVE_ONLY_ACTION_TYPES:
+        raise ValueError(f"{label} uses a live-only action in a persisted document")
     if action_type in _FLEET_ACTION_TYPES:
         if not fleet_actions_allowed:
             raise ValueError(f"{label} uses a fleet action before schema v4")

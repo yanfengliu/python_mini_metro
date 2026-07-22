@@ -7,6 +7,7 @@ from typing import Any, Dict, Iterable, List, Protocol
 
 from env import MiniMetroEnv, legacy_auto_assignment_step
 from recursive_contract import (
+    _LIVE_ONLY_ACTION_TYPES,
     CARRIAGE_ACTION_CONTRACT,
     FLEET_ACTION_CONTRACT,
     validate_replay_action,
@@ -197,6 +198,14 @@ def _reject_record_carriage_actions(record: PlaythroughRecord) -> None:
             )
 
 
+def _reject_record_live_only_actions(record: PlaythroughRecord) -> None:
+    for index, action in enumerate(record.actions):
+        if type(action) is dict and action.get("type") in _LIVE_ONLY_ACTION_TYPES:
+            raise ValueError(
+                f"record.actions[{index}] uses a live-only action in a persisted record"
+            )
+
+
 def _environment_overdue_passenger_threshold(env: MiniMetroEnv) -> int:
     mediator = env.mediator
     if hasattr(mediator, "overdue_passenger_threshold"):
@@ -383,6 +392,7 @@ def iter_playthrough_observations(
     overdue_threshold = _record_overdue_passenger_threshold(record)
     _record_fleet_action_contract(record)
     _record_carriage_action_contract(record)
+    _reject_record_live_only_actions(record)
     if schema == PLAYTHROUGH_RECORD_SCHEMA_V5:
         _validate_record_actions(record, allow_fleet=True, allow_carriages=True)
     elif schema == PLAYTHROUGH_RECORD_SCHEMA_V4:

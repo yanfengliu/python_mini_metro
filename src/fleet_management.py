@@ -11,10 +11,12 @@ from carriage_transaction_snapshot import (
     transaction_state_matches,
 )
 from config import path_order_shift, path_width
+from fleet_queue_transition import reconcile_queue_transition, set_queue_flag
 from fleet_validation import carriage_state_is_canonical
 from path_replacement_geometry import validate_path_geometry
 
 MetroFactoryGetter = Callable[[], Callable[[], Any]]
+ReconcileStationService = Callable[[Any], None]
 _MISSING = object()
 
 
@@ -286,38 +288,118 @@ class FleetManagement:
             for metro in reversed(path.metros):
                 if not metro.passengers and metro.is_unassignment_queued is False:
                     return metro
+            # Only when no empty candidate exists: the occupied nonqueued
+            # Metro with the fewest riders, tie-broken to the latest owner.
+            occupied = None
+            for metro in reversed(path.metros):
+                if metro.is_unassignment_queued is not False:
+                    continue
+                if occupied is None or len(metro.passengers) < len(occupied.passengers):
+                    occupied = metro
+            return occupied
         except Exception:
             return None
-        return None
 
     def can_queue(self, host: Any, path: Any) -> bool:
         return self.unassignment_candidate(host, path) is not None
 
-    def queue(self, host: Any, path: Any) -> bool:
+    def queue(
+        self,
+        host: Any,
+        path: Any,
+        *,
+        reconcile_station_service: ReconcileStationService | None = None,
+    ) -> bool:
         metro = self.unassignment_candidate(host, path)
         if metro is None:
             return False
         original_flag = metro.is_unassignment_queued
-        try:
-            metro.is_unassignment_queued = True
-        except Exception:
-            try:
-                metro.is_unassignment_queued = original_flag
-            except Exception:
-                pass
+        if not set_queue_flag(metro, True):
             return False
-        if metro.is_unassignment_queued is not True:
-            try:
-                metro.is_unassignment_queued = original_flag
-            except Exception:
-                pass
-            return False
-        if _real_station(path, metro):
+        # The immediate-detach fast path stays gated on empty-at-station; an
+        # at-station occupied selection reconciles to the queue-gated oracle.
+        if not metro.passengers and _real_station(path, metro):
             metro._station_service_action = None
             metro.stop_time_remaining_ms = 0
             metro.boarding_progress_ms = 0
             self._detach(host, path, metro)
+            return True
+        if reconcile_station_service is not None and _real_station(path, metro):
+            return reconcile_queue_transition(
+                host,
+                metro,
+                reconcile_station_service,
+                queue_state_is_canonical=_queue_state_is_canonical,
+                restore_flag=original_flag,
+                label="queue",
+            )
         return True
+
+    def cancel_candidate(self, host: Any, path: Any) -> Any | None:
+        try:
+            if bool(getattr(host, "is_game_over", False)):
+                return None
+            if not _command_target_is_complete(
+                host, path
+            ) or not _queue_state_is_canonical(host):
+                return None
+            for metro in path.metros:
+                if metro.is_unassignment_queued is True:
+                    return metro
+        except Exception:
+            return None
+        return None
+
+    def can_cancel(self, host: Any, path: Any) -> bool:
+        return self.cancel_candidate(host, path) is not None
+
+    def cancel(
+        self,
+        host: Any,
+        path: Any,
+        *,
+        reconcile_station_service: ReconcileStationService | None = None,
+    ) -> bool:
+        metro = self.cancel_candidate(host, path)
+        if metro is None:
+            return False
+        original_flag = metro.is_unassignment_queued
+        if not set_queue_flag(metro, False):
+            return False
+        # A restored at-station Metro rebinds any newly-legal action at once.
+        if reconcile_station_service is not None and _real_station(path, metro):
+            return reconcile_queue_transition(
+                host,
+                metro,
+                reconcile_station_service,
+                queue_state_is_canonical=_queue_state_is_canonical,
+                restore_flag=original_flag,
+                label="cancel",
+            )
+        return True
+
+    def reconcile(self, host: Any) -> None:
+        """Repair only provably-safe residual fleet shapes; refuse the rest."""
+
+        try:
+            global_metros = getattr(host, "metros", None)
+            paths = getattr(host, "paths", None)
+            if not isinstance(global_metros, list) or not isinstance(paths, list):
+                return
+            for path in tuple(paths):
+                collection = getattr(path, "metros", None)
+                if not isinstance(collection, list):
+                    continue
+                for metro in tuple(collection):
+                    if any(metro is known for known in global_metros):
+                        continue
+                    if getattr(metro, "is_unassignment_queued", False) is not False:
+                        metro.is_unassignment_queued = False
+                    riders = getattr(metro, "passengers", None)
+                    if isinstance(riders, list) and not riders:
+                        collection.remove(metro)
+        except Exception:
+            return
 
     def settle(self, host: Any) -> int:
         if bool(getattr(host, "is_paused", False)):

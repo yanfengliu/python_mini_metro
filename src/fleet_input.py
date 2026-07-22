@@ -10,6 +10,7 @@ from ui.fleet_button import FleetButton
 _ACTIONS = {
     "assign_locomotive": "assign_locomotive",
     "unassign_locomotive": "queue_locomotive_unassignment",
+    "cancel_unassignment": "cancel_unassignment",
     "attach_carriage": "attach_carriage",
     "detach_carriage": "detach_carriage",
 }
