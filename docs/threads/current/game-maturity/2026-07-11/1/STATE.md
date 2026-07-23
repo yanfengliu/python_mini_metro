@@ -6,23 +6,23 @@ Active goal thread: `019f7c1a-897b-7c31-9662-4edbb4e128a6`
 
 Current increment: GM-09 - Maps and geographic constraints (opening)
 
-Current substep: GM-09a - Classic map abstraction (DUAL-REVIEWED PLAN; implementation not yet started)
+Current substep: GM-09a - Classic map abstraction (implementation-local-green; `[GM-09a:A]` pending push, exact CI pending)
 
-Current status: GM-08 is COMPLETE and remotely finalized — GM-08a (`fe525ef`/`ca4fa57`), GM-08b (`884c9dd`/`207a5ea`), GM-08c (`351a34d`/`59dd762`), every commit exact-CI green (GM-08c:B run [29986994612](https://github.com/yanfengliu/python_mini_metro/actions/runs/29986994612), `build` `89140975388` / `rl-smoke` `89140975370`). GM-09a is at the PLANNING stage: explored, a v2 plan written, and DUAL adversarial plan review complete (harness + Codex ultra, both NOT CLEAN) — Codex recommended and the plan adopted a SPLIT into two risk-isolated units. No GM-09 code exists yet.
+Current status: GM-08 is COMPLETE and remotely finalized — GM-08a (`fe525ef`/`ca4fa57`), GM-08b (`884c9dd`/`207a5ea`), GM-08c (`351a34d`/`59dd762`), every commit exact-CI green. GM-09a Commit A `[GM-09a:A]` carries the behavior-preserving Classic map abstraction (`src/maps.py` data-only `MapDefinition`/`CLASSIC`/`resolve_map`, the `Mediator`/`get_entity` one-way palette hook, the fail-closed save guard) with all local gates green (full py313 suite 1336/0, byte-identical determinism locks + 60-seed empirical proof, Ruff/pre-commit), exact CI pending. The dual plan review split the roadmap's GM-09a: this unit is the map ABSTRACTION; GM-09a2 is the versioned task identity.
 
-Durability transaction: GM-07 and all of GM-08 are remotely finalized (`59dd762` is `origin/main`). No transaction is in flight; GM-09a's implementation Commit A `[GM-09a:A]` is the next transaction and will reconcile GM-08c:B in its ledger.
+Durability transaction: GM-07 and all of GM-08 are remotely finalized (`59dd762` is `origin/main`); GM-09a Commit A `[GM-09a:A]` is the active transaction, reconciling GM-08c:B and opening the maps milestone.
 
 Last remotely finalized work unit: GM-08c:B at `59dd762` (exact [run 29986994612](https://github.com/yanfengliu/python_mini_metro/actions/runs/29986994612) succeeded), completing the GM-08 milestone.
 
-Expected remote implementation baseline: `origin/main == 59dd762` (GM-08 tail); GM-09a implementation opens from here.
+Expected remote implementation baseline: GM-09a Commit A `[GM-09a:A]` (built on `origin/main` at `9b37532`, the GM-09a planning-docs commit); its exact `build`/`rl-smoke` run is recorded in Commit B.
 
-Current transaction marker: none in flight — GM-09a planning committed as docs; `[GM-09a:A]` is the next implementation transaction.
+Current transaction marker: `[GM-09a:A]`
 
 ## Resume here
 
-1. Preserve remotely finalized GM-06/GM-07/GM-08 history (through `59dd762`), the pre-existing `.agents/` tree, unrelated ignored `output/`, the retained isolated pin, and the live `../civ-engine` sibling.
-2. Implement **GM-09a (the Classic map abstraction)** from the dual-reviewed re-scoped plan `docs/threads/current/game-maturity/2026-07-23/18/PLAN.md` (see "Plan v2"): a data-only immutable `MapDefinition` consumed one-way by `get_entity`/`mediator` (default Classic), behavior-preserving, with the RIGOROUS determinism-parity proof (ID-free station projection + both RNG states + `path_colors` + spawn intervals + a canonical trajectory vs a clean pre-change worktree, seeds 0+1 under distinct `PYTHONHASHSEED`, config shape-lists → ordered tuples), a version-aware `(map_id, map_definition_version)` lookup, and the save fail-closed Classic-only guard. NO RL/manifest/CLI/high-score/save-schema change in this unit. Red-first, escalate to multi-cli-review, deliver `[GM-09a:A]`/CI/`[GM-09a:B]`.
-3. Then **GM-09a2 (versioned task-descriptor identity)**: `TaskSpec` map fields (appended, default `None`), the descriptor-version byte-switch, manifest v3 (explicit V1/V2/V3 + invariants), CLI `--map` with resume/evaluate inheriting map from the manifest, thunk version enforcement, and a COMMITTED frozen legacy manifest fixture under `scripts/fixtures/` (the real one is git-ignored). Deferred to GM-09f: high-score `mapDefinitionVersion` + the save-schema map field.
+1. Preserve remotely finalized GM-06/GM-07/GM-08 history and the GM-09a planning-docs commit `9b37532`, the pre-existing `.agents/` tree, unrelated ignored `output/`, the retained isolated pin, and the live `../civ-engine` sibling.
+2. Push GM-09a Commit A `[GM-09a:A]` (maps code + tests + docs + D-032 + thread artifacts + these ledgers), then wait for its exact `build` and `rl-smoke` jobs.
+3. Record that exact result in evidence-only Commit B `[GM-09a:B]`; then **GM-09a2 (versioned task-descriptor identity)** — `TaskSpec` map fields (appended, default `None`), the descriptor-version byte-switch, manifest v3 (explicit V1/V2/V3 + invariants), CLI `--map` with resume/evaluate inheriting map from the manifest, thunk version enforcement, and a COMMITTED frozen legacy manifest fixture under `scripts/fixtures/` (the real one is git-ignored) — may open, reconciling GM-09a:B. Deferred to GM-09f: high-score `mapDefinitionVersion` + the save-schema map field.
 
 ## Increment ledger
 
@@ -37,7 +37,7 @@ Current transaction marker: none in flight — GM-09a planning committed as docs
 | GM-06 | complete | `d587b63` / `0a69d64` / `df04fb6` / `29cb64c` / `3319b48` / `80cc611` / `a21a3c0` / `62d26a2` / `325a055` | GM-06a A/B green; GM-06b A/A2/B preserved with B run 29809810291 green; GM-06c A/B runs 29853718512 and 29854939135 green; GM-06d A/B runs 29893340731 and 29893673381 green | Fleet and carriage resource management remotely finalized |
 | GM-07 | complete | `baa5bf8` / `272ba2d` / `5906370` / `5e388cc` / `db9d4fb` / `3625087` / `02c7f7f` / `60f59c0` / `2873acb` / `28d86e5` / `a720cf7` / `35d7ee8` / `3757a2c` / `131e0da` | GM-07a-e A/B green plus the GM-07b:E follow-up, every exact CI green | Application shell and persistence remotely finalized: pause model, versioned save/load, atomic autosave + Continue, high-score leaderboard, the twin atomic-writer fd-guard, deterministic per-frame game-over reconciliation, and the stale-service-cache fixes |
 | GM-08 | in progress | `fe525ef` / `ca4fa57` / `884c9dd` / `207a5ea` / `351a34d` | GM-08a + GM-08b finalized; GM-08c Commit A `351a34d` run 29986611807 succeeded, evidence Commit B active — the final GM-08 unit | Tutorial, settings, audio |
-| GM-09 | planning | - | - | Maps, rivers/tunnels — GM-09a dual-reviewed, re-scoped into two units (see 2026-07-23/18) |
+| GM-09 | in progress | - | `[GM-09a:A]` pending | Maps, rivers/tunnels — GM-09a (map abstraction) implemented local-green, exact CI pending; re-scoped into two units (see 2026-07-23/18) |
 | GM-10 | pending | - | - | Weekly progression and upgrades |
 | GM-11 | pending | - | - | Evidence-based balance and recursive playtest |
 | GM-12 | pending | - | - | Multi-seed training and held-out evaluation |
@@ -83,7 +83,7 @@ Current transaction marker: none in flight — GM-09a planning committed as docs
 | GM-08a | complete | `fe525ef` / run `29975144529` success | `ca4fa57` / run `29975449947` success | Typed settings store + SETTINGS screen (D-029) remotely finalized; the escalated Codex persistence lane's two majors (carriage-rider reduced motion, non-string-key ValueError) plus minors were folded red-first and re-reviewed |
 | GM-08b | complete | `884c9dd` / run `29979620418` success | `207a5ea` / run `29979928879` success | Procedural-tone gameplay audio (D-030) remotely finalized: `src/audio.py` + a pure post-reconcile main consumer, fail-safe `NullAudio`, both isolation scans extended. Two lanes caught the same MAJOR mixer-leak (fixed structurally: run_game defaults to inert audio, real mixer only at `__main__`) plus two Codex MINORs |
 | GM-08c | implementation-ci-green | `351a34d` / run `29986611807` success | `[GM-08c:B]` active | Coached in-game tutorial (D-031), completing GM-08, delivered exact-head remote green (`build` `89139779044`, `rl-smoke` `89139779118`): `src/tutorial.py` step machine + `AppScreen.TUTORIAL`/`build_tutorial` seam over a seeded, game-over-suppressed game. An empirical probe + plan review forced game-over suppression and reroute-before-train pre-code; the escalated Codex lane then caught three soft-locks the harness lane (CLEAN) missed — reroute fresh-id, train metro-cap, cold-start freeze — all fixed red-first; evidence finalization remains |
-| GM-09a | plan-dual-reviewed | - (planning docs at 2026-07-23/18) | - | Classic map abstraction — data-only MapDefinition + full determinism parity; re-scoped from the versioned-identity half (now GM-09a2) after both plan-review lanes went NOT CLEAN and Codex recommended the split |
+| GM-09a | implementation-local-green | `[GM-09a:A]` pending push | exact CI pending | Classic map abstraction (D-032): data-only `src/maps.py` MapDefinition/CLASSIC/resolve_map + one-way palette hook + fail-closed save guard, byte-identical to pre-change (construction + trajectory fingerprints, 60-seed + 20k-seed proof). Harness impl review CLEAN with independent pre-change reconstruction; external Codex lane declined the egress this run (substituted by the empirical proof). Full suite 1336/0, maps.py 81 |
 | GM-09b | pending | - | - | Terrain and first river map |
 | GM-09c | pending | - | - | Crossing/tunnel accounting |
 | GM-09d | pending | - | - | Second map |

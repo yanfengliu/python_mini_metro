@@ -44,6 +44,7 @@ from geometry.type import ShapeType
 from graph.graph_algo import bfs, build_station_nodes_dict
 from graph.node import Node
 from input_coordinator import InputCoordinator
+from maps import CLASSIC, MapDefinition
 from passenger_flow import PassengerFlow
 from path_handles import PathEditSelection
 from path_lifecycle import PathLifecycle
@@ -86,10 +87,14 @@ class Mediator:
         *,
         seed: int | None = None,
         context: SimulationContext | None = None,
+        map_definition: MapDefinition | None = None,
     ) -> None:
         if seed is not None and context is not None:
             raise ValueError("seed and context are mutually exclusive")
         self.context = context if context is not None else SimulationContext(seed)
+        # The map definition supplies the station-shape palette one-way; the
+        # default Classic map reproduces current behavior byte-for-byte.
+        self.map_definition = map_definition if map_definition is not None else CLASSIC
         self._input = InputCoordinator()
         self._fleet = FleetManagement()
         self._carriage_fleet = CarriageManagement()
@@ -343,7 +348,14 @@ class Mediator:
     def get_initial_station_pool(self) -> List[Station]:
         # Keep initial gameplay valid by guaranteeing at least two shape types.
         while True:
-            stations = get_random_stations(self.num_stations, context=self.context)
+            stations = get_random_stations(
+                self.num_stations,
+                context=self.context,
+                shape_types=self.map_definition.shape_types,
+                unique_shape_types=self.map_definition.unique_shape_types,
+                unique_spawn_start_index=self.map_definition.unique_spawn_start_index,
+                unique_spawn_chance=self.map_definition.unique_spawn_chance,
+            )
             initial_shapes = {
                 station.shape.type for station in stations[: self.initial_num_stations]
             }

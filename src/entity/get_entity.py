@@ -70,21 +70,39 @@ def get_random_station(
 
 
 def get_random_stations(
-    num: int, context: SimulationContext | None = None
+    num: int,
+    context: SimulationContext | None = None,
+    *,
+    shape_types: List[ShapeType] | tuple[ShapeType, ...] | None = None,
+    unique_shape_types: List[ShapeType] | tuple[ShapeType, ...] | None = None,
+    unique_spawn_start_index: int | None = None,
+    unique_spawn_chance: float | None = None,
 ) -> List[Station]:
+    # A map definition supplies the shape palette one-way; every param defaults to
+    # the current config global, so callers that pass none draw byte-identically.
+    # None sentinels (not mutable defaults) keep the config lists the single
+    # source of truth without a mutable-default-argument trap.
+    if shape_types is None:
+        shape_types = station_shape_type_list
+    if unique_shape_types is None:
+        unique_shape_types = station_unique_shape_type_list
+    if unique_spawn_start_index is None:
+        unique_spawn_start_index = station_unique_spawn_start_index
+    if unique_spawn_chance is None:
+        unique_spawn_chance = station_unique_spawn_chance
     stations: List[Station] = []
     station_positions: List[Point] = []
     used_unique_shape_types: set[ShapeType] = set()
     random_source = context.python_random if context is not None else random
     for station_idx in range(num):
-        shape_type = random_source.choice(station_shape_type_list)
+        shape_type = random_source.choice(shape_types)
         if (
-            station_idx >= station_unique_spawn_start_index
-            and random_source.random() < station_unique_spawn_chance
+            station_idx >= unique_spawn_start_index
+            and random_source.random() < unique_spawn_chance
         ):
             available_unique_shape_types = [
                 unique_shape_type
-                for unique_shape_type in station_unique_shape_type_list
+                for unique_shape_type in unique_shape_types
                 if unique_shape_type not in used_unique_shape_types
             ]
             if available_unique_shape_types:

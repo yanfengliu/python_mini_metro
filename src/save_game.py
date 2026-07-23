@@ -27,6 +27,25 @@ from save_schema import (
 __all__ = ["serialize_game", "save_game", "deserialize_game", "load_game"]
 
 
+def _require_classic_map(mediator: Any) -> None:
+    # Fail-closed map guard (GM-09a): the v1 save schema carries no map identity,
+    # so only the Classic map (classic@1) may be serialized. A future non-Classic
+    # map must NOT be silently written as Classic and reloaded wrong -- reject it
+    # here until the schema migration adds map identity (no later than the first
+    # alternate map). A Mediator without a map_definition is treated as Classic.
+    map_def = getattr(mediator, "map_definition", None)
+    if map_def is None:
+        return
+    map_id = getattr(map_def, "map_id", "classic")
+    version = getattr(map_def, "map_definition_version", 1)
+    if map_id != "classic" or version != 1:
+        raise ValueError(
+            f"cannot serialize map {map_id!r}@{version}: the v1 save schema has no "
+            "map identity, so only classic@1 is serializable until the map schema "
+            "migration lands"
+        )
+
+
 def _require_quiescent(mediator: Any) -> None:
     # The clock-reset-safe boundary: no creation, redraw, or edit gesture
     # may be active. A bare is_mouse_down does not block saving.
@@ -193,6 +212,7 @@ def _spawn_timer_records(mediator: Any) -> list[list[Any]]:
 def serialize_game(mediator: Any) -> dict[str, Any]:
     """Capture one strict v1 save document without mutating the Mediator."""
 
+    _require_classic_map(mediator)
     _require_quiescent(mediator)
     _require_canonical_fleet(mediator)
     raw = {

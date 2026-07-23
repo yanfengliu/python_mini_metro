@@ -30,3 +30,12 @@ Codex's split recommendation is adopted (risk isolation over the harness's "cohe
 
 ## Result
 NOT CLEAN → re-scoped into two risk-isolated units with all findings folded; the byte-compat core is empirically verified and anchored. GM-09a (the Classic map abstraction) is the next implementation target — behavior-preserving, self-contained, with rigorous determinism-parity tests against a clean pre-change worktree. This is a dually-reviewed, de-risked, implementation-ready plan for the maps foundation.
+
+## Implementation review (GM-09a Classic map abstraction)
+
+- **Harness lane** (`raw/impl-harness.md`): **CLEAN.** Independently reconstructed the pre-change HEAD code and reproduced the pinned fingerprints (proving the regression lock is non-circular), ran a 20,000-seed `choice(list)`-vs-`choice(tuple)` stress (0 mismatches), confirmed seed 1 exercises the retry loop and both seeds hit the unique-shape path, and verified the fail-closed save guard (adds no bytes, `save-v1.json` frozen), import-safety/no-cycle, deep immutability, `resolve_map` errors, and behavior preservation across every caller. Three NITs; two folded (tuple `__post_init__` coercion; a durable unique-path coverage assertion), one no-action.
+- **External Codex lane** (`raw/impl-codex-declined.md`): DECLINED this run (a safety egress refusal to transmit repo code; not worked around). Substituted by the harness lane's independent pre-change reconstruction + a driver-run 60-seed byte-identity check — appropriate for a behavior-preserving refactor whose only delta is list↔tuple in `choice()`/iteration.
+- **Empirical** (driver): 60 seeds, 0 mismatches between the default (list) and explicit-Classic (tuple) station draws including both RNG states; 59/60 exercise the unique-shape path.
+
+## Result
+CLEAN → the map abstraction is byte-identical to pre-change behavior (construction + trajectory), independently proven; the save guard is fail-closed with no byte change; import-safety and immutability hold. Local gates green (full suite 1336/0 + 12 skips, GM-09a 12/0, ruff/pre-commit clean, budgets held). Ready for CI-gated `[GM-09a:A]` delivery.
