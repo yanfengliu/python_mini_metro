@@ -6,23 +6,23 @@ Active goal thread: `019f7c1a-897b-7c31-9662-4edbb4e128a6`
 
 Current increment: GM-07 - Application shell and persistence
 
-Current substep: GM-07d - map-and-rules high-score leaderboard
+Current substep: GM-07e - deterministic per-frame game-over reconciliation (the second filed GM-07d follow-up chip)
 
-Current status: GM-07d Commit A `02c7f7f` (rebased onto `origin/main` at `abe36fe`, GM-07b:D) passed exact [run 29966701930](https://github.com/yanfengliu/python_mini_metro/actions/runs/29966701930); evidence-only Commit B is active while GM-08 remains closed
+Current status: GM-07d landed on `origin/main` at `28d86e5` through its evidence `60f59c0` (GM-07d:B), the atomic-writer fd-leak fix `2873acb` (GM-07d:C), and its evidence `28d86e5` (GM-07d:D); GM-07e Commit A `a720cf7` sits on that base and evidence-only Commit B is active while GM-08 remains closed
 
-Durability transaction: GM-07c is remotely finalized through Commit B; GM-07d Commit A `02c7f7f` is exact-head remote green, and evidence-only `[GM-07d:B]` is the active transaction
+Durability transaction: GM-07c is remotely finalized through Commit B; GM-07d landed on `origin/main` through `28d86e5`; GM-07e Commit A `a720cf7` sits on that base and evidence-only `[GM-07e:B]` is the active transaction
 
-Last remotely finalized work unit: GM-07c at Commit B `3625087`; GM-07d Commit A `02c7f7f` is exact-head remote green pending its evidence Commit B
+Last remotely finalized work unit: GM-07d on `origin/main` at `28d86e5` (GM-07d:D)
 
-Expected remote implementation baseline: `02c7f7f`, whose exact [run 29966701930](https://github.com/yanfengliu/python_mini_metro/actions/runs/29966701930) passed `build` job `89079678011` and `rl-smoke` job `89079677979`
+Expected remote implementation baseline: `28d86e5` (GM-07d finalized), with GM-07e Commit A `a720cf7` delivered on top pending its own remote CI
 
-Current transaction marker: `[GM-07d:B]`
+Current transaction marker: `[GM-07e:B]`
 
 ## Resume here
 
-1. Preserve remotely finalized GM-06/GM-07a/GM-07b/GM-07c history, exact-green GM-07d Commit A `02c7f7f`, the pre-existing `.agents/` tree, unrelated ignored `output/`, the retained isolated pin, and the live `../civ-engine` sibling outside GM-07d.
-2. Self-review, stage, commit, and push only the evidence documents in `[GM-07d:B]` without touching production or unrelated state.
-3. Wait for Commit B's exact `build` and `rl-smoke` jobs; only GM-08's opening Commit A may reconcile that result, mark GM-07d remotely finalized, complete GM-07, and open the tutorial/settings/audio work.
+1. Preserve remotely finalized GM-06/GM-07a/GM-07b/GM-07c/GM-07d history (`origin/main` at `28d86e5`), GM-07e Commit A `a720cf7`, the pre-existing `.agents/` tree, unrelated ignored `output/`, the retained isolated pin, and the live `../civ-engine` sibling.
+2. Self-review, stage, commit, and push only the evidence documents in `[GM-07e:B]` without touching production or unrelated state.
+3. Wait for GM-07e's exact `build` and `rl-smoke` jobs; only GM-08's opening Commit A may reconcile that result, mark GM-07 remotely finalized and complete, and open the tutorial/settings/audio work.
 
 ## Increment ledger
 
@@ -35,7 +35,7 @@ Current transaction marker: `[GM-07d:B]`
 | GM-04 | complete | `8cff620` failed setup; `16d7860` failed downstream; `069973c` implementation success; `41ecfc6` GM-04b finalization; `60ac953` / `8c4ba85` GM-04c A/B | [run 29748574695](https://github.com/yanfengliu/python_mini_metro/actions/runs/29748574695) and [run 29753292420](https://github.com/yanfengliu/python_mini_metro/actions/runs/29753292420) failed; [run 29757294004](https://github.com/yanfengliu/python_mini_metro/actions/runs/29757294004), [run 29758092140](https://github.com/yanfengliu/python_mini_metro/actions/runs/29758092140), [run 29763804498](https://github.com/yanfengliu/python_mini_metro/actions/runs/29763804498), and [run 29764619993](https://github.com/yanfengliu/python_mini_metro/actions/runs/29764619993) succeeded | Isolated pinned recursive tooling remotely finalized |
 | GM-05 | complete | `c7effd8` / `47b9349` / `37865d4` / `0d6f5b9` / `242f400` / `b5295c0` | GM-05a through GM-05c A/B green | Atomic replacement, full redraw, and route handles remotely finalized |
 | GM-06 | complete | `d587b63` / `0a69d64` / `df04fb6` / `29cb64c` / `3319b48` / `80cc611` / `a21a3c0` / `62d26a2` / `325a055` | GM-06a A/B green; GM-06b A/A2/B preserved with B run 29809810291 green; GM-06c A/B runs 29853718512 and 29854939135 green; GM-06d A/B runs 29893340731 and 29893673381 green | Fleet and carriage resource management remotely finalized |
-| GM-07 | in progress | `baa5bf8` / `272ba2d` / `5906370` / `5e388cc` / `db9d4fb` / `3625087` / `02c7f7f` | GM-07a/GM-07b/GM-07c A/B green; GM-07d A run 29966701930 succeeded | GM-07d evidence-only Commit B active |
+| GM-07 | in progress | `baa5bf8` / `272ba2d` / `5906370` / `5e388cc` / `db9d4fb` / `3625087` / `02c7f7f` / `60f59c0` / `2873acb` / `28d86e5` / `a720cf7` | GM-07a/GM-07b/GM-07c A/B green; GM-07d A run 29966701930 succeeded, B/C/D on origin/main | GM-07d finalized on origin/main through `28d86e5`; GM-07e (deterministic per-frame game-over reconciliation) Commit A `a720cf7` in, evidence-only Commit B active |
 | GM-08 | pending | - | - | Tutorial, settings, audio |
 | GM-09 | pending | - | - | Maps, rivers/tunnels |
 | GM-10 | pending | - | - | Weekly progression and upgrades |
@@ -128,4 +128,4 @@ Before GM-12c starts, replace its placeholder with one row per configuration and
 
 ## Blockers
 
-- No external blocker to GM-07d Commit A. The plan passed a combined adversarial lane plus a self-verified recheck, red evidence was captured at the finalized baseline, and the implementation passed a harness review lane with a windowed run plus an escalated external Codex persistence lane (the Claude CLI lane remains skipped per the recorded OAuth failure mode, with no approval claimed for it). That persistence lane's nine findings were folded — six fixed red-first, one MAJOR (the eventless-game-over record) accepted as consistent with GM-07c's reviewed D-027 window-close resolution with a deterministic-per-frame follow-up chip filed, and two minors accepted with note — and a focused re-review confirmed every fix resolved with no regression, all gates green at 1216/0 Python and 249/0 Node. The pre-existing `.agents/` tree remains untracked and outside the payload; the GM-07b stale-service-cache follow-ups (`9a33aaf` GM-07b:C checkpoint verifier, `abe36fe` GM-07b:D carriage attach/detach) and the GM-03f verifier retirement (`5522da2`) all landed on `origin/main` and are reconciled here; two GM-07d follow-up chips (atomic-writer fd-guard hardening, deterministic per-frame game-over reconciliation) are filed for later units.
+- No external blocker to GM-07d Commit A. The plan passed a combined adversarial lane plus a self-verified recheck, red evidence was captured at the finalized baseline, and the implementation passed a harness review lane with a windowed run plus an escalated external Codex persistence lane (the Claude CLI lane remains skipped per the recorded OAuth failure mode, with no approval claimed for it). That persistence lane's nine findings were folded — six fixed red-first, one MAJOR (the eventless-game-over record) accepted as consistent with GM-07c's reviewed D-027 window-close resolution with a deterministic-per-frame follow-up chip filed, and two minors accepted with note — and a focused re-review confirmed every fix resolved with no regression, all gates green at 1216/0 Python and 249/0 Node. The pre-existing `.agents/` tree remains untracked and outside the payload; the GM-07b stale-service-cache follow-ups (`9a33aaf` GM-07b:C checkpoint verifier, `abe36fe` GM-07b:D carriage attach/detach) and the GM-03f verifier retirement (`5522da2`) all landed on `origin/main` and are reconciled here; the two GM-07d follow-up chips both landed: atomic-writer fd-guard hardening as GM-07d:C/:D (`2873acb` / `28d86e5`, on `origin/main`) and deterministic per-frame game-over reconciliation as GM-07e (Commit A `a720cf7`).
