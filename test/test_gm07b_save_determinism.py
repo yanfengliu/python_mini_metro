@@ -26,6 +26,11 @@ SRC_ROOT = REPO_ROOT / "src"
 FIXTURE_PATH = REPO_ROOT / "scripts" / "fixtures" / "save-v1.json"
 SAVE_GAME_MODULE = "save_game"
 SAVE_SCHEMA_MODULE = "save_schema"
+# Modules only `main` may import: the save/load stack plus the main-owned
+# persistence and runtime seams (highscores, settings, and the GM-08b `audio`
+# backend). The name is historical — the set now also guards a non-save runtime
+# module — but the guarantee is unchanged: no headless/agent/RL surface imports
+# any of these (GM-08b, review MINOR-5).
 SAVE_MODULE_NAMES = {
     "save_game",
     "save_schema",
@@ -33,6 +38,7 @@ SAVE_MODULE_NAMES = {
     "save_schema_records",
     "highscores",
     "settings",
+    "audio",
 }
 
 # PLACEHOLDER pins — the implementer freezes scripts/fixtures/save-v1.json by
@@ -290,9 +296,10 @@ class TestGM07bFreshProcessIdentity(unittest.TestCase):
 
 class TestGM07bIsolation(unittest.TestCase):
     def test_runtime_surfaces_gain_no_save_imports(self):
-        # regression guard: green at baseline (no surface imports save
-        # modules); the scan forbids ALL FOUR save modules and includes the
-        # one-way checkpoint verifier boundary.
+        # regression guard: green at baseline (no surface imports a main-owned
+        # module); the scan forbids every name in SAVE_MODULE_NAMES (the save
+        # stack plus highscores/settings/audio) and includes the one-way
+        # checkpoint verifier boundary.
         targets = [
             SRC_ROOT / "env.py",
             SRC_ROOT / "agent_play.py",

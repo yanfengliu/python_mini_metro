@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pygame
 
 from app_controller import AppController, AppScreen
+from audio import NullAudio, create_audio, diff_and_play, snapshot_of
 from config import (
     framerate,
     game_over_button_border_color,
@@ -62,6 +63,43 @@ def write_settings(settings) -> None:
         save_settings(settings, SETTINGS_PATH)
     except Exception:
         pass
+
+
+def _default_audio_backend(max_frames: int | None):
+    # The real-audio opt-in used ONLY by the __main__ entry point: a human run
+    # (max_frames is None) builds procedural audio; an env-driven headless run
+    # (PYTHON_MINI_METRO_MAX_FRAMES set) stays silent. run_game itself NEVER
+    # calls this — it defaults to NullAudio — so no programmatic caller or test
+    # opens a mixer even when it drives real run_game UNBOUNDED and patches only
+    # main.pygame (audio.py imports its own pygame; GM-08b review MAJOR).
+    return create_audio() if max_frames is None else NullAudio()
+
+
+def _audio_step(controller, state, previous_audio_session, snapshot, backend):
+    # One per-frame audio consumer step, run AFTER reconcile_game_over so it reads
+    # the post-promotion state and mediator counters. It owns its OWN session ref
+    # (never the loop's previous_session, already advanced before the hook): the
+    # moment controller.session changes it re-baselines the snapshot to the live
+    # mediator, so New Game / Restart / Continue never replay a stored delta as a
+    # spurious tone burst (GM-08b, review MAJOR-1). Re-baselining to the CURRENT
+    # (post-batch) state is what avoids that burst; the accepted price is that a
+    # gameplay mutation in the SAME event batch as a session swap (e.g. a line
+    # purchase clicked in the same ~16 ms frame as Continue) is absorbed into the
+    # baseline and its tone missed — a best-effort limit, like snap, unreachable
+    # in human play (review MINOR). Then, only on a gameplay screen, it plays one
+    # tone per newly-occurred delta at the live SFX volumes.
+    if controller.session is not previous_audio_session:
+        previous_audio_session = controller.session
+        snapshot = snapshot_of(controller.mediator)
+    if state in (AppScreen.PLAYING, AppScreen.PAUSE_MENU, AppScreen.GAME_OVER):
+        snapshot = diff_and_play(
+            controller.mediator,
+            snapshot,
+            backend,
+            controller.current_settings.master_volume,
+            controller.current_settings.sfx_volume,
+        )
+    return previous_audio_session, snapshot
 
 
 def record_highscore(mediator: object) -> RecordResult | None:
@@ -147,6 +185,7 @@ def get_window_size(window_surface: pygame.surface.Surface) -> tuple[int, int]:
 def run_game(
     max_frames: int | None = None,
     start_state: AppScreen | None = None,
+    audio_backend=None,
 ) -> None:
     pygame.init()
     flags = pygame.RESIZABLE
@@ -202,6 +241,16 @@ def run_game(
     )
     presentation_surface: pygame.Surface | None = None
     previous_session = controller.session
+    # The audio consumer owns a SEPARATE session reference and counter snapshot,
+    # never the render loop's previous_session (already advanced before the hook,
+    # so it can never signal a reset). run_game defaults to an INERT backend: the
+    # real mixer is opted into only at the __main__ entry point, so no test or
+    # embedder — even one driving run_game unbounded and patching only
+    # main.pygame — ever opens a mixer (GM-08b, review MAJOR-1 + MAJOR mixer leak).
+    if audio_backend is None:
+        audio_backend = NullAudio()
+    previous_audio_session = controller.session
+    audio_snapshot = snapshot_of(controller.mediator)
     frames = 0
     # The startup set_mode above stays windowed (RESIZABLE); fullscreen is a
     # separate later set_mode applied only when the setting changes (D-029), so
@@ -277,6 +326,12 @@ def run_game(
         controller.reconcile_game_over()
         state = controller.state
 
+        # Gameplay SFX (GM-08b): after reconcile so the promotion-frame game-over
+        # tone is allowed and the snapshot reset sees the post-swap session.
+        previous_audio_session, audio_snapshot = _audio_step(
+            controller, state, previous_audio_session, audio_snapshot, audio_backend
+        )
+
         game_surface.fill(screen_color)
         if state == AppScreen.TITLE:
             draw_title_screen(game_surface)
@@ -332,4 +387,7 @@ if __name__ == "__main__":
     max_frames = (
         int(max_frames_env) if max_frames_env and max_frames_env.isdigit() else None
     )
-    run_game(max_frames=max_frames)
+    # The sole real-audio opt-in: a human run builds procedural audio, an
+    # env-driven headless run stays silent. Every programmatic run_game caller
+    # (tests, embedders) uses the inert default instead (GM-08b MAJOR).
+    run_game(max_frames=max_frames, audio_backend=_default_audio_backend(max_frames))

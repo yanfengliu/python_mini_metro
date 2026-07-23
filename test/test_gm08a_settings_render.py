@@ -228,9 +228,12 @@ class TestGM08aReducedMotionCarriage(unittest.TestCase):
 
 class TestGM08aSettingsIsolation(unittest.TestCase):
     def test_runtime_surfaces_import_no_settings_module(self):
-        # Settings is a main-only seam; headless/RL surfaces must never import it
-        # (codex MINOR: pin the membership from GM-08a, not only via GM-07b).
+        # Settings and the GM-08b audio backend are main-only seams; headless/RL
+        # surfaces must never import either (codex MINOR: pin the membership from
+        # GM-08a/GM-08b here, not only via GM-07b).
         import ast
+
+        forbidden = {"settings", "audio"}
 
         targets: list[str] = list(_RUNTIME_SURFACES)
         rl_dir = os.path.join(_SRC_ROOT, "rl")
@@ -252,10 +255,10 @@ class TestGM08aSettingsIsolation(unittest.TestCase):
                 else:
                     continue
                 for name in names:
-                    self.assertNotEqual(
+                    self.assertNotIn(
                         name.split(".")[0],
-                        "settings",
-                        f"{relative} imports settings",
+                        forbidden,
+                        f"{relative} imports a main-only module: {name}",
                     )
 
 
