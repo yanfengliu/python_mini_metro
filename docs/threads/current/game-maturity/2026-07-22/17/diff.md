@@ -1,6 +1,6 @@
 # GM-08c coached-tutorial diff ledger
 
-Status: implemented and locally green; the empirical probe + plan review's two pre-code corrections and the external Codex lane's three soft-lock findings all resolved. Ready for the CI-gated `[GM-08c:A]` commit after rebase onto `origin/main`.
+Status: delivered as Commit A `351a34d` (clean fast-forward onto `origin/main` at `207a5ea`), exact [run 29986611807](https://github.com/yanfengliu/python_mini_metro/actions/runs/29986611807) green (`build` `89139779044`, `rl-smoke` `89139779118`); evidence-only Commit B `[GM-08c:B]` active. The empirical probe + plan review's two pre-code corrections and the external Codex lane's three soft-lock findings all resolved.
 
 ## Implemented production surface
 
