@@ -1,6 +1,6 @@
 # GM-08b procedural-tone gameplay audio diff ledger
 
-Status: implemented and locally green; both adversarial lanes' MAJOR (mixer leak) and Codex's two MINORs resolved; ready for the CI-gated `[GM-08b:A]` commit after rebase onto `origin/main`.
+Status: delivered as Commit A `884c9dd` (clean fast-forward onto `origin/main` at `5917ef8`), exact [run 29979620418](https://github.com/yanfengliu/python_mini_metro/actions/runs/29979620418) green (`build` `89118544138`, `rl-smoke` `89118544167`); evidence-only Commit B `[GM-08b:B]` active. Both adversarial lanes' MAJOR (mixer leak) and Codex's two MINORs resolved.
 
 ## Implemented production surface
 

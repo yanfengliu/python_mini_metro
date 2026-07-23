@@ -29,4 +29,4 @@ The `max_frames` gate (`_default_audio_backend`) was the wrong enforcement seam:
 Session-reset burst avoidance (Continue/New Game/Restart), stereo `make_sound` shaping, `src/` isolation (audio imported only by `main`, unreachable from `rendering`/RL, named in both scans), tone determinism + int16 safety, the `game_over` one-shot post-reconcile edge, counter monotonicity, and every raise-into-loop path (`getattr`-tolerant `snapshot_of`, guarded `_snap_sum`, best-effort `play`, always-present `Settings`).
 
 ## Result
-NOT CLEAN → all findings fixed or dispositioned; full py313 suite green (12 skips), both isolation scans green, guarded `npm test` pending, budgets held (audio.py 196, main.py 393). Ready for CI-gated delivery.
+NOT CLEAN → all findings fixed or dispositioned; full py313 suite green (12 skips), both isolation scans green, guarded `npm test` 249/0, budgets held (audio.py 196, main.py 393). Delivered as Commit A `884c9dd`, exact [run 29979620418](https://github.com/yanfengliu/python_mini_metro/actions/runs/29979620418) green.
