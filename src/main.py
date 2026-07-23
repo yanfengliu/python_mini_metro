@@ -227,6 +227,15 @@ def run_game(
             advance = session.advance(elapsed_ms)
         previous_session = session
 
+        # Deterministic game-over reconciliation (D-027/D-028 follow-up): a tick
+        # that flips is_game_over with no promoting event this frame must still
+        # promote, drop the autosave, and record the score THIS frame, so the best
+        # indicator shows and the record no longer waits on an incidental event.
+        # Idempotent and mutually exclusive with the window-close QUIT gate above,
+        # which fires only while the state is still PLAYING/PAUSE_MENU.
+        controller.reconcile_game_over()
+        state = controller.state
+
         game_surface.fill(screen_color)
         if state == AppScreen.TITLE:
             draw_title_screen(game_surface)

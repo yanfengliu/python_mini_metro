@@ -111,17 +111,30 @@ class AppController:
         else:
             self.last_highscore_result = None
 
+    def reconcile_game_over(self) -> None:
+        """Promote a finished run to ``GAME_OVER`` exactly once (D-027/D-028).
+
+        Idempotent and a no-op unless the controller is still ``PLAYING`` and the
+        mediator has flipped game over. It drops the autosave so a finished run
+        can never be Continued (D-027) and records the run's high score exactly
+        once (D-028), storing the result for the best indicator. ``handle_event``
+        calls it at the top -- the historical inline promotion -- and
+        ``main.run_game`` calls it once per frame after ``session.advance``, so a
+        tick-driven game over with no promoting event still promotes, records,
+        and shows the indicator the frame it ends, deterministically and
+        independent of any incidental event. The window-close QUIT record in
+        ``main`` stays mutually exclusive: once this promotes, that gate sees
+        ``GAME_OVER`` and never re-records.
+        """
+        if self.state is AppScreen.PLAYING and self.mediator.is_game_over is True:
+            self.state = AppScreen.GAME_OVER
+            self._autosave_delete()
+            self._record_highscore()
+
     def handle_event(self, event: object) -> None:
         """Route one converted event according to the current screen."""
 
-        if self.state is AppScreen.PLAYING and self.mediator.is_game_over is True:
-            self.state = AppScreen.GAME_OVER
-            # A finished run must never be resumable: drop the autosave at the
-            # promotion, the same handle_event call as any game-over exit below.
-            self._autosave_delete()
-            # Record the run's high score at the same promotion (D-028); the
-            # window-close race in main covers the un-promoted game-over exit.
-            self._record_highscore()
+        self.reconcile_game_over()
         if self.state is AppScreen.PLAYING:
             self._handle_playing(event)
         elif self.state is AppScreen.PAUSE_MENU:
