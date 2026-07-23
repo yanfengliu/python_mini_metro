@@ -1,6 +1,6 @@
 # GM-08a typed settings store and SETTINGS screen diff ledger
 
-Status: staged as `[GM-08a:A]`, to be rebased onto `origin/main` at `131e0da` (merging GM-07e's `reconcile_game_over` into the SETTINGS wiring, with an additive PROGRESS.md merge) and the full suite re-verified on the integrated tree; exact-head CI and evidence-only Commit B to follow. Thread iteration renumbered 13->15 at delivery for the origin collision.
+Status: delivered as Commit A `fe525ef` (rebased onto `origin/main` at `131e0da`, merging GM-07e's `reconcile_game_over` into the SETTINGS wiring with an additive ARCHITECTURE/PROGRESS merge, full suite re-verified 1277/0 on the integrated tree), exact [run 29975144529](https://github.com/yanfengliu/python_mini_metro/actions/runs/29975144529) green; evidence-only Commit B active. Thread iteration renumbered 13->15 at delivery for the origin collision.
 
 ## Implemented production surface
 
