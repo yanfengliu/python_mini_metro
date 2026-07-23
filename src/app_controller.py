@@ -16,6 +16,7 @@ from enum import Enum, auto
 
 import pygame
 
+import tutorial
 from config import screen_height, screen_width
 from event.keyboard import KeyboardEvent
 from event.mouse import MouseEvent
@@ -39,6 +40,7 @@ class AppScreen(Enum):
     PAUSE_MENU = auto()
     GAME_OVER = auto()
     SETTINGS = auto()
+    TUTORIAL = auto()
 
 
 def _cycle_volume(value: int) -> int:
@@ -83,6 +85,7 @@ class AppController:
         autosave: object | None = None,
         highscores: object | None = None,
         settings: object | None = None,
+        build_tutorial: Callable[[], GameTriple] | None = None,
     ) -> None:
         self._build_game = build_game
         # Every seam is optional with an inert default (D-027/D-028/D-029): a
@@ -93,6 +96,10 @@ class AppController:
         self._autosave = autosave
         self._highscores = highscores
         self._settings = settings
+        # Optional inert coached-tutorial seam (D-031): without it the Tutorial
+        # entry is a no-op, exactly as Continue is without an autosave.
+        self._build_tutorial = build_tutorial
+        self._tutorial_progress: tutorial.TutorialProgress | None = None
         self.state = start_state
         self._armed_menu_control: str | None = None
         self._settings_origin = AppScreen.TITLE
@@ -106,6 +113,13 @@ class AppController:
             settings.load() if settings is not None else DEFAULT_SETTINGS
         )
         self.mediator, self.renderer, self.session = build_game()
+        # A cold start directly in TUTORIAL (e.g. run_game(start_state=TUTORIAL))
+        # must build the seeded, game-over-suppressed tutorial and its progress,
+        # not leave the ordinary build_game() triple — which would game-over and
+        # freeze with no overlay (review MODERATE-3). The normal path enters via
+        # the title Tutorial entry; this makes the direct entry equivalent.
+        if start_state is AppScreen.TUTORIAL:
+            self._start_tutorial()
 
     def _autosave_save(self) -> None:
         # Persistence is best-effort: the seam swallows its own failures, so a
@@ -164,6 +178,8 @@ class AppController:
             self._handle_game_over(event)
         elif self.state is AppScreen.SETTINGS:
             self._handle_settings(event)
+        elif self.state is AppScreen.TUTORIAL:
+            self._handle_tutorial(event)
 
     def _start_new_game(self) -> None:
         self.mediator, self.renderer, self.session = self._build_game()
@@ -263,6 +279,8 @@ class AppController:
             raise SystemExit
         elif _clicked(layout, "settings", position):
             self._open_settings(AppScreen.TITLE)
+        elif _clicked(layout, "tutorial", position):
+            self._start_tutorial()
 
     def _handle_game_over(self, event: object) -> None:
         # Mirrors the historical loop-inline branch: R restarts, Escape exits,
@@ -320,3 +338,56 @@ class AppController:
         if _clicked(layout, "sfx_volume", position):
             return replace(current, sfx_volume=_cycle_volume(current.sfx_volume))
         return None
+
+    def _start_tutorial(self) -> None:
+        # Inert without the seam (like Continue without an autosave). The seam
+        # builds a seeded, game-over-suppressed triple; the tutorial never
+        # autosaves and never records a high score.
+        if self._build_tutorial is None:
+            return
+        self.mediator, self.renderer, self.session = self._build_tutorial()
+        self._tutorial_progress = tutorial.start_progress(self.mediator)
+        self.notice = None
+        self.state = AppScreen.TUTORIAL
+
+    def _handle_tutorial(self, event: object) -> None:
+        if _is_key_up(event, pygame.K_ESCAPE):
+            # Abandon any armed gesture through the pinned letterbox-cancel before
+            # leaving, exactly like _handle_playing (review NIT-5).
+            self.session.dispatch(MouseEvent(MouseEventType.MOUSE_UP, Point(-1, -1)))
+            self.state = AppScreen.TITLE
+            return
+        # Every other converted event is a REAL control driving the live game.
+        self.session.dispatch(event)
+
+    def advance_tutorial(self, elapsed_ms: int) -> None:
+        """Advance the coached tutorial one frame (a no-op unless ``TUTORIAL``).
+
+        Mirrors ``reconcile_game_over``: ``main.run_game`` calls it once per frame
+        after ``session.advance`` so the step machine observes the post-tick
+        mediator (tick-driven deliveries) and feeds the overload dwell timer.
+        """
+        if self.state is not AppScreen.TUTORIAL or self._tutorial_progress is None:
+            return
+        self._tutorial_progress = tutorial.advance(
+            self._tutorial_progress,
+            self.mediator,
+            elapsed_ms,
+            bool(getattr(self.mediator, "is_paused", False)),
+        )
+
+    def tutorial_overlay(self) -> tuple[str, int, int, bool] | None:
+        """The coaching overlay data ``(prompt, ordinal, total, complete)``.
+
+        ``None`` off the tutorial, so ``main`` renders the banner only in
+        ``TUTORIAL`` and never imports the tutorial module itself.
+        """
+        progress = self._tutorial_progress
+        if progress is None:
+            return None
+        return (
+            tutorial.current_prompt(progress),
+            tutorial.step_ordinal(progress),
+            tutorial.STEP_TOTAL,
+            tutorial.is_complete(progress),
+        )

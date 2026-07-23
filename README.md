@@ -56,7 +56,8 @@ Set `PYTHON` to a specific interpreter path when `python` is not the intended ex
 * If you are running for the first time, install the requirements using `python -m pip install -r requirements-locked.txt`
 * Activate the virtual environment by running `conda activate py313`
 * Run `python src/main.py`
-* The game opens on a title screen: click New Game (or press ENTER) to start, click Continue to resume the autosaved game (shown only when a save exists), or click Exit to quit. Programmatic runs with a frame limit (`PYTHON_MINI_METRO_MAX_FRAMES` or `run_game(max_frames=...)`) start directly in gameplay; an explicit `run_game(start_state=...)` overrides both.
+* The game opens on a title screen: click New Game (or press ENTER) to start, click Continue to resume the autosaved game (shown only when a save exists), click Tutorial for a guided walkthrough of the controls, or click Exit to quit. Programmatic runs with a frame limit (`PYTHON_MINI_METRO_MAX_FRAMES` or `run_game(max_frames=...)`) start directly in gameplay; an explicit `run_game(start_state=...)` overrides both.
+* The **Tutorial** (title screen) is an interruptible, coached playthrough of a real seeded game: on-screen prompts walk you through drawing a line, rerouting it, adding a train, delivering a passenger, overload pressure, pausing, and changing speed, each advancing when you actually perform it. Press ESC to skip or leave at any point. The tutorial game never ends, so you can learn at your own pace; it never autosaves or records a high score.
 * The window uses a fixed 60 Hz simulation cadence with interpolated metro motion; resizing preserves the 1920x1080 player view without changing game timing.
 * Hold down the mouse left button on a station and drag onto other stations to create a line. New lines start unserved.
 * Press SPACE to pause / unpause the game.

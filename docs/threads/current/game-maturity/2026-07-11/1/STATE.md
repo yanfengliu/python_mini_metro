@@ -6,23 +6,23 @@ Active goal thread: `019f7c1a-897b-7c31-9662-4edbb4e128a6`
 
 Current increment: GM-08 - Tutorial, settings, and audio
 
-Current substep: GM-08b - procedural-tone gameplay audio
+Current substep: GM-08c - coached in-game tutorial
 
-Current status: GM-08a is remotely finalized (Commit B `ca4fa57`, exact [run 29975449947](https://github.com/yanfengliu/python_mini_metro/actions/runs/29975449947) succeeded); GM-08b Commit A `884c9dd` passed exact [run 29979620418](https://github.com/yanfengliu/python_mini_metro/actions/runs/29979620418) (`build` job `89118544138`, `rl-smoke` job `89118544167`); evidence-only Commit B `[GM-08b:B]` is active
+Current status: GM-08b is remotely finalized (Commit A `884c9dd` [run 29979620418](https://github.com/yanfengliu/python_mini_metro/actions/runs/29979620418), evidence Commit B `207a5ea` [run 29979928879](https://github.com/yanfengliu/python_mini_metro/actions/runs/29979928879) `build` `89119434084` / `rl-smoke` `89119434123`); GM-08c Commit A `[GM-08c:A]` carries `src/tutorial.py` + the TUTORIAL screen/wiring with all local gates green (full py313 suite, both isolation scans, end-to-end scripted-gesture smoke, game-over-suppression check, Ruff/pre-commit), exact CI pending
 
-Durability transaction: GM-07 and GM-08a are remotely finalized; GM-08b Commit A `884c9dd` is exact-head remote green, and evidence-only `[GM-08b:B]` is the active transaction
+Durability transaction: GM-07, GM-08a, and GM-08b are remotely finalized; GM-08c Commit A `[GM-08c:A]` is the active transaction, reconciling GM-08b's Commit B result and opening the tutorial work
 
-Last remotely finalized work unit: GM-08a:B at `ca4fa57` (exact [run 29975449947](https://github.com/yanfengliu/python_mini_metro/actions/runs/29975449947) succeeded); GM-08b Commit A `884c9dd` is exact-head remote green pending its evidence Commit B
+Last remotely finalized work unit: GM-08b:B at `207a5ea` (exact [run 29979928879](https://github.com/yanfengliu/python_mini_metro/actions/runs/29979928879) succeeded), completing the second GM-08 unit
 
-Expected remote implementation baseline: `884c9dd`, whose exact [run 29979620418](https://github.com/yanfengliu/python_mini_metro/actions/runs/29979620418) passed `build` job `89118544138` and `rl-smoke` job `89118544167`
+Expected remote implementation baseline: GM-08c Commit A `[GM-08c:A]` (built on `origin/main` at `207a5ea`); its exact `build`/`rl-smoke` run is recorded in Commit B
 
-Current transaction marker: `[GM-08b:B]`
+Current transaction marker: `[GM-08c:A]`
 
 ## Resume here
 
-1. Preserve remotely finalized GM-06/GM-07/GM-08a history (through `ca4fa57`) and the exact-green GM-08b Commit A `884c9dd`, the pre-existing `.agents/` tree, unrelated ignored `output/`, the retained isolated pin, and the live `../civ-engine` sibling outside GM-08b.
-2. Self-review, stage, commit, and push only the evidence documents in `[GM-08b:B]` without touching production or unrelated state.
-3. Wait for Commit B's exact `build` and `rl-smoke` jobs; only GM-08c's opening Commit A may reconcile that result, mark GM-08b remotely finalized, and open the real-control tutorial work.
+1. Preserve remotely finalized GM-06/GM-07/GM-08a/GM-08b history (through `207a5ea`), the pre-existing `.agents/` tree, unrelated ignored `output/`, the retained isolated pin, and the live `../civ-engine` sibling outside GM-08c.
+2. Push GM-08c Commit A `[GM-08c:A]` (tutorial code + tests + user docs + D-031 + thread artifacts + these ledgers), then wait for its exact `build` and `rl-smoke` jobs.
+3. Record that exact result in evidence-only Commit B `[GM-08c:B]`; GM-08c completes the GM-08 milestone, and only GM-09's opening Commit A may then reconcile GM-08c and open the maps work.
 
 ## Increment ledger
 
@@ -36,7 +36,7 @@ Current transaction marker: `[GM-08b:B]`
 | GM-05 | complete | `c7effd8` / `47b9349` / `37865d4` / `0d6f5b9` / `242f400` / `b5295c0` | GM-05a through GM-05c A/B green | Atomic replacement, full redraw, and route handles remotely finalized |
 | GM-06 | complete | `d587b63` / `0a69d64` / `df04fb6` / `29cb64c` / `3319b48` / `80cc611` / `a21a3c0` / `62d26a2` / `325a055` | GM-06a A/B green; GM-06b A/A2/B preserved with B run 29809810291 green; GM-06c A/B runs 29853718512 and 29854939135 green; GM-06d A/B runs 29893340731 and 29893673381 green | Fleet and carriage resource management remotely finalized |
 | GM-07 | complete | `baa5bf8` / `272ba2d` / `5906370` / `5e388cc` / `db9d4fb` / `3625087` / `02c7f7f` / `60f59c0` / `2873acb` / `28d86e5` / `a720cf7` / `35d7ee8` / `3757a2c` / `131e0da` | GM-07a-e A/B green plus the GM-07b:E follow-up, every exact CI green | Application shell and persistence remotely finalized: pause model, versioned save/load, atomic autosave + Continue, high-score leaderboard, the twin atomic-writer fd-guard, deterministic per-frame game-over reconciliation, and the stale-service-cache fixes |
-| GM-08 | in progress | `fe525ef` / `ca4fa57` / `884c9dd` | GM-08a A/B (runs 29975144529 / 29975449947) finalized; GM-08b Commit A `884c9dd` run 29979620418 succeeded, evidence Commit B active | Tutorial, settings, audio |
+| GM-08 | in progress | `fe525ef` / `ca4fa57` / `884c9dd` / `207a5ea` | GM-08a + GM-08b A/B finalized (runs 29975449947 / 29979928879); GM-08c Commit A local-green, exact CI pending — the final GM-08 unit | Tutorial, settings, audio |
 | GM-09 | pending | - | - | Maps, rivers/tunnels |
 | GM-10 | pending | - | - | Weekly progression and upgrades |
 | GM-11 | pending | - | - | Evidence-based balance and recursive playtest |
@@ -81,8 +81,8 @@ Current transaction marker: `[GM-08b:B]`
 | GM-07c | complete | `db9d4fb` / run `29955655699` success | `3625087` / run `29956050082` success | Atomic autosave, Continue, and menu integration remotely finalized |
 | GM-07d | complete | `02c7f7f` / run `29966701930` success | `60f59c0` / run `29967102041` success | Map/rules high-score leaderboard remotely finalized; the accepted MAJOR (eventless game-over) and the fd-guard follow-ups landed as GM-07e (`a720cf7`/`35d7ee8`) and GM-07d:C/D (`2873acb`/`28d86e5`) |
 | GM-08a | complete | `fe525ef` / run `29975144529` success | `ca4fa57` / run `29975449947` success | Typed settings store + SETTINGS screen (D-029) remotely finalized; the escalated Codex persistence lane's two majors (carriage-rider reduced motion, non-string-key ValueError) plus minors were folded red-first and re-reviewed |
-| GM-08b | implementation-ci-green | `884c9dd` / run `29979620418` success | `[GM-08b:B]` active | Procedural-tone gameplay audio (D-030): `src/audio.py` + a pure post-reconcile main consumer, fail-safe `NullAudio`, both isolation scans extended, delivered exact-head remote green (`build` `89118544138`, `rl-smoke` `89118544167`). Two independent adversarial lanes (harness + escalated Codex ultra) caught the same MAJOR mixer-leak (fixed structurally: run_game defaults to inert audio, real mixer only at `__main__`) plus two Codex MINORs folded; evidence finalization remains |
-| GM-08c | pending | - | - | Real-control tutorial |
+| GM-08b | complete | `884c9dd` / run `29979620418` success | `207a5ea` / run `29979928879` success | Procedural-tone gameplay audio (D-030) remotely finalized: `src/audio.py` + a pure post-reconcile main consumer, fail-safe `NullAudio`, both isolation scans extended. Two lanes caught the same MAJOR mixer-leak (fixed structurally: run_game defaults to inert audio, real mixer only at `__main__`) plus two Codex MINORs |
+| GM-08c | implementation-local-green | `[GM-08c:A]` pending push | exact CI pending | Coached in-game tutorial (D-031), completing GM-08: `src/tutorial.py` step machine + `AppScreen.TUTORIAL`/`build_tutorial` seam over a seeded, game-over-suppressed game, isolation scan extended. An empirical probe + plan review forced game-over suppression and reroute-before-train pre-code; the escalated Codex lane then caught three soft-locks the harness lane (CLEAN) missed — reroute fresh-id, train metro-cap, cold-start freeze — all fixed red-first. Full suite + end-to-end scripted smoke green |
 | GM-09a | pending | - | - | Classic map identity/parity |
 | GM-09b | pending | - | - | Terrain and first river map |
 | GM-09c | pending | - | - | Crossing/tunnel accounting |

@@ -26,6 +26,7 @@ _PAUSE_HEADING = "PAUSED"
 _SETTINGS_HEADING = "SETTINGS"
 _BEST_INDICATOR_TEXT = "NEW BEST"
 _HEADING_FONT_SIZE = 96
+_TUTORIAL_SUBLINE_FONT_SIZE = 26
 _HEADING_GAP = 60
 # Settings rows carry value labels ("Reduced Motion: On"), so they use a wider
 # button than the menu stacks; centering is on the screen midline regardless.
@@ -73,12 +74,12 @@ def _stacked_buttons(
 def title_layout(width: int, height: int) -> dict[str, pygame.Rect]:
     """Deterministic, disjoint hit-test rects for the title-screen controls."""
 
-    # Four stacked buttons (New Game / Continue / Exit / Settings) anchored to
-    # the middle slot; Settings is APPENDED so the prior three rects are byte
-    # identical to GM-07c, and the heading stays anchored to the first key.
+    # Stacked buttons anchored to the middle slot; each new control is APPENDED
+    # (Settings after GM-07c, Tutorial after GM-08c) so the prior rects stay
+    # byte identical, and the heading stays anchored to the first key.
     return _stacked_buttons(
         width,
-        ("new_game", "continue", "exit", "settings"),
+        ("new_game", "continue", "exit", "settings", "tutorial"),
         height // 2 - game_over_button_height - game_over_button_spacing,
     )
 
@@ -158,6 +159,7 @@ def draw_title_screen(
         _draw_button(surface, layout["continue"], "Continue")
     _draw_button(surface, layout["exit"], "Exit")
     _draw_button(surface, layout["settings"], "Settings")
+    _draw_button(surface, layout["tutorial"], "Tutorial")
 
 
 def draw_notice(surface: pygame.Surface, message: str) -> None:
@@ -178,6 +180,41 @@ def draw_notice(surface: pygame.Surface, message: str) -> None:
         border_radius=8,
     )
     surface.blit(text, text.get_rect(center=banner.center))
+
+
+def draw_tutorial_overlay(
+    surface: pygame.Surface, prompt: str, ordinal: int, total: int, done: bool
+) -> None:
+    """Paint a byte-stable coaching banner near the bottom of the game frame.
+
+    Two lines on an opaque banner (the prompt plus a progress/skip subline), the
+    fill repainted before the text every call so repeated draws stay identical.
+    """
+
+    width, height = surface.get_size()
+    subline = (
+        "Press Esc to return" if done else f"Step {ordinal}/{total}    Esc to skip"
+    )
+    prompt_text = _font(font_name, game_over_hint_font_size).render(
+        prompt, True, game_over_text_color
+    )
+    sub_text = _font(font_name, _TUTORIAL_SUBLINE_FONT_SIZE).render(
+        subline, True, game_over_text_color
+    )
+    center_y = height - height // 6
+    prompt_rect = prompt_text.get_rect(center=(width // 2, center_y - 20))
+    sub_rect = sub_text.get_rect(center=(width // 2, center_y + 22))
+    banner = prompt_rect.union(sub_rect).inflate(80, 44)
+    pygame.draw.rect(surface, game_over_button_color, banner, border_radius=10)
+    pygame.draw.rect(
+        surface,
+        game_over_button_border_color,
+        banner,
+        game_over_button_border_width,
+        border_radius=10,
+    )
+    surface.blit(prompt_text, prompt_rect)
+    surface.blit(sub_text, sub_rect)
 
 
 def draw_best_indicator(surface: pygame.Surface, result: object) -> None:

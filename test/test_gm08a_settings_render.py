@@ -233,7 +233,7 @@ class TestGM08aSettingsIsolation(unittest.TestCase):
         # GM-08a/GM-08b here, not only via GM-07b).
         import ast
 
-        forbidden = {"settings", "audio"}
+        forbidden = {"settings", "audio", "tutorial"}
 
         targets: list[str] = list(_RUNTIME_SURFACES)
         rl_dir = os.path.join(_SRC_ROOT, "rl")

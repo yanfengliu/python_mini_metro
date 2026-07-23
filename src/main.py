@@ -38,6 +38,7 @@ from ui.menu_screens import (
     draw_pause_menu,
     draw_settings_menu,
     draw_title_screen,
+    draw_tutorial_overlay,
     title_layout,
 )
 from ui.viewport import get_viewport_transform
@@ -63,6 +64,19 @@ def write_settings(settings) -> None:
         save_settings(settings, SETTINGS_PATH)
     except Exception:
         pass
+
+
+TUTORIAL_SEED = 42  # the probed seed whose 3 initial stations are all distinct
+_TUTORIAL_NO_GAME_OVER = 10**9
+
+
+def _tutorial_mediator():
+    # A seeded coached-tutorial game whose game-over is suppressed on THIS instance
+    # so the sim never freezes mid-lesson (GM-08c, D-031): a per-instance write,
+    # not a Mediator class or config change — the tutorial is a forgiving sandbox.
+    mediator = Mediator(seed=TUTORIAL_SEED)
+    mediator.overdue_passenger_threshold = _TUTORIAL_NO_GAME_OVER
+    return mediator
 
 
 def _default_audio_backend(max_frames: int | None):
@@ -208,6 +222,15 @@ def run_game(
         session.prepare_layout(game_surface)
         return mediator, renderer, session
 
+    def build_tutorial():
+        # The coached-tutorial triple over a seeded, game-over-suppressed mediator
+        # (GM-08c, D-031); same shape as build_game.
+        mediator = _tutorial_mediator()
+        renderer = GameRenderer()
+        session = GameSession(mediator, step_observer=renderer)
+        session.prepare_layout(game_surface)
+        return mediator, renderer, session
+
     autosave = SimpleNamespace(
         save=write_autosave,
         delete=delete_autosave,
@@ -238,6 +261,7 @@ def run_game(
         autosave=autosave,
         highscores=highscores,
         settings=settings,
+        build_tutorial=build_tutorial,
     )
     presentation_surface: pygame.Surface | None = None
     previous_session = controller.session
@@ -332,6 +356,10 @@ def run_game(
             controller, state, previous_audio_session, audio_snapshot, audio_backend
         )
 
+        # Coached tutorial (GM-08c): observe the post-tick mediator and advance the
+        # lesson; a no-op off TUTORIAL.
+        controller.advance_tutorial(elapsed_ms)
+
         game_surface.fill(screen_color)
         if state == AppScreen.TITLE:
             draw_title_screen(game_surface)
@@ -357,6 +385,13 @@ def run_game(
                 # game_renderer stays untouched; the primitive no-ops unless the
                 # result is a new best (D-028).
                 draw_best_indicator(game_surface, controller.last_highscore_result)
+            elif state == AppScreen.TUTORIAL:
+                # The coaching banner over the real game frame (GM-08c). The
+                # controller supplies the display data so main never imports the
+                # tutorial module itself.
+                overlay = controller.tutorial_overlay()
+                if overlay is not None:
+                    draw_tutorial_overlay(game_surface, *overlay)
         window_surface.fill(screen_color)
         target_size = (viewport.width, viewport.height)
         if viewport.width > 0 and viewport.height > 0:
