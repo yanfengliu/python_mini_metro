@@ -92,15 +92,21 @@ class Station(Holder):
         surface: pygame.surface.Surface,
         current_time_ms: int | None = None,
         passenger_max_wait_time_ms: int | None = None,
+        reduced_motion: bool = False,
     ) -> None:
-        if current_time_ms is not None and not self.is_unlock_blink_visible(
-            current_time_ms
+        # reduced_motion (D-029) holds the unlock blink visible and suppresses
+        # the one-shot snap blips; default False keeps both byte-exact.
+        if (
+            current_time_ms is not None
+            and not self.is_unlock_blink_visible(current_time_ms)
+            and not reduced_motion
         ):
             return
         super().draw(
             surface,
             current_time_ms=current_time_ms,
             passenger_max_wait_time_ms=passenger_max_wait_time_ms,
+            reduced_motion=reduced_motion,
         )
-        if current_time_ms is not None:
+        if current_time_ms is not None and not reduced_motion:
             self.draw_snap_blips(surface, current_time_ms)

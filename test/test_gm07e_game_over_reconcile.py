@@ -307,7 +307,7 @@ class _LoopRenderer:
     def __init__(self, draw_log):
         self._draw_log = draw_log
 
-    def draw(self, surface, mediator, alpha):
+    def draw(self, surface, mediator, alpha, reduced_motion=False):
         self._draw_log.append("renderer")
 
 

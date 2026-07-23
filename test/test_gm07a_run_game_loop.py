@@ -81,7 +81,13 @@ class _RecordingRenderer:
         self.log = log
         self.name = name
 
-    def draw(self, surface: object, mediator: _RecordingMediator, alpha: float) -> None:
+    def draw(
+        self,
+        surface: object,
+        mediator: _RecordingMediator,
+        alpha: float,
+        reduced_motion: bool = False,
+    ) -> None:
         self.log.append((self.name, "draw", mediator.name, alpha))
 
 

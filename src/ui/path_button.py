@@ -101,11 +101,15 @@ class PathButton(Button):
         buy_text_font: pygame.font.Font | None = None,
         is_selected: bool = False,
         is_invalid: bool = False,
+        reduced_motion: bool = False,
     ) -> None:
+        # reduced_motion (D-029) holds the unlock blink visible; default False
+        # keeps the historical skip byte-exact.
         if (
             not is_selected
             and current_time_ms is not None
             and not self.is_unlock_blink_visible(current_time_ms)
+            and not reduced_motion
         ):
             return
         if self.is_locked and isinstance(self.shape, Circle):

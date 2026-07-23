@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import inspect
 from functools import lru_cache
 from typing import Any
 
 import pygame
 
 from .consist_layout import consist_passenger_slices
+from .flexible_draw import _call_flexibly
 from .interpolation import MetroInterpolator
 from .layout import MetroPose
 from .network_renderer import NetworkRenderer
@@ -52,35 +52,6 @@ class LazyRenderResources:
         return font
 
 
-@lru_cache(maxsize=128)
-def _supported_keyword_names(method: Any) -> frozenset[str] | None:
-    try:
-        signature = inspect.signature(method)
-    except (TypeError, ValueError):
-        return frozenset()
-    if any(
-        parameter.kind is inspect.Parameter.VAR_KEYWORD
-        for parameter in signature.parameters.values()
-    ):
-        return None
-    return frozenset(signature.parameters)
-
-
-def _supported_kwargs(method: Any, kwargs: dict[str, Any]) -> dict[str, Any]:
-    target = getattr(method, "__func__", method)
-    try:
-        supported = _supported_keyword_names(target)
-    except TypeError:
-        supported = frozenset(inspect.signature(method).parameters)
-    if supported is None:
-        return kwargs
-    return {name: value for name, value in kwargs.items() if name in supported}
-
-
-def _call_flexibly(method: Any, *args: Any, **kwargs: Any) -> Any:
-    return method(*args, **_supported_kwargs(method, kwargs))
-
-
 class GameRenderer:
     """Compose the full game frame in a stable painter's order."""
 
@@ -110,9 +81,18 @@ class GameRenderer:
         surface: pygame.Surface,
         state: Any,
         alpha: float = 1.0,
+        reduced_motion: bool = False,
     ) -> None:
-        """Draw network, entities, controls, text, then modal overlay."""
+        """Draw network, entities, controls, text, then modal overlay.
 
+        ``reduced_motion`` (D-029) holds the passenger-warning and unlock blinks
+        steady and suppresses one-shot snap blips; it defaults False and every
+        False path is byte-identical to pre-GM-08a output. It is stashed for the
+        _draw_metro/_draw_buttons helpers and passed to the entity draws through
+        the kwarg-filtering _call_flexibly boundary.
+        """
+
+        self._reduced_motion = reduced_motion
         paths = tuple(getattr(state, "paths", ()))
         layouts = self.network_renderer.draw(surface, paths)
         layouts_by_path_id = {layout.path_id: layout for layout in layouts}
@@ -133,6 +113,7 @@ class GameRenderer:
                 current_time_ms=current_time_ms,
                 passenger_max_wait_time_ms=max_wait_ms,
                 resources=self.resources,
+                reduced_motion=reduced_motion,
             )
 
         for metro in getattr(state, "metros", ()):
@@ -146,6 +127,7 @@ class GameRenderer:
                     current_time_ms=current_time_ms,
                     passenger_max_wait_time_ms=max_wait_ms,
                     resources=self.resources,
+                    reduced_motion=reduced_motion,
                 )
                 continue
             pose = self.interpolator.pose_for(path, metro, layout, alpha)
@@ -325,6 +307,7 @@ class GameRenderer:
                 passenger_max_wait_time_ms=max_wait_ms,
                 is_unassignment_queued=queued,
                 resources=self.resources,
+                reduced_motion=self._reduced_motion,
             )
 
     def _draw_buttons(
@@ -349,6 +332,7 @@ class GameRenderer:
                 "current_time_ms": current_time_ms,
                 "resources": self.resources,
                 "state": state,
+                "reduced_motion": self._reduced_motion,
             }
             path_button_index = path_button_indexes.get(id(button))
             if path_button_index is not None:

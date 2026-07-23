@@ -55,6 +55,7 @@ class Carriage:
         *,
         passengers: Iterable[Any] = (),
         is_unassignment_queued: bool = False,
+        reduced_motion: bool = False,
     ) -> None:
         draw_position = self.position if display_position is None else display_position
         center_x, center_y = (
@@ -118,4 +119,5 @@ class Carriage:
                 max_wait_time_ms=passenger_max_wait_time_ms,
                 rotation_degrees=draw_degrees,
                 display_position=(center_x + rotated_x, center_y + rotated_y),
+                reduced_motion=reduced_motion,
             )

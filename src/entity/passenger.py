@@ -45,12 +45,16 @@ class Passenger:
         max_wait_time_ms: int | None = None,
         rotation_degrees: float | None = None,
         display_position: Point | tuple[float, float] | None = None,
+        reduced_motion: bool = False,
     ):
+        # reduced_motion (D-029) holds the warning state visible instead of
+        # blinking it off; default False keeps the historical skip byte-exact.
         if (
             current_time_ms is not None
             and max_wait_time_ms is not None
             and self.should_blink_for_wait(max_wait_time_ms)
             and not self.is_warning_blink_visible(current_time_ms)
+            and not reduced_motion
         ):
             return
         draw_position = self.position if display_position is None else display_position

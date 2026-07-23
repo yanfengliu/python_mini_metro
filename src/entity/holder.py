@@ -29,6 +29,7 @@ class Holder(ABC):
         surface: pygame.surface.Surface,
         current_time_ms: int | None = None,
         passenger_max_wait_time_ms: int | None = None,
+        reduced_motion: bool = False,
     ):
         # draw self
         self.shape.draw(surface, self.position)
@@ -52,6 +53,7 @@ class Holder(ABC):
                 current_time_ms=current_time_ms,
                 max_wait_time_ms=passenger_max_wait_time_ms,
                 display_position=display_position,
+                reduced_motion=reduced_motion,
             )
 
             if col < (self.passengers_per_row - 1):

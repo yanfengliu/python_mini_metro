@@ -11,6 +11,7 @@ callable, so headless and programmatic entries never meet this module.
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 from enum import Enum, auto
 
 import pygame
@@ -20,11 +21,14 @@ from event.keyboard import KeyboardEvent
 from event.mouse import MouseEvent
 from event.type import KeyboardEventType, MouseEventType
 from geometry.point import Point
-from ui.menu_screens import pause_menu_layout, title_layout
+from settings import DEFAULT_SETTINGS
+from ui.menu_screens import pause_menu_layout, settings_menu_layout, title_layout
 
 GameTriple = tuple[object, object, object]
 _MENU_REASON = "menu"
 _LOAD_FAILURE_NOTICE = "Could not load the saved game."
+_VOLUME_STEP = 25
+_VOLUME_MAX = 100
 
 
 class AppScreen(Enum):
@@ -34,6 +38,13 @@ class AppScreen(Enum):
     PLAYING = auto()
     PAUSE_MENU = auto()
     GAME_OVER = auto()
+    SETTINGS = auto()
+
+
+def _cycle_volume(value: int) -> int:
+    # Step to the next grid multiple of 25, wrapping past 100 back to 0.
+    nxt = (value // _VOLUME_STEP + 1) * _VOLUME_STEP
+    return 0 if nxt > _VOLUME_MAX else nxt
 
 
 def _is_key_up(event: object, key: int) -> bool:
@@ -71,21 +82,29 @@ class AppController:
         build_from: Callable[[object], GameTriple] | None = None,
         autosave: object | None = None,
         highscores: object | None = None,
+        settings: object | None = None,
     ) -> None:
         self._build_game = build_game
-        # Every seam is optional with an inert default (D-027/D-028): a
+        # Every seam is optional with an inert default (D-027/D-028/D-029): a
         # controller built without them never autosaves, never records a high
-        # score, keeps Continue unavailable, and behaves exactly as the GM-07a
-        # baseline did.
+        # score, never persists settings, keeps Continue unavailable, and
+        # behaves exactly as the GM-07a baseline did.
         self._build_from = build_from
         self._autosave = autosave
         self._highscores = highscores
+        self._settings = settings
         self.state = start_state
         self._armed_menu_control: str | None = None
+        self._settings_origin = AppScreen.TITLE
         self.notice: str | None = None
         # The most recent game-over record result, or None when the last
         # promotion had no seam or minted no record (D-028/MINOR-7).
         self.last_highscore_result: object | None = None
+        # The presentation-only settings value edited by the SETTINGS screen
+        # (D-029); a seam-less controller keeps the typed defaults in memory.
+        self.current_settings = (
+            settings.load() if settings is not None else DEFAULT_SETTINGS
+        )
         self.mediator, self.renderer, self.session = build_game()
 
     def _autosave_save(self) -> None:
@@ -143,6 +162,8 @@ class AppController:
             self._handle_title(event)
         elif self.state is AppScreen.GAME_OVER:
             self._handle_game_over(event)
+        elif self.state is AppScreen.SETTINGS:
+            self._handle_settings(event)
 
     def _start_new_game(self) -> None:
         self.mediator, self.renderer, self.session = self._build_game()
@@ -220,6 +241,11 @@ class AppController:
             # released, so a later Continue reloads the menu-entry document.
             self._autosave_save()
             self._close_pause_menu(AppScreen.TITLE)
+        elif armed == "settings":
+            # Open settings WITHOUT releasing the menu hold, so Back returns to a
+            # still-paused pause menu (D-029); the armed control is already
+            # cleared above.
+            self._open_settings(AppScreen.PAUSE_MENU)
 
     def _handle_title(self, event: object) -> None:
         if _is_key_up(event, pygame.K_RETURN):
@@ -235,6 +261,8 @@ class AppController:
             self._continue_game()
         elif _clicked(layout, "exit", position):
             raise SystemExit
+        elif _clicked(layout, "settings", position):
+            self._open_settings(AppScreen.TITLE)
 
     def _handle_game_over(self, event: object) -> None:
         # Mirrors the historical loop-inline branch: R restarts, Escape exits,
@@ -255,3 +283,40 @@ class AppController:
         elif action == "exit":
             self._autosave_delete()
             raise SystemExit
+
+    def _open_settings(self, origin: AppScreen) -> None:
+        # Record where Back returns to; entering from the pause menu keeps the
+        # menu hold, so this never touches the pause reason (D-029).
+        self._settings_origin = origin
+        self.state = AppScreen.SETTINGS
+
+    def _handle_settings(self, event: object) -> None:
+        position = _mouse_up_position(event)
+        if position is None:
+            return
+        layout = settings_menu_layout(screen_width, screen_height)
+        if _clicked(layout, "back", position):
+            self.state = self._settings_origin
+            return
+        updated = self._edited_settings(layout, position)
+        if updated is None:
+            return
+        # Update in memory so the live consumers work even seam-less; persist
+        # once through the seam when one is present (D-029).
+        self.current_settings = updated
+        if self._settings is not None:
+            self._settings.save(updated)
+
+    def _edited_settings(self, layout: dict[str, pygame.Rect], position: Point):
+        current = self.current_settings
+        if _clicked(layout, "fullscreen", position):
+            return replace(current, fullscreen=not current.fullscreen)
+        if _clicked(layout, "reduced_motion", position):
+            return replace(current, reduced_motion=not current.reduced_motion)
+        if _clicked(layout, "master_volume", position):
+            return replace(current, master_volume=_cycle_volume(current.master_volume))
+        if _clicked(layout, "music_volume", position):
+            return replace(current, music_volume=_cycle_volume(current.music_volume))
+        if _clicked(layout, "sfx_volume", position):
+            return replace(current, sfx_volume=_cycle_volume(current.sfx_volume))
+        return None

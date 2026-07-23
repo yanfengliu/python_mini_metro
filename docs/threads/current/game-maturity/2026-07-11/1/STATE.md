@@ -6,23 +6,23 @@ Active goal thread: `019f7c1a-897b-7c31-9662-4edbb4e128a6`
 
 Current increment: GM-07 - Application shell and persistence
 
-Current substep: GM-07e - deterministic per-frame game-over reconciliation (the second filed GM-07d follow-up chip)
+Current substep: GM-08a - typed settings store and SETTINGS screen
 
-Current status: GM-07d landed on `origin/main` at `28d86e5` through its evidence `60f59c0` (GM-07d:B), the atomic-writer fd-leak fix `2873acb` (GM-07d:C), and its evidence `28d86e5` (GM-07d:D); GM-07e Commit A `a720cf7` sits on that base and evidence-only Commit B is active while GM-08 remains closed
+Current status: GM-07 is remotely finalized on `origin/main` at `131e0da` — GM-07d:A-D (`02c7f7f`/`60f59c0`/`2873acb`/`28d86e5`), GM-07e:A/B (`a720cf7`/`35d7ee8`), and GM-07b:E (`3757a2c`/`131e0da`), every exact CI green; GM-08a implementation and D-029 passed local product gates, a harness review lane with a windowed run, and an escalated external Codex persistence lane whose findings were folded (two majors fixed red-first plus minors) and re-reviewed, with all gates green at 1277/0 Python and 249/0 Node, so Commit A staging (rebased onto `origin/main` merging GM-07e's `reconcile_game_over` into the SETTINGS wiring) is active
 
-Durability transaction: GM-07c is remotely finalized through Commit B; GM-07d landed on `origin/main` through `28d86e5`; GM-07e Commit A `a720cf7` sits on that base and evidence-only `[GM-07e:B]` is the active transaction
+Durability transaction: GM-07 is remotely finalized through `131e0da`; `[GM-08a:A]` is the active implementation transaction
 
-Last remotely finalized work unit: GM-07d on `origin/main` at `28d86e5` (GM-07d:D)
+Last remotely finalized work unit: GM-07b:E at `131e0da`, completing the GM-07 milestone
 
-Expected remote implementation baseline: `28d86e5` (GM-07d finalized), with GM-07e Commit A `a720cf7` delivered on top pending its own remote CI
+Expected remote implementation baseline: `origin/main` at `131e0da` (GM-07 finalized, including the GM-07d:C/D fd-guard, GM-07e reconcile, and GM-07b:E follow-ups); GM-08a Commit A rebases onto it before its own exact workflow
 
-Current transaction marker: `[GM-07e:B]`
+Current transaction marker: `[GM-08a:A]`
 
 ## Resume here
 
-1. Preserve remotely finalized GM-06/GM-07a/GM-07b/GM-07c/GM-07d history (`origin/main` at `28d86e5`), GM-07e Commit A `a720cf7`, the pre-existing `.agents/` tree, unrelated ignored `output/`, the retained isolated pin, and the live `../civ-engine` sibling.
-2. Self-review, stage, commit, and push only the evidence documents in `[GM-07e:B]` without touching production or unrelated state.
-3. Wait for GM-07e's exact `build` and `rl-smoke` jobs; only GM-08's opening Commit A may reconcile that result, mark GM-07 remotely finalized and complete, and open the tutorial/settings/audio work.
+1. Preserve remotely finalized GM-06/GM-07 history (`origin/main` at `131e0da`, the whole GM-07 milestone including the GM-07d:C/D fd-guard, GM-07e reconcile, and GM-07b:E follow-ups), exact-green GM-08a Commit A, the pre-existing `.agents/` tree, unrelated ignored `output/`, the retained isolated pin, and the live `../civ-engine` sibling outside GM-08a.
+2. Wait for GM-08a Commit A's exact `build` and `rl-smoke`, then bind the result in evidence-only `[GM-08a:B]`; GM-08b remains closed until B is remotely reconciled.
+3. GM-08a rebased onto `origin/main` merging GM-07e's `reconcile_game_over` into the SETTINGS wiring (app_controller/main auto-merged; ARCHITECTURE/PROGRESS additive; GM-07e's `_LoopRenderer` fake updated for the new `reduced_motion` kwarg), full suite re-verified 1277/0.
 
 ## Increment ledger
 
@@ -35,8 +35,8 @@ Current transaction marker: `[GM-07e:B]`
 | GM-04 | complete | `8cff620` failed setup; `16d7860` failed downstream; `069973c` implementation success; `41ecfc6` GM-04b finalization; `60ac953` / `8c4ba85` GM-04c A/B | [run 29748574695](https://github.com/yanfengliu/python_mini_metro/actions/runs/29748574695) and [run 29753292420](https://github.com/yanfengliu/python_mini_metro/actions/runs/29753292420) failed; [run 29757294004](https://github.com/yanfengliu/python_mini_metro/actions/runs/29757294004), [run 29758092140](https://github.com/yanfengliu/python_mini_metro/actions/runs/29758092140), [run 29763804498](https://github.com/yanfengliu/python_mini_metro/actions/runs/29763804498), and [run 29764619993](https://github.com/yanfengliu/python_mini_metro/actions/runs/29764619993) succeeded | Isolated pinned recursive tooling remotely finalized |
 | GM-05 | complete | `c7effd8` / `47b9349` / `37865d4` / `0d6f5b9` / `242f400` / `b5295c0` | GM-05a through GM-05c A/B green | Atomic replacement, full redraw, and route handles remotely finalized |
 | GM-06 | complete | `d587b63` / `0a69d64` / `df04fb6` / `29cb64c` / `3319b48` / `80cc611` / `a21a3c0` / `62d26a2` / `325a055` | GM-06a A/B green; GM-06b A/A2/B preserved with B run 29809810291 green; GM-06c A/B runs 29853718512 and 29854939135 green; GM-06d A/B runs 29893340731 and 29893673381 green | Fleet and carriage resource management remotely finalized |
-| GM-07 | in progress | `baa5bf8` / `272ba2d` / `5906370` / `5e388cc` / `db9d4fb` / `3625087` / `02c7f7f` / `60f59c0` / `2873acb` / `28d86e5` / `a720cf7` | GM-07a/GM-07b/GM-07c A/B green; GM-07d A run 29966701930 succeeded, B/C/D on origin/main | GM-07d finalized on origin/main through `28d86e5`; GM-07e (deterministic per-frame game-over reconciliation) Commit A `a720cf7` in, evidence-only Commit B active |
-| GM-08 | pending | - | - | Tutorial, settings, audio |
+| GM-07 | complete | `baa5bf8` / `272ba2d` / `5906370` / `5e388cc` / `db9d4fb` / `3625087` / `02c7f7f` / `60f59c0` / `2873acb` / `28d86e5` / `a720cf7` / `35d7ee8` / `3757a2c` / `131e0da` | GM-07a-e A/B green plus the GM-07b:E follow-up, every exact CI green | Application shell and persistence remotely finalized: pause model, versioned save/load, atomic autosave + Continue, high-score leaderboard, the twin atomic-writer fd-guard, deterministic per-frame game-over reconciliation, and the stale-service-cache fixes |
+| GM-08 | in progress | - | GM-08a review-clean; Commit A staging active | Tutorial, settings, audio |
 | GM-09 | pending | - | - | Maps, rivers/tunnels |
 | GM-10 | pending | - | - | Weekly progression and upgrades |
 | GM-11 | pending | - | - | Evidence-based balance and recursive playtest |
@@ -79,8 +79,8 @@ Current transaction marker: `[GM-07e:B]`
 | GM-07a | complete | `baa5bf8` / run `29907589648` success | `272ba2d` / run `29907985159` success | App shell, screen states, and the pause-reason model remotely finalized |
 | GM-07b | complete | `5906370` / run `29941339839` success | `5e388cc` / run `29941743007` success | Versioned v1 save/load remotely finalized; the stale-service-cache follow-ups landed separately as `9a33aaf` (GM-07b:C, checkpoint verifier) and `abe36fe` (GM-07b:D, carriage attach/detach) |
 | GM-07c | complete | `db9d4fb` / run `29955655699` success | `3625087` / run `29956050082` success | Atomic autosave, Continue, and menu integration remotely finalized |
-| GM-07d | implementation-ci-green | `02c7f7f` / run `29966701930` success | `[GM-07d:B]` active | Map/rules high-score leaderboard delivered exact-head remote green after rebasing onto GM-07b:D and folding the escalated external Codex persistence lane's findings (six fixed, one MAJOR accepted per D-027 with a follow-up chip, two minors accepted with note); evidence finalization remains |
-| GM-08a | pending | - | - | Typed settings |
+| GM-07d | complete | `02c7f7f` / run `29966701930` success | `60f59c0` / run `29967102041` success | Map/rules high-score leaderboard remotely finalized; the accepted MAJOR (eventless game-over) and the fd-guard follow-ups landed as GM-07e (`a720cf7`/`35d7ee8`) and GM-07d:C/D (`2873acb`/`28d86e5`) |
+| GM-08a | implementation-reviewed | `[GM-08a:A]` active | - | Typed settings store + SETTINGS screen (D-029, the owner-chosen full three-category store); a harness lane with a windowed run plus an escalated external Codex persistence lane whose findings were folded (two majors fixed red-first — carriage-rider reduced motion and a non-string-key ValueError — plus minors) and re-reviewed, at 1277/0 Python and 249/0 Node; staging pending |
 | GM-08b | pending | - | - | Domain events/audio/null backend |
 | GM-08c | pending | - | - | Real-control tutorial |
 | GM-09a | pending | - | - | Classic map identity/parity |

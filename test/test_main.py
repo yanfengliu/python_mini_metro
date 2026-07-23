@@ -12,6 +12,7 @@ from config import framerate, screen_height, screen_width
 from game_session import GameSession
 from mediator import Mediator
 from path_redraw import PathRedrawGesture
+from settings import DEFAULT_SETTINGS
 
 
 class TestMain(unittest.TestCase):
@@ -124,6 +125,9 @@ class TestMain(unittest.TestCase):
             patch("main.GameSession") as session_mock,
             patch("main.GameRenderer") as renderer_mock,
             patch("main.convert_pygame_event") as convert_mock,
+            # Insulate the settings load so the set_mode-once assertion below is
+            # independent of any developer machine's persisted fullscreen=True.
+            patch("main.read_settings", return_value=DEFAULT_SETTINGS),
         ):
             pygame_mock.QUIT = 12
             window = MagicMock()
@@ -154,7 +158,7 @@ class TestMain(unittest.TestCase):
             session.dispatch.assert_called_once_with(converted)
             session.advance.assert_called_once_with(17)
             renderer_mock.return_value.draw.assert_called_once_with(
-                game_surface, mediator, alpha=0.25
+                game_surface, mediator, alpha=0.25, reduced_motion=False
             )
             pygame_mock.display.flip.assert_called_once()
 

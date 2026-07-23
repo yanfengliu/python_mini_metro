@@ -23,9 +23,21 @@ from config import (
 
 _TITLE_HEADING = "MINI METRO"
 _PAUSE_HEADING = "PAUSED"
+_SETTINGS_HEADING = "SETTINGS"
 _BEST_INDICATOR_TEXT = "NEW BEST"
 _HEADING_FONT_SIZE = 96
 _HEADING_GAP = 60
+# Settings rows carry value labels ("Reduced Motion: On"), so they use a wider
+# button than the menu stacks; centering is on the screen midline regardless.
+_SETTINGS_BUTTON_WIDTH = 620
+_SETTINGS_KEYS = (
+    "fullscreen",
+    "master_volume",
+    "music_volume",
+    "sfx_volume",
+    "reduced_motion",
+    "back",
+)
 
 
 def _font(name: str | None, size: int) -> pygame.font.Font:
@@ -43,11 +55,14 @@ def _font(name: str | None, size: int) -> pygame.font.Font:
 
 
 def _stacked_buttons(
-    width: int, keys: tuple[str, ...], top: int
+    width: int,
+    keys: tuple[str, ...],
+    top: int,
+    button_width: int = game_over_button_width,
 ) -> dict[str, pygame.Rect]:
     layout: dict[str, pygame.Rect] = {}
     for key in keys:
-        rect = pygame.Rect(0, 0, game_over_button_width, game_over_button_height)
+        rect = pygame.Rect(0, 0, button_width, game_over_button_height)
         rect.centerx = width // 2
         rect.top = top
         layout[key] = rect
@@ -58,12 +73,12 @@ def _stacked_buttons(
 def title_layout(width: int, height: int) -> dict[str, pygame.Rect]:
     """Deterministic, disjoint hit-test rects for the title-screen controls."""
 
-    # Three stacked buttons (New Game / Continue / Exit) centered on the middle
-    # slot, so all three stay on-screen and pairwise-disjoint; the heading stays
-    # anchored to the first key.
+    # Four stacked buttons (New Game / Continue / Exit / Settings) anchored to
+    # the middle slot; Settings is APPENDED so the prior three rects are byte
+    # identical to GM-07c, and the heading stays anchored to the first key.
     return _stacked_buttons(
         width,
-        ("new_game", "continue", "exit"),
+        ("new_game", "continue", "exit", "settings"),
         height // 2 - game_over_button_height - game_over_button_spacing,
     )
 
@@ -71,10 +86,29 @@ def title_layout(width: int, height: int) -> dict[str, pygame.Rect]:
 def pause_menu_layout(width: int, height: int) -> dict[str, pygame.Rect]:
     """Deterministic, disjoint hit-test rects for the pause-menu controls."""
 
+    # Settings is appended after Exit to Title, so the prior three rects are
+    # unchanged from GM-07c.
     return _stacked_buttons(
         width,
-        ("resume", "restart", "exit_to_title"),
+        ("resume", "restart", "exit_to_title", "settings"),
         height // 2 - game_over_button_height - game_over_button_spacing,
+    )
+
+
+def settings_menu_layout(width: int, height: int) -> dict[str, pygame.Rect]:
+    """Deterministic, disjoint hit-test rects for the settings-screen controls."""
+
+    # Six wider rows (fullscreen, three volumes, reduced motion, back) centered
+    # vertically so the whole stack stays on-screen.
+    count = len(_SETTINGS_KEYS)
+    stack_height = (
+        count * game_over_button_height + (count - 1) * game_over_button_spacing
+    )
+    return _stacked_buttons(
+        width,
+        _SETTINGS_KEYS,
+        height // 2 - stack_height // 2,
+        button_width=_SETTINGS_BUTTON_WIDTH,
     )
 
 
@@ -123,6 +157,7 @@ def draw_title_screen(
     if continue_available:
         _draw_button(surface, layout["continue"], "Continue")
     _draw_button(surface, layout["exit"], "Exit")
+    _draw_button(surface, layout["settings"], "Settings")
 
 
 def draw_notice(surface: pygame.Surface, message: str) -> None:
@@ -181,5 +216,37 @@ def draw_pause_menu(surface: pygame.Surface) -> None:
         ("resume", "Resume"),
         ("restart", "Restart"),
         ("exit_to_title", "Exit to Title"),
+        ("settings", "Settings"),
     ):
+        _draw_button(surface, layout[key], label)
+
+
+def _on_off(value: bool) -> str:
+    return "On" if value else "Off"
+
+
+def draw_settings_menu(surface: pygame.Surface, settings: object) -> None:
+    """Paint deterministic settings chrome reflecting the current ``settings``.
+
+    Byte-stable for a given ``settings`` value: every label sits on an opaque
+    fill painted in the same call, so redraws over existing chrome are
+    identical. Volumes read as integer percents; the toggles read On/Off.
+    """
+
+    width, height = surface.get_size()
+    layout = settings_menu_layout(width, height)
+    _draw_heading(
+        surface, width, layout["fullscreen"].top - _HEADING_GAP, _SETTINGS_HEADING
+    )
+    # Volumes are stored only until the GM-08b audio backend consumes them, so
+    # the rows say so and set no expectation of an audible effect yet.
+    rows = (
+        ("fullscreen", f"Fullscreen: {_on_off(settings.fullscreen)}"),
+        ("master_volume", f"Master Volume: {settings.master_volume}% (stored)"),
+        ("music_volume", f"Music Volume: {settings.music_volume}% (stored)"),
+        ("sfx_volume", f"SFX Volume: {settings.sfx_volume}% (stored)"),
+        ("reduced_motion", f"Reduced Motion: {_on_off(settings.reduced_motion)}"),
+        ("back", "Back"),
+    )
+    for key, label in rows:
         _draw_button(surface, layout[key], label)

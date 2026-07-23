@@ -32,6 +32,7 @@ SAVE_MODULE_NAMES = {
     "save_load",
     "save_schema_records",
     "highscores",
+    "settings",
 }
 
 # PLACEHOLDER pins — the implementer freezes scripts/fixtures/save-v1.json by

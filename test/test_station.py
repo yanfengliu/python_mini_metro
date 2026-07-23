@@ -158,6 +158,7 @@ class TestStation(unittest.TestCase):
                 current_time_ms=None,
                 max_wait_time_ms=None,
                 display_position=display_position.to_tuple(),
+                reduced_motion=False,
             )
 
         station.remove_passenger(passengers[0])
@@ -205,6 +206,7 @@ class TestStation(unittest.TestCase):
                 max_wait_time_ms=None,
                 rotation_degrees=0,
                 display_position=expected_position.to_tuple(),
+                reduced_motion=False,
             )
 
     def test_metro_draw_rotates_passenger_grid_with_metro(self):
@@ -237,6 +239,7 @@ class TestStation(unittest.TestCase):
             max_wait_time_ms=None,
             rotation_degrees=90,
             display_position=expected_position.to_tuple(),
+            reduced_motion=False,
         )
 
     def test_metro_draw_uses_visual_pose_and_restores_shape_state(self):

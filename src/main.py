@@ -30,10 +30,12 @@ from mediator import Mediator
 from rendering.game_renderer import GameRenderer
 from save_game import load_game, save_game
 from save_schema import SAVE_RULES_VERSION
+from settings import load_settings, save_settings
 from ui.menu_screens import (
     draw_best_indicator,
     draw_notice,
     draw_pause_menu,
+    draw_settings_menu,
     draw_title_screen,
     title_layout,
 )
@@ -43,6 +45,23 @@ from ui.viewport import get_viewport_transform
 AUTOSAVE_PATH = Path(save_dir_name) / "autosave.json"
 # Persistent high-score leaderboard (D-028); patchable so tests never touch it.
 HIGHSCORES_PATH = Path(save_dir_name) / "highscores.json"
+# Persistent presentation-only settings (D-029); patchable so tests never touch it.
+SETTINGS_PATH = Path(save_dir_name) / "settings.json"
+
+
+def read_settings():
+    # load_settings already fails safe to DEFAULT_SETTINGS and never raises; the
+    # module-level path is resolved at call time so tests can redirect it.
+    return load_settings(SETTINGS_PATH)
+
+
+def write_settings(settings) -> None:
+    # Best-effort persist that never blocks the settings screen; save_settings
+    # raises on failure and the swallow lives here, as for autosave/highscores.
+    try:
+        save_settings(settings, SETTINGS_PATH)
+    except Exception:
+        pass
 
 
 def record_highscore(mediator: object) -> RecordResult | None:
@@ -167,6 +186,10 @@ def run_game(
 
     highscores = SimpleNamespace(record=_record_promotion)
 
+    # The controller loads presentation-only settings at construction and edits
+    # them through this seam on the SETTINGS screen (D-029).
+    settings = SimpleNamespace(load=read_settings, save=write_settings)
+
     if start_state is None:
         start_state = AppScreen.PLAYING if max_frames is not None else AppScreen.TITLE
     controller = AppController(
@@ -175,13 +198,28 @@ def run_game(
         build_from=build_from,
         autosave=autosave,
         highscores=highscores,
+        settings=settings,
     )
     presentation_surface: pygame.Surface | None = None
     previous_session = controller.session
     frames = 0
+    # The startup set_mode above stays windowed (RESIZABLE); fullscreen is a
+    # separate later set_mode applied only when the setting changes (D-029), so
+    # the initial call keeps its exact windowed contract.
+    applied_fullscreen = False
 
     while True:
         elapsed_ms = clock.tick(framerate)
+        if controller.current_settings.fullscreen != applied_fullscreen:
+            applied_fullscreen = controller.current_settings.fullscreen
+            window_flags = (
+                pygame.FULLSCREEN | pygame.SCALED
+                if applied_fullscreen
+                else pygame.RESIZABLE
+            )
+            window_surface = pygame.display.set_mode(
+                (screen_width, screen_height), window_flags
+            )
         window_width, window_height = get_window_size(window_surface)
         viewport = get_viewport_transform(
             window_width, window_height, screen_width, screen_height
@@ -221,7 +259,10 @@ def run_game(
 
         state = controller.state
         session = controller.session
-        if state == AppScreen.TITLE or session is not previous_session:
+        if (
+            state in (AppScreen.TITLE, AppScreen.SETTINGS)
+            or session is not previous_session
+        ):
             advance = session.advance(0)
         else:
             advance = session.advance(elapsed_ms)
@@ -243,9 +284,16 @@ def run_game(
                 _draw_title_continue_button(game_surface)
             if controller.notice:
                 draw_notice(game_surface, controller.notice)
+        elif state == AppScreen.SETTINGS:
+            # A full-screen settings panel over the frozen game (D-029); its own
+            # chrome, not the game frame.
+            draw_settings_menu(game_surface, controller.current_settings)
         else:
             controller.renderer.draw(
-                game_surface, controller.mediator, alpha=advance.alpha
+                game_surface,
+                controller.mediator,
+                alpha=advance.alpha,
+                reduced_motion=controller.current_settings.reduced_motion,
             )
             if state == AppScreen.PAUSE_MENU:
                 draw_pause_menu(game_surface)
