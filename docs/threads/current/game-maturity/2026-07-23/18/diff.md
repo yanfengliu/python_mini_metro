@@ -1,6 +1,6 @@
 # GM-09a Classic map abstraction — diff ledger
 
-Status: implemented and locally green; behavior-preserving (byte-identical construction + trajectory). Ready for the CI-gated `[GM-09a:A]` commit. The map-ABSTRACTION half of the dual-reviewed re-scope; GM-09a2 (versioned task identity) follows.
+Status: delivered as Commit A `89ffe3b` (clean fast-forward onto `origin/main` at `9b37532`), exact [run 30024082166](https://github.com/yanfengliu/python_mini_metro/actions/runs/30024082166) green (`build` `89263943575`, `rl-smoke` `89263943462`); evidence-only Commit B `[GM-09a:B]` active. Behavior-preserving (byte-identical construction + trajectory). The map-ABSTRACTION half of the dual-reviewed re-scope; GM-09a2 (versioned task identity) follows.
 
 ## Implemented production surface
 

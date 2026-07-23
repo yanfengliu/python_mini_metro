@@ -38,4 +38,4 @@ NOT CLEAN → re-scoped into two risk-isolated units with all findings folded; t
 - **Empirical** (driver): 60 seeds, 0 mismatches between the default (list) and explicit-Classic (tuple) station draws including both RNG states; 59/60 exercise the unique-shape path.
 
 ## Result
-CLEAN → the map abstraction is byte-identical to pre-change behavior (construction + trajectory), independently proven; the save guard is fail-closed with no byte change; import-safety and immutability hold. Local gates green (full suite 1336/0 + 12 skips, GM-09a 12/0, ruff/pre-commit clean, budgets held). Ready for CI-gated `[GM-09a:A]` delivery.
+CLEAN → the map abstraction is byte-identical to pre-change behavior (construction + trajectory), independently proven; the save guard is fail-closed with no byte change; import-safety and immutability hold. Local gates green (full suite 1336/0 + 12 skips, GM-09a 12/0, ruff/pre-commit clean, budgets held). Delivered as Commit A `89ffe3b`, exact [run 30024082166](https://github.com/yanfengliu/python_mini_metro/actions/runs/30024082166) green.
