@@ -12,7 +12,7 @@ from carriage_transaction_snapshot import (
 )
 from fleet_validation import service_cache_is_canonical
 
-QueueStateCheck = Callable[[Any], bool]
+QueueStateCheck = Callable[..., bool]
 ReconcileStationService = Callable[[Any], None]
 
 
@@ -46,6 +46,7 @@ def reconcile_queue_transition(
     queue_state_is_canonical: QueueStateCheck,
     restore_flag: Any,
     label: str,
+    allow_stale_bound: bool = False,
 ) -> bool:
     """Rebind the flipped Metro's at-station service cache transactionally.
 
@@ -54,6 +55,11 @@ def reconcile_queue_transition(
     identity-matching fraction, dropping a no-longer-legal boarding
     binding, and binding a newly legal action. Any failure restores the
     complete pre-reconcile state including the queue flag and refuses.
+
+    ``allow_stale_bound`` relaxes only the whole-fleet postcondition so a
+    user queue/cancel tolerates an unrelated Metro's transient stale-bound
+    cache (committed-around verbatim by the identity ``transaction_state_matches``);
+    the touched Metro's own cache stays strictly oracle-bound.
     """
 
     state = snapshot_transaction_state(host)
@@ -63,7 +69,7 @@ def reconcile_queue_transition(
             raise ValueError(f"{label} reconciliation changed unrelated state")
         if not service_cache_is_canonical(
             host, metro, allow_unbound=False
-        ) or not queue_state_is_canonical(host):
+        ) or not queue_state_is_canonical(host, allow_stale_bound=allow_stale_bound):
             raise ValueError(f"{label} reconciliation failed its postcondition")
     except BaseException as error:
         traceback = error.__traceback__

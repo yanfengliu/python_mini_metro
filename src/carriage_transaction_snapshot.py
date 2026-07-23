@@ -289,8 +289,15 @@ def transaction_state_matches(
     carriage_override: tuple[Any, tuple[Any, ...]] | None = None,
     allow_service_change: Any | None = None,
     removed_owner: tuple[Any, Any] | None = None,
+    added_owner: tuple[Any, Any] | None = None,
 ) -> bool:
-    """Check the complete snapshot, allowing one exact composition transition."""
+    """Check the complete snapshot, allowing one exact composition transition.
+
+    ``removed_owner=(path, metro)`` expects that exact Metro gone from the
+    global and owning-path fleets; ``added_owner=(path, metro)`` expects it
+    appended to both (the snapshot must predate the append, so the new Metro
+    has no per-record entry to check). The two are mutually exclusive per call.
+    """
 
     try:
         host_state = state["host"]
@@ -313,6 +320,8 @@ def transaction_state_matches(
             if name == "metros" and removed_owner is not None:
                 _path, removed_metro = removed_owner
                 contents = tuple(item for item in contents if item is not removed_metro)
+            if name == "metros" and added_owner is not None:
+                contents = (*contents, added_owner[1])
             if getattr(host, name) is not collection or not _same_identity(
                 collection, contents
             ):
@@ -349,6 +358,12 @@ def transaction_state_matches(
                     contents = tuple(
                         item for item in contents if item is not removed_owner[1]
                     )
+                if (
+                    name == "metros"
+                    and added_owner is not None
+                    and path is added_owner[0]
+                ):
+                    contents = (*contents, added_owner[1])
                 if getattr(path, name) is not collection or not _same_identity(
                     collection, contents
                 ):

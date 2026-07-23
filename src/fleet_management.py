@@ -31,34 +31,6 @@ def _same_identity_contents(collection: list[Any], contents: tuple[Any, ...]) ->
     )
 
 
-def _is_exact_append(
-    collection: list[Any], contents: tuple[Any, ...], appended: Any
-) -> bool:
-    return (
-        len(collection) == len(contents) + 1
-        and all(current is expected for current, expected in zip(collection, contents))
-        and collection[-1] is appended
-    )
-
-
-def _restore_collection(owner: Any, name: str, collection: list[Any], contents) -> None:
-    setattr(owner, name, collection)
-    list.clear(collection)
-    list.extend(collection, contents)
-
-
-def _restore_owner_lists(
-    host: Any,
-    path: Any,
-    path_collection: list[Any],
-    path_contents: tuple[Any, ...],
-    global_collection: list[Any],
-    global_contents: tuple[Any, ...],
-) -> None:
-    _restore_collection(path, "metros", path_collection, path_contents)
-    _restore_collection(host, "metros", global_collection, global_contents)
-
-
 def _active_paths(host: Any) -> tuple[Any, ...] | None:
     paths = getattr(host, "paths", None)
     if not isinstance(paths, list) or not _identity_unique(paths):
@@ -157,6 +129,21 @@ def _queue_state_is_canonical(host: Any, *, allow_stale_bound: bool = False) -> 
     )
 
 
+def _fleet_state_is_canonical(host: Any) -> bool:
+    """Queue-state predicate for user locomotive ops, tolerant of a sibling.
+
+    assign/queue/cancel are orthogonal to another Metro's transient
+    stale-but-structural ``_station_service_action`` (the reachable same-tick
+    sibling-board window GM-07b persists verbatim), so they opt into the same
+    ``allow_stale_bound`` tolerance the checkpoint verifier and carriage guards
+    use. The touched Metro's own postcondition stays strict at its own site,
+    while the automatic ``settle`` reconciler and path-lifecycle removal keep
+    the strict ``_queue_state_is_canonical`` default.
+    """
+
+    return _queue_state_is_canonical(host, allow_stale_bound=True)
+
+
 def _real_station(path: Any, metro: Any) -> bool:
     current = getattr(metro, "current_station", None)
     stations = getattr(path, "stations", ())
@@ -202,7 +189,7 @@ class FleetManagement:
                 return False
             if not _command_target_is_complete(
                 host, path
-            ) or not _queue_state_is_canonical(host):
+            ) or not _fleet_state_is_canonical(host):
                 return False
             total = getattr(host, "num_metros", None)
             return type(total) is int and max(0, total - len(host.metros)) > 0
@@ -218,64 +205,37 @@ class FleetManagement:
     ) -> bool:
         if not self.can_assign(host, path):
             return False
-        path_collection = path.metros
-        path_contents = tuple(path_collection)
-        global_collection = host.metros
-        global_contents = tuple(global_collection)
-        existing_ids = {id(metro) for metro in global_contents}
+        # Full snapshot/rollback, mirroring carriage attach: the only committed
+        # transition is one fresh off-station Metro appended to the owning path
+        # and the global fleet. Every other Metro -- including an unrelated
+        # stale-bound sibling -- is pinned unchanged by identity, so an effectful
+        # factory that touched one is caught and the whole state is restored
+        # verbatim on any failure.
+        state = snapshot_transaction_state(host)
+        existing_ids = {id(metro) for metro in host.metros}
         try:
             factory = get_metro_factory()
             if not callable(factory):
                 raise TypeError("metro factory is not callable")
             metro = factory()
+            if not transaction_state_matches(host, state):
+                raise ValueError("fleet state changed during metro factory resolution")
             if id(metro) in existing_ids:
                 raise ValueError("metro factory returned an assigned identity")
-            if (
-                path.metros is not path_collection
-                or host.metros is not global_collection
-            ):
-                raise ValueError("fleet collection rebound during factory resolution")
-            if not _same_identity_contents(path_collection, path_contents) or not (
-                _same_identity_contents(global_collection, global_contents)
-            ):
-                raise ValueError("fleet collection changed during factory resolution")
 
             path.add_metro(metro)
-            if (
-                path.metros is not path_collection
-                or host.metros is not global_collection
-            ):
-                raise ValueError("fleet collection rebound during route assignment")
-            if not _is_exact_append(path_collection, path_contents, metro) or not (
-                _same_identity_contents(global_collection, global_contents)
-            ):
-                raise ValueError("route assignment did not append the exact identity")
-
             host.metros.append(metro)
-            if (
-                path.metros is not path_collection
-                or host.metros is not global_collection
-            ):
-                raise ValueError("fleet collection rebound during global assignment")
-            if not _is_exact_append(path_collection, path_contents, metro) or not (
-                _is_exact_append(global_collection, global_contents, metro)
-            ):
-                raise ValueError("global assignment did not append the exact identity")
+            if not transaction_state_matches(host, state, added_owner=(path, metro)):
+                raise ValueError("assignment changed unrelated fleet state")
             if not _assignment_initialized(path, metro) or not (
-                _queue_state_is_canonical(host)
+                _fleet_state_is_canonical(host)
             ):
                 raise ValueError("assigned Metro failed its ownership postcondition")
         except BaseException as error:
-            _restore_owner_lists(
-                host,
-                path,
-                path_collection,
-                path_contents,
-                global_collection,
-                global_contents,
-            )
+            traceback = error.__traceback__
+            restore_transaction_state(host, state)
             if not isinstance(error, Exception):
-                raise
+                raise error.with_traceback(traceback)
             return False
         return True
 
@@ -285,7 +245,7 @@ class FleetManagement:
                 return None
             if not _command_target_is_complete(
                 host, path
-            ) or not _queue_state_is_canonical(host):
+            ) or not _fleet_state_is_canonical(host):
                 return None
             for metro in reversed(path.metros):
                 if not metro.passengers and metro.is_unassignment_queued is False:
@@ -324,7 +284,7 @@ class FleetManagement:
             metro._station_service_action = None
             metro.stop_time_remaining_ms = 0
             metro.boarding_progress_ms = 0
-            self._detach(host, path, metro)
+            self._detach(host, path, metro, allow_stale_bound=True)
             return True
         if reconcile_station_service is not None and _real_station(path, metro):
             return reconcile_queue_transition(
@@ -334,6 +294,7 @@ class FleetManagement:
                 queue_state_is_canonical=_queue_state_is_canonical,
                 restore_flag=original_flag,
                 label="queue",
+                allow_stale_bound=True,
             )
         return True
 
@@ -343,7 +304,7 @@ class FleetManagement:
                 return None
             if not _command_target_is_complete(
                 host, path
-            ) or not _queue_state_is_canonical(host):
+            ) or not _fleet_state_is_canonical(host):
                 return None
             for metro in path.metros:
                 if metro.is_unassignment_queued is True:
@@ -377,6 +338,7 @@ class FleetManagement:
                 queue_state_is_canonical=_queue_state_is_canonical,
                 restore_flag=original_flag,
                 label="cancel",
+                allow_stale_bound=True,
             )
         return True
 
@@ -433,7 +395,11 @@ class FleetManagement:
             if not isinstance(metros, list):
                 return 0
         else:
-            if not _path_is_exact_active(host, path) or not _queue_state_is_canonical(
+            # The public per-path queued count stays consistent with
+            # can_queue/can_cancel (not spuriously 0) during an unrelated Metro's
+            # one-tick stale-bound window. (The rendered fleet-button badge does
+            # not read this; it counts the raw is_unassignment_queued flags.)
+            if not _path_is_exact_active(host, path) or not _fleet_state_is_canonical(
                 host
             ):
                 return 0
@@ -444,10 +410,17 @@ class FleetManagement:
         )
 
     @staticmethod
-    def _detach(host: Any, path: Any, metro: Any) -> bool:
+    def _detach(
+        host: Any, path: Any, metro: Any, *, allow_stale_bound: bool = False
+    ) -> bool:
+        # ``allow_stale_bound`` lets the user-initiated queue fast path remove an
+        # empty at-station Metro while an unrelated sibling holds a transient
+        # stale-bound cache; the removed Metro's own cache is cleared first, and
+        # the snapshot-equality ``transaction_state_matches`` still pins the
+        # sibling verbatim. The automatic ``settle`` reconciler leaves it False.
         if (
             not _path_is_complete(host, path)
-            or not _queue_state_is_canonical(host)
+            or not _queue_state_is_canonical(host, allow_stale_bound=allow_stale_bound)
             or getattr(metro, "is_unassignment_queued", None) is not True
             or bool(getattr(metro, "passengers", ()))
             or not _real_station(path, metro)
@@ -489,7 +462,7 @@ class FleetManagement:
             ):
                 raise ValueError("detachment changed unrelated fleet state")
             if not _ownership_is_canonical(host) or not carriage_state_is_canonical(
-                host
+                host, allow_stale_bound=allow_stale_bound
             ):
                 raise ValueError("detachment failed its ownership postcondition")
         except BaseException as error:
