@@ -1,3 +1,0 @@
-# Independent rendering architecture review
-
-The reviewer grounded its claims in the live code and found that `Path.draw()` rebuilds UUID-bearing simulation segments every frame, multiple draw methods mutate model state, input is handled after render, variable wall-clock deltas directly drive simulation, even lane counts are left-biased, and metros can move on geometry different from the displayed lane. It recommended logical centerlines plus immutable visual lanes, value-keyed caching, visual metro projection, pure entity drawing, a fixed 60 Hz accumulator, deterministic surface tests, and retaining pygame-ce rather than rewriting the engine.
