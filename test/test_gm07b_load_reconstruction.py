@@ -422,6 +422,10 @@ class _FailingWriter:
         return self._handle.fileno()
 
 
+class _InjectedFdopenFailure(Exception):
+    """Stand in for a raising os.fdopen (OOM/EMFILE) that never returns a handle."""
+
+
 class TestGM07bAtomicWriteSeams(unittest.TestCase):
     """Inject failures AFTER mkstemp at every atomic-writer seam.
 
@@ -485,6 +489,47 @@ class TestGM07bAtomicWriteSeams(unittest.TestCase):
             for existing in (True, False):
                 with self.subTest(fail_on=fail_on, existing=existing):
                     self._run_injected(fail_on, existing)
+
+    def test_fdopen_failure_closes_the_descriptor_without_masking_or_litter(self):
+        # The one atomic-writer seam the wrapping seams above cannot reach: when
+        # os.fdopen itself raises (OOM/EMFILE) it never returns a handle, so the
+        # with block never runs to close the raw descriptor. The writer must
+        # close that fd in its finally -- otherwise it leaks and, on Windows, the
+        # still-open temporary cannot be unlinked, masking the real error and
+        # leaving .tmp litter behind (codex GM-07d MINOR).
+        save_game_module = _module(self, SAVE_GAME_MODULE)
+        env = _line_env(6251)
+        real_mkstemp = tempfile.mkstemp
+        created = []
+
+        def recording_mkstemp(*args, **kwargs):
+            descriptor, name = real_mkstemp(*args, **kwargs)
+            created.append((descriptor, name))
+            return descriptor, name
+
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory) / "atomic.save.json"
+            destination.write_bytes(b"precious-bytes\n")
+            with (
+                mock.patch("tempfile.mkstemp", recording_mkstemp),
+                mock.patch(
+                    "os.fdopen",
+                    side_effect=_InjectedFdopenFailure("injected fdopen failure"),
+                ),
+            ):
+                # The injected error must propagate unmasked -- no PermissionError
+                # from a doomed unlink of a still-open temporary may replace it.
+                with self.assertRaises(_InjectedFdopenFailure):
+                    save_game_module.save_game(env.mediator, destination)
+            self.assertEqual(len(created), 1, "mkstemp must have run before the fault")
+            descriptor, temporary_name = created[0]
+            # The writer's finally must have closed the raw fd; a leaked (still
+            # open) fd would let this second close succeed instead of raising.
+            with self.assertRaises(OSError):
+                os.close(descriptor)
+            self.assertFalse(Path(temporary_name).exists(), "no .tmp litter may remain")
+            self.assertEqual(destination.read_bytes(), b"precious-bytes\n")
+            self.assertEqual(os.listdir(directory), ["atomic.save.json"])
 
 
 if __name__ == "__main__":

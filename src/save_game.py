@@ -258,12 +258,25 @@ def save_game(mediator: Any, path: Any) -> FilesystemPath:
         dir=destination.parent, prefix=f".{destination.name}.", suffix=".tmp"
     )
     temporary = FilesystemPath(temporary_name)
+    handle_opened = False
     try:
         with os.fdopen(descriptor, "wb") as handle:
+            handle_opened = True
             handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(temporary, destination)
     finally:
+        if not handle_opened:
+            # os.fdopen never returned, so the with block never took ownership
+            # of the descriptor and never closed it. Close the raw fd here so a
+            # failing fdopen (OOM/EMFILE) cannot leak it and -- on Windows -- so
+            # the still-open temporary can be unlinked below without a
+            # PermissionError masking the original failure. Tolerate an already
+            # closed fd: some fdopen failure paths close it before raising.
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
         temporary.unlink(missing_ok=True)
     return destination

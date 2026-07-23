@@ -364,6 +364,10 @@ class TestGM07dLoadHighscores(unittest.TestCase):
                 )
 
 
+class _InjectedFdopenFailure(Exception):
+    """Stand in for a raising os.fdopen (OOM/EMFILE) that never returns a handle."""
+
+
 class TestGM07dSaveHighscores(unittest.TestCase):
     def test_save_writes_canonical_ascii_bytes(self):
         save_highscores = _symbol(self, "save_highscores")
@@ -431,6 +435,45 @@ class TestGM07dSaveHighscores(unittest.TestCase):
                 "an invalid board must never overwrite a valid file",
             )
             self.assertEqual(os.listdir(directory), ["highscores.json"], "no litter")
+
+    def test_fdopen_failure_closes_the_descriptor_without_masking_or_litter(self):
+        # Twin of the save_game seam test: when os.fdopen itself raises
+        # (OOM/EMFILE) it never returns a handle, so the with block never runs to
+        # close the raw descriptor. The writer must close that fd in its finally,
+        # or it leaks and -- on Windows -- the still-open temporary cannot be
+        # unlinked, masking the real error and leaving .tmp litter (codex MINOR).
+        save_highscores = _symbol(self, "save_highscores")
+        created: list[tuple[int, str]] = []
+        real_mkstemp = tempfile.mkstemp
+
+        def recording_mkstemp(*args, **kwargs):
+            descriptor, name = real_mkstemp(*args, **kwargs)
+            created.append((descriptor, name))
+            return descriptor, name
+
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "highscores.json"
+            target.write_bytes(b"precious-bytes\n")
+            with (
+                mock.patch("tempfile.mkstemp", recording_mkstemp),
+                mock.patch(
+                    "os.fdopen",
+                    side_effect=_InjectedFdopenFailure("injected fdopen failure"),
+                ),
+            ):
+                # The injected error must propagate unmasked -- no PermissionError
+                # from a doomed unlink of a still-open temporary may replace it.
+                with self.assertRaises(_InjectedFdopenFailure):
+                    save_highscores(_valid_doc(), target)
+            self.assertEqual(len(created), 1, "mkstemp ran before the injected fault")
+            descriptor, temporary_name = created[0]
+            # The writer's finally must have closed the raw fd; a leaked (still
+            # open) fd would let this second close succeed instead of raising.
+            with self.assertRaises(OSError):
+                os.close(descriptor)
+            self.assertFalse(Path(temporary_name).exists(), "no .tmp litter may remain")
+            self.assertEqual(target.read_bytes(), b"precious-bytes\n")
+            self.assertEqual(os.listdir(directory), ["highscores.json"])
 
 
 if __name__ == "__main__":
