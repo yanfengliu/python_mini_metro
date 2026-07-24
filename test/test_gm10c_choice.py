@@ -215,12 +215,14 @@ class TestGM10cApplyOffer(unittest.TestCase):
         self.assertEqual(m.current_offers, ())
         self.assertFalse(m.is_week_boundary_pending)
 
-    def test_applying_each_offer_is_state_inert(self):
-        # GM-10c is a no-op dispatch: applying a kind must change NO game state and no
-        # serialized byte (effects are GM-10d-g). review MAJOR: check PER-KIND on a
-        # FRESH mediator (so compensating cross-kind mutations cannot cancel) and over
-        # runtime state beyond the save doc. A real effect on any kind turns red.
-        for kind in OfferKind:
+    def test_applying_a_stub_offer_kind_is_state_inert(self):
+        # The still-STUB kinds (GM-10e/f/g: locomotive/carriage/tunnel) must change NO
+        # game state and no serialized byte. review MAJOR: check PER-KIND on a FRESH
+        # mediator (so compensating cross-kind mutations cannot cancel) and over runtime
+        # state beyond the save doc. (NEW_LINE now grants a line -- GM-10d, tested in
+        # test_gm10d_line.py.) A real effect on a stub kind turns red.
+        stub_kinds = (OfferKind.LOCOMOTIVE, OfferKind.CARRIAGE, OfferKind.TUNNEL)
+        for kind in stub_kinds:
             m = Mediator(seed=0)
             for _ in range(300):
                 m.increment_time(17)

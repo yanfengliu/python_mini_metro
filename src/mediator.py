@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import random
 from typing import Dict, List
 
@@ -8,7 +7,6 @@ import pygame
 
 from carriage_management import CarriageManagement
 from config import (
-    OFFERS_PER_WEEK,
     WEEK_LENGTH_STEPS,
     game_over_button_height,
     game_over_button_spacing,
@@ -50,7 +48,7 @@ from graph.graph_algo import bfs, build_station_nodes_dict
 from graph.node import Node
 from input_coordinator import InputCoordinator
 from maps import CLASSIC, MapDefinition
-from offers import Offer, OfferKind, generate_offers
+from offers import Offer
 from passenger_flow import PassengerFlow
 from path_handles import PathEditSelection
 from path_lifecycle import PathLifecycle
@@ -75,14 +73,14 @@ from ui.speed_button import (
     update_speed_button_positions,
 )
 from utils import get_shape_from_type, hue_to_rgb, pick_distinct_hue
+from weekly_offers import WEEK_REASON, WeeklyOffers
 
 TravelPlans = Dict[Passenger, TravelPlan]
 
 # "week" (GM-10a / D-041) is the calendar's boundary pause -- held only by the
 # human PLAYING shell (see Mediator.week_calendar) and, unlike "user"/"menu",
 # never cleared by the Space toggle or speed buttons.
-_PAUSE_REASONS = frozenset({"user", "menu", "week"})
-_WEEK_REASON = "week"
+_PAUSE_REASONS = frozenset({"user", "menu", WEEK_REASON})
 
 
 def _get_game_renderer_factory():
@@ -175,6 +173,8 @@ class Mediator:
         # -- offers are re-derived Continue-exact from the already-persisted RNG state
         # (see _offer_rng_for_current_week), so no new save/checkpoint bytes.
         self.current_offers: tuple[Offer, ...] = ()
+        # GM-10a-d: the week-boundary hold + offer generate/apply logic (D-023 facade).
+        self._weekly = WeeklyOffers()
         self.game_speed_multiplier = 1
         self.unlocked_num_paths = self.get_unlocked_num_paths()
         self.unlocked_num_stations = self.get_unlocked_num_stations()
@@ -705,46 +705,23 @@ class Mediator:
     @property
     def is_week_boundary_pending(self) -> bool:
         # True while the calendar is paused at a week boundary awaiting a resolve.
-        return _WEEK_REASON in self._pause_reason_store(_WEEK_REASON)
+        return WEEK_REASON in self._pause_reason_store(WEEK_REASON)
 
+    # The week-boundary hold + offer generate/apply LOGIC lives in the WeeklyOffers
+    # facade (GM-10a-d, D-023); these thin seams keep the public API + the spy points
+    # (a test patching _apply_offer/_grant_free_line/_offer_rng_for_current_week still
+    # intercepts, because the facade invokes them through the host).
     def resolve_week_boundary(self, offer: Offer | None = None) -> None:
-        # Continue past a week boundary: APPLY the chosen offer (GM-10c), then clear
-        # the week's offers and release the pause. A None offer is a forced resolve
-        # with no choice (the window-close path in main.run_game), which applies
-        # nothing. GM-10h reconciles applied-offer persistence across Continue.
-        if offer is not None:
-            self._apply_offer(offer)
-        self.current_offers = ()
-        self.release_pause_reason(_WEEK_REASON)
+        self._weekly.resolve(self, offer)
 
     def _apply_offer(self, offer: Offer) -> None:
-        # GM-10c dispatches the chosen offer to its per-kind effect. The effects
-        # themselves land in GM-10d-g (line/locomotive/carriage/tunnel) -- each arm
-        # is a no-op here, so GM-10c changes NO game state and is Continue-safe with
-        # no new persisted bytes. A future kind without a handler must fail loud.
-        match offer.kind:
-            case OfferKind.NEW_LINE:
-                pass  # GM-10d: grant a free line (via purchased_num_paths, persisted)
-            case OfferKind.LOCOMOTIVE:
-                pass  # GM-10e: +1 num_metros (needs the _require_running_config pin relaxed / GM-10h)
-            case OfferKind.CARRIAGE:
-                pass  # GM-10f: +1 num_carriages (same pin as locomotives)
-            case OfferKind.TUNNEL:
-                pass  # GM-10g: +1 tunnel budget (needs a persisted bonus / GM-10h)
-            case _:
-                raise ValueError(f"no effect handler for offer kind {offer.kind!r}")
+        self._weekly.apply_offer(self, offer)
+
+    def _grant_free_line(self) -> None:
+        self._weekly.grant_free_line(self)
 
     def _offer_rng_for_current_week(self) -> random.Random:
-        # GM-10b (D-042): a dedicated per-week offer RNG, derived READ-ONLY from the
-        # already-persisted gameplay RNG state + week_index. `getstate()` consumes no
-        # draws, so the station-spawn stream is byte-untouched; and because that state
-        # is restored exactly on Continue (README "resumes exactly"), the SAME week's
-        # offers reproduce after save/load with NO new persisted state (persistence
-        # proper is GM-10h). repr() of the int-tuple state + sha256 is deterministic
-        # and cross-process stable -- never the PYTHONHASHSEED-salted builtin hash().
-        state = self.context.python_random.getstate()
-        digest = hashlib.sha256(repr((self.week_index, state)).encode()).digest()
-        return random.Random(int.from_bytes(digest[:8], "big"))
+        return self._weekly.offer_rng_for_current_week(self)
 
     def set_paused(self, paused: bool) -> None:
         self._input.set_paused(self, paused)
@@ -806,27 +783,7 @@ class Mediator:
         self._maybe_hold_week_boundary(old_steps)
 
     def _maybe_hold_week_boundary(self, old_steps: int) -> None:
-        # GM-10a (D-041): after the COMPLETE tick (post queued-return settlement),
-        # hold the "week" pause if the calendar is enabled and this tick crossed a
-        # NEW week boundary. Placed LAST so the settlement is never interrupted
-        # mid-tick (review MAJOR), and skipped on game over so a terminal tick
-        # promotes to GAME_OVER rather than an offer (review MAJOR). WEEK_LENGTH_STEPS
-        # >> the max speed (4), so at most one boundary crosses per tick; a frozen
-        # tick advances no steps, so a held week never re-triggers. (At speed 4 the
-        # hold lands at e.g. steps=1202, not 1200 -- week_index is identical.)
-        if not self.week_calendar or self.is_game_over:
-            return
-        if old_steps // WEEK_LENGTH_STEPS < self.steps // WEEK_LENGTH_STEPS:
-            # GM-10b (D-042): generate the week's offers BEFORE holding, so they are
-            # ready when the modal opens. Read-only derivation (no gameplay draws),
-            # gated by the same calendar/crossing/not-game-over guards as the hold,
-            # so RL/headless/tutorial never generate and current_offers stays ().
-            self.current_offers = generate_offers(
-                self._offer_rng_for_current_week(),
-                count=OFFERS_PER_WEEK,
-                tunnels_bounded=self.num_tunnels is not None,
-            )
-            self.hold_pause_reason(_WEEK_REASON)
+        self._weekly.maybe_hold_boundary(self, old_steps)
 
     def _drain_and_settle_queued_returns(self) -> None:
         """Force-alight stranded riders, then settle emptied queued returns.

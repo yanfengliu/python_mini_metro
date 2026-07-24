@@ -93,6 +93,18 @@ class NetworkProgression:
         self.line_credits -= price
         self.purchased_num_paths += 1
 
+    def grant_free_path(self) -> bool:
+        """Grant one line for free (a weekly NEW_LINE offer, GM-10d): unlock the next
+        line without spending credits, capped at ``num_paths``. Returns True if a line
+        was granted, False if already at the cap (a no-op). Mirrors
+        ``record_path_purchase`` minus the credit spend, with the cap the purchase path
+        gets implicitly (a purchase is only offered while below ``num_paths``)."""
+
+        if self.purchased_num_paths >= self.num_paths:
+            return False
+        self.purchased_num_paths += 1
+        return True
+
     def record_delivery(self) -> None:
         """Award one lifetime delivery and one spendable line credit."""
 
