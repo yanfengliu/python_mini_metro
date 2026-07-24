@@ -42,8 +42,20 @@ SAVE_SCHEMA_VERSION_V1 = 1
 # and `rulesVersion` are STABLE across v1/v2 -- only `schemaVersion` and the two map
 # keys change (D-038).
 SAVE_SCHEMA_VERSION_V2 = 2
-SAVE_SCHEMA_VERSION = SAVE_SCHEMA_VERSION_V2
-SUPPORTED_SAVE_SCHEMA_VERSIONS = {SAVE_SCHEMA_VERSION_V1, SAVE_SCHEMA_VERSION_V2}
+# GM-10h (D-045): v3 is a strict SUPERSET of v2 -- it adds one additive key,
+# `tunnelBonus` (a persisted +N on the map's tunnel budget from a TUNNEL weekly
+# upgrade), and v3-gates a RELAXATION of the fleet running-config pin so a
+# locomotive/carriage upgrade (`numMetros`/`numCarriages` grown ABOVE the config
+# total) can load. A v1/v2 document (no `tunnelBonus`) still loads with a 0 bonus,
+# so the byte-frozen `save-v1.json`/`save-v2-classic.json` stay valid. New saves
+# are v3. `stateContract`/`rulesVersion` STABLE across v1/v2/v3.
+SAVE_SCHEMA_VERSION_V3 = 3
+SAVE_SCHEMA_VERSION = SAVE_SCHEMA_VERSION_V3
+SUPPORTED_SAVE_SCHEMA_VERSIONS = {
+    SAVE_SCHEMA_VERSION_V1,
+    SAVE_SCHEMA_VERSION_V2,
+    SAVE_SCHEMA_VERSION_V3,
+}
 SAVE_STATE_CONTRACT = "mini-metro-save-v1"
 SAVE_RULES_VERSION = "rules-v1"
 
@@ -71,9 +83,16 @@ _TOP_LEVEL_KEYS_V1 = frozenset(
 # them both fail closed.
 _MAP_IDENTITY_KEYS = frozenset({"mapId", "mapDefinitionVersion"})
 _TOP_LEVEL_KEYS_V2 = _TOP_LEVEL_KEYS_V1 | _MAP_IDENTITY_KEYS
+# GM-10h: v3 adds exactly `tunnelBonus`; the exact-key set is chosen by the
+# document's schemaVersion, so a v1/v2 doc carrying `tunnelBonus` OR a v3 doc
+# missing it both fail closed.
+_TUNNEL_BONUS_KEY = frozenset({"tunnelBonus"})
+_TOP_LEVEL_KEYS_V3 = _TOP_LEVEL_KEYS_V2 | _TUNNEL_BONUS_KEY
 
 
 def _top_level_keys_for(version: int) -> frozenset[str]:
+    if version == SAVE_SCHEMA_VERSION_V3:
+        return _TOP_LEVEL_KEYS_V3
     if version == SAVE_SCHEMA_VERSION_V2:
         return _TOP_LEVEL_KEYS_V2
     return _TOP_LEVEL_KEYS_V1
@@ -123,6 +142,14 @@ def _validate_map_identity(document: dict[str, Any]) -> None:
     if any(character.isspace() for character in map_id):
         _fail("mapId", "must not contain whitespace")
     _positive_int(document["mapDefinitionVersion"], "mapDefinitionVersion")
+
+
+def _validate_tunnel_bonus(document: dict[str, Any]) -> None:
+    """Validate the v3 `tunnelBonus` (GM-10h): a nonnegative non-bool int -- the
+    persisted +N on the map's tunnel budget from a TUNNEL weekly upgrade. Map-aware
+    reachability (a nonzero bonus is legal only on a bounded map) is enforced at load
+    by `save_load._require_legal_map_state`, which has the resolved map."""
+    _nonnegative_int(document["tunnelBonus"], "tunnelBonus")
 
 
 def _validate_scalars(document: dict[str, Any]) -> None:
@@ -276,8 +303,13 @@ def validate_save(document: Any) -> None:
     version = _read_schema_version(coerced)
     _exact_keys(coerced, _top_level_keys_for(version), "document")
     _validate_header(coerced)
-    if version == SAVE_SCHEMA_VERSION_V2:
+    # GM-10h: v3 is a superset of v2 and STILL carries the map identity keys, so the
+    # map-identity check must run for BOTH v2 and v3 (a `== V2` would stop validating
+    # a v3 save's map).
+    if version in (SAVE_SCHEMA_VERSION_V2, SAVE_SCHEMA_VERSION_V3):
         _validate_map_identity(coerced)
+    if version == SAVE_SCHEMA_VERSION_V3:
+        _validate_tunnel_bonus(coerced)
     _validate_scalars(coerced)
     _validate_progression(coerced)
     registry: set[str] = set()

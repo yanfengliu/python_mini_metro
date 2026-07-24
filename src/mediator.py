@@ -173,6 +173,11 @@ class Mediator:
         # -- offers are re-derived Continue-exact from the already-persisted RNG state
         # (see _offer_rng_for_current_week), so no new save/checkpoint bytes.
         self.current_offers: tuple[Offer, ...] = ()
+        # GM-10h (D-045): persisted +N on the map's tunnel budget from a TUNNEL weekly
+        # upgrade (GM-10g). 0 until an upgrade is applied; folded into num_tunnels only
+        # on a bounded map. num_metros/num_carriages are the analogous fleet totals
+        # (already stored above), grown directly by a locomotive/carriage upgrade.
+        self.tunnel_bonus = 0
         # GM-10a-d: the week-boundary hold + offer generate/apply logic (D-023 facade).
         self._weekly = WeeklyOffers()
         self.game_speed_multiplier = 1
@@ -268,14 +273,19 @@ class Mediator:
 
     @property
     def num_tunnels(self) -> int | None:
-        """The map's river-crossing budget (GM-09c); None = unbounded (CLASSIC).
+        """The map's river-crossing budget (GM-09c) plus any persisted `tunnel_bonus`
+        from a TUNNEL weekly upgrade (GM-10h); None = unbounded (CLASSIC).
 
         DERIVED live from `map_definition` — not a cached field — so it always
         agrees with `consumed_tunnels` (which reads `map_definition.rivers`) even if
-        the map is swapped; a stale cached copy would fail open (review Codex).
-        """
+        the map is swapped; a stale cached copy would fail open (review Codex). On an
+        unbounded map the bonus is IGNORED (stays None); a nonzero bonus there is
+        unreachable and rejected at save/load (GM-10h)."""
 
-        return self.map_definition.tunnel_budget
+        budget = self.map_definition.tunnel_budget
+        if budget is None:
+            return None
+        return budget + getattr(self, "tunnel_bonus", 0)
 
     @property
     def consumed_tunnels(self) -> int:

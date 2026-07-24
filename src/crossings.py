@@ -121,6 +121,12 @@ def within_tunnel_budget(
     num_tunnels = getattr(map_definition, "tunnel_budget", None)
     if num_tunnels is None:
         return True
+    # GM-10h: this gate reads the map budget DIRECTLY (not mediator.num_tunnels), so a
+    # persisted TUNNEL upgrade must be folded in HERE too, or the bonus would show in
+    # the observation/legality yet never let the player build the extra crossing. On an
+    # unbounded map (budget None, above) the bonus is moot -- a nonzero one is rejected
+    # at save/load. getattr keeps this import-safe for a host without the field.
+    num_tunnels += getattr(host, "tunnel_bonus", 0)
     rivers = getattr(map_definition, "rivers", ())
     if not rivers:
         return True

@@ -332,7 +332,8 @@ def run_game(
                     # Closing mid-offer (GM-10a): resolve the week with NO choice (the
                     # no-arg forced resolve -- the player did not pick an offer) and
                     # autosave the resumed game, so Continue reloads past the boundary.
-                    # Mid-offer / applied-offer persistence proper is GM-10h.
+                    # Applied-offer (fleet/tunnel) persistence is GM-10h; persisting a
+                    # PENDING offer so a mid-offer Continue re-presents it is GM-10i.
                     controller.mediator.resolve_week_boundary()
                     write_autosave(controller.mediator)
                 elif controller.state in (AppScreen.PLAYING, AppScreen.PAUSE_MENU):

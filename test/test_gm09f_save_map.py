@@ -44,11 +44,14 @@ def _river_crossing_mediator():
 
 
 def _as_v1(document):
-    """A v1 document: drop the v2 map keys and set schemaVersion 1 (old save shape)."""
+    """A v1 document: drop the v2 map keys AND the v3 tunnelBonus (GM-10h), and set
+    schemaVersion 1 (old save shape). A fresh serialize is v3, so all three added keys
+    must be stripped or the v1 exact-key set rejects the doc for the wrong reason."""
     v1 = copy.deepcopy(document)
     v1["schemaVersion"] = 1
     del v1["mapId"]
     del v1["mapDefinitionVersion"]
+    del v1["tunnelBonus"]
     return v1
 
 
@@ -61,7 +64,7 @@ class TestGM09fRoundTrip(unittest.TestCase):
             ("lake", LAKE),
         ):
             document = serialize_game(Mediator(seed=0, map_definition=map_def))
-            self.assertEqual(document["schemaVersion"], 2)
+            self.assertEqual(document["schemaVersion"], 3)
             self.assertEqual(document["mapId"], name)
             self.assertEqual(document["mapDefinitionVersion"], 1)
             validate_save(document)

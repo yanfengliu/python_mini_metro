@@ -30,7 +30,7 @@ from geometry.type import ShapeType
 from graph.node import Node
 from mediator import Mediator
 from recursive_checkpoint_schema import safe_checkpoint_value
-from save_schema import validate_save
+from save_schema import SAVE_SCHEMA_VERSION_V3, validate_save
 from travel_plan import TravelPlan
 from utils import get_shape_from_type
 
@@ -42,15 +42,26 @@ def _fail(message: str) -> None:
 
 
 def _require_running_config(document: dict[str, Any]) -> None:
-    # v1 strictly rejects config divergence; a relaxation is a future
-    # schema version's explicit business (D-026).
-    pairs = (
-        ("numPaths", config_num_paths),
+    # numPaths (the total line SLOTS) is pinned for EVERY version -- a NEW_LINE upgrade
+    # grows purchased_num_paths, not the ceiling. GM-10h (D-045): v1/v2 strictly reject
+    # any fleet divergence (no upgrade mechanism existed, so numMetros != config is
+    # corrupt), but v3 may carry a GROWN fleet from a locomotive/carriage upgrade, so
+    # numMetros/numCarriages need only be >= config (a total an upgrade only grows; the
+    # serialize-time guard already rejected a below-config total before writing). The
+    # bonus keys do NOT exist -- the fleet total IS the state -- so there is no v1/v2
+    # KeyError. A further relaxation is a future schema version's business (D-026).
+    if document["numPaths"] != config_num_paths:
+        _fail("numPaths disagrees with the running config")
+    is_v3 = document["schemaVersion"] == SAVE_SCHEMA_VERSION_V3
+    for key, expected in (
         ("numMetros", config_num_metros),
         ("numCarriages", config_num_carriages),
-    )
-    for key, expected in pairs:
-        if document[key] != expected:
+    ):
+        actual = document[key]
+        if is_v3:
+            if actual < expected:
+                _fail(f"{key} is below the running config")
+        elif actual != expected:
             _fail(f"{key} disagrees with the running config")
 
 
@@ -115,6 +126,11 @@ def _restore_scalars(mediator: Mediator, document: dict[str, Any]) -> None:
     mediator.unlocked_num_stations = document["unlockedNumStations"]
     mediator.num_metros = document["numMetros"]
     mediator.num_carriages = document["numCarriages"]
+    # GM-10h: v3 persists the TUNNEL-upgrade bonus; a v1/v2 doc has no such key, so
+    # default on ABSENCE. (For this field `.get(...,0)` and `x or 0` happen to agree --
+    # 0 is the only falsy valid value -- but `.get` is the clearer form and follows the
+    # GM-09f rule that a real falsy persisted value must not be coerced by `or DEFAULT`.)
+    mediator.tunnel_bonus = document.get("tunnelBonus", 0)
     mediator.time_ms = document["timeMs"]
     mediator.steps = document["steps"]
     mediator.game_speed_multiplier = document["gameSpeedMultiplier"]
@@ -326,6 +342,15 @@ def _require_legal_map_state(mediator: Any, map_def: Any) -> None:
         raise ValueError(
             f"map {map_def.map_id!r}: {mediator.consumed_tunnels} river crossings "
             f"exceed the map's tunnel budget of {num_tunnels}"
+        )
+    # GM-10h: a nonzero TUNNEL bonus is REACHABLE only on a bounded map (CLASSIC never
+    # offers TUNNEL and ignores the bonus); reject a forged v3 doc that carries one on
+    # an unbounded map -- matches the serialize-time guard so both save surfaces agree.
+    tunnel_bonus = getattr(mediator, "tunnel_bonus", 0)
+    if tunnel_bonus and map_def.tunnel_budget is None:
+        raise ValueError(
+            f"map {map_def.map_id!r}: a nonzero tunnel bonus ({tunnel_bonus}) is "
+            "unreachable on an unbounded-tunnel map"
         )
 
 

@@ -1,10 +1,11 @@
 """GM-07b saver: pure quiescent-boundary state capture and atomic saves.
 
 serialize_game reads live state through attributes only (never through
-mutating getters), rejects mid-gesture boundaries, and returns a strict
-schema-v2 document (v2 adds the map identity; GM-09f); save_game writes its canonical ASCII bytes through a
-save-local mkstemp -> fsync -> os.replace atomic writer, so a failed
-save leaves the destination untouched and no temporary file behind.
+mutating getters), rejects mid-gesture boundaries + a desynced/forged upgrade
+state, and returns a strict schema-v3 document (v2 adds the map identity, GM-09f;
+v3 adds the tunnel-upgrade bonus, GM-10h); save_game writes its canonical ASCII
+bytes through a save-local mkstemp -> fsync -> os.replace atomic writer, so a
+failed save leaves the destination untouched and no temporary file behind.
 """
 
 from __future__ import annotations
@@ -14,6 +15,8 @@ import tempfile
 from pathlib import Path as FilesystemPath
 from typing import Any
 
+from config import num_carriages as config_num_carriages
+from config import num_metros as config_num_metros
 from recursive_checkpoint_schema import safe_checkpoint_value
 from save_load import _require_legal_map_state, deserialize_game, load_game
 from save_schema import (
@@ -73,8 +76,9 @@ def _require_quiescent(mediator: Any) -> None:
         raise ValueError("cannot save during a path redraw gesture")
     if mediator.path_edit_selection is not None:
         raise ValueError("cannot save during a path edit selection")
-    # GM-10a (D-041): a pending week-boundary offer is a transient, unresolved
-    # choice that GM-10a does not persist (deferred to GM-10h). validate_save
+    # GM-10a: a pending week-boundary offer is a transient, unresolved choice that is
+    # not persisted (persisting a PENDING offer for a mid-offer Continue is GM-10i;
+    # GM-10h persists only APPLIED fleet/tunnel upgrades). validate_save
     # already rejects a "week" pause reason before any file I/O; this gives the
     # clearer, actionable error at the save boundary. Defensive getattr keeps
     # non-Mediator save shapes (which never hold "week") working.
@@ -97,6 +101,35 @@ def _require_canonical_fleet(mediator: Any) -> None:
     for metro in mediator.metros:
         if metro.path_id != owners[id(metro)].id:
             raise ValueError("cannot save a Metro whose path binding disagrees")
+
+
+def _require_valid_upgrade_state(mediator: Any) -> None:
+    # GM-10h (D-045): reject a desynced/forged upgrade state HERE, before the atomic
+    # write can replace a valid autosave with an unloadable one (load-time rejection is
+    # too late -- the bad bytes already clobbered the save). num_metros/num_carriages
+    # are fleet TOTALS an upgrade only GROWS, so they must be >= the running config; the
+    # tunnel bonus is a nonnegative int, and is reachable (nonzero) only on a bounded
+    # map -- an unbounded map (CLASSIC) ignores it, so a nonzero one there is forged.
+    if mediator.num_metros < config_num_metros:
+        raise ValueError(
+            f"cannot save a fleet below the running config: numMetros "
+            f"{mediator.num_metros} < {config_num_metros}"
+        )
+    if mediator.num_carriages < config_num_carriages:
+        raise ValueError(
+            f"cannot save a fleet below the running config: numCarriages "
+            f"{mediator.num_carriages} < {config_num_carriages}"
+        )
+    tunnel_bonus = getattr(mediator, "tunnel_bonus", 0)
+    if type(tunnel_bonus) is not int or tunnel_bonus < 0:
+        raise ValueError(
+            f"cannot save a non-nonnegative-int tunnel bonus: {tunnel_bonus!r}"
+        )
+    if tunnel_bonus and mediator.map_definition.tunnel_budget is None:
+        raise ValueError(
+            "cannot save a nonzero tunnel bonus on an unbounded-tunnel map "
+            f"({mediator.map_definition.map_id}): the bonus is unreachable"
+        )
 
 
 def _station_records(mediator: Any) -> list[dict[str, Any]]:
@@ -235,9 +268,11 @@ def _spawn_timer_records(mediator: Any) -> list[list[Any]]:
 
 
 def serialize_game(mediator: Any) -> dict[str, Any]:
-    """Capture one strict v2 save document (adds the map identity) without mutating
-    the Mediator."""
+    """Capture one strict v3 save document (map identity + tunnel-upgrade bonus)
+    without mutating the Mediator; rejects a below-config fleet or an unreachable
+    tunnel bonus BEFORE the atomic write (GM-10h)."""
 
+    _require_valid_upgrade_state(mediator)
     map_id, map_definition_version = _require_serializable_map(mediator)
     _require_quiescent(mediator)
     _require_canonical_fleet(mediator)
@@ -269,6 +304,7 @@ def serialize_game(mediator: Any) -> dict[str, Any]:
         "stationUnlockMilestones": list(mediator.station_unlock_milestones),
         "numMetros": mediator.num_metros,
         "numCarriages": mediator.num_carriages,
+        "tunnelBonus": getattr(mediator, "tunnel_bonus", 0),
         "stations": _station_records(mediator),
         "passengers": _passenger_records(mediator),
         "paths": _path_records(mediator),
