@@ -71,6 +71,10 @@ class MapDefinition:
     unique_spawn_chance: float
     spawn_regions: tuple[Rect, ...] = ()
     rivers: tuple[Rect, ...] = ()
+    # The finite tunnel/bridge budget for crossing this map's rivers (GM-09c).
+    # None = unbounded (no river to cross, e.g. CLASSIC); an int caps the total
+    # river crossings across all lines.
+    tunnel_budget: int | None = None
 
     def __post_init__(self) -> None:
         # Enforce deep immutability rather than trust the caller: coerce the
@@ -83,6 +87,13 @@ class MapDefinition:
             self, "spawn_regions", _coerce_rects(self.spawn_regions, "spawn_regions")
         )
         object.__setattr__(self, "rivers", _coerce_rects(self.rivers, "rivers"))
+        budget = self.tunnel_budget
+        if budget is not None and (
+            isinstance(budget, bool) or not isinstance(budget, int) or budget < 0
+        ):
+            raise ValueError(
+                f"tunnel_budget must be None or a non-negative integer; got {budget!r}"
+            )
 
 
 CLASSIC = MapDefinition(
@@ -120,6 +131,9 @@ RIVER = MapDefinition(
     unique_spawn_chance=station_unique_spawn_chance,
     spawn_regions=(_LEFT_BANK, _RIGHT_BANK),
     rivers=(_RIVER_BAND,),
+    # A finite tunnel budget makes the river a real constraint while leaving a
+    # connected cross-river network buildable (tunable; verified playable).
+    tunnel_budget=3,
 )
 
 _REGISTRY: dict[tuple[str, int], MapDefinition] = {

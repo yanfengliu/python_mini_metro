@@ -139,7 +139,7 @@ obs, reward, done, info = env.step({"type": "remove_path", "path_index": 0})
     - all indices must satisfy `0 <= idx < len(observation["structured"]["stations"])`
   - Optional:
     - `loop` (default `False`): when `True`, creates a loop that ends at the first station.
-  - Fails (`action_ok=False`) if inputs are invalid or if no unlocked line is available.
+  - Fails (`action_ok=False`) if inputs are invalid, if no unlocked line is available, or if the line's river crossings would exceed the map's tunnel budget (see the `tunnels` observation block; `available` is the remaining budget, `0` on a fully-tunneled river map). A same-bank line crosses no river and is always allowed.
 - `{"type": "remove_path", "path_index": k}`
   - Removes an existing path by index.
   - Valid only when `0 <= k < len(observation["structured"]["paths"])`.
@@ -152,7 +152,7 @@ obs, reward, done, info = env.step({"type": "remove_path", "path_index": 0})
   - `stations` must be an exact list of at least two active-station integer indices. After an optional single trailing copy of the first index is removed for a loop, every index and resolved station object must be unique.
   - `loop` is optional and defaults to `False`; when present it must be a boolean. Unrelated extra keys are tolerated.
   - A safe replacement preserves the path object, public id, color/button ownership, metros, riders, and each metro's physical pose while rebuilding route geometry. Waiting riders replan immediately; onboard riders keep a fresh marker to their next safe alight and replan there.
-  - Invalid, ambiguous, or continuity-breaking replacements fail atomically with `action_ok=False`.
+  - Invalid, ambiguous, or continuity-breaking replacements fail atomically with `action_ok=False`; so does a reroute whose river crossings would exceed the map's tunnel budget (diagnosable via the `tunnels` observation block). Rerouting a line off the river frees the tunnel it held.
 - `{"type": "assign_locomotive", "path_index": k}`
 - `{"type": "assign_locomotive", "path_id": "..."}`
   - Requires exactly one selector resolving to one active, completed line.
@@ -199,6 +199,7 @@ Any unknown `type`, malformed action payload, or rejected action returns `info["
 - `observation["structured"]`: Python dict/list representation
   - includes `stations`, `paths`, `metros`, `carriages`, `passengers`, labeled `fleet` counts, lifetime `deliveries`, spendable `line_credits`, `time_ms`, `steps`, `is_paused`, `is_game_over`, and station/path/metro/passenger ID-to-index maps in `index`.
   - `fleet` contains locomotive total/assigned/available/queued and carriage total/assigned/available counts. Both available values are read-only nonnegative differences derived from canonical assigned Metro compositions; there is no preconstructed carriage object pool.
+  - a sibling `tunnels` block reports the map's river-crossing budget as `total`/`consumed`/`available`. `consumed` is derived live from where the network's lines cross the map's rivers (never a stored counter), and `available` is the read-only nonnegative remainder; on a map with no river (`classic`) `total` and `available` are `None` and `consumed` is `0`. It is a sibling of `fleet`, not a fleet key, so the canonical checkpoint is unaffected.
   - Each structured Metro entry includes its total `capacity`, ordered `carriage_ids`, and exact boolean `unassignment_queued`; each structured carriage records its ID, immutable capacity, owning Metro ID, and attachment index.
   - deprecated structured `score` mirrors `line_credits`; on `Mediator`, writable `score` and `total_travels_handled` compatibility properties alias `line_credits` and `deliveries` respectively.
 - `observation["arrays"]`: NumPy-friendly arrays/lists
@@ -312,7 +313,7 @@ Resume and evaluation fail closed on protocol, task, history, content, trainer-s
 
 The recurrent default is a research-backed production baseline, not a claim that a short smoke run learns competent play. Low-level line construction is a sparse multi-action problem, so `rl.demonstrator.run_delivery_demonstration` provides a deterministic curriculum trajectory that creates a route, assigns a locomotive, attaches one carriage through the visible player controls, and reaches a real delivery for the reference seed. See [RL model selection for the player-pixel task](docs/rl-model-selection.md) for the CNN, recurrent PPO, Transformer, visual-transformer, and Dreamer comparison plus the experiment and reporting protocol.
 
-`--map` binds training to a named map — `classic` (the default game) or `river` (a central river splitting the map into two banks; stations spawn only on the banks). Omitting it keeps a fresh run map-free and writes a v2 manifest whose task fingerprint is byte-identical to genuine pre-map runs; passing `--map classic`/`--map river` binds the task identity to `classic@1`/`river@1` and writes a v3 manifest that records `mapId`/`mapDefinitionVersion`. A resumed run always INHERITS the map identity from its manifest, so a genuine pre-map artifact still resumes and an explicit `--map` must match the manifest it resumes. Map identity is part of the task fingerprint, so a map-bound task is a distinct RL task from the map-free one.
+`--map` binds training to a named map — `classic` (the default game) or `river` (a central river splitting the map into two banks; stations spawn only on the banks, and lines cross the water through a finite tunnel budget surfaced in the `tunnels` observation block). Omitting it keeps a fresh run map-free and writes a v2 manifest whose task fingerprint is byte-identical to genuine pre-map runs; passing `--map classic`/`--map river` binds the task identity to `classic@1`/`river@1` and writes a v3 manifest that records `mapId`/`mapDefinitionVersion`. A resumed run always INHERITS the map identity from its manifest, so a genuine pre-map artifact still resumes and an explicit `--map` must match the manifest it resumes. Map identity is part of the task fingerprint, so a map-bound task is a distinct RL task from the map-free one.
 
 # Recursive self-improvement loop
 

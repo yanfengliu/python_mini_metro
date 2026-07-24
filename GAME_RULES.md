@@ -27,8 +27,16 @@ This document summarizes the game rules currently implemented in code.
   runs a single river down the screen centre, splitting the map into two land banks;
   on the river map, stations spawn only on the banks (never in or touching the water),
   and the river is drawn under the lines and stations. Map selection is available to
-  the RL trainer (`--map river`) and the programmatic API today; in-game menu selection,
-  and lines crossing the river via tunnels/bridges, arrive in later units.
+  the RL trainer (`--map river`) and the programmatic API today; in-game menu selection
+  arrives in a later unit.
+- On a map with a river, lines cross the water through a limited pool of tunnels. The
+  `river` map has a budget of 3: every place where a line's route crosses the river
+  consumes one tunnel, and a tunnel-portal marker is drawn there. You cannot draw or
+  reroute a line so the network's total crossings would exceed the budget — that edit is
+  rejected before anything changes, and a same-bank line (which crosses nothing) is
+  always allowed even at zero remaining tunnels. Removing or rerouting a line frees its
+  crossings again immediately, since the remaining count is derived from the live network
+  rather than spent from a counter. The `classic` map has no river and no tunnel limit.
 - After the 10th station slot in the unlock pool, rare one-of-a-kind stations can appear:
   diamond, pentagon, and star (each at most once per run).
 - Each station can hold up to 12 waiting passengers.

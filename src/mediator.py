@@ -28,6 +28,7 @@ from config import (
     screen_width,
     station_unlock_milestones,
 )
+from crossings import path_crossings
 from entity.carriage import Carriage
 from entity.get_entity import get_random_stations
 from entity.metro import Metro
@@ -245,6 +246,50 @@ class Mediator:
         """Return fungible carriage capacity without owning an object pool."""
 
         return max(0, self.num_carriages - self.assigned_carriages)
+
+    @property
+    def num_tunnels(self) -> int | None:
+        """The map's river-crossing budget (GM-09c); None = unbounded (CLASSIC).
+
+        DERIVED live from `map_definition` — not a cached field — so it always
+        agrees with `consumed_tunnels` (which reads `map_definition.rivers`) even if
+        the map is swapped; a stale cached copy would fail open (review Codex).
+        """
+
+        return self.map_definition.tunnel_budget
+
+    @property
+    def consumed_tunnels(self) -> int:
+        """Total river crossings across all COMMITTED lines (GM-09c).
+
+        DERIVED from live-path centerlines (like available_locomotives), so it
+        owns no stored state and every route-edit rollback restores it for free.
+        An in-creation draft (is_being_created) is excluded so the count is clean
+        mid-gesture; the creation gate adds the finishing path's own crossings.
+        """
+
+        rivers = self.map_definition.rivers
+        if not rivers:
+            return 0
+        return sum(
+            len(
+                path_crossings(
+                    [station.position for station in path.stations],
+                    path.is_looped,
+                    rivers,
+                )
+            )
+            for path in self.paths
+            if not getattr(path, "is_being_created", False)
+        )
+
+    @property
+    def available_tunnels(self) -> int | None:
+        """Remaining tunnel budget, or None when the map is unbounded (CLASSIC)."""
+
+        if self.num_tunnels is None:
+            return None
+        return max(0, self.num_tunnels - self.consumed_tunnels)
 
     @property
     def purchased_num_paths(self) -> int:

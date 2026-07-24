@@ -228,6 +228,14 @@ class MiniMetroEnv:
                 "carriages_assigned": self.mediator.assigned_carriages,
                 "carriages_available": self.mediator.available_carriages,
             },
+            # GM-09c: a SIBLING of "fleet" (never inside it), so the checkpoint's
+            # exact fleet-key whitelist is untouched and _normalize_observation
+            # ignores this block; None on an unbounded map (CLASSIC).
+            "tunnels": {
+                "total": self.mediator.num_tunnels,
+                "consumed": self.mediator.consumed_tunnels,
+                "available": self.mediator.available_tunnels,
+            },
             "deliveries": self.mediator.deliveries,
             "line_credits": self.mediator.line_credits,
             "score": self.mediator.score,

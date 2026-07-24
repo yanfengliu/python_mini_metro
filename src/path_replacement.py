@@ -6,6 +6,7 @@ import math
 from dataclasses import dataclass
 from typing import Any
 
+from crossings import within_tunnel_budget
 from path_replacement_geometry import (
     build_candidate,
     is_canonical_point,
@@ -443,6 +444,9 @@ def replace_path(
         and all(old is new for old, new in zip(path.stations, stations))
     ):
         return True
+
+    if not within_tunnel_budget(host, stations, loop, exclude=path):
+        return False
 
     candidate = build_candidate(
         path,

@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, Protocol
 
+from crossings import within_tunnel_budget
 from path_removal_snapshot import restore_removal_state, snapshot_removal_state
 from path_replacement import replace_path as replace_path_transaction
 
@@ -406,28 +407,53 @@ class PathLifecycle:
 
     def finish_path_creation(self, host: PathLifecycleHost) -> None:
         assert host.path_being_created is not None
+        draft = host.path_being_created
+        # GM-09c commit-boundary guard: clearing is_being_created is the moment a
+        # draft becomes a COUNTED crossing, so the authoritative budget check lives
+        # here and counts the REAL draft (`draft.stations`/`is_looped`), never a
+        # route predicted from raw indices -- this also catches a direct
+        # start/add/finish that bypasses end_path_on_station (review Codex). Over
+        # budget -> the ordinary abort (unchanged from pre-GM-09c: it removes the
+        # draft and frees its color; a transient snap-blip from the drag fades as it
+        # always has, so CLASSIC stays byte-identical). No crossing commits.
+        if not within_tunnel_budget(
+            host, draft.stations, draft.is_looped, exclude=draft
+        ):
+            host.abort_path_creation()
+            return
         host.is_creating_path = False
-        host.path_being_created.is_being_created = False
-        host.path_being_created.remove_temporary_point()
+        draft.is_being_created = False
+        draft.remove_temporary_point()
         host.path_being_created = None
         host.assign_paths_to_buttons()
 
     def end_path_on_station(self, host: PathLifecycleHost, station: Any) -> None:
         assert host.path_being_created is not None
-        if (
-            len(host.path_being_created.stations) > 1
-            and host.path_being_created.stations[-1] == station
-        ):
-            host.finish_path_creation()
-        elif (
-            len(host.path_being_created.stations) > 1
-            and host.path_being_created.stations[0] == station
-        ):
-            host.path_being_created.set_loop()
-            host.finish_path_creation()
-        elif host.path_being_created.stations[0] != station:
-            host.path_being_created.add_station(station)
-            station.start_snap_blip(host.time_ms, host.path_being_created.color)
-            host.finish_path_creation()
+        creating = host.path_being_created
+        stations = creating.stations
+        if len(stations) > 1 and stations[-1] == station:
+            action = "finish"
+        elif len(stations) > 1 and stations[0] == station:
+            action = "loop"
+        elif stations[0] != station:
+            action = "extend"
         else:
             host.abort_path_creation()
+            return
+        # GM-09c tunnel-budget gate on the RESOLVED route (the real draft plus the
+        # ending station), so it counts exactly what commits -- an explicit-closure
+        # loop [X,Y,X] resolves to the 2-station loop [X,Y] (one crossing), never
+        # the raw round trip (review re-review). Gated BEFORE the extend/loop
+        # mutation, so an over-budget release adds no station and commits no
+        # crossing; the ordinary abort (unchanged) removes the draft.
+        final_stations = list(stations) + ([station] if action == "extend" else [])
+        final_loop = bool(creating.is_looped) or action == "loop"
+        if not within_tunnel_budget(host, final_stations, final_loop, exclude=creating):
+            host.abort_path_creation()
+            return
+        if action == "loop":
+            creating.set_loop()
+        elif action == "extend":
+            creating.add_station(station)
+            station.start_snap_blip(host.time_ms, creating.color)
+        host.finish_path_creation()

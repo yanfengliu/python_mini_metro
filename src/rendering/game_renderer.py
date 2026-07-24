@@ -11,7 +11,7 @@ from .interpolation import MetroInterpolator
 from .layout import MetroPose
 from .network_renderer import NetworkRenderer
 from .path_handle_renderer import PathHandleRenderer, removal_on_layout
-from .terrain_renderer import draw_terrain
+from .terrain_renderer import draw_crossings, draw_terrain
 
 
 def _config() -> Any:
@@ -101,6 +101,10 @@ class GameRenderer:
         draw_terrain(surface, getattr(state, "map_definition", None))
         paths = tuple(getattr(state, "paths", ()))
         layouts = self.network_renderer.draw(surface, paths)
+        # A tunnel-portal marker where each line crosses a river, ON TOP of the
+        # lines (trains then pass over it). CLASSIC (no rivers) draws nothing, so
+        # the CLASSIC frame stays byte-identical (GM-09c).
+        draw_crossings(surface, getattr(state, "map_definition", None), paths)
         layouts_by_path_id = {layout.path_id: layout for layout in layouts}
         paths_by_id = {str(getattr(path, "id", id(path))): path for path in paths}
         current_time_ms = int(getattr(state, "time_ms", 0))
