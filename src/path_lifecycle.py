@@ -387,18 +387,78 @@ class PathLifecycle:
             and host.path_being_created.stations[0] == station
         ):
             host.path_being_created.set_loop()
-            station.start_snap_blip(host.time_ms, host.path_being_created.color)
+            self._paint_creation_snap_blip(host, station)
         elif host.path_being_created.stations[0] != station:
             if host.path_being_created.is_looped:
                 host.path_being_created.remove_loop()
             host.path_being_created.add_station(station)
-            station.start_snap_blip(host.time_ms, host.path_being_created.color)
+            self._paint_creation_snap_blip(host, station)
+
+    @staticmethod
+    def _paint_creation_snap_blip(host: PathLifecycleHost, station: Any) -> None:
+        """Paint the drag's snap blip and record what it painted so an abort can drop
+        exactly the draft's own blips. Records the blip ``start_snap_blip`` actually
+        appended (its return value) -- coupling the receipt to the real append means a
+        non-appending station never leaves a phantom receipt. Color is NOT ownership
+        (a draft can reclaim a removed line's freed color while that line's
+        identically-colored blip still lingers), so abort matches this recorded value,
+        never color alone."""
+        draft = host.path_being_created
+        blip = station.start_snap_blip(host.time_ms, draft.color)
+        if blip is None:
+            return
+        receipts = getattr(draft, "_creation_snap_blips", None)
+        if receipts is None:
+            receipts = draft._creation_snap_blips = []
+        receipts.append((station, blip))
+
+    @staticmethod
+    def _discard_creation_snap_blips(draft: Any) -> None:
+        """Drop exactly the snap blips this draft painted, leaving every other line's
+        blips untouched -- including a lingering blip in a color the draft reclaimed.
+
+        Identity can't be used (``prune_visual_effects`` rebuilds the list with fresh
+        value-equal tuples every tick), so each receipt drops the LAST value-match:
+        the draft's blip is always the most recent snap of that value, and pruning
+        preserves order, so the tail match is the draft's own even when an earlier
+        identically-valued blip from another line survives beside it. An
+        already-expired-and-pruned blip simply finds no match and is skipped."""
+        receipts = getattr(draft, "_creation_snap_blips", None)
+        if not receipts:
+            return
+        for station, blip in receipts:
+            snap_blips = getattr(station, "snap_blips", None)
+            if snap_blips is None:
+                continue
+            for index in range(len(snap_blips) - 1, -1, -1):
+                if snap_blips[index] == blip:
+                    del snap_blips[index]
+                    break
+        receipts.clear()
+
+    @staticmethod
+    def _detach_button_from_draft(host: PathLifecycleHost, draft: Any) -> None:
+        """Unbind any path button a mid-draft ``remove_path`` bound to this draft, so
+        an abort never leaves a colored button pointing at a removed line. Surgical
+        (drops the single stale mapping); NOT a full ``assign_paths_to_buttons``
+        rebind, which would break the abort-emits-no-button-reassign contract."""
+        button = host.path_to_button.pop(draft, None)
+        if button is not None and getattr(button, "path", None) is draft:
+            button.remove_path()
 
     def abort_path_creation(self, host: PathLifecycleHost) -> None:
-        assert host.path_being_created is not None
+        draft = host.path_being_created
+        assert draft is not None
         host.is_creating_path = False
-        host.release_color_for_path(host.path_being_created)
+        # Drop the draft's own transient blips and any button a mid-draft removal
+        # bound to it, so a cancelled draft is fully checkpoint-inert. `release`
+        # may rebind `path_being_created` (live-rebinding contract), so the paths
+        # removal below re-reads it while the blip/button cleanup targets the
+        # draft that actually painted them (captured before `release`).
+        self._discard_creation_snap_blips(draft)
+        host.release_color_for_path(draft)
         host.paths.remove(host.path_being_created)
+        self._detach_button_from_draft(host, draft)
         host.path_being_created = None
 
     def release_color_for_path(self, host: PathLifecycleHost, path: Any) -> None:
@@ -413,9 +473,9 @@ class PathLifecycle:
         # here and counts the REAL draft (`draft.stations`/`is_looped`), never a
         # route predicted from raw indices -- this also catches a direct
         # start/add/finish that bypasses end_path_on_station (review Codex). Over
-        # budget -> the ordinary abort (unchanged from pre-GM-09c: it removes the
-        # draft and frees its color; a transient snap-blip from the drag fades as it
-        # always has, so CLASSIC stays byte-identical). No crossing commits.
+        # budget -> the ordinary abort removes the draft, frees its color, and drops
+        # its own transient snap-blips (task_384488d0); committed lines are untouched,
+        # so CLASSIC's committed bytes stay byte-identical. No crossing commits.
         if not within_tunnel_budget(
             host, draft.stations, draft.is_looped, exclude=draft
         ):
@@ -424,6 +484,11 @@ class PathLifecycle:
         host.is_creating_path = False
         draft.is_being_created = False
         draft.remove_temporary_point()
+        # The draft's blips are now permanent; forget its abort-only receipts so a
+        # committed line carries no unbounded snap-blip bookkeeping.
+        committed_receipts = getattr(draft, "_creation_snap_blips", None)
+        if committed_receipts is not None:
+            committed_receipts.clear()
         host.path_being_created = None
         host.assign_paths_to_buttons()
 
@@ -445,7 +510,7 @@ class PathLifecycle:
         # loop [X,Y,X] resolves to the 2-station loop [X,Y] (one crossing), never
         # the raw round trip (review re-review). Gated BEFORE the extend/loop
         # mutation, so an over-budget release adds no station and commits no
-        # crossing; the ordinary abort (unchanged) removes the draft.
+        # crossing; the ordinary abort removes the draft and drops its snap-blips.
         final_stations = list(stations) + ([station] if action == "extend" else [])
         final_loop = bool(creating.is_looped) or action == "loop"
         if not within_tunnel_budget(host, final_stations, final_loop, exclude=creating):
@@ -455,5 +520,5 @@ class PathLifecycle:
             creating.set_loop()
         elif action == "extend":
             creating.add_station(station)
-            station.start_snap_blip(host.time_ms, creating.color)
+            self._paint_creation_snap_blip(host, station)
         host.finish_path_creation()

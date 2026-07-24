@@ -58,8 +58,10 @@ class Station(Holder):
         phase_index = int(elapsed_ms / phase_duration_ms)
         return phase_index % 2 == 0
 
-    def start_snap_blip(self, current_time_ms: int, color: Color) -> None:
-        self.snap_blips.append((current_time_ms, color))
+    def start_snap_blip(self, current_time_ms: int, color: Color) -> tuple[int, Color]:
+        blip = (current_time_ms, color)
+        self.snap_blips.append(blip)
+        return blip
 
     def get_active_snap_blips(self, current_time_ms: int) -> list[tuple[int, Color]]:
         return [

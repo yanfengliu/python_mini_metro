@@ -393,6 +393,30 @@ if loaded:
         self.assertIsNone(rebound.path_being_created)
         self.assertEqual(rebound.events, [("release-rebind",)])
 
+    def test_abort_unbinds_a_button_a_mid_draft_reassign_bound_to_the_draft(self):
+        # A remove_path during creation reassigns buttons and binds the in-progress
+        # draft; abort must unbind that button so no button points at the removed
+        # draft. Surgical (pop the one mapping), NOT a full assign_paths_to_buttons
+        # rebind -- that would break the no-button-reassign abort contract.
+        host = FakeHost(self.lifecycle)
+        draft = FakePath("draft", (7, 8, 9), host.events)
+        host.paths = [draft]
+        host.path_being_created = draft
+        host.is_creating_path = True
+        host.path_colors = {draft.color: True}
+        host.path_to_color = {draft: draft.color}
+        button = FakeButton("b0", host.events)
+        button.assign_path(draft)
+        host.path_buttons = [button]
+        host.path_to_button = {draft: button}
+
+        self.lifecycle.abort_path_creation(host)
+
+        self.assertEqual(host.paths, [])
+        self.assertIsNone(host.path_being_created)
+        self.assertNotIn(draft, host.path_to_button)
+        self.assertIsNone(button.path, "the draft's button was unbound on abort")
+
     def test_finish_cleans_draft_without_allocating_and_preserves_button_failures(
         self,
     ):

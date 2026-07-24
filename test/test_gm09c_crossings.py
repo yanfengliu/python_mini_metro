@@ -173,13 +173,13 @@ class TestGM09cCreationGate(unittest.TestCase):
         self.assertEqual(len(mediator.paths), paths_before, "no ghost path committed")
         self.assertIsNone(mediator.path_being_created, "draft aborted cleanly")
 
-    def test_rejected_multistation_creation_commits_and_draws_nothing(self):
-        # A rejected over-budget creation commits NO crossing, leaves NO ghost path,
-        # and draws NO RNG. (It may leave a transient snap-blip on a station the
-        # aborted drag touched -- exactly the feedback an ordinary drag-abort paints,
-        # unchanged from pre-GM-09c, so CLASSIC's abort stays byte-identical; a
-        # re-review showed that scoping a blip-rollback into abort instead broke
-        # that invariant.) The RNG and path count are the load-bearing guarantees.
+    def test_rejected_multistation_creation_is_fully_inert(self):
+        # A rejected over-budget creation is a COMPLETE no-op: no crossing committed,
+        # no ghost path, no RNG drawn, and (task_384488d0) the transient snap-blip the
+        # aborted drag painted is dropped too -- so the whole canonical checkpoint is
+        # byte-identical before and after. Abort removes the draft's OWN blip (its
+        # last-recorded value-match), leaving the three committed lines' blips on the
+        # shared station untouched.
         from env import MiniMetroEnv
         from recursive_checkpoint import canonical_checkpoint
 
@@ -198,9 +198,7 @@ class TestGM09cCreationGate(unittest.TestCase):
         self.assertEqual(mediator.consumed_tunnels, 3, "no crossing is committed")
         self.assertEqual(len(mediator.paths), paths_before, "no ghost path")
         self.assertIsNone(mediator.path_being_created, "draft aborted")
-        self.assertEqual(
-            before["rng"], after["rng"], "a rejected creation draws no RNG"
-        )
+        self.assertEqual(before, after, "a rejected creation is fully checkpoint-inert")
 
     def test_explicit_closure_loop_is_not_false_rejected(self):
         # A there-and-back index list [X, Y, X] with loop=True builds a 2-STATION
