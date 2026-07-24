@@ -66,6 +66,7 @@ Set `PYTHON` to a specific interpreter path when `python` is not the intended ex
 * Opening the pause menu autosaves your game to `saves/autosave.json`; Exit to Title rewrites the same save before leaving, and closing the window mid-run keeps it, so Continue on the title screen resumes exactly where you left off. Reaching game over deletes the autosave, so a finished run cannot be Continued.
 * Finishing a run records its lifetime deliveries to a high-score leaderboard at `saves/highscores.json` (ranked and capped per map and rules version); a new best shows a compact indicator on the game-over screen.
 * Press `1`, `2`, or `3` to set game speed to 1x, 2x, or 4x.
+* Every week of play the game pauses at a week boundary and shows a modal; click Continue to resume (the sim carries on with no time backlog). This is an interactive-play feature — headless, RL, and frame-limited runs never pause for a week.
 * The top-left HUD shows lifetime passengers delivered, currently spendable line credits, unassigned locomotives, and unassigned carriages as separate values.
 * Each filled grey circle at the bottom is an unused unlocked metro line slot.
 * Hold an assigned colored circle, drag through the replacement station order, and release on the final station to redraw that line; the selected circle is outlined and an invalid repeated-station draft turns red.

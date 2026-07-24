@@ -85,6 +85,13 @@ carriage_queue_outline_color = metro_queue_outline_color
 carriage_queue_outline_width = metro_queue_outline_width
 carriage_passengers_per_row = 3
 
+# weekly calendar (GM-10a / D-041): a "week" is a fixed number of sim steps. At
+# 60 steps/s (the 17,17,16 tick cadence) 1200 steps is ~20 s at 1x speed. A
+# provisional balance default -- GM-11 may tune it or make it escalate. Only the
+# human PLAYING shell enables the calendar (Mediator.week_calendar); RL/headless
+# and the tutorial leave it off, so weeks never pause a headless sim.
+WEEK_LENGTH_STEPS = 1200
+
 # path
 path_unlock_milestones = [0, 90, 300, 650]
 num_paths = len(path_unlock_milestones)

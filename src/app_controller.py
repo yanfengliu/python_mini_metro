@@ -24,7 +24,12 @@ from event.type import KeyboardEventType, MouseEventType
 from geometry.point import Point
 from maps import KNOWN_MAP_IDS
 from settings import DEFAULT_SETTINGS
-from ui.menu_screens import pause_menu_layout, settings_menu_layout, title_layout
+from ui.menu_screens import (
+    offer_menu_layout,
+    pause_menu_layout,
+    settings_menu_layout,
+    title_layout,
+)
 
 GameTriple = tuple[object, object, object]
 _MENU_REASON = "menu"
@@ -45,6 +50,7 @@ class AppScreen(Enum):
     GAME_OVER = auto()
     SETTINGS = auto()
     TUTORIAL = auto()
+    OFFER = auto()  # GM-10a (D-041): the week-boundary modal over the frozen game
 
 
 def _cycle_volume(value: int) -> int:
@@ -175,10 +181,35 @@ class AppController:
             self._autosave_delete()
             self._record_highscore()
 
+    def reconcile_week_boundary(self) -> None:
+        """Promote a pending week boundary to the ``OFFER`` modal (GM-10a/D-041).
+
+        Idempotent and a no-op unless still ``PLAYING`` and NOT game over with a
+        pending boundary. It runs AFTER ``reconcile_game_over`` (both in
+        ``handle_event`` and per-frame in ``main.run_game``), so a tick that ends
+        the game promotes to ``GAME_OVER``, never to an offer (review MAJOR). Any
+        armed gameplay gesture is cancelled through the pinned letterbox-cancel
+        before switching, exactly as pause-menu entry does, so a mid-draft mouse-up
+        cannot leak into or resume stale through the modal (review MAJOR).
+        """
+        # `is True` (not just truthiness) so a stub/MagicMock mediator that
+        # auto-vivifies the attribute as a truthy Mock does NOT falsely enter the
+        # offer -- exactly as reconcile_game_over guards is_game_over. A real
+        # Mediator returns a real bool, so a genuine pending week is never masked.
+        if (
+            self.state is AppScreen.PLAYING
+            and self.mediator.is_game_over is not True
+            and getattr(self.mediator, "is_week_boundary_pending", False) is True
+        ):
+            self.session.dispatch(MouseEvent(MouseEventType.MOUSE_UP, Point(-1, -1)))
+            self._armed_menu_control = None
+            self.state = AppScreen.OFFER
+
     def handle_event(self, event: object) -> None:
         """Route one converted event according to the current screen."""
 
         self.reconcile_game_over()
+        self.reconcile_week_boundary()
         if self.state is AppScreen.PLAYING:
             self._handle_playing(event)
         elif self.state is AppScreen.PAUSE_MENU:
@@ -191,6 +222,8 @@ class AppController:
             self._handle_settings(event)
         elif self.state is AppScreen.TUTORIAL:
             self._handle_tutorial(event)
+        elif self.state is AppScreen.OFFER:
+            self._handle_offer(event)
 
     def _start_new_game(self, map_id: str) -> None:
         # Build a fresh game on `map_id`. The title New Game / Enter pass the picker
@@ -289,6 +322,27 @@ class AppController:
             # still-paused pause menu (D-029); the armed control is already
             # cleared above.
             self._open_settings(AppScreen.PAUSE_MENU)
+
+    def _handle_offer(self, event: object) -> None:
+        # GM-10a (D-041): the week-boundary modal's single Continue control is
+        # ARMED (a down+up on the SAME control) so a stale gameplay mouse-up that
+        # crossed the boundary cannot dismiss it (review MAJOR). Continue resolves
+        # the week and resumes PLAYING. GM-10c replaces Continue with the offer.
+        layout = offer_menu_layout(screen_width, screen_height)
+        pressed = _mouse_down_position(event)
+        if pressed is not None:
+            self._armed_menu_control = next(
+                (key for key in layout if _clicked(layout, key, pressed)), None
+            )
+            return
+        position = _mouse_up_position(event)
+        if position is None:
+            return
+        armed = self._armed_menu_control
+        self._armed_menu_control = None
+        if armed == "continue" and _clicked(layout, "continue", position):
+            self.mediator.resolve_week_boundary()
+            self.state = AppScreen.PLAYING
 
     def _handle_title(self, event: object) -> None:
         if _is_key_up(event, pygame.K_RETURN):

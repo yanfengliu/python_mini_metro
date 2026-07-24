@@ -190,6 +190,28 @@ def draw_notice(surface: pygame.Surface, message: str) -> None:
     surface.blit(text, text.get_rect(center=banner.center))
 
 
+def offer_menu_layout(width: int, height: int) -> dict[str, pygame.Rect]:
+    """Hit-test rects for the GM-10a week-boundary modal (a single Continue)."""
+
+    # One centred button in the lower half, mirroring the pause/settings stacks
+    # so the shared arming + _clicked helpers apply unchanged.
+    return _stacked_buttons(width, ("continue",), height // 2)
+
+
+def draw_offer_screen(surface: pygame.Surface, week_index: int) -> None:
+    """Paint the deterministic week-boundary modal: a banner + Continue (GM-10a)."""
+
+    width, height = surface.get_size()
+    layout = offer_menu_layout(width, height)
+    _draw_heading(
+        surface,
+        width,
+        layout["continue"].top - _HEADING_GAP,
+        f"Week {week_index} complete",
+    )
+    _draw_button(surface, layout["continue"], "Continue")
+
+
 def draw_tutorial_overlay(
     surface: pygame.Surface, prompt: str, ordinal: int, total: int, done: bool
 ) -> None:

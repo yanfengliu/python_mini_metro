@@ -73,6 +73,15 @@ def _require_quiescent(mediator: Any) -> None:
         raise ValueError("cannot save during a path redraw gesture")
     if mediator.path_edit_selection is not None:
         raise ValueError("cannot save during a path edit selection")
+    # GM-10a (D-041): a pending week-boundary offer is a transient, unresolved
+    # choice that GM-10a does not persist (deferred to GM-10h). validate_save
+    # already rejects a "week" pause reason before any file I/O; this gives the
+    # clearer, actionable error at the save boundary. Defensive getattr keeps
+    # non-Mediator save shapes (which never hold "week") working.
+    if getattr(mediator, "is_week_boundary_pending", False):
+        raise ValueError(
+            "cannot save while a week-boundary offer is pending; resolve it first"
+        )
 
 
 def _require_canonical_fleet(mediator: Any) -> None:

@@ -6,6 +6,7 @@ import pygame
 
 from carriage_management import CarriageManagement
 from config import (
+    WEEK_LENGTH_STEPS,
     game_over_button_height,
     game_over_button_spacing,
     game_over_button_width,
@@ -73,7 +74,11 @@ from utils import get_shape_from_type, hue_to_rgb, pick_distinct_hue
 
 TravelPlans = Dict[Passenger, TravelPlan]
 
-_PAUSE_REASONS = frozenset({"user", "menu"})
+# "week" (GM-10a / D-041) is the calendar's boundary pause -- held only by the
+# human PLAYING shell (see Mediator.week_calendar) and, unlike "user"/"menu",
+# never cleared by the Space toggle or speed buttons.
+_PAUSE_REASONS = frozenset({"user", "menu", "week"})
+_WEEK_REASON = "week"
 
 
 def _get_game_renderer_factory():
@@ -156,6 +161,11 @@ class Mediator:
         self.path_edit_selection: PathEditSelection | None = None
         self.travel_plans: TravelPlans = {}
         self.is_paused = False
+        # GM-10a (D-041): the weekly calendar is OPT-IN and OFF by default, so
+        # RL/headless envs, the tutorial, and tests never pause for a week boundary
+        # (they would soft-lock a driver that cannot resolve the offer). Only the
+        # human PLAYING shell (main.run_game's build_game/build_from) sets this True.
+        self.week_calendar = False
         self.game_speed_multiplier = 1
         self.unlocked_num_paths = self.get_unlocked_num_paths()
         self.unlocked_num_stations = self.get_unlocked_num_stations()
@@ -677,6 +687,22 @@ class Mediator:
             self._pause_reasons = store
         return store
 
+    @property
+    def week_index(self) -> int:
+        # GM-10a: which week the run is in, DERIVED from the already-persisted
+        # steps, so week identity survives save/load with no new stored scalar.
+        return self.steps // WEEK_LENGTH_STEPS
+
+    @property
+    def is_week_boundary_pending(self) -> bool:
+        # True while the calendar is paused at a week boundary awaiting a resolve.
+        return _WEEK_REASON in self._pause_reason_store(_WEEK_REASON)
+
+    def resolve_week_boundary(self) -> None:
+        # Continue past a week boundary. In GM-10a this just releases the pause;
+        # GM-10b applies the chosen offer here before releasing.
+        self.release_pause_reason(_WEEK_REASON)
+
     def set_paused(self, paused: bool) -> None:
         self._input.set_paused(self, paused)
 
@@ -720,6 +746,7 @@ class Mediator:
         )
 
     def increment_time(self, dt_ms: int) -> None:
+        old_steps = self.steps
         transition_active = not self.is_paused and not self.is_game_over
         # The narrow reconcile runs unconditionally — including paused and
         # terminal states — so a repairable shape never survives a tick.
@@ -733,6 +760,21 @@ class Mediator:
         )
         if transition_active:
             self._drain_and_settle_queued_returns()
+        self._maybe_hold_week_boundary(old_steps)
+
+    def _maybe_hold_week_boundary(self, old_steps: int) -> None:
+        # GM-10a (D-041): after the COMPLETE tick (post queued-return settlement),
+        # hold the "week" pause if the calendar is enabled and this tick crossed a
+        # NEW week boundary. Placed LAST so the settlement is never interrupted
+        # mid-tick (review MAJOR), and skipped on game over so a terminal tick
+        # promotes to GAME_OVER rather than an offer (review MAJOR). WEEK_LENGTH_STEPS
+        # >> the max speed (4), so at most one boundary crosses per tick; a frozen
+        # tick advances no steps, so a held week never re-triggers. (At speed 4 the
+        # hold lands at e.g. steps=1202, not 1200 -- week_index is identical.)
+        if not self.week_calendar or self.is_game_over:
+            return
+        if old_steps // WEEK_LENGTH_STEPS < self.steps // WEEK_LENGTH_STEPS:
+            self.hold_pause_reason(_WEEK_REASON)
 
     def _drain_and_settle_queued_returns(self) -> None:
         """Force-alight stranded riders, then settle emptied queued returns.

@@ -35,6 +35,7 @@ from settings import load_settings, save_settings
 from ui.menu_screens import (
     draw_best_indicator,
     draw_notice,
+    draw_offer_screen,
     draw_pause_menu,
     draw_settings_menu,
     draw_title_screen,
@@ -113,6 +114,11 @@ def _audio_step(controller, state, previous_audio_session, snapshot, backend):
             controller.current_settings.master_volume,
             controller.current_settings.sfx_volume,
         )
+    elif state is AppScreen.OFFER:
+        # A boundary-tick delivery/unlock is CONSUMED silently while the offer
+        # modal is up (re-baseline, no tone), so nothing bursts after Continue
+        # (GM-10a review MINOR); the modal is not a gameplay-tone screen.
+        snapshot = snapshot_of(controller.mediator)
     return previous_audio_session, snapshot
 
 
@@ -219,6 +225,12 @@ def run_game(
         # picker's id for a new game, or the current game's id for a restart; a
         # registered id always resolves (map_by_id raises on an unknown one).
         mediator = Mediator(map_definition=map_by_id(map_id))
+        # GM-10a (D-041): only INTERACTIVE human play opts into the weekly calendar,
+        # so a week boundary pauses for the offer. A frame-limited/headless run
+        # (max_frames set -- the same signal that picks NullAudio and a PLAYING
+        # start) leaves it off, since no one is there to resolve the offer; RL and
+        # the tutorial leave it off too.
+        mediator.week_calendar = max_frames is None
         renderer = GameRenderer()
         session = GameSession(mediator, step_observer=renderer)
         session.prepare_layout(game_surface)
@@ -226,7 +238,9 @@ def run_game(
 
     def build_from(mediator):
         # Wrap a loaded Mediator into the live triple exactly as build_game does
-        # (prepare_layout included), returning the SAME loaded mediator.
+        # (prepare_layout included), returning the SAME loaded mediator. A Continued
+        # interactive game keeps its calendar (GM-10a).
+        mediator.week_calendar = max_frames is None
         renderer = GameRenderer()
         session = GameSession(mediator, step_observer=renderer)
         session.prepare_layout(game_surface)
@@ -314,7 +328,13 @@ def run_game(
                 # State-gated window-close autosave (D-027/F1): persist a mid-run
                 # boundary, drop a finished run's save, and touch nothing on the
                 # title screen (nor for a non-game controller).
-                if controller.state in (AppScreen.PLAYING, AppScreen.PAUSE_MENU):
+                if controller.state is AppScreen.OFFER:
+                    # Closing mid-offer (GM-10a): resolve the week (there is no
+                    # choice yet) and autosave the resumed game, so Continue reloads
+                    # past the boundary. Mid-offer persistence proper is GM-10h.
+                    controller.mediator.resolve_week_boundary()
+                    write_autosave(controller.mediator)
+                elif controller.state in (AppScreen.PLAYING, AppScreen.PAUSE_MENU):
                     if controller.mediator.is_game_over:
                         delete_autosave()
                         # Record the finished run at the window-close race,
@@ -360,6 +380,10 @@ def run_game(
         # Idempotent and mutually exclusive with the window-close QUIT gate above,
         # which fires only while the state is still PLAYING/PAUSE_MENU.
         controller.reconcile_game_over()
+        # Week-boundary reconcile (GM-10a/D-041): AFTER game-over so a terminal tick
+        # promotes to GAME_OVER, never to an offer; promotes a pending boundary to
+        # the OFFER modal, cancelling any armed gesture first.
+        controller.reconcile_week_boundary()
         state = controller.state
 
         # Gameplay SFX (GM-08b): after reconcile so the promotion-frame game-over
@@ -404,6 +428,9 @@ def run_game(
                 overlay = controller.tutorial_overlay()
                 if overlay is not None:
                     draw_tutorial_overlay(game_surface, *overlay)
+            elif state == AppScreen.OFFER:
+                # The week-boundary modal over the frozen game frame (GM-10a).
+                draw_offer_screen(game_surface, controller.mediator.week_index)
         window_surface.fill(screen_color)
         target_size = (viewport.width, viewport.height)
         if viewport.width > 0 and viewport.height > 0:
