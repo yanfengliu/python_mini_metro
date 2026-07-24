@@ -92,6 +92,12 @@ carriage_passengers_per_row = 3
 # and the tutorial leave it off, so weeks never pause a headless sim.
 WEEK_LENGTH_STEPS = 1200
 
+# weekly offers (GM-10b / D-042): how many DISTINCT upgrade offers the week
+# boundary presents. A provisional balance default -- GM-11 may tune it. On the
+# open CLASSIC map (no tunnel budget) the candidate pool is 3 kinds, so a value
+# above 3 would silently clamp there (see offers.generate_offers).
+OFFERS_PER_WEEK = 2
+
 # path
 path_unlock_milestones = [0, 90, 300, 650]
 num_paths = len(path_unlock_milestones)

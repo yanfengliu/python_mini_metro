@@ -386,6 +386,7 @@ class _LoopMediator:
         self._pending = pending
         self.week_index = week_index
         self.week_calendar = None  # build_game/build_from set this on construction
+        self.current_offers = ()  # GM-10b: run loop reads this for the OFFER render
         self.map_definition = SimpleNamespace(
             map_id="classic", map_definition_version=1
         )
@@ -406,16 +407,20 @@ class _LoopMediator:
         pass
 
 
-def _drive_run_game(frames_events, *, max_frames, start_state=None, pending=False):
+def _drive_run_game(
+    frames_events, *, max_frames, start_state=None, pending=False, offers=()
+):
     """Run ``main.run_game`` over the pumped frames; return the captured harness."""
 
     captured = {}
     offer_draws = []
+    offer_renders = []
     autosaves = []
     real_app_controller = main.AppController
 
     def build_mediator(map_definition=None):
         mediator = _LoopMediator(pending=pending)
+        mediator.current_offers = offers
         captured["mediator"] = mediator
         return mediator
 
@@ -438,7 +443,10 @@ def _drive_run_game(frames_events, *, max_frames, start_state=None, pending=Fals
         patch("main.AppController", side_effect=make_controller),
         patch(
             "main.draw_offer_screen",
-            side_effect=lambda surface, week_index: offer_draws.append(week_index),
+            side_effect=lambda surface, week_index, rendered_offers: (
+                offer_draws.append(week_index),
+                offer_renders.append(rendered_offers),
+            ),
         ),
         patch("main.draw_title_screen", side_effect=lambda *a, **k: None),
         patch("main.write_autosave", side_effect=lambda m: autosaves.append(m)),
@@ -465,6 +473,7 @@ def _drive_run_game(frames_events, *, max_frames, start_state=None, pending=Fals
         mediator=captured.get("mediator"),
         controller=captured.get("controller"),
         offer_draws=offer_draws,
+        offer_renders=offer_renders,
         autosaves=autosaves,
         exited=exited["raised"],
     )
@@ -523,6 +532,25 @@ class TestGM10aRunLoopOffer(unittest.TestCase):
         self.assertEqual(len(cancels), 1, "one letterbox cancel dispatched")
         self.assertEqual(cancels[0].event_type, MouseEventType.MOUSE_UP)
         self.assertEqual((cancels[0].position.left, cancels[0].position.top), (-1, -1))
+
+    def test_run_loop_forwards_the_mediators_real_offers_to_the_modal(self):
+        # GM-10b (review MAJOR): main must pass the mediator's LIVE current_offers into
+        # draw_offer_screen, not a placeholder -- replacing it with () would render an
+        # empty modal yet pass a spy that ignores the argument. Sentinel tuple pins it.
+        sentinel = ("offer-a", "offer-b")
+        harness = _drive_run_game(
+            [[]],
+            max_frames=1,
+            start_state=AppScreen.PLAYING,
+            pending=True,
+            offers=sentinel,
+        )
+        self.assertEqual(harness.controller.state, AppScreen.OFFER)
+        self.assertEqual(
+            harness.offer_renders,
+            [sentinel],
+            "the run loop forwarded the mediator's real current_offers",
+        )
 
     def test_closing_mid_offer_resolves_the_week_and_autosaves(self):
         # review MAJOR: a window-close WHILE the offer is up (frame 0 promotes, frame

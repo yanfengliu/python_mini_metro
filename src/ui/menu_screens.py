@@ -7,6 +7,8 @@ touch gameplay state or game RNG.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import pygame
 
 from config import (
@@ -20,6 +22,7 @@ from config import (
     game_over_hint_font_size,
     game_over_text_color,
 )
+from offers import Offer
 
 _TITLE_HEADING = "MINI METRO"
 _PAUSE_HEADING = "PAUSED"
@@ -28,6 +31,8 @@ _BEST_INDICATOR_TEXT = "NEW BEST"
 _HEADING_FONT_SIZE = 96
 _TUTORIAL_SUBLINE_FONT_SIZE = 26
 _HEADING_GAP = 60
+# Gap between the GM-10b offer preview panel and the Continue button below it.
+_OFFER_GAP = 24
 # Settings rows carry value labels ("Reduced Motion: On"), so they use a wider
 # button than the menu stacks; centering is on the screen midline regardless.
 _SETTINGS_BUTTON_WIDTH = 620
@@ -198,18 +203,47 @@ def offer_menu_layout(width: int, height: int) -> dict[str, pygame.Rect]:
     return _stacked_buttons(width, ("continue",), height // 2)
 
 
-def draw_offer_screen(surface: pygame.Surface, week_index: int) -> None:
-    """Paint the deterministic week-boundary modal: a banner + Continue (GM-10a)."""
+def draw_offer_screen(
+    surface: pygame.Surface, week_index: int, offers: Sequence[Offer]
+) -> None:
+    """Paint the deterministic week-boundary modal (GM-10a + GM-10b).
+
+    A banner, the week's upgrade offers previewed read-only (GM-10b -- choosing is
+    GM-10c), and Continue. The offer labels sit on an opaque panel painted in the
+    same call, so repeated frame draws over existing chrome stay byte-identical
+    (the module-wide convention shared with _draw_button/_draw_heading).
+    """
 
     width, height = surface.get_size()
     layout = offer_menu_layout(width, height)
+    continue_rect = layout["continue"]
+    font = _font(font_name, game_over_hint_font_size)
+    rendered = [
+        font.render(offer.label, True, game_over_text_color) for offer in offers
+    ]
+    line_height = max((text.get_height() for text in rendered), default=0) + 12
+    block_height = line_height * len(rendered)
+    offers_bottom = continue_rect.top - _OFFER_GAP
+    offers_top = offers_bottom - block_height
     _draw_heading(
-        surface,
-        width,
-        layout["continue"].top - _HEADING_GAP,
-        f"Week {week_index} complete",
+        surface, width, offers_top - _HEADING_GAP, f"Week {week_index} complete"
     )
-    _draw_button(surface, layout["continue"], "Continue")
+    if rendered:
+        panel_width = max(text.get_width() for text in rendered) + 60
+        panel = pygame.Rect(0, 0, panel_width, block_height + 12)
+        panel.center = (width // 2, offers_top + block_height // 2)
+        pygame.draw.rect(surface, game_over_button_color, panel, border_radius=10)
+        pygame.draw.rect(
+            surface,
+            game_over_button_border_color,
+            panel,
+            game_over_button_border_width,
+            border_radius=10,
+        )
+        for index, text in enumerate(rendered):
+            centre_y = offers_top + line_height * index + line_height // 2
+            surface.blit(text, text.get_rect(center=(width // 2, centre_y)))
+    _draw_button(surface, continue_rect, "Continue")
 
 
 def draw_tutorial_overlay(

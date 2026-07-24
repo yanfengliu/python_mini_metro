@@ -429,8 +429,13 @@ def run_game(
                 if overlay is not None:
                     draw_tutorial_overlay(game_surface, *overlay)
             elif state == AppScreen.OFFER:
-                # The week-boundary modal over the frozen game frame (GM-10a).
-                draw_offer_screen(game_surface, controller.mediator.week_index)
+                # The week-boundary modal over the frozen game frame (GM-10a); the
+                # week's upgrade offers are previewed read-only (GM-10b).
+                draw_offer_screen(
+                    game_surface,
+                    controller.mediator.week_index,
+                    controller.mediator.current_offers,
+                )
         window_surface.fill(screen_color)
         target_size = (viewport.width, viewport.height)
         if viewport.width > 0 and viewport.height > 0:
