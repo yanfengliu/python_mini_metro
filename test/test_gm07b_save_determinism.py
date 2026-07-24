@@ -24,6 +24,11 @@ from recursive_checkpoint import canonical_checkpoint
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = REPO_ROOT / "src"
 FIXTURE_PATH = REPO_ROOT / "scripts" / "fixtures" / "save-v1.json"
+# GM-09f: the DETERMINISTIC v1->v2 upgrade of save-v1.json -- identical bytes except
+# schemaVersion 2 + the sorted-inserted map identity (classic@1). A v1 save now
+# re-saves as exactly these bytes (the upgrade is pinned), and this v2 fixture is
+# self-idempotent on re-save.
+FIXTURE_V2_PATH = REPO_ROOT / "scripts" / "fixtures" / "save-v2-classic.json"
 SAVE_GAME_MODULE = "save_game"
 SAVE_SCHEMA_MODULE = "save_schema"
 # Modules only `main` may import: the save/load stack plus the main-owned
@@ -48,6 +53,11 @@ SAVE_MODULE_NAMES = {
 EXPECTED_SAVE_V1_BYTE_LENGTH: int | None = 15442
 EXPECTED_SAVE_V1_SHA256: str | None = (
     "d34736a6dfe1023e3ce9a9c9a9d2f9428a1d6e2c696d83fb31838ae22deacd1e"
+)
+# GM-09f: the frozen v2-classic upgrade bytes (save-v1.json + header-only delta).
+EXPECTED_SAVE_V2_BYTE_LENGTH: int | None = 15485
+EXPECTED_SAVE_V2_SHA256: str | None = (
+    "60f2bc16c39610b8822288ebf08eea214cb2d0f54c9ac0208113a0892badbd84"
 )
 
 _WORKER = """\
@@ -252,7 +262,6 @@ class TestGM07bFreshProcessIdentity(unittest.TestCase):
         load_game = _symbol(self, SAVE_GAME_MODULE, "load_game")
         environment_one = {**os.environ, "PYTHONHASHSEED": "1"}
         environment_two = {**os.environ, "PYTHONHASHSEED": "2"}
-        fixture_payload = FIXTURE_PATH.read_bytes()
         with tempfile.TemporaryDirectory() as directory:
             worker = Path(directory) / "gm07b_worker.py"
             worker.write_text(
@@ -269,7 +278,10 @@ class TestGM07bFreshProcessIdentity(unittest.TestCase):
             )
             self.assertEqual(first_save, second_save)
             self.assertEqual(save_a.read_bytes(), save_b.read_bytes())
-            self.assertEqual(save_a.read_bytes(), fixture_payload)
+            # GM-09f: re-saving the frozen v1 save UPGRADES it to v2 deterministically,
+            # so both hash-seed workers emit exactly the frozen save-v2-classic bytes
+            # (hash-seed independence proven against the pinned upgrade, not v1).
+            self.assertEqual(save_a.read_bytes(), FIXTURE_V2_PATH.read_bytes())
 
             first_replay = self._run_worker(worker, "replay", save_a, environment_one)
             second_replay = self._run_worker(worker, "replay", save_a, environment_two)
@@ -342,6 +354,17 @@ class TestGM07bFrozenFixture(unittest.TestCase):
         self.assertEqual(len(payload), EXPECTED_SAVE_V1_BYTE_LENGTH)
         self.assertEqual(hashlib.sha256(payload).hexdigest(), EXPECTED_SAVE_V1_SHA256)
 
+    def test_frozen_save_v2_classic_fixture_bytes_are_pinned(self):
+        # GM-09f: the v2-classic upgrade fixture is byte-frozen (LF, no CR), so the
+        # v1->v2 upgrade the idempotence/cross-process tests pin can never silently
+        # drift.
+        self.assertTrue(FIXTURE_V2_PATH.exists(), "save-v2-classic.json is missing")
+        payload = FIXTURE_V2_PATH.read_bytes()
+        self.assertNotIn(b"\r", payload)
+        self.assertTrue(payload.endswith(b"\n"))
+        self.assertEqual(len(payload), EXPECTED_SAVE_V2_BYTE_LENGTH)
+        self.assertEqual(hashlib.sha256(payload).hexdigest(), EXPECTED_SAVE_V2_SHA256)
+
     def test_frozen_fixture_matches_the_freeze_recipe_and_loads(self):
         self.assertTrue(
             FIXTURE_PATH.exists(),
@@ -360,9 +383,15 @@ class TestGM07bFrozenFixture(unittest.TestCase):
         self.assertEqual(loaded.time_ms, 2_000)
         self.assertEqual(len(loaded.paths), 1)
         self.assertEqual(len(loaded.metros[0].carriages), 1)
-        # Load -> re-save byte idempotence pins the serializer against the
-        # frozen bytes without demanding deterministic shortuuid identities.
-        self.assertEqual(canonical_save_bytes(serialize_game(loaded)), payload)
+        # GM-09f: loading the frozen v1 save and re-saving it now UPGRADES it to v2 --
+        # a deterministic header-only transform -- so the re-save equals the frozen
+        # save-v2-classic.json byte-for-byte (the upgrade is pinned), and that v2
+        # fixture is self-idempotent on re-save.
+        v2_payload = FIXTURE_V2_PATH.read_bytes()
+        self.assertEqual(canonical_save_bytes(serialize_game(loaded)), v2_payload)
+        self.assertEqual(
+            canonical_save_bytes(serialize_game(load_game(FIXTURE_V2_PATH))), v2_payload
+        )
         # The freeze recipe regenerates the same STATE modulo entity IDs:
         # compare through the UUID-free checkpoint oracle instead of bytes.
         regenerated = deserialize_game(json.loads(_fixture_bytes(self)))

@@ -302,13 +302,48 @@ def _restore_buttons(mediator: Mediator, document: dict[str, Any]) -> None:
             _fail("pathButtons lock state disagrees with the derived lock state")
 
 
+def _require_legal_map_state(mediator: Any, map_def: Any) -> None:
+    """Reject a state ILLEGAL under its own map (GM-09f, review Codex): every station
+    (active + pool) must sit on the map's land, and committed river crossings must not
+    exceed the tunnel budget. Tunnel counts are DERIVED (no persisted counter), so this
+    needs no stored field -- it refuses a forged/tampered save that a legitimate game
+    could never reach (e.g. a CLASSIC state relabeled `river@1`, whose stations are in
+    the water). Shared by serialize (pre-save) and deserialize (post-load)."""
+    regions = map_def.spawn_regions
+    if regions:
+        for station in mediator.all_stations:
+            x, y = station.position.left, station.position.top
+            if not any(
+                left <= x <= right and top <= y <= bottom
+                for (left, top, right, bottom) in regions
+            ):
+                raise ValueError(
+                    f"map {map_def.map_id!r}: a station at ({round(x)}, {round(y)}) "
+                    "is not on the map's land"
+                )
+    num_tunnels = getattr(mediator, "num_tunnels", None)
+    if num_tunnels is not None and mediator.consumed_tunnels > num_tunnels:
+        raise ValueError(
+            f"map {map_def.map_id!r}: {mediator.consumed_tunnels} river crossings "
+            f"exceed the map's tunnel budget of {num_tunnels}"
+        )
+
+
 def deserialize_game(document: Any) -> Mediator:
-    """Reconstruct one Mediator from a validated v1 save document."""
+    """Reconstruct one Mediator from a validated v1 or v2 save document (GM-09f)."""
+
+    from maps import resolve_map
 
     validate_save(document)
     coerced = safe_checkpoint_value(document)
     _require_running_config(coerced)
-    mediator = Mediator(seed=0)
+    # v2 records the map identity; a v1 doc (no map keys) synthesizes classic@1, so the
+    # frozen save-v1.json still loads as CLASSIC. resolve_map fails closed on an unknown
+    # id / unsupported version -- never a silent fallback to Classic.
+    map_definition = resolve_map(
+        coerced.get("mapId", "classic"), coerced.get("mapDefinitionVersion", 1)
+    )
+    mediator = Mediator(seed=0, map_definition=map_definition)
     # Every construction-time draw precedes this overwrite.
     _restore_rng(mediator, coerced["rng"])
     stations_by_id = _restore_stations(mediator, coerced)
@@ -321,6 +356,8 @@ def deserialize_game(document: Any) -> Mediator:
         mediator, coerced, stations_by_id, paths_by_id, passengers_by_id
     )
     _restore_buttons(mediator, coerced)
+    # The reconstructed state must be legal under its own map (rejects a forged save).
+    _require_legal_map_state(mediator, map_definition)
     return mediator
 
 

@@ -30,7 +30,9 @@ This document summarizes the game rules currently implemented in code.
   centre with dry land all around it. On any map with water, stations spawn only on the
   land — their centres are inset from the water by at least a station's size — and the
   water is drawn under the lines and stations. Map selection is available to the RL trainer (`--map river`/`--map delta`/`--map lake`)
-  and the programmatic API today; in-game menu selection arrives in a later unit.
+  and the programmatic API today; in-game menu selection arrives in a later unit. A
+  saved game records its map, so a non-Classic game saves and loads with its map (and
+  terrain) intact; an older save with no map recorded loads as `classic`.
 - On a map with water, lines cross it through a limited pool of tunnels. The
   `river` map has a budget of 3, `delta` a budget of 4, and `lake` a budget of 3: every
   place where a line's route crosses the water consumes one tunnel (so a `delta` line

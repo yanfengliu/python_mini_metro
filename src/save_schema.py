@@ -35,8 +35,15 @@ from save_schema_records import (
 )
 
 SAVE_SCHEMA_VERSION_V1 = 1
-SAVE_SCHEMA_VERSION = SAVE_SCHEMA_VERSION_V1
-SUPPORTED_SAVE_SCHEMA_VERSIONS = {SAVE_SCHEMA_VERSION_V1}
+# GM-09f: v2 is a strict SUPERSET of v1 -- it adds an additive map identity
+# (`mapId`/`mapDefinitionVersion`) so a non-Classic map (river/delta/lake) can be
+# saved/loaded. A v1 document (no map keys) still loads by synthesizing `classic@1`,
+# so the byte-frozen `save-v1.json` stays valid. New saves are v2. `stateContract`
+# and `rulesVersion` are STABLE across v1/v2 -- only `schemaVersion` and the two map
+# keys change (D-038).
+SAVE_SCHEMA_VERSION_V2 = 2
+SAVE_SCHEMA_VERSION = SAVE_SCHEMA_VERSION_V2
+SUPPORTED_SAVE_SCHEMA_VERSIONS = {SAVE_SCHEMA_VERSION_V1, SAVE_SCHEMA_VERSION_V2}
 SAVE_STATE_CONTRACT = "mini-metro-save-v1"
 SAVE_RULES_VERSION = "rules-v1"
 
@@ -50,7 +57,7 @@ _NUMPY_BIT_GENERATOR = "PCG64"
 _PCG64_STATE_BOUND = 2**128
 _UINT32_BOUND = 2**32
 
-_TOP_LEVEL_KEYS = frozenset(
+_TOP_LEVEL_KEYS_V1 = frozenset(
     """schemaVersion stateContract rulesVersion timeMs steps gameSpeedMultiplier
     isGameOver pauseReasons passengerSpawningStep passengerSpawningIntervalStep
     passengerMaxWaitTimeMs overduePassengerThreshold deliveries lineCredits
@@ -59,20 +66,63 @@ _TOP_LEVEL_KEYS = frozenset(
     stationUnlockMilestones numMetros numCarriages stations passengers paths
     metros travelPlans pathColors pathToColor spawnTimers pathButtons rng""".split()
 )
+# GM-09f: v2 adds exactly the two map-identity keys; the exact-key set is chosen by
+# the document's schemaVersion, so a v1 doc carrying map keys OR a v2 doc missing
+# them both fail closed.
+_MAP_IDENTITY_KEYS = frozenset({"mapId", "mapDefinitionVersion"})
+_TOP_LEVEL_KEYS_V2 = _TOP_LEVEL_KEYS_V1 | _MAP_IDENTITY_KEYS
+
+
+def _top_level_keys_for(version: int) -> frozenset[str]:
+    if version == SAVE_SCHEMA_VERSION_V2:
+        return _TOP_LEVEL_KEYS_V2
+    return _TOP_LEVEL_KEYS_V1
+
+
 _PATH_BUTTON_KEYS = frozenset("isLocked unlockBlinkStartTimeMs".split())
 _RNG_KEYS = frozenset("python numpy".split())
 _NUMPY_RNG_KEYS = frozenset("bit_generator state has_uint32 uinteger".split())
 _NUMPY_RNG_STATE_KEYS = frozenset("state inc".split())
 
 
-def _validate_header(document: dict[str, Any]) -> None:
+def _read_schema_version(document: dict[str, Any]) -> int:
+    """Read + validate `schemaVersion` BEFORE the exact-key set is chosen (GM-09f).
+
+    A missing key fails with a named ValueError (never a KeyError from a later
+    exact-key check), a non-exact-int (incl. bool) is rejected by `_int`, and a
+    forward version is rejected -- so the key set is only selected for a supported
+    version."""
+    if "schemaVersion" not in document:
+        _fail("schemaVersion", "is required")
     version = _int(document["schemaVersion"], "schemaVersion")
     if version not in SUPPORTED_SAVE_SCHEMA_VERSIONS:
         _fail("schemaVersion", "is unsupported (forward versions are rejected)")
+    return version
+
+
+def _validate_header(document: dict[str, Any]) -> None:
+    # schemaVersion is validated up front by _read_schema_version; the contract and
+    # rules version are STABLE across v1/v2 (only the additive map keys differ).
     if _string(document["stateContract"], "stateContract") != SAVE_STATE_CONTRACT:
         _fail("stateContract", f"must be {SAVE_STATE_CONTRACT!r}")
     if _string(document["rulesVersion"], "rulesVersion") != SAVE_RULES_VERSION:
         _fail("rulesVersion", f"must be {SAVE_RULES_VERSION!r}")
+
+
+def _validate_map_identity(document: dict[str, Any]) -> None:
+    """Validate the v2 map-identity scalars (GM-09f): a non-empty ASCII `mapId` with no
+    whitespace + a positive non-bool `mapDefinitionVersion`. Well-typed but UNKNOWN ids
+    are deferred to `resolve_map` at load (fail-closed there); this pins the SHAPE, a
+    true mirror of `rl.manifest_schema._validate_map_identity` (registry ids are ASCII
+    and whitespace-free, so this only rejects a hand-forged doc -- D-038)."""
+    map_id = _string(document["mapId"], "mapId")
+    if not map_id:
+        _fail("mapId", "must be a non-empty string")
+    if not map_id.isascii():
+        _fail("mapId", "must be ASCII")
+    if any(character.isspace() for character in map_id):
+        _fail("mapId", "must not contain whitespace")
+    _positive_int(document["mapDefinitionVersion"], "mapDefinitionVersion")
 
 
 def _validate_scalars(document: dict[str, Any]) -> None:
@@ -221,8 +271,13 @@ def validate_save(document: Any) -> None:
         coerced = safe_checkpoint_value(document)
     except TypeError as error:
         raise ValueError(f"save document holds unsupported values: {error}") from error
-    _exact_keys(coerced, _TOP_LEVEL_KEYS, "document")
+    # GM-09f two-phase: read + support-check the version, THEN choose the version-aware
+    # exact-key set, so a v1 doc carrying map keys and a v2 doc missing them both fail.
+    version = _read_schema_version(coerced)
+    _exact_keys(coerced, _top_level_keys_for(version), "document")
     _validate_header(coerced)
+    if version == SAVE_SCHEMA_VERSION_V2:
+        _validate_map_identity(coerced)
     _validate_scalars(coerced)
     _validate_progression(coerced)
     registry: set[str] = set()

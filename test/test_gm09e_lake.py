@@ -235,11 +235,17 @@ class TestGM09eOtherMapsUnaffected(unittest.TestCase):
 
 
 class TestGM09eSaveGuardAndRender(unittest.TestCase):
-    def test_lake_map_is_not_serializable(self):
+    def test_lake_map_round_trips_through_a_v2_save(self):
+        # GM-09f: a registered LAKE map now serializes (v2 records the map identity)
+        # and reloads with its map preserved.
         from save_game import serialize_game
+        from save_load import deserialize_game
+        from save_schema import validate_save
 
-        with self.assertRaisesRegex(ValueError, r"lake'@1"):
-            serialize_game(Mediator(seed=0, map_definition=LAKE))
+        document = serialize_game(Mediator(seed=0, map_definition=LAKE))
+        self.assertEqual(document["mapId"], "lake")
+        validate_save(document)
+        self.assertEqual(deserialize_game(document).map_definition, LAKE)
 
     def test_terrain_paints_the_lake_interior_but_not_the_dry_corners(self):
         from rendering.terrain_renderer import RIVER_COLOR, draw_terrain

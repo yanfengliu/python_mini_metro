@@ -172,13 +172,21 @@ class TestGM09bSaveGuardStructural(unittest.TestCase):
         with self.assertRaises(Exception):
             serialize_game(m)
 
-    def test_river_map_is_not_serializable(self):
+    def test_river_map_round_trips_through_a_v2_save(self):
+        # GM-09f: a registered RIVER map now serializes (v2 records the map identity)
+        # and reloads with its map preserved -- the forged-classic guard above stays
+        # green because it checks STRUCTURAL equality to the registered definition.
         from mediator import Mediator
         from save_game import serialize_game
+        from save_load import deserialize_game
+        from save_schema import validate_save
 
-        m = Mediator(seed=0, map_definition=_sym(self, "RIVER"))
-        with self.assertRaises(Exception):
-            serialize_game(m)
+        river = _sym(self, "RIVER")
+        document = serialize_game(Mediator(seed=0, map_definition=river))
+        self.assertEqual(document["mapId"], "river")
+        self.assertEqual(document["mapDefinitionVersion"], 1)
+        validate_save(document)
+        self.assertEqual(deserialize_game(document).map_definition, river)
 
 
 class TestGM09bTerrainRenderer(unittest.TestCase):

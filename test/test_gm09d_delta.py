@@ -214,14 +214,17 @@ class TestGM09dClassicRiverUnaffected(unittest.TestCase):
 
 
 class TestGM09dSaveGuardAndRender(unittest.TestCase):
-    def test_delta_map_is_not_serializable(self):
+    def test_delta_map_round_trips_through_a_v2_save(self):
+        # GM-09f: a registered DELTA map now serializes (v2 records the map identity)
+        # and reloads with its map preserved.
         from save_game import serialize_game
+        from save_load import deserialize_game
+        from save_schema import validate_save
 
-        # The fail-closed guard must raise a ValueError naming the exact rejected
-        # map identity (delta@1) -- not merely any Exception, which a stray
-        # RuntimeError would also satisfy (review Codex).
-        with self.assertRaisesRegex(ValueError, r"delta'@1"):
-            serialize_game(Mediator(seed=0, map_definition=DELTA))
+        document = serialize_game(Mediator(seed=0, map_definition=DELTA))
+        self.assertEqual(document["mapId"], "delta")
+        validate_save(document)
+        self.assertEqual(deserialize_game(document).map_definition, DELTA)
 
     def test_terrain_paints_both_channels_and_not_the_mid_bank(self):
         # Assert BOTH channels are water and the mid bank is not -- a regression that

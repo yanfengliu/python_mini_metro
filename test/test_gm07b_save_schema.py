@@ -22,8 +22,10 @@ SAVE_GAME_MODULE = "save_game"
 UNKNOWN_STATION_ID = "Station-" + "2" * 22 + "-ShapeType.RECT"
 UNKNOWN_PASSENGER_ID = "Passenger-" + "2" * 22
 UNKNOWN_PATH_ID = "Path-" + "2" * 22
+# v2 (GM-09f): a freshly serialized document adds the additive map identity.
 TOP_LEVEL_KEYS = frozenset(
-    """schemaVersion stateContract rulesVersion timeMs steps gameSpeedMultiplier
+    """schemaVersion stateContract rulesVersion mapId mapDefinitionVersion timeMs
+    steps gameSpeedMultiplier
     isGameOver pauseReasons passengerSpawningStep passengerSpawningIntervalStep
     passengerMaxWaitTimeMs overduePassengerThreshold deliveries lineCredits
     purchasedNumPaths unlockedNumPaths unlockedNumStations numPaths numStations
@@ -153,17 +155,22 @@ class TestGM07bSaveSchemaVersioning(unittest.TestCase):
         schema = _module(self, SAVE_SCHEMA_MODULE)
         for name, expected in (
             ("SAVE_SCHEMA_VERSION_V1", 1),
-            ("SAVE_SCHEMA_VERSION", 1),
-            ("SUPPORTED_SAVE_SCHEMA_VERSIONS", {1}),
+            ("SAVE_SCHEMA_VERSION_V2", 2),
+            ("SAVE_SCHEMA_VERSION", 2),
+            ("SUPPORTED_SAVE_SCHEMA_VERSIONS", {1, 2}),
+            # stateContract + rulesVersion are STABLE across v1/v2 (GM-09f).
             ("SAVE_STATE_CONTRACT", "mini-metro-save-v1"),
             ("SAVE_RULES_VERSION", "rules-v1"),
         ):
             self.assertEqual(getattr(schema, name, None), expected, name)
         validate_save = _symbol(self, SAVE_SCHEMA_MODULE, "validate_save")
         _, document = _document(self)
-        self.assertEqual(document["schemaVersion"], 1)
+        self.assertEqual(document["schemaVersion"], 2)
         self.assertEqual(document["stateContract"], "mini-metro-save-v1")
         self.assertEqual(document["rulesVersion"], "rules-v1")
+        # A freshly serialized game is v2 and carries the map identity (classic@1).
+        self.assertEqual(document["mapId"], "classic")
+        self.assertEqual(document["mapDefinitionVersion"], 1)
         self.assertIsNone(validate_save(document))
 
     def test_schema_version_and_pinned_literal_strictness(self):
@@ -172,11 +179,23 @@ class TestGM07bSaveSchemaVersioning(unittest.TestCase):
         mutations = {
             "bool-true schemaVersion": _setter((), "schemaVersion", True),
             "bool-false schemaVersion": _setter((), "schemaVersion", False),
-            "forward schemaVersion": _setter((), "schemaVersion", 2),
+            # 2 is now SUPPORTED (v2); 3 is the forward version that must be rejected.
+            "forward schemaVersion": _setter((), "schemaVersion", 3),
             "zero schemaVersion": _setter((), "schemaVersion", 0),
             "string schemaVersion": _setter((), "schemaVersion", "1"),
             "float schemaVersion": _setter((), "schemaVersion", 1.0),
             "null schemaVersion": _setter((), "schemaVersion", None),
+            "list schemaVersion": _setter((), "schemaVersion", [2]),
+            # GM-09f version-aware keys: a v2 doc (this one) DOWNGRADED to v1 still
+            # carries the map keys, which the v1 exact-key set forbids -> rejected.
+            "v1 header with v2 map keys": _setter((), "schemaVersion", 1),
+            # A well-typed but non-positive / non-string map identity is rejected.
+            "zero mapDefinitionVersion": _setter((), "mapDefinitionVersion", 0),
+            "empty mapId": _setter((), "mapId", ""),
+            "integer mapId": _setter((), "mapId", 1),
+            # GM-09f mirror of rl.manifest_schema: mapId is non-empty ASCII, no whitespace.
+            "non-ascii mapId": _setter((), "mapId", "rivér"),
+            "whitespace mapId": _setter((), "mapId", "river "),
             "wrong stateContract": _setter((), "stateContract", "mini-metro-save-v2"),
             "empty stateContract": _setter((), "stateContract", ""),
             "null stateContract": _setter((), "stateContract", None),

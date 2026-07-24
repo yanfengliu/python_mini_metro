@@ -235,10 +235,13 @@ class TestGM09aImportSafety(unittest.TestCase):
 
 
 class TestGM09aSaveGuard(unittest.TestCase):
-    def test_serialize_rejects_a_non_classic_map(self):
-        # Fail-closed (review Codex-7): until the save schema carries map identity,
-        # a save-capable Mediator must be serializable ONLY as classic@1, so a
-        # future non-Classic map can never be silently written as Classic.
+    def test_serialize_rejects_a_forged_map_definition(self):
+        # Fail-closed STRUCTURAL guard (GM-09a; GM-09f generalized it past `== CLASSIC`
+        # to `== resolve_map(id, version)`): a save records only the map IDENTITY and
+        # reconstructs terrain from the registry on load, so a forged/drifted
+        # definition -- here `river@1` carrying CLASSIC's palette and NO river terrain
+        # -- must be rejected, or it would persist as `river@1` and silently reload as
+        # the real RIVER. (A REGISTERED river/delta/lake now serializes; see GM-09b/d/e.)
         from save_game import serialize_game
 
         map_def_cls = _sym(self, "MapDefinition")
@@ -246,7 +249,7 @@ class TestGM09aSaveGuard(unittest.TestCase):
         m = Mediator(seed=0)
         # Classic serializes fine.
         serialize_game(m)
-        # A non-Classic definition must be rejected with a clear, named error.
+        # A forged (registry-mismatched) definition must be rejected with a named error.
         m.map_definition = map_def_cls(
             map_id="river",
             map_definition_version=1,

@@ -2,7 +2,7 @@
 
 serialize_game reads live state through attributes only (never through
 mutating getters), rejects mid-gesture boundaries, and returns a strict
-schema-v1 document; save_game writes its canonical ASCII bytes through a
+schema-v2 document (v2 adds the map identity; GM-09f); save_game writes its canonical ASCII bytes through a
 save-local mkstemp -> fsync -> os.replace atomic writer, so a failed
 save leaves the destination untouched and no temporary file behind.
 """
@@ -15,7 +15,7 @@ from pathlib import Path as FilesystemPath
 from typing import Any
 
 from recursive_checkpoint_schema import safe_checkpoint_value
-from save_load import deserialize_game, load_game
+from save_load import _require_legal_map_state, deserialize_game, load_game
 from save_schema import (
     SAVE_RULES_VERSION,
     SAVE_SCHEMA_VERSION,
@@ -27,26 +27,39 @@ from save_schema import (
 __all__ = ["serialize_game", "save_game", "deserialize_game", "load_game"]
 
 
-def _require_classic_map(mediator: Any) -> None:
-    # Fail-closed map guard (GM-09a, hardened GM-09b): the v1 save schema carries no
-    # map identity, so ONLY the canonical Classic map may be serialized. The check is
-    # STRUCTURAL equality against `maps.CLASSIC` (the frozen MapDefinition compares
-    # every field), not just map_id/version -- a forged `MapDefinition("classic", 1,
-    # rivers=..., spawn_regions=...)` would otherwise pass and be silently written as
-    # plain Classic, then reload wrong. The map/save integration lands in GM-09f;
-    # until then a non-Classic (or forged-Classic-with-terrain) Mediator is rejected.
-    # A Mediator without a map_definition is the default Classic.
-    from maps import CLASSIC
+def _require_serializable_map(mediator: Any) -> tuple[str, int]:
+    """GM-09f: the v2 save records only the map IDENTITY (`mapId`/version) and
+    reconstructs terrain from the registry on load, so serialization is fail-closed
+    on two axes and returns the identity to persist.
 
+    (1) STRUCTURAL: the map_definition must EQUAL the registered definition for its
+    own id@version (`resolve_map`, which raises a named error on an unknown id /
+    unsupported version). This rejects a forged/drifted `MapDefinition("classic", 1,
+    rivers=...)` that would otherwise persist as `classic@1` and reload as the real
+    terrain-free CLASSIC -- the GM-09b fail-open, now generalized past `== CLASSIC`.
+    (2) STATE-LEGAL: the live state must be legal under that map (below), so a CLASSIC
+    state relabeled `river@1` -- whose stations sit in the water -- cannot be saved.
+    A Mediator with no map_definition is the default Classic.
+    """
+    from maps import CLASSIC, resolve_map
+
+    # Default to Classic ONLY on a truly absent map_definition (is None) -- never via
+    # `or CLASSIC`, which would silently coerce a FALSEY MapDefinition (e.g. a subclass
+    # with __bool__ -> False) into classic@1 and lose its terrain, the very fail-open
+    # this guard exists to close (review Codex).
     map_def = getattr(mediator, "map_definition", None)
-    if map_def is None or map_def == CLASSIC:
-        return
-    identity = f"{getattr(map_def, 'map_id', '?')!r}@{getattr(map_def, 'map_definition_version', '?')}"
-    raise ValueError(
-        f"cannot serialize map {identity}: the v1 save schema has no map identity, so "
-        "only the canonical classic@1 map is serializable until the map/save "
-        "integration lands (a non-Classic or forged-Classic-with-terrain map is rejected)"
-    )
+    if map_def is None:
+        map_def = CLASSIC
+    registered = resolve_map(map_def.map_id, map_def.map_definition_version)
+    if map_def != registered:
+        raise ValueError(
+            f"cannot serialize map {map_def.map_id!r}@{map_def.map_definition_version}: "
+            "its definition does not match the registered map of that identity "
+            "(forged or drifted terrain); a save records only the map identity and "
+            "reconstructs terrain from the registry on load"
+        )
+    _require_legal_map_state(mediator, map_def)
+    return map_def.map_id, map_def.map_definition_version
 
 
 def _require_quiescent(mediator: Any) -> None:
@@ -213,15 +226,18 @@ def _spawn_timer_records(mediator: Any) -> list[list[Any]]:
 
 
 def serialize_game(mediator: Any) -> dict[str, Any]:
-    """Capture one strict v1 save document without mutating the Mediator."""
+    """Capture one strict v2 save document (adds the map identity) without mutating
+    the Mediator."""
 
-    _require_classic_map(mediator)
+    map_id, map_definition_version = _require_serializable_map(mediator)
     _require_quiescent(mediator)
     _require_canonical_fleet(mediator)
     raw = {
         "schemaVersion": SAVE_SCHEMA_VERSION,
         "stateContract": SAVE_STATE_CONTRACT,
         "rulesVersion": SAVE_RULES_VERSION,
+        "mapId": map_id,
+        "mapDefinitionVersion": map_definition_version,
         "timeMs": mediator.time_ms,
         "steps": mediator.steps,
         "gameSpeedMultiplier": mediator.game_speed_multiplier,
