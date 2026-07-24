@@ -11,11 +11,13 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+from maps import resolve_map
 from rl.history import HistoryDescriptor
 from rl.manifest_schema import (
     SUPPORTED_TRAINING_MANIFEST_SCHEMAS,
     TRAINING_MANIFEST_SCHEMA,
     TRAINING_MANIFEST_SCHEMA_V1,
+    TRAINING_MANIFEST_SCHEMA_V3,
     TrainingManifest,
 )
 from rl.provenance import (
@@ -85,13 +87,31 @@ def create_training_manifest(
     tags: Sequence[str] = (),
     parent_manifest_sha256: str | None = None,
     parent_model_sha256: str | None = None,
+    map_id: str | None = None,
+    map_definition_version: int | None = None,
 ) -> TrainingManifest:
-    """Build a complete immutable v2 manifest from explicit run inputs."""
+    """Build a complete immutable manifest from explicit run inputs.
+
+    Writes a map-free v2 manifest by default; a map-bound task (``map_id`` set)
+    writes a v3 manifest carrying the map identity. The ``__post_init__``
+    invariant keeps the schema version and the map keys in lockstep.
+    """
 
     if not isinstance(history, HistoryDescriptor):
         raise TypeError("history must be a HistoryDescriptor")
+    schema = (
+        TRAINING_MANIFEST_SCHEMA_V3 if map_id is not None else TRAINING_MANIFEST_SCHEMA
+    )
+    # Fail-closed on an UNSUPPORTED map at creation (review Codex-2): a non-null
+    # map must resolve to a registered definition, so a run can never persist a
+    # manifest naming a map the registry does not have. (The task_fingerprint is
+    # caller-computed and cross-checked against the task fields on the read path
+    # in task_spec_from_manifest, as it has always been — the factory does not
+    # recompute it, keeping the manifest record decoupled from the RL protocol.)
+    if map_id is not None:
+        resolve_map(map_id, map_definition_version)
     return TrainingManifest(
-        schema=TRAINING_MANIFEST_SCHEMA,
+        schema=schema,
         protocol_fingerprint=protocol_fingerprint,
         task_fingerprint=task_fingerprint,
         content_fingerprint=content_fingerprint,
@@ -117,6 +137,8 @@ def create_training_manifest(
         parent_manifest_sha256=parent_manifest_sha256,
         parent_model_sha256=parent_model_sha256,
         tags=tuple(tags),
+        map_id=map_id,
+        map_definition_version=map_definition_version,
     )
 
 

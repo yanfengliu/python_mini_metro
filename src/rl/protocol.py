@@ -141,6 +141,11 @@ class TaskSpec:
     fixed_ticks: int = DEFAULT_FIXED_TICKS
     reward_mode: RewardMode | str = RewardMode.DELIVERIES
     max_episode_steps: int = DEFAULT_MAX_EPISODE_STEPS
+    # Map identity is APPENDED after max_episode_steps so every positional
+    # TaskSpec(...) call site is unchanged. Both None is the legacy/map-absent
+    # descriptor (byte-identical to the pre-map code); a set pair is descriptor v2.
+    map_id: str | None = None
+    map_definition_version: int | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -154,6 +159,36 @@ class TaskSpec:
             raise TypeError("max_episode_steps must be an integer")
         if self.max_episode_steps <= 0:
             raise ValueError("max_episode_steps must be positive")
+        self._validate_map_identity()
+
+    def _validate_map_identity(self) -> None:
+        # Exactly (None, None) [legacy] or (non-empty ASCII id, positive non-bool
+        # version) [map-bound]. A partial pair would mint a descriptor carrying a
+        # null, so reject it with a specific message (review Codex-5).
+        map_id = self.map_id
+        version = self.map_definition_version
+        if map_id is None and version is None:
+            return
+        if map_id is None or version is None:
+            raise ValueError(
+                "map_id and map_definition_version must both be set (map-bound) or "
+                f"both be None (legacy); got map_id={map_id!r}, "
+                f"map_definition_version={version!r}"
+            )
+        if (
+            not isinstance(map_id, str)
+            or not map_id
+            or not map_id.isascii()
+            or any(character.isspace() for character in map_id)
+        ):
+            raise ValueError(
+                f"map_id must be a non-empty ASCII string without whitespace; "
+                f"got {map_id!r}"
+            )
+        if isinstance(version, bool) or not isinstance(version, int) or version <= 0:
+            raise ValueError(
+                f"map_definition_version must be a positive integer; got {version!r}"
+            )
 
     @property
     def action_nvec(self) -> tuple[int, int, int]:
@@ -321,7 +356,7 @@ def task_descriptor(spec: TaskSpec | None = None) -> dict[str, Any]:
         raise TypeError("spec must be a TaskSpec")
     profile = selected.render_profile
     reward_mode = _coerce_reward_mode(selected.reward_mode)
-    return {
+    descriptor = {
         "protocol_id": PROTOCOL_ID,
         "protocol_version": PROTOCOL_VERSION,
         "protocol_fingerprint": protocol_fingerprint(),
@@ -342,6 +377,16 @@ def task_descriptor(spec: TaskSpec | None = None) -> dict[str, Any]:
         },
         "episode": _episode_descriptor(selected.max_episode_steps),
     }
+    # Map identity is added ONLY for a map-bound spec. `canonical_json` sorts keys
+    # per descriptor independently, so a map-ABSENT spec serializes byte-for-byte
+    # identically to the pre-map code and keeps its exact legacy fingerprint; the
+    # presence of these keys is the descriptor-version signal (no version key is
+    # ever added to the legacy descriptor).
+    if selected.map_id is not None:
+        descriptor["mapId"] = selected.map_id
+        descriptor["mapDefinitionVersion"] = selected.map_definition_version
+        descriptor["descriptorVersion"] = 2
+    return descriptor
 
 
 def canonical_json(value: Any) -> str:

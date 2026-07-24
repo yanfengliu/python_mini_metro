@@ -12,6 +12,7 @@ from gymnasium import spaces
 from config import screen_color
 from event.convert import convert_pygame_event
 from game_session import GameSession
+from maps import resolve_map
 from mediator import Mediator
 from rendering.game_renderer import GameRenderer
 from rl.protocol import (
@@ -60,12 +61,27 @@ class PlayerPixelEnv(gym.Env[np.ndarray, np.ndarray]):
         fixed_ticks: int = DEFAULT_FIXED_TICKS,
         reward_mode: RewardMode | str = RewardMode.DELIVERIES,
         max_episode_steps: int = DEFAULT_MAX_EPISODE_STEPS,
+        map_id: str | None = None,
+        map_definition_version: int | None = None,
     ) -> None:
         super().__init__()
         if render_mode not in (None, "rgb_array"):
             raise ValueError("render_mode must be None or 'rgb_array'")
         profile = resolve_render_profile(render_profile)
-        self.task_spec = TaskSpec(profile, fixed_ticks, reward_mode, max_episode_steps)
+        self.task_spec = TaskSpec(
+            profile,
+            fixed_ticks,
+            reward_mode,
+            max_episode_steps,
+            map_id=map_id,
+            map_definition_version=map_definition_version,
+        )
+        # Resolve the map ONCE (validates the exact id/version pair). A map-less
+        # env keeps map_definition None so the Mediator uses its default Classic
+        # map and a bare PlayerPixelEnv() stays byte-identical to TaskSpec().
+        self._map_definition = (
+            resolve_map(map_id, map_definition_version) if map_id is not None else None
+        )
         self.metadata = {
             **type(self).metadata,
             "render_fps": 60.0 / self.task_spec.fixed_ticks,
@@ -123,7 +139,7 @@ class PlayerPixelEnv(gym.Env[np.ndarray, np.ndarray]):
             else int(self.np_random.integers(0, 2**32, dtype=np.uint64))
         )
         self._ensure_surfaces()
-        self._mediator = Mediator(seed=actual_seed)
+        self._mediator = Mediator(seed=actual_seed, map_definition=self._map_definition)
         self._renderer = GameRenderer()
         self._session = GameSession(self._mediator, step_observer=self._renderer)
         assert self._canonical_surface is not None

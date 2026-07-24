@@ -1,0 +1,80 @@
+{
+  "algorithm": "recurrent_ppo",
+  "artifactIndexSha256": "ab85124a67b3db94c93ba459986db94bb6dbcf88d5ce765f4ba22898de15a00a",
+  "artifacts": {
+    "artifact_index": "artifact-indexes/256-3.json",
+    "best_models": "best/",
+    "checkpoints": "checkpoints/",
+    "evaluations": "evaluations/",
+    "final_model": "final_model.zip",
+    "tensorboard": "tensorboard/"
+  },
+  "command": [
+    "python",
+    "scripts/train_rl.py",
+    "--fixture"
+  ],
+  "contentFingerprint": "bc91d99f40aad57c69a4b9b99a77dbfcdd95a12d06836934136b912b0103ac40",
+  "fixedTicks": 6,
+  "frameStack": 8,
+  "hyperparameters": {
+    "batch_size": 64,
+    "checkpoint_every": 128,
+    "clip_range": 0.1,
+    "device_requested": "cpu",
+    "device_resolved": "cpu",
+    "enable_critic_lstm": true,
+    "ent_coef": 0.01,
+    "eval_episodes": 1,
+    "eval_every": 128,
+    "eval_seed": 10042,
+    "features_dim": 256,
+    "features_extractor": "MiniMetroCNN",
+    "gae_lambda": 0.99,
+    "gamma": 1.0,
+    "learning_rate": 0.00025,
+    "learning_rate_schedule": "linear",
+    "lstm_hidden_size": 256,
+    "max_grad_norm": 0.5,
+    "n_epochs": 4,
+    "n_lstm_layers": 1,
+    "n_steps": 128,
+    "policy": "CnnLstmPolicy",
+    "shared_lstm": false,
+    "total_timesteps_requested": 256,
+    "vf_coef": 0.5
+  },
+  "maxEpisodeSteps": 4,
+  "nEnvs": 2,
+  "parentManifestSha256": null,
+  "parentModelSha256": null,
+  "protocolFingerprint": "69c604ac62d46d4a2339b3efad239372c61d0eb52e45ce6c9b6cf8da946dea8f",
+  "renderProfile": "fast",
+  "rewardMode": "deliveries",
+  "runtime": {
+    "packageVersions": {
+      "gymnasium": "1.3.0",
+      "numpy": "2.5.1",
+      "pygame-ce": "2.5.7",
+      "sb3-contrib": "2.9.0",
+      "shapely": "2.1.2",
+      "shortuuid": "1.0.13",
+      "stable-baselines3": "2.9.0",
+      "tensorboard": "2.21.0",
+      "torch": "2.13.0"
+    },
+    "platform": "Windows-11-10.0.26100-SP0",
+    "pythonVersion": "3.13.10 | packaged by Anaconda, Inc. | (main, Dec  3 2025, 21:20:59) [MSC v.1929 64 bit (AMD64)]"
+  },
+  "schema": "mini-metro-training-manifest-v1",
+  "seed": 42,
+  "source": {
+    "dirtyPaths": [],
+    "gitRevision": "fc082bb38c5a6a8b1af2ee6d8cf7c9317184e069"
+  },
+  "status": "complete",
+  "tags": [],
+  "taskFingerprint": "c2ef342f9cedfc3b7292ec2517ec7ccca7b2dcf9b49811c6dec529c25e73933e",
+  "timesteps": 256,
+  "trainingFingerprint": "be9ae549c29454e4fbd51893dbb977b56a46301fd1ee128dd0fcf456a33fb28c"
+}

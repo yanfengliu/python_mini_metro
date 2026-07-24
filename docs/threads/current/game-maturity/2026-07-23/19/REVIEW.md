@@ -1,0 +1,19 @@
+# GM-09a2 implementation review synthesis
+
+Dual adversarial lane on the versioned RL task-descriptor identity (a new-behavior, legacy-byte-compat surface). The pattern INVERTED from the usual: the harness lane rated it CLEAN, while the external Codex lane found the real MAJOR — reinforcing that both lanes must run.
+
+- **Harness lane** (`raw/impl-harness.md`, CLEAN): empirically verified every load-bearing invariant against the exact hash — map-absent `c2ef342f` preserved, the committed fixture reconstructs to it, v3 invariants, resume-inherit (MAJOR-1) fixed, thunk pickle-safety, `PlayerPixelEnv().task_spec == TaskSpec()`, the legitimate fingerprint pin, full suite 1357/0. Two NITs.
+- **External Codex ultra lane** (`raw/impl-codex.md`, NOT CLEAN): verified the same legacy-compat core, but found 1 MAJOR + 2 MINOR + 2 NIT.
+
+## Findings and dispositions (all folded)
+
+- **Codex MAJOR-1 — the factory can mint a manifest whose stored task_fingerprint contradicts its fields/map.** DISPOSITION: fixed at the READ path, not the factory. The `create_training_manifest` record is DELIBERATELY decoupled from the RL protocol — it stores the caller-computed `task_fingerprint`, and the task-fingerprint-vs-fields consistency was NEVER factory-checked (this is pre-existing: render_profile/fixed_ticks could already disagree with the fingerprint; the map is just another dimension). A reconstruct-and-cross-check in the factory broke 11 existing tests that build manifests with synthetic fingerprints/profiles to test persistence independently of the protocol. The contradiction fails closed on the read path — `task_spec_from_manifest` rejects it ("task fingerprint does not match manifest task fields") BEFORE the task is ever used — so a contradictory manifest can be written but never used. A new test (`test_reconstruction_rejects_a_contradictory_task_fingerprint`) pins that.
+- **Codex MINOR-2 — an unsupported map version isn't rejected early.** FOLDED: `task_spec_from_manifest` now `resolve_map`s a non-null pair (a self-consistent `classic@2` fails at read, not in a worker), AND `create_training_manifest` resolves a non-null map at CREATION (a run can't persist an unsupported-map manifest). Tests: `test_factory_rejects_an_unsupported_map_version`, `test_reconstruction_rejects_an_unsupported_map_version`.
+- **Codex MINOR-3 — v3 rejection messages omit the offending input.** FOLDED: the `manifest_schema` v3 mapId/version messages now include `got {…!r}` (the error-surface rule).
+- **Codex MINOR-4 — docs contradict the implementation.** FOLDED: README's "every fresh artifact is v2" refined to map-free v2 vs map-bound v3 (+ the `--map` note); ARCHITECTURE's GM-09a2 "deferred" replaced with the completed boundary; PROGRESS entry added; D-033 recorded.
+- **Codex NIT-5 — version-constant exports incomplete.** FOLDED: explicit `TRAINING_MANIFEST_SCHEMA_V2` (the unsuffixed name is its alias), exported alongside V1/V3.
+- **Codex NIT-6 + harness NIT — legacy-fixture test leaks its file handle.** FOLDED: context manager.
+- **Harness NIT — map_id validation accepts whitespace/control ASCII.** FOLDED (defense-in-depth): `TaskSpec._validate_map_identity` and the manifest v3 validation now reject whitespace, matching the `_require_nonempty().strip()` convention. Test: `test_whitespace_map_id_is_rejected`.
+
+## Result
+CLEAN after fold. Legacy byte-compat is airtight (both lanes independently reproduced `c2ef342f`); the read path fails closed on every contradiction (mismatched fingerprint OR unsupported map); v3 invariants and resume-inherit hold. Full py313 suite 1361/0 (12 skips), ruff/format/pre-commit clean, `EXPECTED_LF_TRAINING` re-pinned. Ready for CI-gated `[GM-09a2:A]` after rebase.

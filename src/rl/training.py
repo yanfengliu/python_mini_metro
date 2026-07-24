@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from maps import resolve_map
 from rl.artifacts import sha256_file
 from rl.dependencies import require_rl_dependencies as require_rl_dependencies
 from rl.history import HistoryDescriptor, contiguous_history, default_history
@@ -101,6 +102,8 @@ class PlayerEnvThunk:
     reward_mode: str
     max_episode_steps: int
     seed: int
+    map_id: str | None = None
+    map_definition_version: int | None = None
 
     def __call__(self) -> Any:
         from rl.player_env import PlayerPixelEnv
@@ -110,6 +113,8 @@ class PlayerEnvThunk:
             fixed_ticks=self.fixed_ticks,
             reward_mode=self.reward_mode,
             max_episode_steps=self.max_episode_steps,
+            map_id=self.map_id,
+            map_definition_version=self.map_definition_version,
         )
         env.action_space.seed(self.seed)
         env.observation_space.seed(self.seed)
@@ -133,6 +138,8 @@ def make_env_thunks(
             reward_mode=task_spec.reward_mode.value,
             max_episode_steps=task_spec.max_episode_steps,
             seed=seed + rank,
+            map_id=task_spec.map_id,
+            map_definition_version=task_spec.map_definition_version,
         )
         for rank in range(n_envs)
     )
@@ -271,11 +278,18 @@ def task_spec_from_manifest(manifest: TrainingManifest) -> TaskSpec:
         manifest.fixed_ticks,
         manifest.reward_mode,
         manifest.max_episode_steps,
+        map_id=manifest.map_id,
+        map_definition_version=manifest.map_definition_version,
     )
     if spec.fingerprint() != manifest.task_fingerprint:
         raise ManifestCompatibilityError(
             "task fingerprint does not match manifest task fields"
         )
+    if spec.map_id is not None:
+        # Resolve the exact (id, version) so a self-consistent but UNSUPPORTED map
+        # (e.g. a stored classic@2 the registry does not have) fails HERE with a
+        # clear error, not deep inside a spawned worker (review Codex-2).
+        resolve_map(spec.map_id, spec.map_definition_version)
     return spec
 
 

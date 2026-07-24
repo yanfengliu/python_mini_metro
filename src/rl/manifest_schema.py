@@ -12,9 +12,19 @@ from rl.history import HistoryDescriptor, contiguous_history
 from rl.provenance import RuntimeSnapshot, SourceSnapshot
 
 TRAINING_MANIFEST_SCHEMA_V1 = "mini-metro-training-manifest-v1"
-TRAINING_MANIFEST_SCHEMA = "mini-metro-training-manifest-v2"
+TRAINING_MANIFEST_SCHEMA_V2 = "mini-metro-training-manifest-v2"
+# v3 adds map identity (GM-09a2). v1/v2 stay map-free; the default map-less
+# manifest is still v2, and v3 is written only for a map-bound task.
+TRAINING_MANIFEST_SCHEMA_V3 = "mini-metro-training-manifest-v3"
+# The unsuffixed name is the default-write / latest-map-free schema (v2); kept
+# as a compatibility alias alongside the explicit V1/V2/V3 constants.
+TRAINING_MANIFEST_SCHEMA = TRAINING_MANIFEST_SCHEMA_V2
 SUPPORTED_TRAINING_MANIFEST_SCHEMAS = frozenset(
-    {TRAINING_MANIFEST_SCHEMA_V1, TRAINING_MANIFEST_SCHEMA}
+    {
+        TRAINING_MANIFEST_SCHEMA_V1,
+        TRAINING_MANIFEST_SCHEMA_V2,
+        TRAINING_MANIFEST_SCHEMA_V3,
+    }
 )
 
 JsonScalar: TypeAlias = None | bool | int | float | str
@@ -49,12 +59,15 @@ _V1_KEYS = {
     "trainingFingerprint",
 }
 _V2_KEYS = _V1_KEYS | {"history", "historyFingerprint"}
+_V3_KEYS = _V2_KEYS | {"mapId", "mapDefinitionVersion"}
 
 __all__ = (
     "FrozenJson",
     "SUPPORTED_TRAINING_MANIFEST_SCHEMAS",
     "TRAINING_MANIFEST_SCHEMA",
     "TRAINING_MANIFEST_SCHEMA_V1",
+    "TRAINING_MANIFEST_SCHEMA_V2",
+    "TRAINING_MANIFEST_SCHEMA_V3",
     "TrainingManifest",
 )
 
@@ -141,6 +154,8 @@ class TrainingManifest:
     parent_manifest_sha256: str | None = None
     parent_model_sha256: str | None = None
     tags: tuple[str, ...] = ()
+    map_id: str | None = None
+    map_definition_version: int | None = None
 
     def __post_init__(self) -> None:
         if self.schema not in SUPPORTED_TRAINING_MANIFEST_SCHEMAS:
@@ -216,6 +231,41 @@ class TrainingManifest:
         tags = tuple(sorted({_require_nonempty(tag, "tag") for tag in self.tags}))
         object.__setattr__(self, "tags", tags)
 
+        self._validate_map_identity()
+
+    def _validate_map_identity(self) -> None:
+        # v3 is map-bound (exactly a non-empty ASCII id + positive non-bool
+        # version); v1/v2 are map-free. This keeps the schema version and the map
+        # keys in lockstep so a v1/v2 object can never smuggle map identity and a
+        # v3 object can never omit it (review Codex-5).
+        map_id = self.map_id
+        version = self.map_definition_version
+        if self.schema == TRAINING_MANIFEST_SCHEMA_V3:
+            if (
+                not isinstance(map_id, str)
+                or not map_id
+                or not map_id.isascii()
+                or any(character.isspace() for character in map_id)
+            ):
+                raise ValueError(
+                    "manifest v3 mapId must be a non-empty ASCII string without "
+                    f"whitespace; got {map_id!r}"
+                )
+            if (
+                isinstance(version, bool)
+                or not isinstance(version, int)
+                or version <= 0
+            ):
+                raise ValueError(
+                    "manifest v3 mapDefinitionVersion must be a positive integer; "
+                    f"got {version!r}"
+                )
+        elif map_id is not None or version is not None:
+            raise ValueError(
+                f"manifest {self.schema} is map-free and must not carry map identity; "
+                f"got mapId={map_id!r}, mapDefinitionVersion={version!r}"
+            )
+
     def to_dict(self) -> dict[str, Any]:
         document = {
             "algorithm": self.algorithm,
@@ -243,9 +293,14 @@ class TrainingManifest:
             "timesteps": self.timesteps,
             "trainingFingerprint": self.training_fingerprint,
         }
-        if self.schema == TRAINING_MANIFEST_SCHEMA:
+        if self.schema in (TRAINING_MANIFEST_SCHEMA, TRAINING_MANIFEST_SCHEMA_V3):
+            # v3 is a v2 superset: it keeps the history block (widened from the
+            # v2-only check, review MAJOR-2) and adds the map identity.
             document["history"] = self.history.to_dict()
             document["historyFingerprint"] = self.history_fingerprint
+        if self.schema == TRAINING_MANIFEST_SCHEMA_V3:
+            document["mapId"] = self.map_id
+            document["mapDefinitionVersion"] = self.map_definition_version
         return document
 
     @classmethod
@@ -255,6 +310,8 @@ class TrainingManifest:
             expected_keys = _V1_KEYS
         elif schema == TRAINING_MANIFEST_SCHEMA:
             expected_keys = _V2_KEYS
+        elif schema == TRAINING_MANIFEST_SCHEMA_V3:
+            expected_keys = _V3_KEYS
         else:
             raise ValueError(f"unsupported training manifest schema: {schema!r}")
         _require_exact_keys(document, expected_keys, "training manifest")
@@ -285,6 +342,10 @@ class TrainingManifest:
             history = HistoryDescriptor.from_dict(history_document)
             history_fingerprint = document["historyFingerprint"]
 
+        map_bound = schema == TRAINING_MANIFEST_SCHEMA_V3
+        map_id = document["mapId"] if map_bound else None
+        map_definition_version = document["mapDefinitionVersion"] if map_bound else None
+
         return cls(
             schema=schema,
             protocol_fingerprint=document["protocolFingerprint"],
@@ -312,4 +373,6 @@ class TrainingManifest:
             parent_manifest_sha256=document["parentManifestSha256"],
             parent_model_sha256=document["parentModelSha256"],
             tags=tuple(document["tags"]),
+            map_id=map_id,
+            map_definition_version=map_definition_version,
         )

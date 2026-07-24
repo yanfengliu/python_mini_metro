@@ -14,6 +14,7 @@ SRC_ROOT = REPO_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
+from maps import KNOWN_MAP_IDS, map_by_id  # noqa: E402
 from rl.artifacts import (  # noqa: E402
     read_verified_indexed_artifact,
     sha256_file,
@@ -90,6 +91,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--n-envs", type=_positive_int, default=8)
     parser.add_argument("--device", default="auto")
     parser.add_argument("--algorithm", choices=SUPPORTED_ALGORITHMS)
+    parser.add_argument(
+        "--map",
+        choices=KNOWN_MAP_IDS,
+        default=None,
+        help=(
+            "bind training to a map (writes a map-bound v3 manifest). Omitted: a "
+            "fresh run stays map-free (v2); a resumed run INHERITS the map from its "
+            "manifest, so a genuine pre-map run still resumes."
+        ),
+    )
     parser.add_argument(
         "--render-profile",
         choices=[profile.name for profile in RENDER_PROFILES],
@@ -207,6 +218,35 @@ def _resolve_algorithm_and_history(
     return saved_algorithm, saved_history
 
 
+def _resolve_map_identity(
+    requested_map: str | None,
+    resume_manifest: TrainingManifest | None,
+) -> tuple[str | None, int | None]:
+    """Resolve the (map_id, version) the task binds to.
+
+    On RESUME the map identity is INHERITED from the manifest (an explicit
+    ``--map``, if given, must match it), so a genuine pre-map run reconstructs a
+    map-less spec and still validates (review MAJOR-1); a non-default ``--map``
+    default would fail that check. A FRESH run stays map-free when ``--map`` is
+    omitted, or binds to the named map's current version when it is given.
+    """
+    if resume_manifest is not None:
+        # A manifest without map fields (legacy v1/v2) is map-less. getattr keeps
+        # this tolerant of a manifest-shaped object that predates the map fields.
+        inherited_id = getattr(resume_manifest, "map_id", None)
+        inherited_version = getattr(resume_manifest, "map_definition_version", None)
+        if requested_map is not None and requested_map != inherited_id:
+            raise ValueError(
+                f"--map {requested_map!r} does not match the resume manifest map "
+                f"{inherited_id!r}; omit --map to inherit it"
+            )
+        return inherited_id, inherited_version
+    if requested_map is None:
+        return None, None
+    definition = map_by_id(requested_map)
+    return definition.map_id, definition.map_definition_version
+
+
 def _resume_manifest_path(model_path: Path, explicit: Path | None) -> Path:
     if explicit is not None:
         return explicit
@@ -227,28 +267,42 @@ def run(args: argparse.Namespace) -> Path:
     )
     require_rl_dependencies()
     eval_seed = args.eval_seed if args.eval_seed is not None else args.seed + 10_000
+    # Parse the resume manifest BEFORE the spec so the task inherits its map
+    # identity (review MAJOR-1) rather than a forced --map default.
+    parsed_resume_manifest: TrainingManifest | None = None
+    resume_model_path: Path | None = None
+    manifest_path: Path | None = None
+    manifest_payload: bytes | None = None
+    if args.resume is not None:
+        resume_model_path = args.resume.resolve()
+        manifest_path = _resume_manifest_path(resume_model_path, args.resume_manifest)
+        manifest_payload = manifest_path.read_bytes()
+        parsed_resume_manifest = read_training_manifest_bytes(manifest_payload)
+
+    map_id, map_definition_version = _resolve_map_identity(
+        args.map, parsed_resume_manifest
+    )
     spec = TaskSpec(
         resolve_render_profile(args.render_profile),
         args.fixed_ticks,
         args.reward_mode,
         args.max_episode_steps,
+        map_id=map_id,
+        map_definition_version=map_definition_version,
     )
     content_fingerprint = compute_content_fingerprint(REPO_ROOT)
     training_fingerprint = compute_training_fingerprint(REPO_ROOT)
     runtime_snapshot = collect_runtime_snapshot()
     source_snapshot = collect_source_snapshot(REPO_ROOT)
     resume_manifest = None
-    resume_model_path: Path | None = None
     resume_model_content: bytes | None = None
     parent_manifest_sha256 = None
     parent_model_sha256 = None
     tags: tuple[str, ...] = ()
 
     if args.resume is not None:
-        resume_model_path = args.resume.resolve()
-        manifest_path = _resume_manifest_path(resume_model_path, args.resume_manifest)
-        manifest_payload = manifest_path.read_bytes()
-        parsed_resume_manifest = read_training_manifest_bytes(manifest_payload)
+        assert parsed_resume_manifest is not None
+        assert manifest_payload is not None
         algorithm, history = _resolve_algorithm_and_history(
             requested_algorithm=args.algorithm,
             requested_history=requested_history,
@@ -385,6 +439,8 @@ def run(args: argparse.Namespace) -> Path:
                 tags=tags,
                 parent_manifest_sha256=parent_manifest_sha256,
                 parent_model_sha256=parent_model_sha256,
+                map_id=spec.map_id,
+                map_definition_version=spec.map_definition_version,
             )
             return write_training_manifest(run_dir, manifest)
 

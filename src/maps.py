@@ -79,3 +79,25 @@ def resolve_map(map_id: str, map_definition_version: int) -> MapDefinition:
         f"unsupported version {map_definition_version} for map {map_id!r}; "
         f"supported versions: {versions}"
     )
+
+
+def map_by_id(map_id: str) -> MapDefinition:
+    """Return the CURRENT (highest-version) definition for a map id.
+
+    For the CLI, which names a map by id; the definition version is the map's
+    current version. Raises a clear, named error for an unknown id.
+    """
+    matches = [
+        definition
+        for (registered_id, _v), definition in _REGISTRY.items()
+        if registered_id == map_id
+    ]
+    if not matches:
+        known_ids = sorted({registered_id for (registered_id, _v) in _REGISTRY})
+        raise ValueError(f"unknown map id {map_id!r}; known maps: {known_ids}")
+    return max(matches, key=lambda definition: definition.map_definition_version)
+
+
+KNOWN_MAP_IDS: tuple[str, ...] = tuple(
+    sorted({registered_id for (registered_id, _v) in _REGISTRY})
+)
