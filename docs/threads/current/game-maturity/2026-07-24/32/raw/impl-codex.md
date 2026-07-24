@@ -1,0 +1,20 @@
+===BEGIN-REVIEW===
+Verdict: FIX-FIRST
+
+1. [MAJOR] The claimed “nothing else” containment is not pinned. The locomotive test checks only carriages and tunnel bonus; carriage checks only locomotives and tunnel bonus; tunnel checks only the two fleet totals. Extra mutations to deliveries, credits, progression, RNG, or other runtime state would remain green. Deleting a containment assertion also cannot itself turn any test red. Evidence: `test/test_gm10efg_effects.py:61-69`, `test/test_gm10efg_effects.py:76-83`, `test/test_gm10efg_effects.py:90-96`. Fix: compare a broad before/after state snapshot for each direct effect, permitting only its designated quantity to differ.
+
+2. [MAJOR] The locomotive test does not prove the upgraded slot is usable after the original four are assigned or after per-tick reconciliation. It upgrades an empty fleet and checks only the derived count; the existing multiple-assignment test exercises a total of three, below the configured four. A consumer regression clamping assignment to the original config would pass. Evidence: `test/test_gm10efg_effects.py:58-69`, `test/test_gm06b_fleet_assignment.py:135-152`, `src/fleet_management.py:186-195`, `src/mediator.py:778-793`. Fix: exhaust four locomotives, apply the offer, advance a tick, assert the fifth assignment succeeds and the sixth fails. Add the analogous end-to-end carriage consumption check.
+
+3. [MINOR] The tunnel readout claim is not fully tested. The test checks `tunnel_bonus`, `num_tunnels`, persistence, and the crossing gate, but never `available_tunnels`; a readout that ignored the bonus would remain green. Evidence: `test/test_gm10efg_effects.py:87-114`, `src/mediator.py:315-321`. Fix: assert the available count increases by one, including with an already-consumed crossing.
+
+4. [MINOR] The removed inertness test left stale GM-10d test documentation and naming. It still says locomotive/carriage/tunnel are stub no-ops and “grant nothing,” although its body only verifies they do not unlock a line. Evidence: `test/test_gm10d_line.py:1-7`, `test/test_gm10d_line.py:155-164`, `src/weekly_offers.py:82-89`. Fix: rename it to state that non-line offers do not unlock lines and update the module text/comment.
+
+Confirmed:
+
+- The live arms themselves are correct one-line `+= 1` mutations; swapping arms or changing one to `+= 2` fails the exact growth assertions. Evidence: `src/weekly_offers.py:79-89`, `test/test_gm10efg_effects.py:61`, `test/test_gm10efg_effects.py:76`, `test/test_gm10efg_effects.py:90`.
+- Fleet totals are caps: availability and assignment subtract assigned collections, carriage attachment uses the same total-minus-assigned rule, and reconciliation does not interpret totals as collection lengths. Evidence: `src/mediator.py:256-272`, `src/fleet_management.py:186-195`, `src/fleet_management.py:345-365`, `src/carriage_management.py:47-59`.
+- TUNNEL is excluded from unbounded generation, the resolver confines choices, and both serialization and loading reject a forged unbounded bonus. Evidence: `src/weekly_offers.py:38-49`, `src/weekly_offers.py:60-68`, `src/offers.py:57-67`, `src/offers.py:82-87`, `src/save_game.py:123-132`, `src/save_load.py:346-354`.
+- Persistence is correct: v3 accepts fleet totals at or above config, stores all three grown values, and restores them. Evidence: `src/save_load.py:44-65`, `src/save_game.py:270-307`, `src/save_load.py:115-133`.
+- RL/headless remains unaffected because the calendar defaults off and offer generation is guarded by it; interactive construction is the only production path enabling it. Evidence: `src/mediator.py:166-180`, `src/weekly_offers.py:38-49`, `src/main.py:227-243`, `src/env.py:21-22`, `src/env.py:62-64`.
+- Unconditionally offering TUNNEL on Classic is caught by the pool tests. An unconditional tunnel side effect on locomotive/carriage choices is caught by their `tunnel_bonus == 0` assertions—unless those load-bearing containment assertions are removed. Evidence: `test/test_gm10b_offers.py:104-132`, `test/test_gm10efg_effects.py:65-67`, `test/test_gm10efg_effects.py:78-79`.
+===END-REVIEW===

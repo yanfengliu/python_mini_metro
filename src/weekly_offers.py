@@ -70,19 +70,23 @@ class WeeklyOffers:
         host.release_pause_reason(WEEK_REASON)
 
     def apply_offer(self, host: object, offer: Offer) -> None:
-        # Dispatch the chosen offer to its per-kind effect. NEW_LINE grants a free line
-        # (GM-10d); the locomotive/carriage/tunnel arms are still no-op stubs
-        # (GM-10e/f/g) -- their effects need GM-10h persistence, so they change no state
-        # yet. A future kind without a handler must fail loud.
+        # Dispatch the chosen offer to its per-kind effect. Each grows a fleet/tunnel
+        # quantity by one; the derived readouts (available_locomotives/available_carriages/
+        # num_tunnels/available_tunnels) update for free (no cache to refresh, unlike
+        # NEW_LINE's button locks), and all four persist via the GM-10h save-schema v3
+        # (D-045: grown fleet TOTALS + tunnel_bonus). A future kind without a handler
+        # must fail loud.
         match offer.kind:
             case OfferKind.NEW_LINE:
                 host._grant_free_line()  # GM-10d
             case OfferKind.LOCOMOTIVE:
-                pass  # GM-10e: +1 num_metros (needs _require_running_config relaxed / GM-10h)
+                host.num_metros += 1  # GM-10e
             case OfferKind.CARRIAGE:
-                pass  # GM-10f: +1 num_carriages (same pin as locomotives)
+                host.num_carriages += 1  # GM-10f
             case OfferKind.TUNNEL:
-                pass  # GM-10g: +1 tunnel budget (needs a persisted bonus / GM-10h)
+                # GM-10g: TUNNEL is offered only on a bounded map (the pool excludes it
+                # on CLASSIC), so the bonus is always reachable when this arm runs.
+                host.tunnel_bonus += 1
             case _:
                 raise ValueError(f"no effect handler for offer kind {offer.kind!r}")
 

@@ -2,9 +2,10 @@
 
 Picking the NEW_LINE week-boundary offer unlocks the next metro line for free (no
 credit spend), capped at num_paths. It is the FIRST real per-kind offer effect;
-locomotive/carriage/tunnel stay stub no-ops (GM-10e/f/g). The grant flows through
-the already-persisted purchased_num_paths, so it is Continue-exact with no schema
-change (D-043/D-044); RL/headless never reach it (offers gated to the human shell).
+locomotive/carriage/tunnel later grow the fleet/tunnel budget instead (GM-10e/f/g),
+so only NEW_LINE unlocks a line. The grant flows through the already-persisted
+purchased_num_paths, so it is Continue-exact with no schema change (D-043/D-044);
+RL/headless never reach it (offers gated to the human shell).
 """
 
 from __future__ import annotations
@@ -152,9 +153,10 @@ class TestGM10dApplyNewLine(unittest.TestCase):
             p.resolve_week_boundary(offered)
         self.assertTrue(p.is_week_boundary_pending, "rejected -- boundary still held")
 
-    def test_the_other_offer_kinds_still_grant_nothing(self):
-        # LOCOMOTIVE/CARRIAGE/TUNNEL are GM-10e/f/g -- still no-op, so they do not
-        # unlock a line (only NEW_LINE does).
+    def test_non_line_offer_kinds_do_not_unlock_a_line(self):
+        # LOCOMOTIVE/CARRIAGE/TUNNEL grow the fleet/tunnel budget (GM-10e/f/g), NOT the
+        # line count -- only NEW_LINE unlocks a line. (Their own growth+containment is
+        # pinned in test_gm10efg_effects.py.)
         for kind in (OfferKind.LOCOMOTIVE, OfferKind.CARRIAGE, OfferKind.TUNNEL):
             m = Mediator(seed=0)
             before = m.unlocked_num_paths

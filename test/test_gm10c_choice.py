@@ -3,9 +3,10 @@
 The GM-10b read-only offer preview becomes interactive: the modal shows one button
 per offer; an armed down->up on a button chooses that offer, and
 `Mediator.resolve_week_boundary(offer)` applies it (via a per-kind dispatch) then
-clears + releases the week pause. The per-kind EFFECTS are GM-10d-g -- in GM-10c the
-dispatch arms are no-op stubs, so choosing changes NO game state and is Continue-safe
-with no new persisted bytes.
+clears + releases the week pause. This file pins the CONTROLS (arming, routing
+offer_i -> current_offers[i], the confinement guard, apply->clear->release order);
+the per-kind EFFECTS themselves are GM-10d-g (tested in test_gm10d_line.py and
+test_gm10efg_effects.py).
 """
 
 from __future__ import annotations
@@ -27,33 +28,9 @@ from event.type import MouseEventType
 from geometry.point import Point
 from mediator import Mediator
 from offers import OfferKind, describe
-from save_game import serialize_game
 from ui.menu_screens import draw_offer_screen, offer_menu_layout
 
 pygame.init()
-
-_INERT_ATTRS = (
-    "deliveries",
-    "line_credits",
-    "num_metros",
-    "num_carriages",
-    "available_locomotives",
-    "available_carriages",
-    "purchased_num_paths",
-    "unlocked_num_paths",
-    "unlocked_num_stations",
-    "num_tunnels",
-    "consumed_tunnels",
-    # non-serialized RUNTIME state (review MAJOR: not in serialize_game, so a save-doc
-    # check alone would miss a mutation touching these):
-    "current_offers",
-    "week_calendar",
-    "is_paused",
-    "is_game_over",
-    "steps",
-    "time_ms",
-    "game_speed_multiplier",
-)
 
 
 class _ChoiceSession:
@@ -215,25 +192,9 @@ class TestGM10cApplyOffer(unittest.TestCase):
         self.assertEqual(m.current_offers, ())
         self.assertFalse(m.is_week_boundary_pending)
 
-    def test_applying_a_stub_offer_kind_is_state_inert(self):
-        # The still-STUB kinds (GM-10e/f/g: locomotive/carriage/tunnel) must change NO
-        # game state and no serialized byte. review MAJOR: check PER-KIND on a FRESH
-        # mediator (so compensating cross-kind mutations cannot cancel) and over runtime
-        # state beyond the save doc. (NEW_LINE now grants a line -- GM-10d, tested in
-        # test_gm10d_line.py.) A real effect on a stub kind turns red.
-        stub_kinds = (OfferKind.LOCOMOTIVE, OfferKind.CARRIAGE, OfferKind.TUNNEL)
-        for kind in stub_kinds:
-            m = Mediator(seed=0)
-            for _ in range(300):
-                m.increment_time(17)
-            before = {attr: getattr(m, attr) for attr in _INERT_ATTRS}
-            before_doc = serialize_game(m)
-            m._apply_offer(describe(kind))
-            after = {attr: getattr(m, attr) for attr in _INERT_ATTRS}
-            self.assertEqual(after, before, f"{kind.name} apply moved runtime state")
-            self.assertEqual(
-                serialize_game(m), before_doc, f"{kind.name} apply moved a save byte"
-            )
+    # (The GM-10c-era "the stub kinds are state-inert" test was RETIRED in GM-10e/f/g,
+    # which filled the LOCOMOTIVE/CARRIAGE/TUNNEL arms -- no kind is a no-op stub now.
+    # Each effect's growth + CONTAINMENT is pinned in test_gm10efg_effects.py.)
 
     def test_apply_offer_handles_every_kind(self):
         m = Mediator(seed=0)
