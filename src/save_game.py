@@ -28,22 +28,25 @@ __all__ = ["serialize_game", "save_game", "deserialize_game", "load_game"]
 
 
 def _require_classic_map(mediator: Any) -> None:
-    # Fail-closed map guard (GM-09a): the v1 save schema carries no map identity,
-    # so only the Classic map (classic@1) may be serialized. A future non-Classic
-    # map must NOT be silently written as Classic and reloaded wrong -- reject it
-    # here until the schema migration adds map identity (no later than the first
-    # alternate map). A Mediator without a map_definition is treated as Classic.
+    # Fail-closed map guard (GM-09a, hardened GM-09b): the v1 save schema carries no
+    # map identity, so ONLY the canonical Classic map may be serialized. The check is
+    # STRUCTURAL equality against `maps.CLASSIC` (the frozen MapDefinition compares
+    # every field), not just map_id/version -- a forged `MapDefinition("classic", 1,
+    # rivers=..., spawn_regions=...)` would otherwise pass and be silently written as
+    # plain Classic, then reload wrong. The map/save integration lands in GM-09f;
+    # until then a non-Classic (or forged-Classic-with-terrain) Mediator is rejected.
+    # A Mediator without a map_definition is the default Classic.
+    from maps import CLASSIC
+
     map_def = getattr(mediator, "map_definition", None)
-    if map_def is None:
+    if map_def is None or map_def == CLASSIC:
         return
-    map_id = getattr(map_def, "map_id", "classic")
-    version = getattr(map_def, "map_definition_version", 1)
-    if map_id != "classic" or version != 1:
-        raise ValueError(
-            f"cannot serialize map {map_id!r}@{version}: the v1 save schema has no "
-            "map identity, so only classic@1 is serializable until the map schema "
-            "migration lands"
-        )
+    identity = f"{getattr(map_def, 'map_id', '?')!r}@{getattr(map_def, 'map_definition_version', '?')}"
+    raise ValueError(
+        f"cannot serialize map {identity}: the v1 save schema has no map identity, so "
+        "only the canonical classic@1 map is serializable until the map/save "
+        "integration lands (a non-Classic or forged-Classic-with-terrain map is rejected)"
+    )
 
 
 def _require_quiescent(mediator: Any) -> None:

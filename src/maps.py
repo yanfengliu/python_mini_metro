@@ -12,25 +12,55 @@ path (there is no map→gameplay import edge to leak or cycle).
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from config import (
+    screen_height,
+    screen_width,
     station_shape_type_list,
+    station_size,
     station_unique_shape_type_list,
     station_unique_spawn_chance,
     station_unique_spawn_start_index,
 )
 from geometry.type import ShapeType
 
+# A terrain rect is a deeply-immutable (left, top, right, bottom) tuple of floats.
+Rect = tuple[float, float, float, float]
+
+
+def _coerce_rects(rects: Iterable, name: str) -> tuple[Rect, ...]:
+    """Coerce a sequence of (left, top, right, bottom) rects to immutable tuples,
+    validating positive area and finiteness (a degenerate region would hang the
+    region-aware spawn or paint nothing)."""
+    coerced: list[Rect] = []
+    for rect in rects:
+        values = tuple(rect)
+        if len(values) != 4:
+            raise ValueError(
+                f"{name} rect must be (left, top, right, bottom); got {rect!r}"
+            )
+        left, top, right, bottom = (float(v) for v in values)
+        if not all(
+            v == v and abs(v) != float("inf") for v in (left, top, right, bottom)
+        ):
+            raise ValueError(f"{name} rect coordinates must be finite; got {rect!r}")
+        if right <= left or bottom <= top:
+            raise ValueError(f"{name} rect must have positive area; got {rect!r}")
+        coerced.append((left, top, right, bottom))
+    return tuple(coerced)
+
 
 @dataclass(frozen=True)
 class MapDefinition:
-    """An immutable map identity + station-shape palette.
+    """An immutable map identity + station-shape palette + terrain.
 
-    The palette fields are ordered ``tuple``s (not the mutable ``config`` lists),
-    so a frozen ``MapDefinition`` is deeply immutable. GM-09a owns only the
-    shape palette; station counts and spawn geometry stay global and are deferred
-    to the terrain/progression integration units.
+    Palette and terrain fields are deeply immutable ``tuple``s (not mutable
+    ``config`` lists/caller lists). ``spawn_regions`` are the (eroded) land rects
+    where stations may spawn; ``rivers`` are obstacle-band rects to RENDER. Both
+    default empty, so the region-less CLASSIC map draws byte-identically and paints
+    no terrain. Station counts stay global (deferred to the progression unit).
     """
 
     map_id: str
@@ -39,13 +69,20 @@ class MapDefinition:
     unique_shape_types: tuple[ShapeType, ...]
     unique_spawn_start_index: int
     unique_spawn_chance: float
+    spawn_regions: tuple[Rect, ...] = ()
+    rivers: tuple[Rect, ...] = ()
 
     def __post_init__(self) -> None:
         # Enforce deep immutability rather than trust the caller: coerce the
-        # palettes to tuples so a future author passing a list still gets an
-        # immutable definition (review NIT). frozen=True needs object.__setattr__.
+        # palettes AND terrain rects to tuples so a future author passing a list
+        # still gets an immutable, validated definition. frozen=True needs
+        # object.__setattr__.
         object.__setattr__(self, "shape_types", tuple(self.shape_types))
         object.__setattr__(self, "unique_shape_types", tuple(self.unique_shape_types))
+        object.__setattr__(
+            self, "spawn_regions", _coerce_rects(self.spawn_regions, "spawn_regions")
+        )
+        object.__setattr__(self, "rivers", _coerce_rects(self.rivers, "rivers"))
 
 
 CLASSIC = MapDefinition(
@@ -57,8 +94,37 @@ CLASSIC = MapDefinition(
     unique_spawn_chance=station_unique_spawn_chance,
 )
 
+# The first alternate map (GM-09b): a single vertical river down the screen centre
+# splitting the play area into two land banks. The render band is the river's full
+# height; the spawn banks are ERODED inward by station_size so a 30px station glyph
+# never overlaps the water (only the river's x-band is excluded — the vertical river
+# constrains x only, and get_random_position already applies the y padding).
+_RIVER_HALF_WIDTH = 0.04 * screen_width
+_RIVER_LEFT = 0.5 * screen_width - _RIVER_HALF_WIDTH
+_RIVER_RIGHT = 0.5 * screen_width + _RIVER_HALF_WIDTH
+_RIVER_BAND: Rect = (_RIVER_LEFT, 0.0, _RIVER_RIGHT, float(screen_height))
+_LEFT_BANK: Rect = (0.0, 0.0, _RIVER_LEFT - station_size, float(screen_height))
+_RIGHT_BANK: Rect = (
+    _RIVER_RIGHT + station_size,
+    0.0,
+    float(screen_width),
+    float(screen_height),
+)
+
+RIVER = MapDefinition(
+    map_id="river",
+    map_definition_version=1,
+    shape_types=tuple(station_shape_type_list),
+    unique_shape_types=tuple(station_unique_shape_type_list),
+    unique_spawn_start_index=station_unique_spawn_start_index,
+    unique_spawn_chance=station_unique_spawn_chance,
+    spawn_regions=(_LEFT_BANK, _RIGHT_BANK),
+    rivers=(_RIVER_BAND,),
+)
+
 _REGISTRY: dict[tuple[str, int], MapDefinition] = {
     (CLASSIC.map_id, CLASSIC.map_definition_version): CLASSIC,
+    (RIVER.map_id, RIVER.map_definition_version): RIVER,
 }
 
 

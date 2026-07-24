@@ -23,6 +23,12 @@ This document summarizes the game rules currently implemented in code.
 - Station shapes are from: rectangle, circle, triangle, and cross.
 - New station positions are sampled randomly but weighted to be more likely near the
   current center of existing stations, so very far placements are less common.
+- The default map is `classic` (the whole play area is open). An alternate `river` map
+  runs a single river down the screen centre, splitting the map into two land banks;
+  on the river map, stations spawn only on the banks (never in or touching the water),
+  and the river is drawn under the lines and stations. Map selection is available to
+  the RL trainer (`--map river`) and the programmatic API today; in-game menu selection,
+  and lines crossing the river via tunnels/bridges, arrive in later units.
 - After the 10th station slot in the unlock pool, rare one-of-a-kind stations can appear:
   diamond, pentagon, and star (each at most once per run).
 - Each station can hold up to 12 waiting passengers.

@@ -355,6 +355,7 @@ class Mediator:
                 unique_shape_types=self.map_definition.unique_shape_types,
                 unique_spawn_start_index=self.map_definition.unique_spawn_start_index,
                 unique_spawn_chance=self.map_definition.unique_spawn_chance,
+                spawn_regions=self.map_definition.spawn_regions,
             )
             initial_shapes = {
                 station.shape.type for station in stations[: self.initial_num_stations]

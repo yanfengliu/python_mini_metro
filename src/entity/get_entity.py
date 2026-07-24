@@ -18,14 +18,46 @@ from geometry.type import ShapeType
 from simulation_context import SimulationContext
 from utils import get_random_position, get_random_station_shape, get_shape_from_type
 
+_MAX_SPAWN_TRIES = 64
+
+
+def _point_in_rects(position: Point, rects) -> bool:
+    return any(
+        left <= position.left <= right and top <= position.top <= bottom
+        for (left, top, right, bottom) in rects
+    )
+
+
+def _sample_position(context: SimulationContext | None, spawn_regions) -> Point:
+    # One candidate position. When the map defines spawn regions (a river map),
+    # REJECT and redraw a candidate that lands outside every region so a station
+    # never spawns in the water; the retry is per-candidate and BOUNDED, raising a
+    # named error rather than hanging on a degenerate region. A region-less map
+    # (CLASSIC: empty regions) returns the FIRST draw unconditionally, drawing
+    # byte-identically to the pre-region code (the `not spawn_regions` fast path is
+    # falsy for both None and the empty tuple CLASSIC actually passes).
+    for _ in range(_MAX_SPAWN_TRIES):
+        position = (
+            get_random_position(screen_width, screen_height)
+            if context is None
+            else get_random_position(screen_width, screen_height, context=context)
+        )
+        if not spawn_regions or _point_in_rects(position, spawn_regions):
+            return position
+    raise ValueError(
+        "could not place a station inside the map's spawn regions after "
+        f"{_MAX_SPAWN_TRIES} attempts; regions={spawn_regions!r}"
+    )
+
 
 def get_station_spawn_position(
-    existing_positions: List[Point], context: SimulationContext | None = None
+    existing_positions: List[Point],
+    context: SimulationContext | None = None,
+    *,
+    spawn_regions=(),
 ) -> Point:
     if not existing_positions:
-        if context is None:
-            return get_random_position(screen_width, screen_height)
-        return get_random_position(screen_width, screen_height, context=context)
+        return _sample_position(context, spawn_regions)
 
     center_left = sum(position.left for position in existing_positions) / len(
         existing_positions
@@ -33,15 +65,7 @@ def get_station_spawn_position(
     center_top = sum(position.top for position in existing_positions) / len(
         existing_positions
     )
-    if context is None:
-        candidate_positions = [
-            get_random_position(screen_width, screen_height) for _ in range(8)
-        ]
-    else:
-        candidate_positions = [
-            get_random_position(screen_width, screen_height, context=context)
-            for _ in range(8)
-        ]
+    candidate_positions = [_sample_position(context, spawn_regions) for _ in range(8)]
     candidate_weights = [
         1
         / (
@@ -59,13 +83,17 @@ def get_random_station(
     shape_type: ShapeType | None = None,
     existing_positions: List[Point] | None = None,
     context: SimulationContext | None = None,
+    *,
+    spawn_regions=(),
 ) -> Station:
     shape = (
         get_shape_from_type(shape_type, station_color, station_size)
         if shape_type is not None
         else get_random_station_shape(context)
     )
-    position = get_station_spawn_position(existing_positions or [], context=context)
+    position = get_station_spawn_position(
+        existing_positions or [], context=context, spawn_regions=spawn_regions
+    )
     return Station(shape, position)
 
 
@@ -77,6 +105,7 @@ def get_random_stations(
     unique_shape_types: List[ShapeType] | tuple[ShapeType, ...] | None = None,
     unique_spawn_start_index: int | None = None,
     unique_spawn_chance: float | None = None,
+    spawn_regions=(),
 ) -> List[Station]:
     # A map definition supplies the shape palette one-way; every param defaults to
     # the current config global, so callers that pass none draw byte-identically.
@@ -112,6 +141,7 @@ def get_random_stations(
             shape_type,
             existing_positions=station_positions,
             context=context,
+            spawn_regions=spawn_regions,
         )
         stations.append(station)
         station_positions.append(station.position)

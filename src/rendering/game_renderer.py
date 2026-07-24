@@ -11,6 +11,7 @@ from .interpolation import MetroInterpolator
 from .layout import MetroPose
 from .network_renderer import NetworkRenderer
 from .path_handle_renderer import PathHandleRenderer, removal_on_layout
+from .terrain_renderer import draw_terrain
 
 
 def _config() -> Any:
@@ -93,6 +94,11 @@ class GameRenderer:
         """
 
         self._reduced_motion = reduced_motion
+        # Paint the map's terrain (river bands) UNDER the network so every consumer
+        # -- human loop, RL pixel observation, compat path, tests -- sees it. A
+        # map with no rivers (CLASSIC) or an attr-less state paints nothing, so the
+        # CLASSIC frame stays byte-identical (D-034).
+        draw_terrain(surface, getattr(state, "map_definition", None))
         paths = tuple(getattr(state, "paths", ()))
         layouts = self.network_renderer.draw(surface, paths)
         layouts_by_path_id = {layout.path_id: layout for layout in layouts}
