@@ -26,19 +26,27 @@ This document summarizes the game rules currently implemented in code.
 - The default map is `classic` (the whole play area is open). Alternate maps add
   geography: `river` runs a single river down the screen centre, splitting the map into
   two land banks; `delta` runs two rivers (a delta's twin channels) that split the map
-  into three land banks (left, middle, right). On any map with water, stations spawn only
-  on the banks (never in or touching the water), and the rivers are drawn under the lines
-  and stations. Map selection is available to the RL trainer (`--map river`/`--map delta`)
+  into three land banks (left, middle, right); `lake` places a single bounded lake in the
+  centre with dry land all around it. On any map with water, stations spawn only on the
+  land — their centres are inset from the water by at least a station's size — and the
+  water is drawn under the lines and stations. Map selection is available to the RL trainer (`--map river`/`--map delta`/`--map lake`)
   and the programmatic API today; in-game menu selection arrives in a later unit.
-- On a map with rivers, lines cross the water through a limited pool of tunnels. The
-  `river` map has a budget of 3 and `delta` a budget of 4: every place where a line's
-  route crosses a river consumes one tunnel (so a `delta` line spanning both channels
-  uses two), and a tunnel-portal marker is drawn there. You cannot draw or reroute a line
-  so the network's total crossings would exceed the budget — that edit is rejected before
-  anything changes, and a same-bank line (which crosses nothing) is always allowed even at
-  zero remaining tunnels. Removing or rerouting a line frees its crossings again
-  immediately, since the remaining count is derived from the live network rather than
-  spent from a counter. The `classic` map has no river and no tunnel limit.
+- On a map with water, lines cross it through a limited pool of tunnels. The
+  `river` map has a budget of 3, `delta` a budget of 4, and `lake` a budget of 3: every
+  place where a line's route crosses the water consumes one tunnel (so a `delta` line
+  spanning both channels uses two), and a tunnel-portal marker is drawn there. You cannot
+  draw or reroute a line so the network's total crossings would exceed the budget — that
+  edit is rejected before anything changes, and a line that crosses nothing is always
+  allowed even at zero remaining tunnels. Removing or rerouting a line frees its crossings
+  again immediately, since the remaining count is derived from the live network rather than
+  spent from a counter. The `river` and `delta` channels span the whole screen, so
+  crossing them is unavoidable to connect opposite banks; the `lake`, by contrast, is
+  bounded, so a line can OFTEN be routed AROUND it instead of tunnelling straight through
+  (a line bends only at stations, so a dry detour needs an intermediate station beside the
+  lake). The budget still limits total crossings there too — a station whose only routes
+  cross the lake needs a tunnel, and at an exhausted budget you must reroute or remove a
+  line to free one — so the lake makes crossing more often avoidable, not always. The
+  `classic` map has no water and no tunnel limit.
 - After the 10th station slot in the unlock pool, rare one-of-a-kind stations can appear:
   diamond, pentagon, and star (each at most once per run).
 - Each station can hold up to 12 waiting passengers.

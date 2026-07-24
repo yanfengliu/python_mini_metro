@@ -195,10 +195,64 @@ DELTA = MapDefinition(
     tunnel_budget=4,
 )
 
+# The third alternate map (GM-09e): a single central LAKE -- a bounded water body
+# that spans NO screen edge. Because it is bounded, a line can OFTEN be routed AROUND
+# it (a line bends only at stations, so a dry detour needs an intermediate station
+# beside the lake) as well as tunneled straight through -- more routing freedom than
+# the full-screen RIVER/DELTA channels, where a far-bank station is unreachable
+# without a crossing. This exercises a PARTIAL band (bounded in both x AND y): a line
+# whose centerline passes through the lake spends a tunnel; a line routed around it
+# spends none. The land is a frame of four overlapping strips (each eroded from the
+# lake so a station's CENTER clears the water by station_size). The tunnel budget
+# still limits TOTAL crossings exactly as on the rivers -- a station whose only routes
+# cross the lake needs a tunnel, so at an exhausted budget the player must reroute or
+# remove a line to free one; the lake merely makes crossings often (not always)
+# avoidable.
+_LAKE_LEFT_X = 0.40 * screen_width
+_LAKE_RIGHT_X = 0.60 * screen_width
+_LAKE_TOP_Y = 0.34 * screen_height
+_LAKE_BOTTOM_Y = 0.66 * screen_height
+_LAKE: Rect = (_LAKE_LEFT_X, _LAKE_TOP_Y, _LAKE_RIGHT_X, _LAKE_BOTTOM_Y)
+_LAKE_TOP_BANK: Rect = (0.0, 0.0, float(screen_width), _LAKE_TOP_Y - station_size)
+_LAKE_BOTTOM_BANK: Rect = (
+    0.0,
+    _LAKE_BOTTOM_Y + station_size,
+    float(screen_width),
+    float(screen_height),
+)
+_LAKE_LEFT_BANK: Rect = (0.0, 0.0, _LAKE_LEFT_X - station_size, float(screen_height))
+_LAKE_RIGHT_BANK: Rect = (
+    _LAKE_RIGHT_X + station_size,
+    0.0,
+    float(screen_width),
+    float(screen_height),
+)
+
+LAKE = MapDefinition(
+    map_id="lake",
+    map_definition_version=1,
+    shape_types=tuple(station_shape_type_list),
+    unique_shape_types=tuple(station_unique_shape_type_list),
+    unique_spawn_start_index=station_unique_spawn_start_index,
+    unique_spawn_chance=station_unique_spawn_chance,
+    spawn_regions=(
+        _LAKE_TOP_BANK,
+        _LAKE_BOTTOM_BANK,
+        _LAKE_LEFT_BANK,
+        _LAKE_RIGHT_BANK,
+    ),
+    rivers=(_LAKE,),
+    # Crossing the lake is often a shortcut vs a longer detour, so the budget mostly
+    # caps shortcuts -- but it still limits TOTAL crossings, so a station whose only
+    # routes cross the lake is gated until a tunnel is freed (as on the rivers).
+    tunnel_budget=3,
+)
+
 _REGISTRY: dict[tuple[str, int], MapDefinition] = {
     (CLASSIC.map_id, CLASSIC.map_definition_version): CLASSIC,
     (RIVER.map_id, RIVER.map_definition_version): RIVER,
     (DELTA.map_id, DELTA.map_definition_version): DELTA,
+    (LAKE.map_id, LAKE.map_definition_version): LAKE,
 }
 
 

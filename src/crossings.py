@@ -23,18 +23,21 @@ Band = tuple[float, float, float, float]
 
 
 def segment_crosses_band(start: Point, end: Point, band: Band) -> Point | None:
-    """Return the ENTRY point where segment start→end first enters the axis-aligned
-    ``band`` (Liang-Barsky), or None if it does not cross. A mere grazing touch
-    (a zero-length overlap, ``t_enter == t_exit``) does NOT count as a crossing —
-    a determinism tie-break so a future diagonal river cannot flip counts.
+    """Return the ENTRY point where segment start→end first enters the STRICT
+    INTERIOR of the axis-aligned ``band`` (Liang-Barsky), or None if it does not.
 
-    Boundary semantics: a segment with a POSITIVE-length overlap that runs along a
-    band EDGE (collinear) does count. This is unreachable for the current
-    eroded-bank maps — a centerline between two banks can never lie on the river's
-    edge (stations are inset by ``station_size``), and consecutive stations are
-    distinct so a zero-length interior segment cannot arise. Strict-interior-only
-    semantics are deferred (with a test) to the first map that can actually place a
-    line along a river edge (review Codex MINOR)."""
+    STRICT-interior semantics: a segment must actually pass through the band's
+    interior to count. A mere grazing touch (a zero-length overlap at a corner) and
+    a positive-length overlap that only runs ALONG an edge (collinear with a band
+    side) both count as ZERO -- the latter is reachable on the LAKE map, whose
+    vertical water edges sit at integer x with no x-erosion of the top/bottom banks,
+    so a line between two stations on that exact edge lies on dry land, not in the
+    water (review Codex/harness; this supersedes GM-09c's deferral). The test: the
+    MIDPOINT of the in-band overlap must be strictly inside the rectangle. A genuine
+    crossing's overlap midpoint is interior; an edge-collinear overlap's midpoint is
+    on the edge. The returned ENTRY point (for the portal marker) is unchanged for a
+    genuine crossing; RIVER/DELTA never place a centerline on an edge, so their
+    counts are unaffected."""
     left, top, right, bottom = band
     ax, ay = float(start.left), float(start.top)
     dx, dy = float(end.left) - ax, float(end.top) - ay
@@ -60,6 +63,12 @@ def segment_crosses_band(start: Point, end: Point, band: Band) -> Point | None:
                 t_exit = min(t_exit, r)
     if t_enter >= t_exit:
         # Empty overlap (miss) or a zero-length grazing touch -> not a crossing.
+        return None
+    # Strict interior: the overlap's midpoint must be strictly inside, so a segment
+    # running ALONG an edge (midpoint on the boundary) is not charged a crossing.
+    t_mid = 0.5 * (t_enter + t_exit)
+    mid_x, mid_y = ax + t_mid * dx, ay + t_mid * dy
+    if not (left < mid_x < right and top < mid_y < bottom):
         return None
     return Point(round(ax + t_enter * dx), round(ay + t_enter * dy))
 
