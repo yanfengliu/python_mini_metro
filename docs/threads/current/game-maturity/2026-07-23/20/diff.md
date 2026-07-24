@@ -1,6 +1,6 @@
 # GM-09b river map + terrain/station regions diff ledger
 
-Status: implemented and locally green; ready for the CI-gated `[GM-09b:A]` commit after review + rebase onto `origin/main`.
+Status: delivered as Commit A `44dfecc` (clean fast-forward onto `origin/main` at `6ed1d6c`), exact [run 30062439741](https://github.com/yanfengliu/python_mini_metro/actions/runs/30062439741) green (`build` `89386601248`, `rl-smoke` `89386601196`); evidence-only Commit B `[GM-09b:B]` active.
 
 ## Production surface
 - `src/maps.py`: `MapDefinition` additive `spawn_regions`/`rivers` rect tuples (`__post_init__` tuple-coerce + positive-area validation); `RIVER` (central river, two station_size-eroded banks) registered; `KNOWN_MAP_IDS == ("classic","river")`.
