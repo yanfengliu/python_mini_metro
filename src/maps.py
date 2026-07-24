@@ -136,9 +136,69 @@ RIVER = MapDefinition(
     tunnel_budget=3,
 )
 
+# The second alternate map (GM-09d): two vertical rivers -- a delta's twin channels
+# -- splitting the play area into THREE land banks (left, mid, right). A line
+# spanning the whole map crosses both channels and so uses TWO tunnels, exercising
+# the multi-band crossing count and the finite budget more than the single RIVER.
+# Each bank is eroded inward by station_size so a station's CENTER clears the water
+# by station_size (a glyph extremity may still touch a band edge by a pixel, exactly
+# as on RIVER -- shared erosion, not DELTA-specific). The two channels sit at 0.32
+# and 0.68 of the width, leaving a positive-width mid bank (~516px at 1920x1080);
+# like RIVER these bands assume a screen wide enough that _coerce_rects' positive-area
+# check holds -- true for every shipped resolution. The budget stays generous enough
+# to connect all three banks.
+_DELTA_HALF_WIDTH = 0.03 * screen_width
+_DELTA_C1 = 0.32 * screen_width
+_DELTA_C2 = 0.68 * screen_width
+_DELTA_R1: Rect = (
+    _DELTA_C1 - _DELTA_HALF_WIDTH,
+    0.0,
+    _DELTA_C1 + _DELTA_HALF_WIDTH,
+    float(screen_height),
+)
+_DELTA_R2: Rect = (
+    _DELTA_C2 - _DELTA_HALF_WIDTH,
+    0.0,
+    _DELTA_C2 + _DELTA_HALF_WIDTH,
+    float(screen_height),
+)
+_DELTA_LEFT_BANK: Rect = (
+    0.0,
+    0.0,
+    _DELTA_C1 - _DELTA_HALF_WIDTH - station_size,
+    float(screen_height),
+)
+_DELTA_MID_BANK: Rect = (
+    _DELTA_C1 + _DELTA_HALF_WIDTH + station_size,
+    0.0,
+    _DELTA_C2 - _DELTA_HALF_WIDTH - station_size,
+    float(screen_height),
+)
+_DELTA_RIGHT_BANK: Rect = (
+    _DELTA_C2 + _DELTA_HALF_WIDTH + station_size,
+    0.0,
+    float(screen_width),
+    float(screen_height),
+)
+
+DELTA = MapDefinition(
+    map_id="delta",
+    map_definition_version=1,
+    shape_types=tuple(station_shape_type_list),
+    unique_shape_types=tuple(station_unique_shape_type_list),
+    unique_spawn_start_index=station_unique_spawn_start_index,
+    unique_spawn_chance=station_unique_spawn_chance,
+    spawn_regions=(_DELTA_LEFT_BANK, _DELTA_MID_BANK, _DELTA_RIGHT_BANK),
+    rivers=(_DELTA_R1, _DELTA_R2),
+    # Two channels to cross: a full-span line uses two tunnels. The budget stays
+    # generous enough to connect all three banks (tunable; verified playable).
+    tunnel_budget=4,
+)
+
 _REGISTRY: dict[tuple[str, int], MapDefinition] = {
     (CLASSIC.map_id, CLASSIC.map_definition_version): CLASSIC,
     (RIVER.map_id, RIVER.map_definition_version): RIVER,
+    (DELTA.map_id, DELTA.map_definition_version): DELTA,
 }
 
 

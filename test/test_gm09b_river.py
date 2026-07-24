@@ -43,7 +43,11 @@ class TestGM09bRiverDefinition(unittest.TestCase):
         self.assertEqual(river.map_id, "river")
         self.assertEqual(river.map_definition_version, 1)
         self.assertIs(resolve("river", 1), river)
-        self.assertEqual(tuple(_sym(self, "KNOWN_MAP_IDS")), ("classic", "river"))
+        # river + classic are registered; the exact set grows as later units add
+        # maps (GM-09d's delta, etc.), so assert membership, not an exact tuple.
+        known = _sym(self, "KNOWN_MAP_IDS")
+        self.assertIn("river", known)
+        self.assertIn("classic", known)
 
     def test_river_has_banks_and_a_river_band(self):
         river = _sym(self, "RIVER")

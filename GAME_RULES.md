@@ -23,20 +23,22 @@ This document summarizes the game rules currently implemented in code.
 - Station shapes are from: rectangle, circle, triangle, and cross.
 - New station positions are sampled randomly but weighted to be more likely near the
   current center of existing stations, so very far placements are less common.
-- The default map is `classic` (the whole play area is open). An alternate `river` map
-  runs a single river down the screen centre, splitting the map into two land banks;
-  on the river map, stations spawn only on the banks (never in or touching the water),
-  and the river is drawn under the lines and stations. Map selection is available to
-  the RL trainer (`--map river`) and the programmatic API today; in-game menu selection
-  arrives in a later unit.
-- On a map with a river, lines cross the water through a limited pool of tunnels. The
-  `river` map has a budget of 3: every place where a line's route crosses the river
-  consumes one tunnel, and a tunnel-portal marker is drawn there. You cannot draw or
-  reroute a line so the network's total crossings would exceed the budget — that edit is
-  rejected before anything changes, and a same-bank line (which crosses nothing) is
-  always allowed even at zero remaining tunnels. Removing or rerouting a line frees its
-  crossings again immediately, since the remaining count is derived from the live network
-  rather than spent from a counter. The `classic` map has no river and no tunnel limit.
+- The default map is `classic` (the whole play area is open). Alternate maps add
+  geography: `river` runs a single river down the screen centre, splitting the map into
+  two land banks; `delta` runs two rivers (a delta's twin channels) that split the map
+  into three land banks (left, middle, right). On any map with water, stations spawn only
+  on the banks (never in or touching the water), and the rivers are drawn under the lines
+  and stations. Map selection is available to the RL trainer (`--map river`/`--map delta`)
+  and the programmatic API today; in-game menu selection arrives in a later unit.
+- On a map with rivers, lines cross the water through a limited pool of tunnels. The
+  `river` map has a budget of 3 and `delta` a budget of 4: every place where a line's
+  route crosses a river consumes one tunnel (so a `delta` line spanning both channels
+  uses two), and a tunnel-portal marker is drawn there. You cannot draw or reroute a line
+  so the network's total crossings would exceed the budget — that edit is rejected before
+  anything changes, and a same-bank line (which crosses nothing) is always allowed even at
+  zero remaining tunnels. Removing or rerouting a line frees its crossings again
+  immediately, since the remaining count is derived from the live network rather than
+  spent from a counter. The `classic` map has no river and no tunnel limit.
 - After the 10th station slot in the unlock pool, rare one-of-a-kind stations can appear:
   diamond, pentagon, and star (each at most once per run).
 - Each station can hold up to 12 waiting passengers.
