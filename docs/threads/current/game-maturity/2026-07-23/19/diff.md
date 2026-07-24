@@ -1,6 +1,6 @@
 # GM-09a2 versioned task-descriptor identity diff ledger
 
-Status: implemented and locally green; ready for the CI-gated `[GM-09a2:A]` commit after review + rebase onto `origin/main`.
+Status: delivered as Commit A `289a732` (clean fast-forward onto `origin/main` at `25e55de`), exact [run 30058894530](https://github.com/yanfengliu/python_mini_metro/actions/runs/30058894530) green (`build` `89376275482`, `rl-smoke` `89376275539`); evidence-only Commit B `[GM-09a2:B]` active.
 
 ## Production surface
 - `src/rl/protocol.py`: `TaskSpec` map_id/map_definition_version (appended, default None) + `_validate_map_identity`; `task_descriptor` map-bound branch (byte-identical legacy path).
