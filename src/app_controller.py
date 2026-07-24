@@ -324,11 +324,12 @@ class AppController:
             self._open_settings(AppScreen.PAUSE_MENU)
 
     def _handle_offer(self, event: object) -> None:
-        # GM-10a (D-041): the week-boundary modal's single Continue control is
-        # ARMED (a down+up on the SAME control) so a stale gameplay mouse-up that
-        # crossed the boundary cannot dismiss it (review MAJOR). Continue resolves
-        # the week and resumes PLAYING. GM-10c replaces Continue with the offer.
-        layout = offer_menu_layout(screen_width, screen_height)
+        # GM-10c (D-043): the week-boundary modal shows one button per offer; each is
+        # ARMED (a down+up on the SAME button) so a stale gameplay mouse-up that
+        # crossed the boundary cannot choose (the GM-10a arming discipline). An armed
+        # click on `offer_i` chooses current_offers[i]: resolve applies it and resumes.
+        offers = self.mediator.current_offers
+        layout = offer_menu_layout(screen_width, screen_height, len(offers))
         pressed = _mouse_down_position(event)
         if pressed is not None:
             self._armed_menu_control = next(
@@ -340,8 +341,15 @@ class AppController:
             return
         armed = self._armed_menu_control
         self._armed_menu_control = None
-        if armed == "continue" and _clicked(layout, "continue", position):
-            self.mediator.resolve_week_boundary()
+        if armed is None or not _clicked(layout, armed, position):
+            return
+        # The layout keys are exactly offer_0..offer_{len-1} and the sim is frozen
+        # (offers unchanged between press and release), so `armed` is always a live
+        # key and the parsed index is in range; the bound check is a belt-and-braces
+        # guard on the `offers[index]` access, never expected to fire.
+        index = int(armed.removeprefix("offer_"))
+        if index < len(offers):
+            self.mediator.resolve_week_boundary(offers[index])
             self.state = AppScreen.PLAYING
 
     def _handle_title(self, event: object) -> None:

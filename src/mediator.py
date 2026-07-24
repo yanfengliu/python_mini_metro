@@ -50,7 +50,7 @@ from graph.graph_algo import bfs, build_station_nodes_dict
 from graph.node import Node
 from input_coordinator import InputCoordinator
 from maps import CLASSIC, MapDefinition
-from offers import Offer, generate_offers
+from offers import Offer, OfferKind, generate_offers
 from passenger_flow import PassengerFlow
 from path_handles import PathEditSelection
 from path_lifecycle import PathLifecycle
@@ -707,12 +707,32 @@ class Mediator:
         # True while the calendar is paused at a week boundary awaiting a resolve.
         return _WEEK_REASON in self._pause_reason_store(_WEEK_REASON)
 
-    def resolve_week_boundary(self) -> None:
-        # Continue past a week boundary: clear the week's offers and release the
-        # pause. GM-10b generates offers (below); GM-10c will APPLY the chosen one
-        # here, BEFORE clearing, and GM-10h reconciles applied-offer persistence.
+    def resolve_week_boundary(self, offer: Offer | None = None) -> None:
+        # Continue past a week boundary: APPLY the chosen offer (GM-10c), then clear
+        # the week's offers and release the pause. A None offer is a forced resolve
+        # with no choice (the window-close path in main.run_game), which applies
+        # nothing. GM-10h reconciles applied-offer persistence across Continue.
+        if offer is not None:
+            self._apply_offer(offer)
         self.current_offers = ()
         self.release_pause_reason(_WEEK_REASON)
+
+    def _apply_offer(self, offer: Offer) -> None:
+        # GM-10c dispatches the chosen offer to its per-kind effect. The effects
+        # themselves land in GM-10d-g (line/locomotive/carriage/tunnel) -- each arm
+        # is a no-op here, so GM-10c changes NO game state and is Continue-safe with
+        # no new persisted bytes. A future kind without a handler must fail loud.
+        match offer.kind:
+            case OfferKind.NEW_LINE:
+                pass  # GM-10d: grant a free line (via purchased_num_paths, persisted)
+            case OfferKind.LOCOMOTIVE:
+                pass  # GM-10e: +1 num_metros (needs the _require_running_config pin relaxed / GM-10h)
+            case OfferKind.CARRIAGE:
+                pass  # GM-10f: +1 num_carriages (same pin as locomotives)
+            case OfferKind.TUNNEL:
+                pass  # GM-10g: +1 tunnel budget (needs a persisted bonus / GM-10h)
+            case _:
+                raise ValueError(f"no effect handler for offer kind {offer.kind!r}")
 
     def _offer_rng_for_current_week(self) -> random.Random:
         # GM-10b (D-042): a dedicated per-week offer RNG, derived READ-ONLY from the

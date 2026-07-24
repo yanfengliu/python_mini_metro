@@ -329,9 +329,10 @@ def run_game(
                 # boundary, drop a finished run's save, and touch nothing on the
                 # title screen (nor for a non-game controller).
                 if controller.state is AppScreen.OFFER:
-                    # Closing mid-offer (GM-10a): resolve the week (there is no
-                    # choice yet) and autosave the resumed game, so Continue reloads
-                    # past the boundary. Mid-offer persistence proper is GM-10h.
+                    # Closing mid-offer (GM-10a): resolve the week with NO choice (the
+                    # no-arg forced resolve -- the player did not pick an offer) and
+                    # autosave the resumed game, so Continue reloads past the boundary.
+                    # Mid-offer / applied-offer persistence proper is GM-10h.
                     controller.mediator.resolve_week_boundary()
                     write_autosave(controller.mediator)
                 elif controller.state in (AppScreen.PLAYING, AppScreen.PAUSE_MENU):
@@ -429,8 +430,8 @@ def run_game(
                 if overlay is not None:
                     draw_tutorial_overlay(game_surface, *overlay)
             elif state == AppScreen.OFFER:
-                # The week-boundary modal over the frozen game frame (GM-10a); the
-                # week's upgrade offers are previewed read-only (GM-10b).
+                # The week-boundary modal over the frozen game frame (GM-10a): the
+                # week's offers (GM-10b) as one selectable button each (GM-10c).
                 draw_offer_screen(
                     game_surface,
                     controller.mediator.week_index,

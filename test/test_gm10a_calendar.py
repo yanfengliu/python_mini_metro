@@ -182,14 +182,19 @@ class _FakeMediator:
         self.resolved = 0
         self.week_index = 1
         self.held = []
+        # GM-10c: two opaque offer tokens so the modal renders two selectable
+        # buttons; the controller passes the chosen one back to resolve.
+        self.current_offers = ("offer-a", "offer-b")
+        self.applied = []
 
     @property
     def is_week_boundary_pending(self):
         return self._week_pending
 
-    def resolve_week_boundary(self):
+    def resolve_week_boundary(self, offer=None):
         self._week_pending = False
         self.resolved += 1
+        self.applied.append(offer)
 
     def hold_pause_reason(self, reason):
         self.held.append(reason)
@@ -281,21 +286,25 @@ class TestGM10aOfferArming(unittest.TestCase):
             MouseEvent(MouseEventType.MOUSE_DOWN, Point(rect.centerx, rect.centery))
         )
 
-    def test_continue_requires_an_offer_local_down_up_pair(self):
-        # review MAJOR: a bare gameplay mouse-up that crossed the boundary must NOT
-        # dismiss the offer -- only an in-offer down->up on Continue resolves it.
+    def test_offer_choice_requires_a_local_down_up_pair(self):
+        # review MAJOR (GM-10a arming, GM-10c offer buttons): a bare gameplay mouse-up
+        # that crossed the boundary must NOT choose -- only an in-offer down->up on an
+        # offer button chooses it, resolves the week, and resumes PLAYING.
         controller, mediator, session = _offer_controller()
         controller.reconcile_week_boundary()
         self.assertEqual(controller.state, AppScreen.OFFER)
-        rect = offer_menu_layout(screen_width, screen_height)["continue"]
+        rect = offer_menu_layout(
+            screen_width, screen_height, len(mediator.current_offers)
+        )["offer_0"]
         # A bare release (no matching in-offer press) is a no-op.
         self._up(controller, rect)
         self.assertEqual(controller.state, AppScreen.OFFER, "a bare release is ignored")
         self.assertEqual(mediator.resolved, 0)
-        # An armed press+release resolves the week and resumes PLAYING.
+        # An armed press+release chooses offer 0, resolves, and resumes PLAYING.
         self._down(controller, rect)
         self._up(controller, rect)
         self.assertEqual(controller.state, AppScreen.PLAYING)
+        self.assertEqual(mediator.applied, ["offer-a"], "chose current_offers[0]")
         self.assertEqual(mediator.resolved, 1)
 
 
@@ -396,7 +405,7 @@ class _LoopMediator:
     def is_week_boundary_pending(self):
         return self._pending
 
-    def resolve_week_boundary(self):
+    def resolve_week_boundary(self, offer=None):
         self._pending = False
         self.resolved += 1
 
