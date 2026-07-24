@@ -75,11 +75,12 @@ def title_layout(width: int, height: int) -> dict[str, pygame.Rect]:
     """Deterministic, disjoint hit-test rects for the title-screen controls."""
 
     # Stacked buttons anchored to the middle slot; each new control is APPENDED
-    # (Settings after GM-07c, Tutorial after GM-08c) so the prior rects stay
-    # byte identical, and the heading stays anchored to the first key.
+    # (Settings after GM-07c, Tutorial after GM-08c, map picker after GM-09f3) so
+    # the prior rects stay byte identical, and the heading stays anchored to the
+    # first key.
     return _stacked_buttons(
         width,
-        ("new_game", "continue", "exit", "settings", "tutorial"),
+        ("new_game", "continue", "exit", "settings", "tutorial", "map"),
         height // 2 - game_over_button_height - game_over_button_spacing,
     )
 
@@ -147,9 +148,15 @@ def _draw_heading(surface: pygame.Surface, width: int, bottom: int, label: str) 
 
 
 def draw_title_screen(
-    surface: pygame.Surface, continue_available: bool = False
+    surface: pygame.Surface,
+    continue_available: bool = False,
+    current_map_id: str = "classic",
 ) -> None:
-    """Paint deterministic title chrome; draw Continue only when available."""
+    """Paint deterministic title chrome; draw Continue only when available.
+
+    GM-09f3 (D-040): the appended map-picker button shows the map a New Game will
+    build (``current_map_id``); clicking it cycles the choice.
+    """
 
     width, height = surface.get_size()
     layout = title_layout(width, height)
@@ -160,6 +167,7 @@ def draw_title_screen(
     _draw_button(surface, layout["exit"], "Exit")
     _draw_button(surface, layout["settings"], "Settings")
     _draw_button(surface, layout["tutorial"], "Tutorial")
+    _draw_button(surface, layout["map"], f"Map: {current_map_id.title()}")
 
 
 def draw_notice(surface: pygame.Surface, message: str) -> None:

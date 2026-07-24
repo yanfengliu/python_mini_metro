@@ -63,6 +63,9 @@ class _RecordingMediator:
         self.log = log
         self.name = name
         self.is_game_over = False
+        self.map_definition = SimpleNamespace(
+            map_id="classic", map_definition_version=1
+        )
         self.held: list[str] = []
 
     def hold_pause_reason(self, reason: str) -> None:
@@ -131,7 +134,7 @@ def _run_loop(frames_events, **run_kwargs):
     renderers: list[_RecordingRenderer] = []
     sessions: list[_RecordingSession] = []
 
-    def build_mediator() -> _RecordingMediator:
+    def build_mediator(map_definition=None) -> _RecordingMediator:
         mediator = _RecordingMediator(log, f"mediator-{len(mediators)}")
         mediators.append(mediator)
         return mediator
@@ -167,7 +170,7 @@ def _run_loop(frames_events, **run_kwargs):
         patch("main.GameRenderer", side_effect=build_renderer),
         patch(
             "main.draw_title_screen",
-            side_effect=lambda surface: log.append(("chrome", "title")),
+            side_effect=lambda surface, **kwargs: log.append(("chrome", "title")),
         ),
         patch(
             "main.draw_pause_menu",

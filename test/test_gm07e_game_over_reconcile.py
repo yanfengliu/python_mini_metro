@@ -49,6 +49,9 @@ class _RecordingMediator:
     def __init__(self, name):
         self.name = name
         self.is_game_over = False
+        self.map_definition = SimpleNamespace(
+            map_id="classic", map_definition_version=1
+        )
         self.held = []
         self.game_over_result = None
 
@@ -132,7 +135,7 @@ def _factories(mediator_factory):
         triples.append((mediator, renderer, session))
         return mediator, renderer, session
 
-    def build_game():
+    def build_game(map_id="classic"):
         return _wrap(mediator_factory(len(triples)))
 
     def build_from(loaded):
@@ -272,6 +275,9 @@ class TestGM07eReconcileGameOverController(unittest.TestCase):
 class _LoopMediator:
     def __init__(self):
         self.is_game_over = False
+        self.map_definition = SimpleNamespace(
+            map_id="classic", map_definition_version=1
+        )
         self.deliveries = 11
         self.held = []
 
@@ -325,7 +331,7 @@ def _drive(testcase, frame_batches, *, max_frames=None, record_result=None):
     mediators: list[_LoopMediator] = []
     draw_log: list[str] = []
 
-    def build_mediator() -> _LoopMediator:
+    def build_mediator(map_definition=None) -> _LoopMediator:
         mediator = _LoopMediator()
         mediators.append(mediator)
         return mediator

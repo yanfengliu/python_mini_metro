@@ -93,7 +93,7 @@ def _drive_window_close(
 
     mediators: list[_LoopMediator] = []
 
-    def build_mediator() -> _LoopMediator:
+    def build_mediator(map_definition=None) -> _LoopMediator:
         mediator = _LoopMediator(game_over)
         mediators.append(mediator)
         return mediator

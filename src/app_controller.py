@@ -22,6 +22,7 @@ from event.keyboard import KeyboardEvent
 from event.mouse import MouseEvent
 from event.type import KeyboardEventType, MouseEventType
 from geometry.point import Point
+from maps import KNOWN_MAP_IDS
 from settings import DEFAULT_SETTINGS
 from ui.menu_screens import pause_menu_layout, settings_menu_layout, title_layout
 
@@ -30,6 +31,9 @@ _MENU_REASON = "menu"
 _LOAD_FAILURE_NOTICE = "Could not load the saved game."
 _VOLUME_STEP = 25
 _VOLUME_MAX = 100
+# GM-09f3 (D-040): the title map picker cycles KNOWN_MAP_IDS; Classic is the
+# default and the first selectable (it leads KNOWN_MAP_IDS' sorted order).
+_DEFAULT_MAP_ID = "classic"
 
 
 class AppScreen(Enum):
@@ -78,7 +82,7 @@ class AppController:
 
     def __init__(
         self,
-        build_game: Callable[[], GameTriple],
+        build_game: Callable[[str], GameTriple],
         start_state: AppScreen = AppScreen.TITLE,
         *,
         build_from: Callable[[object], GameTriple] | None = None,
@@ -112,7 +116,14 @@ class AppController:
         self.current_settings = (
             settings.load() if settings is not None else DEFAULT_SETTINGS
         )
-        self.mediator, self.renderer, self.session = build_game()
+        # GM-09f3 (D-040): the title map picker. `current_map_id` is the map a NEW
+        # game will build; the title cycles it over KNOWN_MAP_IDS, and it seeds the
+        # first build below so the seam is uniformly `build_game(map_id)` (never a
+        # zero-arg vs one-arg split). RESTART, by contrast, rebuilds the CURRENT
+        # game's map (read live off the mediator), not the picker; Continue installs
+        # the saved map and never consults the picker.
+        self.current_map_id = _DEFAULT_MAP_ID
+        self.mediator, self.renderer, self.session = build_game(self.current_map_id)
         # A cold start directly in TUTORIAL (e.g. run_game(start_state=TUTORIAL))
         # must build the seeded, game-over-suppressed tutorial and its progress,
         # not leave the ordinary build_game() triple — which would game-over and
@@ -181,10 +192,26 @@ class AppController:
         elif self.state is AppScreen.TUTORIAL:
             self._handle_tutorial(event)
 
-    def _start_new_game(self) -> None:
-        self.mediator, self.renderer, self.session = self._build_game()
+    def _start_new_game(self, map_id: str) -> None:
+        # Build a fresh game on `map_id`. The title New Game / Enter pass the picker
+        # (`current_map_id`); RESTART surfaces pass the CURRENT game's map so a
+        # restart replays the same terrain, never the picker's pending choice
+        # (GM-09f3 review MAJOR-1).
+        self.mediator, self.renderer, self.session = self._build_game(map_id)
         self.notice = None
         self.state = AppScreen.PLAYING
+
+    def _cycle_map(self) -> None:
+        # The title map picker advances to the next map, wrapping KNOWN_MAP_IDS.
+        # Only ever holds a registered id, so `.index` cannot fail (GM-09f3).
+        index = KNOWN_MAP_IDS.index(self.current_map_id)
+        self.current_map_id = KNOWN_MAP_IDS[(index + 1) % len(KNOWN_MAP_IDS)]
+
+    def _restart_current_game(self) -> None:
+        # Restart replays the CURRENT game's map (read live off the mediator), not
+        # the picker -- so restarting a Continued River game gives River even when
+        # the picker sits on Lake (GM-09f3 review MAJOR-1).
+        self._start_new_game(self.mediator.map_definition.map_id)
 
     def _continue_game(self) -> None:
         # Continue is inert without a proven-loadable autosave: peek gates the
@@ -251,7 +278,7 @@ class AppController:
             self._close_pause_menu(AppScreen.PLAYING)
         elif armed == "restart":
             self._close_pause_menu(AppScreen.PLAYING)
-            self._start_new_game()
+            self._restart_current_game()
         elif armed == "exit_to_title":
             # Rewrite the byte-identical boundary save BEFORE the menu reason is
             # released, so a later Continue reloads the menu-entry document.
@@ -265,14 +292,14 @@ class AppController:
 
     def _handle_title(self, event: object) -> None:
         if _is_key_up(event, pygame.K_RETURN):
-            self._start_new_game()
+            self._start_new_game(self.current_map_id)
             return
         position = _mouse_up_position(event)
         if position is None:
             return
         layout = title_layout(screen_width, screen_height)
         if _clicked(layout, "new_game", position):
-            self._start_new_game()
+            self._start_new_game(self.current_map_id)
         elif _clicked(layout, "continue", position):
             self._continue_game()
         elif _clicked(layout, "exit", position):
@@ -281,13 +308,17 @@ class AppController:
             self._open_settings(AppScreen.TITLE)
         elif _clicked(layout, "tutorial", position):
             self._start_tutorial()
+        elif _clicked(layout, "map", position):
+            # GM-09f3: cycle the picker in place; the title stays put and the label
+            # updates, and the next New Game builds the chosen map.
+            self._cycle_map()
 
     def _handle_game_over(self, event: object) -> None:
         # Mirrors the historical loop-inline branch: R restarts, Escape exits,
         # and clicks resolve through the prepared game-over rects.
         if isinstance(event, KeyboardEvent):
             if _is_key_up(event, pygame.K_r):
-                self._start_new_game()
+                self._restart_current_game()
             elif _is_key_up(event, pygame.K_ESCAPE):
                 self._autosave_delete()
                 raise SystemExit
@@ -297,7 +328,7 @@ class AppController:
             return
         action = self.mediator.handle_game_over_click(position)
         if action == "restart":
-            self._start_new_game()
+            self._restart_current_game()
         elif action == "exit":
             self._autosave_delete()
             raise SystemExit

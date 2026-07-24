@@ -26,6 +26,7 @@ from highscores import (
     record_score,
     save_highscores,
 )
+from maps import map_by_id
 from mediator import Mediator
 from rendering.game_renderer import GameRenderer
 from save_game import load_game, save_game
@@ -213,8 +214,11 @@ def run_game(
     game_surface = pygame.Surface((screen_width, screen_height))
     clock = pygame.time.Clock()
 
-    def build_game():
-        mediator = Mediator()
+    def build_game(map_id="classic"):
+        # GM-09f3 (D-040): build on the chosen map. The controller passes the title
+        # picker's id for a new game, or the current game's id for a restart; a
+        # registered id always resolves (map_by_id raises on an unknown one).
+        mediator = Mediator(map_definition=map_by_id(map_id))
         renderer = GameRenderer()
         session = GameSession(mediator, step_observer=renderer)
         session.prepare_layout(game_surface)
@@ -370,7 +374,7 @@ def run_game(
 
         game_surface.fill(screen_color)
         if state == AppScreen.TITLE:
-            draw_title_screen(game_surface)
+            draw_title_screen(game_surface, current_map_id=controller.current_map_id)
             if peek_autosave():
                 _draw_title_continue_button(game_surface)
             if controller.notice:

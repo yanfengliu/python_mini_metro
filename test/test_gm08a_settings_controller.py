@@ -49,7 +49,7 @@ class _FakeSession:
 
 
 def _factory():
-    def build():
+    def build(map_id="classic"):
         return (_FakeMediator(), object(), _FakeSession())
 
     return build

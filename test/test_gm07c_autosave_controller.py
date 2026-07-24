@@ -115,6 +115,9 @@ class _RecordingMediator:
     def __init__(self, name):
         self.name = name
         self.is_game_over = False
+        self.map_definition = SimpleNamespace(
+            map_id="classic", map_definition_version=1
+        )
         self.held = []
         self.game_over_result = None
 
@@ -152,7 +155,7 @@ def _factories():
         triples.append((mediator, renderer, session))
         return mediator, renderer, session
 
-    def build_game():
+    def build_game(map_id="classic"):
         return _wrap(_RecordingMediator(f"mediator-{len(triples)}"))
 
     def build_from(loaded):

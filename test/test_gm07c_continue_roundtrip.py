@@ -161,7 +161,7 @@ class _FileAutosave:
         return load_game(self.path)
 
 
-def _title_build_game(mediator=None):
+def _title_build_game(map_id="classic", mediator=None):
     subject = Mediator(seed=0) if mediator is None else mediator
     return subject, SimpleNamespace(), _RecSession(subject)
 
@@ -175,7 +175,11 @@ class TestGM07cContinueRoundtrip(unittest.TestCase):
         env = _line_env(seed)
         controller = _continue_controller(
             self,
-            lambda: (env.mediator, SimpleNamespace(), _RecSession(env.mediator)),
+            lambda map_id="classic": (
+                env.mediator,
+                SimpleNamespace(),
+                _RecSession(env.mediator),
+            ),
             start_state=_screen(self, "PLAYING"),
             build_from=_identity_build_from,
             autosave=autosave,

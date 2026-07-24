@@ -116,6 +116,9 @@ class _RecordingMediator:
         self.log = log
         self.name = name
         self.is_game_over = False
+        self.map_definition = SimpleNamespace(
+            map_id="classic", map_definition_version=1
+        )
         self.held = []
         self.game_over_result = None
 
@@ -167,7 +170,7 @@ class _RecordingSession:
 def _fake_factory(log):
     triples = []
 
-    def build():
+    def build(map_id="classic"):
         index = len(triples)
         mediator = _RecordingMediator(log, f"mediator-{index}")
         renderer = SimpleNamespace(name=f"renderer-{index}")
@@ -428,7 +431,7 @@ class TestGM07aMidDragMenuEntry(unittest.TestCase):
         renderer = GameRenderer()
         session = GameSession(mediator, step_observer=renderer)
 
-        def build():
+        def build(map_id="classic"):
             return mediator, renderer, session
 
         controller = _controller(self, build, playing)

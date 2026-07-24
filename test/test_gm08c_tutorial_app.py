@@ -57,7 +57,7 @@ def _controller(with_tutorial=True, autosave=None, highscores=None):
     play = _triple()
     tut = _triple()
 
-    def build_game():
+    def build_game(map_id="classic"):
         return play
 
     def build_tutorial():
@@ -95,7 +95,7 @@ class TestGM08cTutorialController(unittest.TestCase):
         # would game-over and freeze with no overlay).
         tut = _triple()
         controller = AppController(
-            lambda: _triple(),
+            lambda map_id="classic": _triple(),
             start_state=AppScreen.TUTORIAL,
             build_tutorial=lambda: tut,
         )

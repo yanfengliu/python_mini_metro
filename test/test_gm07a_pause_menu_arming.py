@@ -15,6 +15,8 @@ import unittest
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
+from types import SimpleNamespace
+
 import pygame
 
 from app_controller import AppController, AppScreen
@@ -35,6 +37,9 @@ class _FakeMediator:
     def __init__(self, name: str) -> None:
         self.name = name
         self.is_game_over = False
+        self.map_definition = SimpleNamespace(
+            map_id="classic", map_definition_version=1
+        )
         self.held: list[str] = []
 
     def hold_pause_reason(self, reason: str) -> None:
@@ -58,7 +63,7 @@ class _FakeSession:
 def _factory(log: list):
     triples: list[tuple[_FakeMediator, object, _FakeSession]] = []
 
-    def build():
+    def build(map_id="classic"):
         index = len(triples)
         triple = (
             _FakeMediator(f"mediator-{index}"),
