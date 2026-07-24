@@ -309,16 +309,17 @@ class TestGM10aOfferArming(unittest.TestCase):
 
 
 class TestGM10aSaveBlock(unittest.TestCase):
-    def test_saving_is_blocked_while_a_week_boundary_is_pending(self):
+    def test_saving_at_a_pending_week_boundary_now_persists_it(self):
+        # GM-10i (D-047) REVERSED the GM-10a save block: a mid-offer save now PERSISTS the
+        # pending boundary (schema v4) so a Continue re-enters the modal, instead of being
+        # rejected. The saved doc carries the "week" pause + the shown offers.
         m = Mediator(seed=0)
         m.week_calendar = True
         _step_to_boundary(m)
         self.assertTrue(m.is_week_boundary_pending)
-        with self.assertRaisesRegex(ValueError, "week-boundary offer is pending"):
-            serialize_game(m)
-        # Resolving lets the save proceed.
-        m.resolve_week_boundary()
-        self.assertIsInstance(serialize_game(m), dict)
+        doc = serialize_game(m)
+        self.assertIn("week", doc["pauseReasons"])
+        self.assertEqual(doc["pendingOffers"], [o.kind.value for o in m.current_offers])
 
 
 class TestGM10aRLUnaffected(unittest.TestCase):
@@ -561,10 +562,11 @@ class TestGM10aRunLoopOffer(unittest.TestCase):
             "the run loop forwarded the mediator's real current_offers",
         )
 
-    def test_closing_mid_offer_resolves_the_week_and_autosaves(self):
-        # review MAJOR: a window-close WHILE the offer is up (frame 0 promotes, frame
-        # 1 delivers QUIT with state already OFFER) resolves the week and autosaves
-        # the resumed game, so Continue reloads PAST the boundary (GM-10a).
+    def test_closing_mid_offer_persists_the_pending_boundary(self):
+        # GM-10i (D-047): a window-close WHILE the offer is up (frame 0 promotes, frame 1
+        # delivers QUIT with state already OFFER) now PERSISTS the pending boundary WITHOUT
+        # resolving, so Continue reloads INTO the modal re-presenting the offers. (GM-10a
+        # force-resolved with no choice, reloading PAST the boundary.)
         harness = _drive_run_game(
             [[], [_quit_event()]],
             max_frames=None,
@@ -572,9 +574,11 @@ class TestGM10aRunLoopOffer(unittest.TestCase):
             pending=True,
         )
         self.assertTrue(harness.exited, "QUIT raised SystemExit")
-        self.assertEqual(harness.mediator.resolved, 1, "closing resolved the week")
         self.assertEqual(
-            harness.autosaves, [harness.mediator], "the resumed game was autosaved"
+            harness.mediator.resolved, 0, "closing did NOT resolve the week"
+        )
+        self.assertEqual(
+            harness.autosaves, [harness.mediator], "the pending game was autosaved"
         )
 
     def test_no_offer_no_autosave_on_a_plain_title_quit(self):

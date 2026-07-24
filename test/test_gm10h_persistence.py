@@ -119,10 +119,13 @@ class TestGM10hTunnelPersistence(unittest.TestCase):
 
 
 class TestGM10hSchemaAndBackwardCompat(unittest.TestCase):
-    def test_fresh_save_is_v3_with_a_zero_bonus(self):
+    def test_fresh_save_is_v4_with_a_zero_bonus(self):
+        # GM-10i bumped the current version to v4; a fresh (non-boundary) save carries a
+        # zero tunnel bonus AND an empty pendingOffers.
         doc = serialize_game(_played())
-        self.assertEqual(doc["schemaVersion"], 3)
+        self.assertEqual(doc["schemaVersion"], 4)
         self.assertEqual(doc["tunnelBonus"], 0)
+        self.assertEqual(doc["pendingOffers"], [])
 
     def test_v1_and_v2_fixtures_deserialize_with_a_zero_bonus(self):
         # review MINOR-5: DESERIALIZE (runs _require_running_config), not just validate.
@@ -137,6 +140,8 @@ class TestGM10hSchemaAndBackwardCompat(unittest.TestCase):
         from save_schema import validate_save
 
         doc = serialize_game(_played())
+        doc["schemaVersion"] = 3  # native v3 (down-convert: a fresh save is now v4)
+        del doc["pendingOffers"]
         del doc["tunnelBonus"]  # a v3 doc MUST carry it
         with self.assertRaises(ValueError):
             validate_save(doc)
@@ -146,6 +151,7 @@ class TestGM10hSchemaAndBackwardCompat(unittest.TestCase):
 
         doc = serialize_game(_played())
         doc["schemaVersion"] = 2  # a v2 doc must NOT carry tunnelBonus
+        del doc["pendingOffers"]  # strip the v4 key so tunnelBonus is the sole fault
         with self.assertRaises(ValueError):
             validate_save(doc)
 
@@ -153,6 +159,8 @@ class TestGM10hSchemaAndBackwardCompat(unittest.TestCase):
         from save_schema import validate_save
 
         doc = serialize_game(_played())
+        doc["schemaVersion"] = 3  # native v3 (down-convert)
+        del doc["pendingOffers"]
         doc["mapId"] = "river "  # forged: whitespace -- must still be rejected on v3
         with self.assertRaises(ValueError):
             validate_save(doc)

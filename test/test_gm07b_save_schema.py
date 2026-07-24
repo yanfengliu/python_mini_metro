@@ -30,7 +30,8 @@ TOP_LEVEL_KEYS = frozenset(
     passengerMaxWaitTimeMs overduePassengerThreshold deliveries lineCredits
     purchasedNumPaths unlockedNumPaths unlockedNumStations numPaths numStations
     initialNumStations pathPurchasePrices pathUnlockMilestones
-    stationUnlockMilestones numMetros numCarriages tunnelBonus stations passengers
+    stationUnlockMilestones numMetros numCarriages tunnelBonus pendingOffers
+    stations passengers
     paths metros travelPlans pathColors pathToColor spawnTimers pathButtons rng""".split()
 )
 STATION_KEYS = frozenset(
@@ -157,23 +158,26 @@ class TestGM07bSaveSchemaVersioning(unittest.TestCase):
             ("SAVE_SCHEMA_VERSION_V1", 1),
             ("SAVE_SCHEMA_VERSION_V2", 2),
             ("SAVE_SCHEMA_VERSION_V3", 3),
-            ("SAVE_SCHEMA_VERSION", 3),
-            ("SUPPORTED_SAVE_SCHEMA_VERSIONS", {1, 2, 3}),
-            # stateContract + rulesVersion are STABLE across v1/v2/v3 (GM-09f/GM-10h).
+            ("SAVE_SCHEMA_VERSION_V4", 4),
+            ("SAVE_SCHEMA_VERSION", 4),
+            ("SUPPORTED_SAVE_SCHEMA_VERSIONS", {1, 2, 3, 4}),
+            # stateContract + rulesVersion are STABLE across v1/v2/v3/v4 (GM-09f/h/10i).
             ("SAVE_STATE_CONTRACT", "mini-metro-save-v1"),
             ("SAVE_RULES_VERSION", "rules-v1"),
         ):
             self.assertEqual(getattr(schema, name, None), expected, name)
         validate_save = _symbol(self, SAVE_SCHEMA_MODULE, "validate_save")
         _, document = _document(self)
-        self.assertEqual(document["schemaVersion"], 3)
+        self.assertEqual(document["schemaVersion"], 4)
         self.assertEqual(document["stateContract"], "mini-metro-save-v1")
         self.assertEqual(document["rulesVersion"], "rules-v1")
-        # A freshly serialized game is v3 and carries the map identity (classic@1)
-        # plus the additive tunnelBonus (0 with no upgrade applied; GM-10h).
+        # A freshly serialized game is v4 and carries the map identity (classic@1), the
+        # additive tunnelBonus (0 with no upgrade), and the additive pendingOffers ([]
+        # with no held boundary; GM-10i).
         self.assertEqual(document["mapId"], "classic")
         self.assertEqual(document["mapDefinitionVersion"], 1)
         self.assertEqual(document["tunnelBonus"], 0)
+        self.assertEqual(document["pendingOffers"], [])
         self.assertIsNone(validate_save(document))
 
     def test_schema_version_and_pinned_literal_strictness(self):
@@ -182,8 +186,8 @@ class TestGM07bSaveSchemaVersioning(unittest.TestCase):
         mutations = {
             "bool-true schemaVersion": _setter((), "schemaVersion", True),
             "bool-false schemaVersion": _setter((), "schemaVersion", False),
-            # 3 is now SUPPORTED (v3, GM-10h); 4 is the forward version to reject.
-            "forward schemaVersion": _setter((), "schemaVersion", 4),
+            # 4 is now SUPPORTED (v4, GM-10i); 5 is the forward version to reject.
+            "forward schemaVersion": _setter((), "schemaVersion", 5),
             "zero schemaVersion": _setter((), "schemaVersion", 0),
             "string schemaVersion": _setter((), "schemaVersion", "1"),
             "float schemaVersion": _setter((), "schemaVersion", 1.0),

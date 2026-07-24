@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from offers import OfferKind
 from recursive_checkpoint_schema import safe_checkpoint_value
 from save_schema_records import (
     _array,
@@ -50,16 +51,39 @@ SAVE_SCHEMA_VERSION_V2 = 2
 # so the byte-frozen `save-v1.json`/`save-v2-classic.json` stay valid. New saves
 # are v3. `stateContract`/`rulesVersion` STABLE across v1/v2/v3.
 SAVE_SCHEMA_VERSION_V3 = 3
-SAVE_SCHEMA_VERSION = SAVE_SCHEMA_VERSION_V3
+# GM-10i (D-047): v4 is a strict SUPERSET of v3 -- it adds one additive key,
+# `pendingOffers` (the ORDERED kinds of a HELD week-boundary offer, so a mid-offer save
+# reloads INTO the modal re-presenting the SAME offers), and v4-gates "week" into the
+# pause vocabulary (only a v4 save may carry a pending boundary). The offers are STORED,
+# not re-derived on load: `WEEK_LENGTH_STEPS`/`OFFERS_PER_WEEK`/the pool are provisional
+# balance defaults (GM-11 may tune them), so a re-derive would diverge across a rules
+# change -- storing the shown kinds keeps a v4 save self-contained. A v1/v2/v3 document
+# (no `pendingOffers`, no "week") still loads, so the byte-frozen fixtures stay valid.
+# New saves are v4. `stateContract`/`rulesVersion` STABLE across v1/v2/v3/v4.
+SAVE_SCHEMA_VERSION_V4 = 4
+SAVE_SCHEMA_VERSION = SAVE_SCHEMA_VERSION_V4
 SUPPORTED_SAVE_SCHEMA_VERSIONS = {
     SAVE_SCHEMA_VERSION_V1,
     SAVE_SCHEMA_VERSION_V2,
     SAVE_SCHEMA_VERSION_V3,
+    SAVE_SCHEMA_VERSION_V4,
 }
 SAVE_STATE_CONTRACT = "mini-metro-save-v1"
 SAVE_RULES_VERSION = "rules-v1"
 
+# GM-10i: "week" (a held boundary) is a v4-ONLY pause reason -- v1/v2/v3 never carry it,
+# so the frozen fixtures' validation is unchanged and older code (max v3) rejects a v4
+# save wholesale. `_pause_reason_vocabulary_for` selects by version.
 _PAUSE_REASON_VOCABULARY = frozenset({"menu", "user"})
+_PAUSE_REASON_VOCABULARY_V4 = _PAUSE_REASON_VOCABULARY | {"week"}
+
+
+def _pause_reason_vocabulary_for(version: int) -> frozenset[str]:
+    if version == SAVE_SCHEMA_VERSION_V4:
+        return _PAUSE_REASON_VOCABULARY_V4
+    return _PAUSE_REASON_VOCABULARY
+
+
 _GAME_SPEED_MULTIPLIERS = frozenset({1, 2, 4})
 _PYTHON_RNG_VERSION = 3
 _PYTHON_RNG_WORDS = 625
@@ -88,9 +112,18 @@ _TOP_LEVEL_KEYS_V2 = _TOP_LEVEL_KEYS_V1 | _MAP_IDENTITY_KEYS
 # missing it both fail closed.
 _TUNNEL_BONUS_KEY = frozenset({"tunnelBonus"})
 _TOP_LEVEL_KEYS_V3 = _TOP_LEVEL_KEYS_V2 | _TUNNEL_BONUS_KEY
+# GM-10i: v4 adds exactly `pendingOffers`; a v1/v2/v3 doc carrying it OR a v4 doc missing
+# it both fail closed via the version-selected exact-key set.
+_PENDING_OFFERS_KEY = frozenset({"pendingOffers"})
+_TOP_LEVEL_KEYS_V4 = _TOP_LEVEL_KEYS_V3 | _PENDING_OFFERS_KEY
+# The valid `pendingOffers` element strings, mirrored from the single OfferKind source
+# (offers.py is stdlib-only, so importing it keeps save_schema import-safe).
+_OFFER_KIND_VALUES = frozenset(kind.value for kind in OfferKind)
 
 
 def _top_level_keys_for(version: int) -> frozenset[str]:
+    if version == SAVE_SCHEMA_VERSION_V4:
+        return _TOP_LEVEL_KEYS_V4
     if version == SAVE_SCHEMA_VERSION_V3:
         return _TOP_LEVEL_KEYS_V3
     if version == SAVE_SCHEMA_VERSION_V2:
@@ -152,7 +185,37 @@ def _validate_tunnel_bonus(document: dict[str, Any]) -> None:
     _nonnegative_int(document["tunnelBonus"], "tunnelBonus")
 
 
-def _validate_scalars(document: dict[str, Any]) -> None:
+def _validate_pending_offers(document: dict[str, Any]) -> None:
+    """Validate the v4 `pendingOffers` (GM-10i): the ORDERED kinds of a HELD week-boundary
+    offer. Each is a known OfferKind value; they are pairwise DISTINCT (`generate_offers`
+    draws distinct kinds); and the list is NON-EMPTY exactly when a "week" boundary is held
+    (`"week" in pauseReasons`). The count is NOT pinned to `OFFERS_PER_WEEK` -- that is a
+    provisional balance default (GM-11), and a stored tuple is what was SHOWN, so a v4 save
+    made under a different count stays valid. Map-pool legality (TUNNEL only on a bounded
+    map) needs the resolved map and is enforced at load by `save_load`."""
+    kinds = _array(document["pendingOffers"], "pendingOffers")
+    seen: set[str] = set()
+    for index, kind in enumerate(kinds):
+        value = _string(kind, f"pendingOffers[{index}]")
+        if value not in _OFFER_KIND_VALUES:
+            _fail(f"pendingOffers[{index}]", "is not a known offer kind")
+        if value in seen:
+            _fail(f"pendingOffers[{index}]", "duplicates an earlier offer kind")
+        seen.add(value)
+    week_held = "week" in _array(document["pauseReasons"], "pauseReasons")
+    if bool(kinds) != week_held:
+        _fail(
+            "pendingOffers",
+            "must be non-empty exactly when a 'week' boundary is held (pauseReasons)",
+        )
+    if week_held and document["isGameOver"] is True:
+        _fail(
+            "pendingOffers",
+            "a held 'week' boundary is impossible on a finished game (isGameOver)",
+        )
+
+
+def _validate_scalars(document: dict[str, Any], version: int) -> None:
     _nonnegative_int(document["timeMs"], "timeMs")
     _nonnegative_int(document["steps"], "steps")
     speed = _int(document["gameSpeedMultiplier"], "gameSpeedMultiplier")
@@ -168,8 +231,9 @@ def _validate_scalars(document: dict[str, Any]) -> None:
     _nonnegative_int(document["numMetros"], "numMetros")
     _nonnegative_int(document["numCarriages"], "numCarriages")
     reasons = _array(document["pauseReasons"], "pauseReasons")
+    vocabulary = _pause_reason_vocabulary_for(version)
     for index, reason in enumerate(reasons):
-        if _string(reason, f"pauseReasons[{index}]") not in _PAUSE_REASON_VOCABULARY:
+        if _string(reason, f"pauseReasons[{index}]") not in vocabulary:
             _fail(f"pauseReasons[{index}]", "is not a known pause reason")
     if any(left >= right for left, right in zip(reasons, reasons[1:])):
         _fail("pauseReasons", "must be strictly sorted without duplicates")
@@ -306,11 +370,19 @@ def validate_save(document: Any) -> None:
     # GM-10h: v3 is a superset of v2 and STILL carries the map identity keys, so the
     # map-identity check must run for BOTH v2 and v3 (a `== V2` would stop validating
     # a v3 save's map).
-    if version in (SAVE_SCHEMA_VERSION_V2, SAVE_SCHEMA_VERSION_V3):
+    # GM-10i: each additive capability is gated by an EXPLICIT version set that every new
+    # superset version joins (a v4 doc still carries the v2 map keys + the v3 tunnel bonus).
+    if version in (
+        SAVE_SCHEMA_VERSION_V2,
+        SAVE_SCHEMA_VERSION_V3,
+        SAVE_SCHEMA_VERSION_V4,
+    ):
         _validate_map_identity(coerced)
-    if version == SAVE_SCHEMA_VERSION_V3:
+    if version in (SAVE_SCHEMA_VERSION_V3, SAVE_SCHEMA_VERSION_V4):
         _validate_tunnel_bonus(coerced)
-    _validate_scalars(coerced)
+    _validate_scalars(coerced, version)
+    if version == SAVE_SCHEMA_VERSION_V4:
+        _validate_pending_offers(coerced)
     _validate_progression(coerced)
     registry: set[str] = set()
     stations = validate_station_records(coerced, registry)

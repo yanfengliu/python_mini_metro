@@ -169,9 +169,10 @@ class Mediator:
         # human PLAYING shell (main.run_game's build_game/build_from) sets this True.
         self.week_calendar = False
         # GM-10b (D-042): the upgrade offers generated for the current held week
-        # boundary; empty except while an offer is pending. Transient (NOT persisted)
-        # -- offers are re-derived Continue-exact from the already-persisted RNG state
-        # (see _offer_rng_for_current_week), so no new save/checkpoint bytes.
+        # boundary; empty except while an offer is pending. GM-10i (D-047) PERSISTS them
+        # (a save-schema-v4 `pendingOffers` key) while a boundary is held, so a mid-offer
+        # Continue re-presents the SAME offers; a non-pending game stores an empty list and
+        # RL/headless (no calendar) never holds a boundary, so no checkpoint bytes change.
         self.current_offers: tuple[Offer, ...] = ()
         # GM-10h (D-045): persisted +N on the map's tunnel budget from a TUNNEL weekly
         # upgrade (GM-10g). 0 until an upgrade is applied; folded into num_tunnels only

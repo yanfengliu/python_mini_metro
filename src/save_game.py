@@ -1,9 +1,10 @@
 """GM-07b saver: pure quiescent-boundary state capture and atomic saves.
 
 serialize_game reads live state through attributes only (never through
-mutating getters), rejects mid-gesture boundaries + a desynced/forged upgrade
-state, and returns a strict schema-v3 document (v2 adds the map identity, GM-09f;
-v3 adds the tunnel-upgrade bonus, GM-10h); save_game writes its canonical ASCII
+mutating getters), rejects mid-gesture boundaries + a below-config/forged upgrade
+state, and returns a strict schema-v4 document (v2 adds the map identity, GM-09f;
+v3 the tunnel-upgrade bonus, GM-10h; v4 a held week boundary's pendingOffers,
+GM-10i); save_game writes its canonical ASCII
 bytes through a save-local mkstemp -> fsync -> os.replace atomic writer, so a
 failed save leaves the destination untouched and no temporary file behind.
 """
@@ -17,6 +18,7 @@ from typing import Any
 
 from config import num_carriages as config_num_carriages
 from config import num_metros as config_num_metros
+from offers import OfferKind
 from recursive_checkpoint_schema import safe_checkpoint_value
 from save_load import _require_legal_map_state, deserialize_game, load_game
 from save_schema import (
@@ -76,16 +78,11 @@ def _require_quiescent(mediator: Any) -> None:
         raise ValueError("cannot save during a path redraw gesture")
     if mediator.path_edit_selection is not None:
         raise ValueError("cannot save during a path edit selection")
-    # GM-10a: a pending week-boundary offer is a transient, unresolved choice that is
-    # not persisted (persisting a PENDING offer for a mid-offer Continue is GM-10i;
-    # GM-10h persists only APPLIED fleet/tunnel upgrades). validate_save
-    # already rejects a "week" pause reason before any file I/O; this gives the
-    # clearer, actionable error at the save boundary. Defensive getattr keeps
-    # non-Mediator save shapes (which never hold "week") working.
-    if getattr(mediator, "is_week_boundary_pending", False):
-        raise ValueError(
-            "cannot save while a week-boundary offer is pending; resolve it first"
-        )
+    # GM-10i (D-047): a PENDING week-boundary offer is now SAVED (the "week" pause + the
+    # `pendingOffers` kinds), so a mid-offer Continue re-enters the modal. A path GESTURE
+    # still cannot be mid-save -- but at a held boundary the modal has cancelled any
+    # gesture, so the checks above pass; the pending offers' element types + pool legality
+    # are enforced by `_require_valid_pending_offers` before the atomic write.
 
 
 def _require_canonical_fleet(mediator: Any) -> None:
@@ -130,6 +127,38 @@ def _require_valid_upgrade_state(mediator: Any) -> None:
             "cannot save a nonzero tunnel bonus on an unbounded-tunnel map "
             f"({mediator.map_definition.map_id}): the bonus is unreachable"
         )
+
+
+def _require_valid_pending_offers(mediator: Any) -> None:
+    # GM-10i (D-047): a held week boundary persists its SHOWN offers (`current_offers`),
+    # restored VERBATIM on load. The offers are deliberately NOT re-derived at serialize
+    # either: the derivation inputs (WEEK_LENGTH_STEPS/OFFERS_PER_WEEK/the pool) are
+    # provisional (GM-11), so a state LOADED under old rules must stay RE-SAVABLE -- a
+    # serialize-time `== canonical` check would make a valid loaded pending state
+    # un-rewritable across a balance change (Codex impl review BLOCKER). We reject only what
+    # LOAD would reject, before the atomic write, so serialize never clobbers a valid
+    # autosave with an unloadable one. `validate_save` (run at the end of serialize) already
+    # enforces the distinct/known kinds and the pendingOffers<->"week" consistency; the two
+    # invariants it can't see -- it lacks the resolved map and the live objects -- are the
+    # element types and pool legality (a TUNNEL offer is legal only on a bounded map),
+    # checked HERE with actionable errors (fleet error-message rule).
+    offers = getattr(mediator, "current_offers", ())
+    if not isinstance(offers, tuple):
+        raise ValueError(
+            f"current_offers must be a tuple of Offers, got {type(offers).__name__}"
+        )
+    bounded = mediator.map_definition.tunnel_budget is not None
+    for index, offer in enumerate(offers):
+        kind = getattr(offer, "kind", None)
+        if not isinstance(kind, OfferKind):
+            raise ValueError(
+                f"current_offers[{index}] is not a valid Offer (kind={kind!r})"
+            )
+        if kind is OfferKind.TUNNEL and not bounded:
+            raise ValueError(
+                "cannot save a TUNNEL offer on the unbounded-tunnel map "
+                f"{mediator.map_definition.map_id!r}: its offer pool excludes TUNNEL"
+            )
 
 
 def _station_records(mediator: Any) -> list[dict[str, Any]]:
@@ -268,11 +297,13 @@ def _spawn_timer_records(mediator: Any) -> list[list[Any]]:
 
 
 def serialize_game(mediator: Any) -> dict[str, Any]:
-    """Capture one strict v3 save document (map identity + tunnel-upgrade bonus)
-    without mutating the Mediator; rejects a below-config fleet or an unreachable
-    tunnel bonus BEFORE the atomic write (GM-10h)."""
+    """Capture one strict v4 save document (map identity + tunnel-upgrade bonus + a held
+    week boundary's pendingOffers) without mutating the Mediator; rejects a below-config
+    fleet, an unreachable tunnel bonus, or a pool-illegal/malformed pending offer BEFORE
+    the atomic write (GM-10h/GM-10i)."""
 
     _require_valid_upgrade_state(mediator)
+    _require_valid_pending_offers(mediator)
     map_id, map_definition_version = _require_serializable_map(mediator)
     _require_quiescent(mediator)
     _require_canonical_fleet(mediator)
@@ -305,6 +336,11 @@ def serialize_game(mediator: Any) -> dict[str, Any]:
         "numMetros": mediator.num_metros,
         "numCarriages": mediator.num_carriages,
         "tunnelBonus": getattr(mediator, "tunnel_bonus", 0),
+        # GM-10i: the ORDERED kinds of a HELD week-boundary offer ([] when not pending);
+        # restored verbatim on load so a mid-offer Continue re-presents the SAME offers.
+        "pendingOffers": [
+            offer.kind.value for offer in getattr(mediator, "current_offers", ())
+        ],
         "stations": _station_records(mediator),
         "passengers": _passenger_records(mediator),
         "paths": _path_records(mediator),

@@ -30,7 +30,11 @@ from geometry.type import ShapeType
 from graph.node import Node
 from mediator import Mediator
 from recursive_checkpoint_schema import safe_checkpoint_value
-from save_schema import SAVE_SCHEMA_VERSION_V3, validate_save
+from save_schema import (
+    SAVE_SCHEMA_VERSION_V3,
+    SAVE_SCHEMA_VERSION_V4,
+    validate_save,
+)
 from travel_plan import TravelPlan
 from utils import get_shape_from_type
 
@@ -52,13 +56,20 @@ def _require_running_config(document: dict[str, Any]) -> None:
     # KeyError. A further relaxation is a future schema version's business (D-026).
     if document["numPaths"] != config_num_paths:
         _fail("numPaths disagrees with the running config")
-    is_v3 = document["schemaVersion"] == SAVE_SCHEMA_VERSION_V3
+    # GM-10h relaxed the fleet pin for v3; GM-10i (D-047) EXTENDS it to v4 -- the grown
+    # fleet is a v3-and-later capability, so a v4 mid-offer save made AFTER a locomotive/
+    # carriage upgrade (numMetros/numCarriages ABOVE config) must load, not be rejected by
+    # the legacy exact-equality branch.
+    grown_fleet_ok = document["schemaVersion"] in (
+        SAVE_SCHEMA_VERSION_V3,
+        SAVE_SCHEMA_VERSION_V4,
+    )
     for key, expected in (
         ("numMetros", config_num_metros),
         ("numCarriages", config_num_carriages),
     ):
         actual = document[key]
-        if is_v3:
+        if grown_fleet_ok:
             if actual < expected:
                 _fail(f"{key} is below the running config")
         elif actual != expected:
@@ -355,7 +366,12 @@ def _require_legal_map_state(mediator: Any, map_def: Any) -> None:
 
 
 def deserialize_game(document: Any) -> Mediator:
-    """Reconstruct one Mediator from a validated v1 or v2 save document (GM-09f)."""
+    """Reconstruct one Mediator from a validated v1/v2/v3/v4 save document.
+
+    v2 adds the map identity (GM-09f), v3 the fleet/tunnel upgrade totals (GM-10h), and
+    v4 a HELD week-boundary offer (GM-10i) -- restored so a mid-offer Continue re-enters
+    the modal. Older shapes load unchanged (synthesizing classic@1 / a 0 bonus / no
+    pending boundary), so the byte-frozen fixtures stay valid."""
 
     from maps import resolve_map
 
@@ -383,7 +399,36 @@ def deserialize_game(document: Any) -> Mediator:
     _restore_buttons(mediator, coerced)
     # The reconstructed state must be legal under its own map (rejects a forged save).
     _require_legal_map_state(mediator, map_definition)
+    _restore_pending_offers(mediator, coerced, map_definition)
     return mediator
+
+
+def _restore_pending_offers(
+    mediator: Mediator, document: dict[str, Any], map_def: Any
+) -> None:
+    # GM-10i (D-047): restore a HELD week boundary's offers VERBATIM from `pendingOffers`
+    # (never re-derived -- the derivation inputs WEEK_LENGTH_STEPS/OFFERS_PER_WEEK/pool are
+    # provisional balance defaults (GM-11), so a re-derive could diverge from what the save
+    # actually showed). The schema already pinned each kind valid+distinct and non-empty
+    # exactly when a "week" boundary is held (and not on a finished game). The one map-aware
+    # check needs the resolved map: a TUNNEL offer is impossible on an unbounded map (its
+    # pool excludes it), so reject it fail-closed like the map-legality guard.
+    from offers import OfferKind, describe
+
+    kinds = document.get("pendingOffers", ())
+    if not kinds:
+        return
+    bounded = map_def.tunnel_budget is not None
+    restored = []
+    for value in kinds:
+        kind = OfferKind(value)
+        if kind is OfferKind.TUNNEL and not bounded:
+            raise ValueError(
+                f"cannot load a TUNNEL offer on the unbounded map {map_def.map_id!r}: "
+                "its offer pool excludes TUNNEL"
+            )
+        restored.append(describe(kind))
+    mediator.current_offers = tuple(restored)
 
 
 def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:

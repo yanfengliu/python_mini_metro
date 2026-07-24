@@ -42,19 +42,30 @@ class WeeklyOffers:
             # ready when the modal opens. Read-only derivation (no gameplay draws),
             # gated by the same calendar/crossing/not-game-over guards as the hold, so
             # RL/headless/tutorial never generate and current_offers stays ().
-            host.current_offers = generate_offers(
-                host._offer_rng_for_current_week(),
-                count=OFFERS_PER_WEEK,
-                tunnels_bounded=host.num_tunnels is not None,
-            )
+            host.current_offers = self.derive_current_offers(host)
             host.hold_pause_reason(WEEK_REASON)
+
+    def derive_current_offers(self, host: object) -> tuple[Offer, ...]:
+        # GM-10b: the current week's offers -- read-only derivation from the
+        # already-persisted RNG state + week_index, consuming no gameplay draws. The hold
+        # (above) calls it to populate `current_offers` when a boundary is first crossed. On
+        # a mid-offer Continue the STORED offers are restored VERBATIM (GM-10i persists them
+        # rather than re-deriving, since WEEK_LENGTH_STEPS/OFFERS_PER_WEEK/the pool are
+        # provisional GM-11 defaults), so this is NOT re-run at load or serialize.
+        return generate_offers(
+            host._offer_rng_for_current_week(),
+            count=OFFERS_PER_WEEK,
+            tunnels_bounded=host.num_tunnels is not None,
+        )
 
     def resolve(self, host: object, offer: Offer | None) -> None:
         # Continue past a week boundary: APPLY the chosen offer (GM-10c), then clear
-        # the week's offers and release the pause. A None offer is a forced resolve
-        # with no choice (the window-close path in main.run_game). An offer is CONFINED
-        # to a genuine pending choice (review MAJOR): only one currently presented at a
-        # held boundary can be applied, so no out-of-band call (e.g. a headless
+        # the week's offers and release the pause. A None offer resolves with NO choice
+        # (available as API + exercised by tests). NOTE: GM-10i changed the mid-offer
+        # window-close to PERSIST the pending boundary (save-schema v4) rather than
+        # force-resolve, so `main.run_game` no longer calls this None path. An offer is
+        # CONFINED to a genuine pending choice (review MAJOR): only one currently presented
+        # at a held boundary can be applied, so no out-of-band call (e.g. a headless
         # MiniMetroEnv with no calendar) can grant an upgrade and bypass the weekly
         # economy. GM-10h reconciles applied-offer persistence across Continue.
         if offer is not None:
