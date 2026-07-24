@@ -40,6 +40,11 @@ class _LoopMediator:
     def __init__(self, game_over: bool) -> None:
         self.is_game_over = game_over
         self.deliveries = 11
+        # GM-09f2: the recorder reads the live map identity off the mediator; a real
+        # Mediator always has map_definition (default CLASSIC). classic@1 here.
+        self.map_definition = SimpleNamespace(
+            map_id="classic", map_definition_version=1
+        )
         self.held: list[str] = []
 
     def hold_pause_reason(self, reason: str) -> None:
@@ -207,25 +212,50 @@ class TestGM07dRecordHighscoreSwallowsFailures(unittest.TestCase):
 
 
 class TestGM07dRecordHighscoreIsReadOnly(unittest.TestCase):
-    def test_record_highscore_reads_deliveries_and_mutates_no_mediator_state(self):
-        # PLAN.md:27 / codex MINOR-5a: the single recorder both game-over
-        # surfaces call READS the objective off the mediator and mutates nothing,
-        # so the checkpoint it never touches stays identical.
-        mediator = SimpleNamespace(deliveries=7)
+    def test_record_highscore_reads_deliveries_and_map_and_mutates_no_mediator_state(
+        self,
+    ):
+        # PLAN.md / codex MINOR-5a: the single recorder both game-over surfaces call
+        # READS the objective AND the live map identity (GM-09f2) off the mediator
+        # and mutates nothing, so the checkpoint it never touches stays identical.
+        mediator = SimpleNamespace(
+            deliveries=7,
+            map_definition=SimpleNamespace(map_id="classic", map_definition_version=1),
+        )
         before = dict(mediator.__dict__)
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "highscores.json"
             with patch("main.HIGHSCORES_PATH", target, create=True):
                 result = main.record_highscore(mediator)
                 self.assertTrue(target.exists(), "a first best writes the board")
+            entry = result.document["entries"][0]
             self.assertEqual(
-                result.document["entries"][0]["deliveries"],
+                entry["deliveries"],
                 7,
                 "the recorded deliveries are read off the mediator",
+            )
+            self.assertEqual(
+                entry["map"], "classic", "the recorded map id is read off the mediator"
+            )
+            self.assertEqual(
+                entry["mapDefinitionVersion"],
+                1,
+                "the recorded map version is read off the mediator",
             )
         self.assertEqual(
             mediator.__dict__, before, "the recorder must not mutate the mediator"
         )
+
+    def test_record_highscore_swallows_a_mediator_without_map_definition(self):
+        # GM-09f2 fail-safe: an exotic mediator lacking map_definition records
+        # NOTHING (swallowed to None) rather than mislabelling a score.
+        mediator = SimpleNamespace(deliveries=7)  # no map_definition
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "highscores.json"
+            with patch("main.HIGHSCORES_PATH", target, create=True):
+                result = main.record_highscore(mediator)
+            self.assertIsNone(result, "a missing map_definition records nothing")
+            self.assertFalse(target.exists(), "a swallowed record writes no board")
 
 
 if __name__ == "__main__":

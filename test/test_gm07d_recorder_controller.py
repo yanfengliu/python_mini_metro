@@ -127,14 +127,21 @@ def _factories(mediator_factory):
 
 
 class _SpyHighscores:
-    """Records each ``record(deliveries)`` and returns preloaded results."""
+    """Records each ``record(mediator)`` and returns preloaded results.
+
+    GM-09f2: the seam receives the live mediator (the recorder derives deliveries
+    AND the map identity from it), so the spy records ``mediator.deliveries`` to
+    keep pinning the recorded objective.
+    """
 
     def __init__(self, results=()):
         self.deliveries_seen = []
+        self.mediators_seen = []  # the RAW seam argument, to pin identity
         self._results = list(results)
 
-    def record(self, deliveries):
-        self.deliveries_seen.append(deliveries)
+    def record(self, mediator):
+        self.mediators_seen.append(mediator)
+        self.deliveries_seen.append(mediator.deliveries)
         if self._results:
             return self._results.pop(0)
         return None
@@ -171,6 +178,15 @@ class TestGM07dRecorderSeam(unittest.TestCase):
         self.assertEqual(controller.state, _screen(self, "GAME_OVER"))
         self.assertEqual(
             spy.deliveries_seen, [42], "the promotion records mediator.deliveries once"
+        )
+        # The seam must receive the LIVE mediator ITSELF (so the recorder can read
+        # its map identity), not a deliveries-only wrapper -- a regression that
+        # forwarded SimpleNamespace(deliveries=...) would still match deliveries_seen
+        # but drop the map, so pin identity (GM-09f2 review MAJOR).
+        self.assertIs(
+            spy.mediators_seen[0],
+            controller.mediator,
+            "the seam receives the live mediator, not a deliveries wrapper",
         )
         self.assertIs(
             controller.last_highscore_result,

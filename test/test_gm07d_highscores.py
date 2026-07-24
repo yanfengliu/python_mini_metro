@@ -41,16 +41,22 @@ def _symbol(testcase, name, module_name=HIGHSCORES_MODULE):
 
 
 def _empty_doc() -> dict:
-    return {"schemaVersion": 1, "stateContract": STATE_CONTRACT, "entries": []}
+    return {"schemaVersion": 2, "stateContract": STATE_CONTRACT, "entries": []}
 
 
-def _entry(map_id: str, rules: str, deliveries: int) -> dict:
-    return {"map": map_id, "rulesVersion": rules, "deliveries": deliveries}
+def _entry(map_id: str, rules: str, deliveries: int, version: int = 1) -> dict:
+    # GM-09f2 v2 entry: keyed by the full map identity (map, mapDefinitionVersion).
+    return {
+        "map": map_id,
+        "mapDefinitionVersion": version,
+        "rulesVersion": rules,
+        "deliveries": deliveries,
+    }
 
 
 def _valid_doc() -> dict:
     return {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "stateContract": STATE_CONTRACT,
         "entries": [
             _entry("classic", "rules-v1", 7),
@@ -59,18 +65,31 @@ def _valid_doc() -> dict:
     }
 
 
-def _record(testcase, document, deliveries, map="classic", rules_version="rules-v1"):
+def _record(
+    testcase,
+    document,
+    deliveries,
+    map="classic",
+    rules_version="rules-v1",
+    map_definition_version=1,
+):
     record_score = _symbol(testcase, "record_score")
     return record_score(
-        document, deliveries=deliveries, map=map, rules_version=rules_version
+        document,
+        deliveries=deliveries,
+        map=map,
+        map_definition_version=map_definition_version,
+        rules_version=rules_version,
     )
 
 
-def _group(document, map="classic", rules="rules-v1"):
+def _group(document, map="classic", rules="rules-v1", version=1):
     return [
         entry
         for entry in document["entries"]
-        if entry["map"] == map and entry["rulesVersion"] == rules
+        if entry["map"] == map
+        and entry["rulesVersion"] == rules
+        and entry["mapDefinitionVersion"] == version
     ]
 
 
@@ -82,7 +101,7 @@ class TestGM07dHighscoresConstants(unittest.TestCase):
     def test_versioned_constants(self):
         module = _module(self)
         for name, expected in (
-            ("HIGHSCORES_SCHEMA_VERSION", 1),
+            ("HIGHSCORES_SCHEMA_VERSION", 2),
             ("HIGHSCORES_STATE_CONTRACT", STATE_CONTRACT),
             ("HIGHSCORES_PER_KEY_CAP", 10),
             ("HIGHSCORES_MAP_CLASSIC", "classic"),
@@ -107,11 +126,13 @@ class TestGM07dValidateHighscores(unittest.TestCase):
     def test_header_strictness(self):
         self._assert_rejected(
             {
-                "forward schemaVersion": lambda d: d.update(schemaVersion=2),
+                # 2 is now the SUPPORTED version (GM-09f2); 3 is the forward version.
+                "forward schemaVersion": lambda d: d.update(schemaVersion=3),
+                "legacy v1 schemaVersion": lambda d: d.update(schemaVersion=1),
                 "zero schemaVersion": lambda d: d.update(schemaVersion=0),
                 "bool schemaVersion": lambda d: d.update(schemaVersion=True),
-                "string schemaVersion": lambda d: d.update(schemaVersion="1"),
-                "float schemaVersion": lambda d: d.update(schemaVersion=1.0),
+                "string schemaVersion": lambda d: d.update(schemaVersion="2"),
+                "float schemaVersion": lambda d: d.update(schemaVersion=2.0),
                 "null schemaVersion": lambda d: d.update(schemaVersion=None),
                 "wrong stateContract": lambda d: d.update(stateContract="other"),
                 "empty stateContract": lambda d: d.update(stateContract=""),
@@ -140,12 +161,35 @@ class TestGM07dValidateHighscores(unittest.TestCase):
             {
                 "entry unknown key": lambda d: d["entries"][0].update(bonus=1),
                 "entry missing map": lambda d: d["entries"][0].pop("map"),
+                "entry missing mapDefinitionVersion": lambda d: d["entries"][0].pop(
+                    "mapDefinitionVersion"
+                ),
                 "entry missing rulesVersion": lambda d: d["entries"][0].pop(
                     "rulesVersion"
                 ),
                 "entry missing deliveries": lambda d: d["entries"][0].pop("deliveries"),
                 "entry not an object": lambda d: d["entries"].__setitem__(0, [1, 2]),
                 "non-string map": lambda d: d["entries"][0].update(map=1),
+                # GM-09f2 map grammar: non-empty ASCII, no whitespace (mirrors the save).
+                "empty map": lambda d: d["entries"][0].update(map=""),
+                "whitespace map": lambda d: d["entries"][0].update(map="a b"),
+                "non-ascii map": lambda d: d["entries"][0].update(map="rivér"),
+                # GM-09f2 mapDefinitionVersion: positive non-bool int (mirrors the save).
+                "zero mapDefinitionVersion": lambda d: d["entries"][0].update(
+                    mapDefinitionVersion=0
+                ),
+                "negative mapDefinitionVersion": lambda d: d["entries"][0].update(
+                    mapDefinitionVersion=-1
+                ),
+                "bool mapDefinitionVersion": lambda d: d["entries"][0].update(
+                    mapDefinitionVersion=True
+                ),
+                "float mapDefinitionVersion": lambda d: d["entries"][0].update(
+                    mapDefinitionVersion=1.0
+                ),
+                "string mapDefinitionVersion": lambda d: d["entries"][0].update(
+                    mapDefinitionVersion="1"
+                ),
                 "non-string rulesVersion": lambda d: d["entries"][0].update(
                     rulesVersion=2
                 ),
@@ -291,22 +335,55 @@ class TestGM07dRecordScore(unittest.TestCase):
                     _empty_doc(),
                     deliveries=bad,
                     map="classic",
+                    map_definition_version=1,
                     rules_version="rules-v1",
                 )
 
-    def test_record_score_requires_explicit_map_and_rules_version(self):
-        # The map and rules identity are required, never silently defaulted, so
-        # a caller can never record under the wrong key (codex MINOR-3).
+    def test_record_score_requires_explicit_map_identity_and_rules_version(self):
+        # map, mapDefinitionVersion, and rules identity are required, never silently
+        # defaulted, so a caller can never record under the wrong key (codex MINOR-3;
+        # GM-09f2 adds mapDefinitionVersion to that rule).
         record_score = _symbol(self, "record_score")
         with self.assertRaises(TypeError):
             record_score(_empty_doc(), deliveries=5)
+        with self.assertRaises(TypeError):
+            # map + rules given, but mapDefinitionVersion omitted -> still required.
+            record_score(
+                _empty_doc(), deliveries=5, map="classic", rules_version="rules-v1"
+            )
+
+    def test_record_score_rejects_invalid_map_identity(self):
+        # GM-09f2 codex MINOR-1: a malformed map id or a non-positive/non-int map
+        # version must fail fast here, not silently mint an entry that only breaks at
+        # save. map grammar mirrors the save's mapId (non-empty ASCII, no whitespace).
+        record_score = _symbol(self, "record_score")
+        for bad_map in ("", "a b", "rivér", 1):
+            with self.assertRaises(ValueError, msg=f"map={bad_map!r} must be rejected"):
+                record_score(
+                    _empty_doc(),
+                    deliveries=5,
+                    map=bad_map,
+                    map_definition_version=1,
+                    rules_version="rules-v1",
+                )
+        for bad_version in (0, -1, True, 1.0, "1"):
+            with self.assertRaises(
+                ValueError, msg=f"mapDefinitionVersion={bad_version!r} must be rejected"
+            ):
+                record_score(
+                    _empty_doc(),
+                    deliveries=5,
+                    map="classic",
+                    map_definition_version=bad_version,
+                    rules_version="rules-v1",
+                )
 
     def test_recording_one_key_never_drops_another_over_cap_key(self):
         # An externally authored board may hold an over-cap group that validation
         # accepts (it checks structure, not the cap); recording a DIFFERENT key
         # must never truncate that unrelated group (codex MAJOR-3).
         board = {
-            "schemaVersion": 1,
+            "schemaVersion": 2,
             "stateContract": STATE_CONTRACT,
             "entries": [_entry("beta", "rules-v1", d) for d in range(11, 0, -1)],
         }
@@ -351,7 +428,43 @@ class TestGM07dLoadHighscores(unittest.TestCase):
             "duplicate keys": b'{"schemaVersion":1,"schemaVersion":1,'
             b'"stateContract":"' + STATE_CONTRACT.encode("ascii") + b'","entries":[]}',
             "forward version": json.dumps(
-                {"schemaVersion": 2, "stateContract": STATE_CONTRACT, "entries": []}
+                {"schemaVersion": 3, "stateContract": STATE_CONTRACT, "entries": []}
+            ).encode("ascii"),
+            # GM-09f2 (D-039): a legacy v1 board (three-field entries, no
+            # mapDefinitionVersion) is NOT migrated -- its map labels are not
+            # provably accurate -- so it starts empty like any other unreadable
+            # format rather than synthesizing authoritative classic@1.
+            "legacy v1 board": json.dumps(
+                {
+                    "schemaVersion": 1,
+                    "stateContract": STATE_CONTRACT,
+                    "entries": [
+                        {"map": "classic", "rulesVersion": "rules-v1", "deliveries": 9}
+                    ],
+                }
+            ).encode("ascii"),
+            # A SUPPORTED-version (v2) board that is still malformed must START-EMPTY:
+            # the loader validates, it does not trust any v2 mapping (codex MINOR).
+            "malformed v2 (extra entry key)": json.dumps(
+                {
+                    "schemaVersion": 2,
+                    "stateContract": STATE_CONTRACT,
+                    "entries": [dict(_entry("classic", "rules-v1", 5), bonus=1)],
+                }
+            ).encode("ascii"),
+            "malformed v2 (bad mapDefinitionVersion)": json.dumps(
+                {
+                    "schemaVersion": 2,
+                    "stateContract": STATE_CONTRACT,
+                    "entries": [
+                        {
+                            "map": "classic",
+                            "mapDefinitionVersion": True,
+                            "rulesVersion": "rules-v1",
+                            "deliveries": 5,
+                        }
+                    ],
+                }
             ).encode("ascii"),
             "pathologically deep nesting": deep,
         }

@@ -87,8 +87,11 @@ class _SpyHighscores:
         self.deliveries_seen = []
         self._results = list(results)
 
-    def record(self, deliveries):
-        self.deliveries_seen.append(deliveries)
+    def record(self, mediator):
+        # GM-09f2: the seam now receives the live mediator; the recorder derives the
+        # deliveries objective (and the map identity) from it, so the spy records
+        # mediator.deliveries to keep pinning the recorded objective.
+        self.deliveries_seen.append(mediator.deliveries)
         if self._results:
             return self._results.pop(0)
         return None
@@ -432,16 +435,15 @@ class TestGM07eRunLoopEventlessReconcile(unittest.TestCase):
             1,
             "exactly one record across the reconcile and the QUIT gate",
         )
-        # The RECONCILE recorded, not the QUIT gate: the promotion seam passes a
-        # bare deliveries namespace, whereas the QUIT gate passes the mediator
-        # itself (which carries is_game_over). This pins WHICH surface fired --
-        # at baseline (no per-frame reconcile) the QUIT gate is the recorder and
-        # this assertion flips (TQ-1 / codex MINOR-5).
+        # The RECONCILE recorded, not the QUIT gate. Both surfaces now hand the
+        # recorder the live mediator (GM-09f2), so WHICH fired is pinned by the SIDE
+        # EFFECT rather than the argument shape: only the per-frame reconcile draws
+        # the best indicator (asserted below, best.call_count == 1); the QUIT gate,
+        # seeing GAME_OVER, records and draws nothing. At baseline (no per-frame
+        # reconcile) the QUIT gate would be the recorder and best would never draw,
+        # so this proof still flips there (TQ-1 / codex MINOR-5). The recorded arg
+        # is the game's mediator, carrying its lifetime deliveries.
         recorded_arg = driver.record.call_args.args[0]
-        self.assertFalse(
-            hasattr(recorded_arg, "is_game_over"),
-            "the frame-accurate reconcile is the recorder, not the window close",
-        )
         self.assertEqual(recorded_arg.deliveries, 11)
         self.assertEqual(
             driver.best.call_count,

@@ -1,0 +1,29 @@
+## Findings
+
+- MAJOR — [PLAN.md:36](/C:/Users/38909/Documents/github/python_mini_metro/docs/threads/current/game-maturity/2026-07-24/25/PLAN.md:36) — Migrating before strict v1 validation can normalize malformed input. `schemaVersion: true` and `1.0` compare equal to `1`; likewise, a v1 entry already carrying forbidden `mapDefinitionVersion` can be overwritten and then pass v2 validation. This breaks “malformed v1 starts empty.” Fix: validate the raw document against exact v1 header, entry keys, and scalar types first—using the strict version-read pattern at [save_schema.py:88](/C:/Users/38909/Documents/github/python_mini_metro/src/save_schema.py:88)—then copy, transform, and validate v2. Add all three adversarial cases.
+
+- MAJOR — [PLAN.md:3](/C:/Users/38909/Documents/github/python_mini_metro/docs/threads/current/game-maturity/2026-07-24/25/PLAN.md:3), [main.py:162](/C:/Users/38909/Documents/github/python_mini_metro/src/main.py:162), [app_controller.py:197](/C:/Users/38909/Documents/github/python_mini_metro/src/app_controller.py:197) — A v1 board is not provably all Classic. GM-09f already permits a programmatically created River/Delta/Lake save to occupy the autosave slot and enter interactive play through Continue; today [main.py:132](/C:/Users/38909/Documents/github/python_mini_metro/src/main.py:132) records that run as `classic`. Migrating such a row to authoritative `classic@1` permanently preserves contamination. Fix: choose an explicit legacy policy. START-EMPTY is the safest cosmetic-board policy; a truthful legacy-unknown partition is another option. If Classic preservation wins, document the accepted ambiguity rather than calling it lossless. Add a loaded-River Continue→promotion regression.
+
+- MAJOR — [PLAN.md:35](/C:/Users/38909/Documents/github/python_mini_metro/docs/threads/current/game-maturity/2026-07-24/25/PLAN.md:35), [highscores.py:142](/C:/Users/38909/Documents/github/python_mini_metro/src/highscores.py:142) — The separate rank predicate is omitted. With `classic@1/rules-v1=100`, recording the first `classic@2/rules-v1=1` will still rank 2/not-best if lines 145–146 remain map+rules-only, although it is rank 1 for its real key. The proposed cross-cap test would remain green. Fix: factor one full identity helper and use it for cap and rank membership; test first-entry rank and ties across two definition versions.
+
+- MAJOR — [PLAN.md:52](/C:/Users/38909/Documents/github/python_mini_metro/docs/threads/current/game-maturity/2026-07-24/25/PLAN.md:52), [test_gm07d_run_game_loop.py:214](/C:/Users/38909/Documents/github/python_mini_metro/test/test_gm07d_run_game_loop.py:214) — This test file cannot remain unchanged. Its real-recorder fixture has only `deliveries`; the planned map read is swallowed, returning `None` and writing no file, so line 220 fails. Fix: supply explicit `CLASSIC` identity, assert the new fields and no mutation, and add a separate missing-map fail-safe case.
+
+- MAJOR — [PLAN.md:52](/C:/Users/38909/Documents/github/python_mini_metro/docs/threads/current/game-maturity/2026-07-24/25/PLAN.md:52), [test_gm07e_game_over_reconcile.py:85](/C:/Users/38909/Documents/github/python_mini_metro/test/test_gm07e_game_over_reconcile.py:85) — The omitted GM-07e suite pins the scalar/wrapper seam. Assertions at lines 178, 201, and 265 expect integers; lines 435–445 explicitly require the promotion argument to lack `is_game_over`. All flip with the real mediator. Fix: capture mediator identity, derive deliveries in the spy, and prove promotion-versus-QUIT through the existing first-frame indicator plus exactly-one-call evidence.
+
+- MINOR — [PLAN.md:34](/C:/Users/38909/Documents/github/python_mini_metro/docs/threads/current/game-maturity/2026-07-24/25/PLAN.md:34), [highscores.py:119](/C:/Users/38909/Documents/github/python_mini_metro/src/highscores.py:119) — Direct `record_score` input validation is not specified. `map_definition_version=True/0` can otherwise mint an invalid `RecordResult` that only fails during save, while `map=""` or `"river "` currently persists despite the save/RL map-ID grammar. Fix: call `_positive_int` inside `record_score`, add syntax-only nonempty-ASCII/no-whitespace map validation to both public recording and document validation, and test direct misuse. Unknown but syntactically valid IDs can remain allowed; no `maps` import is needed.
+
+- MINOR — [PLAN.md:58](/C:/Users/38909/Documents/github/python_mini_metro/docs/threads/current/game-maturity/2026-07-24/25/PLAN.md:58), [ARCHITECTURE.md:388](/C:/Users/38909/Documents/github/python_mini_metro/ARCHITECTURE.md:388), [ARCHITECTURE.md:405](/C:/Users/38909/Documents/github/python_mini_metro/ARCHITECTURE.md:405) — The Architecture update is mandatory, not conditional: it currently pins both the scalar controller seam and schema-v1 three-field identity. Fix both boundary descriptions in this unit.
+
+## Decisions upheld
+
+The whole-mediator seam preserves MAJOR-3: the `None` guard still precedes the call, so a seam-less controller reads no new mediator member. It also makes both game-over surfaces identical and remains mutually exclusive. A minimal context fixes no concrete contract.
+
+Direct map access with raise→swallow is correctly fail-safe; defaulting to Classic would misattribute the already-reachable non-Classic Continue path. Keeping `mini-metro-highscores-v1` stable is also correct: `schemaVersion` owns the additive wire-format change.
+
+`mapDefinitionVersion` belongs in the key. A map definition controls palettes, spawn regions, rivers, and tunnel budget, so revisions can materially change score comparability. With every predicate using the full triple, Classic@2 cannot cap or evict Classic@1.
+
+Isolation, RL/headless surfaces, frozen save fixtures, forward-v3 START-EMPTY behavior, and save-raises behavior have no finding.
+
+Severity summary: BLOCKER none; MAJOR 5; MINOR 2; NIT none.
+
+REVISE

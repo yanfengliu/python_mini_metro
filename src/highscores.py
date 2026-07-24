@@ -1,13 +1,14 @@
 """GM-07d high-score leaderboard: strict versioned document, ranked insertion.
 
-The leaderboard persists lifetime deliveries keyed by ``(map, rulesVersion)``
-to ``saves/highscores.json`` (D-028). It reuses the GM-07b canonical-ASCII
-recipe and the save-schema scalar validators -- so it joins the persistence
-isolation set -- but it never imports gameplay. Unlike a save, loading is
-START-EMPTY tolerant: a missing, unreadable, non-ASCII, malformed,
-forward-version, or pathologically nested file yields the empty board and never
-raises, so a cosmetic leaderboard can never block play. Saving RAISES on
-failure; the best-effort swallow lives at the ``main`` recorder layer.
+The leaderboard persists lifetime deliveries keyed by the full map identity
+``(map, mapDefinitionVersion, rulesVersion)`` (schema v2, GM-09f2/D-039) to
+``saves/highscores.json`` (D-028). It reuses the GM-07b canonical-ASCII recipe
+and the save-schema scalar validators -- so it joins the persistence isolation
+set -- but it never imports gameplay. Unlike a save, loading is START-EMPTY
+tolerant: a missing, unreadable, non-ASCII, malformed, forward-version, legacy
+schema-v1 (NOT migrated), or pathologically nested file yields the empty board
+and never raises, so a cosmetic leaderboard can never block play. Saving RAISES
+on failure; the best-effort swallow lives at the ``main`` recorder layer.
 """
 
 from __future__ import annotations
@@ -26,16 +27,27 @@ from save_schema_records import (
     _int,
     _nonnegative_int,
     _object,
+    _positive_int,
     _string,
 )
 
-HIGHSCORES_SCHEMA_VERSION = 1
+# GM-09f2 (D-039): schema v2 keys each entry by the FULL map identity
+# (map, mapDefinitionVersion, rulesVersion), mirroring the save's map identity, so a
+# future terrain revision (classic@2) never ranks against classic@1. The
+# stateContract stays stable across the additive version (as the save kept
+# `mini-metro-save-v1` across schema v1->v2); the additive `mapDefinitionVersion`
+# lives in `schemaVersion`. A v1 board is treated like any other unreadable format
+# (START-EMPTY) rather than migrated, because a v1 `map="classic"` label is NOT
+# provably accurate -- the recorder was classic-hardcoded while non-Classic saves
+# became loadable (GM-09f), so a non-Classic Continue run was mislabeled `classic`;
+# synthesizing `classic@1` would preserve that contamination.
+HIGHSCORES_SCHEMA_VERSION = 2
 HIGHSCORES_STATE_CONTRACT = "mini-metro-highscores-v1"
 HIGHSCORES_PER_KEY_CAP = 10
 HIGHSCORES_MAP_CLASSIC = "classic"
 
 _TOP_LEVEL_KEYS = frozenset({"schemaVersion", "stateContract", "entries"})
-_ENTRY_KEYS = frozenset({"map", "rulesVersion", "deliveries"})
+_ENTRY_KEYS = frozenset({"map", "mapDefinitionVersion", "rulesVersion", "deliveries"})
 
 
 def _fail(label: str, message: str) -> None:
@@ -49,6 +61,20 @@ def _ascii_string(value: Any, label: str) -> str:
     text = _string(value, label)
     if not text.isascii():
         _fail(label, "must be ASCII")
+    return text
+
+
+def _map_id(value: Any, label: str) -> str:
+    # A map id is a non-empty ASCII string with no whitespace -- the exact grammar
+    # the save records (save_schema._validate_map_identity) and the RL manifest
+    # mirror, so the leaderboard key and the save identity share one shape. Unknown
+    # but well-formed ids are allowed (no registry import): highscores stores identity
+    # only and reconstructs no terrain, so a syntactically valid id is harmless.
+    text = _ascii_string(value, label)
+    if not text:
+        _fail(label, "must be a non-empty string")
+    if any(character.isspace() for character in text):
+        _fail(label, "must not contain whitespace")
     return text
 
 
@@ -86,15 +112,23 @@ def validate_highscores(document: Any) -> None:
         label = f"entries[{index}]"
         entry = _object(item, label)
         _exact_keys(entry, _ENTRY_KEYS, label)
-        _ascii_string(entry["map"], f"{label}.map")
+        _map_id(entry["map"], f"{label}.map")
+        _positive_int(entry["mapDefinitionVersion"], f"{label}.mapDefinitionVersion")
         _ascii_string(entry["rulesVersion"], f"{label}.rulesVersion")
         _nonnegative_int(entry["deliveries"], f"{label}.deliveries")
 
 
-def _sort_key(entry: dict[str, Any]) -> tuple[str, str, int]:
-    # Canonical order: map ascending, rulesVersion ascending, deliveries
-    # descending; exact ties fall to the stable sort over append order.
-    return (entry["map"], entry["rulesVersion"], -entry["deliveries"])
+def _identity(entry: dict[str, Any]) -> tuple[str, int, str]:
+    # The FULL leaderboard key (GM-09f2): one helper shared by the sort, the per-key
+    # cap, AND the rank count, so no predicate can key on a subset and miscount a
+    # score across map-definition versions.
+    return (entry["map"], entry["mapDefinitionVersion"], entry["rulesVersion"])
+
+
+def _sort_key(entry: dict[str, Any]) -> tuple[str, int, str, int]:
+    # Canonical order: identity (map, mapDefinitionVersion, rulesVersion) ascending,
+    # then deliveries descending; exact ties fall to the stable sort over append order.
+    return (*_identity(entry), -entry["deliveries"])
 
 
 def record_score(
@@ -102,37 +136,46 @@ def record_score(
     *,
     deliveries: int,
     map: str,
+    map_definition_version: int,
     rules_version: str,
 ) -> RecordResult:
     """Return a NEW board with the score inserted; never mutate the input.
 
     All entries are stored in the pinned canonical order and the recorded
-    ``(map, rulesVersion)`` group is truncated to ``HIGHSCORES_PER_KEY_CAP``.
-    Entries under other keys are never dropped -- for the canonical boards the
-    recorder itself produces they are returned unchanged -- so a record is
-    isolated to its own key. The result carries the new entry's 1-based rank
-    within its key (``None`` if it fell outside the cap) and whether it became
-    that key's new best. ``map`` and ``rules_version`` are required, never
-    defaulted, so a caller can never record under the wrong key.
+    ``(map, mapDefinitionVersion, rulesVersion)`` group is truncated to
+    ``HIGHSCORES_PER_KEY_CAP``. Entries under other keys are never dropped -- for
+    the canonical boards the recorder itself produces they are returned unchanged
+    -- so a record is isolated to its own key. The result carries the new entry's
+    1-based rank within its key (``None`` if it fell outside the cap) and whether it
+    became that key's new best. ``map``, ``map_definition_version``, and
+    ``rules_version`` are required, never defaulted, so a caller can never record
+    under the wrong key.
     """
 
-    # Fail fast on misuse: a negative/non-int deliveries or a non-ASCII key must
-    # raise here rather than mint a bogus entry that a later save would persist
-    # into a board that reloads empty (codex MAJOR-2).
+    # Fail fast on misuse: a negative/non-int deliveries, a malformed map id, or a
+    # non-positive/non-int map version must raise HERE rather than mint a bogus entry
+    # that a later save would persist into a board that reloads empty (codex MAJOR-2,
+    # GM-09f2 codex MINOR-1). map grammar mirrors the save's mapId.
     _nonnegative_int(deliveries, "deliveries")
-    _ascii_string(map, "map")
+    _map_id(map, "map")
+    _positive_int(map_definition_version, "mapDefinitionVersion")
     _ascii_string(rules_version, "rulesVersion")
 
-    entry = {"map": map, "rulesVersion": rules_version, "deliveries": deliveries}
+    entry = {
+        "map": map,
+        "mapDefinitionVersion": map_definition_version,
+        "rulesVersion": rules_version,
+        "deliveries": deliveries,
+    }
     entries = [dict(existing) for existing in document["entries"]]
     entries.append(entry)
     entries.sort(key=_sort_key)
-    target = (map, rules_version)
+    target = (map, map_definition_version, rules_version)
     kept: list[dict[str, Any]] = []
     seen_target = 0
     for item in entries:
-        if (item["map"], item["rulesVersion"]) == target:
-            # Only the recorded key is capped; unrelated keys are never dropped,
+        if _identity(item) == target:
+            # Only the recorded identity is capped; unrelated keys are never dropped,
             # so recording one key cannot evict another's entries (codex MAJOR-3).
             if seen_target < HIGHSCORES_PER_KEY_CAP:
                 kept.append(item)
@@ -142,7 +185,9 @@ def record_score(
     rank: int | None = None
     position = 0
     for item in kept:
-        if item["map"] == map and item["rulesVersion"] == rules_version:
+        # Rank within the FULL identity (not map+rules only), or classic@2 would
+        # miscount against a classic@1 group (GM-09f2 review MAJOR).
+        if _identity(item) == target:
             position += 1
             if item is entry:
                 rank = position

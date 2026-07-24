@@ -132,15 +132,15 @@ class AppController:
             self._autosave.delete()
 
     def _record_highscore(self) -> None:
-        # Record the finished run's lifetime deliveries exactly once at the
-        # promotion (D-028). deliveries is read ONLY when the seam is present,
-        # so a seam-less controller never touches a mediator that lacks it
-        # (MAJOR-3). Every promotion (re)assigns the result -- to None when the
-        # seam is absent or minted nothing -- so a restart shows no stale best.
+        # Record the finished run exactly once at the promotion (D-028). The seam
+        # receives the LIVE mediator (GM-09f2) -- the recorder reads BOTH the
+        # deliveries objective and the map identity off it -- so a seam-less
+        # controller touches NO mediator attribute at all (MAJOR-3, now satisfied
+        # even more cleanly: the controller no longer reads .deliveries; the seam
+        # does). Every promotion (re)assigns the result -- to None when the seam is
+        # absent or minted nothing -- so a restart shows no stale best.
         if self._highscores is not None:
-            self.last_highscore_result = self._highscores.record(
-                self.mediator.deliveries
-            )
+            self.last_highscore_result = self._highscores.record(self.mediator)
         else:
             self.last_highscore_result = None
 

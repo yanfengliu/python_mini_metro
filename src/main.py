@@ -21,7 +21,6 @@ from config import (
 from event.convert import convert_pygame_event
 from game_session import GameSession
 from highscores import (
-    HIGHSCORES_MAP_CLASSIC,
     RecordResult,
     load_highscores,
     record_score,
@@ -120,16 +119,23 @@ def record_highscore(mediator: object) -> RecordResult | None:
     # The single best-effort recorder BOTH game-over surfaces funnel through --
     # the controller promotion seam and the window-close race -- so patching this
     # one symbol (or HIGHSCORES_PATH) intercepts all recording (codex MINOR-4).
-    # It reads the objective off the mediator and must never crash or block the
-    # game loop: any failure (a corrupt board, an unwritable directory, or even a
-    # RecursionError from a pathologically nested file -- MAJOR-2) is swallowed to
-    # None, exactly as the proven autosave writer does.
+    # It reads the objective AND the live map identity off the mediator (GM-09f2) so
+    # a non-Classic run is keyed by its own map, and must never crash or block the
+    # game loop: any failure (a corrupt board, an unwritable directory, an exotic
+    # mediator lacking map_definition, or even a RecursionError from a pathologically
+    # nested file -- MAJOR-2) is swallowed to None, exactly as the autosave writer
+    # does. Reading the map directly (no `or classic` default) is fail-SAFE: a
+    # missing map records nothing rather than mislabelling a score (GM-09f `or
+    # DEFAULT` lesson). A real Mediator always has map_definition (default CLASSIC).
     try:
+        deliveries = mediator.deliveries
+        map_definition = mediator.map_definition
         document = load_highscores(HIGHSCORES_PATH)
         result = record_score(
             document,
-            deliveries=mediator.deliveries,
-            map=HIGHSCORES_MAP_CLASSIC,
+            deliveries=deliveries,
+            map=map_definition.map_id,
+            map_definition_version=map_definition.map_definition_version,
             rules_version=SAVE_RULES_VERSION,
         )
         save_highscores(result.document, HIGHSCORES_PATH)
@@ -239,12 +245,14 @@ def run_game(
     )
 
     # The controller records the high score at the PLAYING->GAME_OVER promotion
-    # and hands back the result for the best indicator (D-028). The promotion
-    # passes the deliveries scalar; route it through the one patchable
-    # record_highscore (looked up at call time) so both game-over surfaces share
-    # a single recorder and a single test seam (codex MINOR-4).
-    def _record_promotion(deliveries: int) -> RecordResult | None:
-        return record_highscore(SimpleNamespace(deliveries=deliveries))
+    # and hands back the result for the best indicator (D-028). The controller hands
+    # the seam the LIVE mediator (GM-09f2), so the promotion and the window-close
+    # race both call the IDENTICAL record_highscore(mediator) -- which reads the
+    # deliveries objective AND the map identity off it. record_highscore is looked
+    # up at call time (not bound) so a test patching main.record_highscore intercepts
+    # both surfaces through this one seam (codex MINOR-4).
+    def _record_promotion(mediator: object) -> RecordResult | None:
+        return record_highscore(mediator)
 
     highscores = SimpleNamespace(record=_record_promotion)
 
