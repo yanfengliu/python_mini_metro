@@ -12,3 +12,6 @@ myenv/
 /.civ-engine-setup-*/
 /output/
 /saves/
+
+# pre-commit scratch stores (PRE_COMMIT_HOME pointed inside the repo)
+.tmp-*-precommit/
