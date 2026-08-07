@@ -44,7 +44,7 @@ The recursive playtest loop runs on Node ≥ 20.6 against the built ignored `/.c
 
 ## Session start
 
-Read `ARCHITECTURE.md`, `PROGRESS.md`, and `README.md`; also `GAME_RULES.md` when touching game mechanics, progression, balancing, controls, rendering rules, station/passenger/metro behavior, or programmatic game actions. Check current validation status rather than assuming the baseline is clean.
+Read `ARCHITECTURE.md` and `README.md`; also `GAME_RULES.md` when touching game mechanics, progression, balancing, controls, rendering rules, station/passenger/metro behavior, or programmatic game actions. Check current validation status rather than assuming the baseline is clean.
 
 ## Invariants & boundaries
 
@@ -61,7 +61,7 @@ Read `ARCHITECTURE.md`, `PROGRESS.md`, and `README.md`; also `GAME_RULES.md` whe
 
 ## Conventions
 
-- `PROGRESS.md` is the only project log (no changelog, no devlog): after substantive work, one short bullet under the latest `## YYYY-MM-DD` section, or a new dated section when the date changes; skip pure test-run notes and redundant bookkeeping.
+- The canon devlog is this repo's only log — there is no changelog. Entries go under the latest `## YYYY-MM-DD` section of `docs/devlog/summary.md`, or a new dated section when the date changes; skip pure test-run notes and redundant bookkeeping. Historical note: entries written before 2026-08-07 are detailed-grade paragraphs sitting in the summary, from when this file was `PROGRESS.md` and predated the canon split; new work writes a short line here and puts the detail in `docs/devlog/detailed/`.
 - `README.md`: install/run instructions, manual controls, public programmatic API, user-facing behavior.
 - `GAME_RULES.md`: game mechanics, progression, scoring, spawning, route behavior, controls, balance.
 - `ARCHITECTURE.md`: file layout, new/removed modules, meaningful boundary or data-flow changes only — not test-only, wording-only, or narrow implementation changes.

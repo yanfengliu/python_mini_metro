@@ -7,6 +7,9 @@ python_mini_metro/
 |- .vscode/
 |  \- settings.json
 |- docs/
+|  |- devlog/
+|  |  |- summary.md
+|  |  |- detailed/
 |  |- rl-model-selection.md
 |  \- threads/
 |     |- README.md
@@ -357,7 +360,6 @@ python_mini_metro/
 |- GAME_RULES.md
 |- package-lock.json
 |- package.json
-|- PROGRESS.md
 |- pyproject.toml
 |- README.md
 |- requirements-locked.txt
