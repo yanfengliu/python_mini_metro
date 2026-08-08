@@ -51,13 +51,9 @@ Read `ARCHITECTURE.md` and `README.md`; also `GAME_RULES.md` when touching game 
 - TDD for behavior changes: tests first, testing the app-experience and mechanism contract, not implementation details.
 - Locally high-risk (escalates to multi-cli-review): process/workflow docs (`AGENTS.md`, `CLAUDE.md`, `ARCHITECTURE.md`, `GAME_RULES.md`, `.github/workflows/*`, `.pre-commit-config.yaml`, `pyproject.toml`, `environment.yml`), public API changes in `src/env.py` or `src/mediator.py`, new architectural boundaries, and substantive game-mechanic or balance/config changes in `src/` (including `src/config.py`).
 - Check `git status --short --branch` before editing; preserve unrelated user changes, including deleted files. Keep generated caches (`.pytest_cache`, `.ruff_cache`, `.coverage`, `__pycache__`) out of commits.
+- `pre-commit run` is a writing gate, not a read-only one: its Ruff hook carries `--fix --exit-non-zero-on-fix` (`.pre-commit-config.yaml`), so it edits the files it is handed. Inspect what it changed and rerun the relevant checks — no hook edit reaches a commit unreviewed.
 - Keep files small and focused (under 500 LOC, hard ceiling 1000) — split rather than grow god-objects.
 - Visual changes: prefer deterministic surface-based tests or screenshots (`pygame.Surface`, `pygame.image.save`, pixel/array comparison); when impractical, run `python src/main.py` in `py313`, verify manually, and record what was checked.
-
-## Known traps
-
-- `pre-commit run --files ...` can modify files (the Ruff hook runs `--fix --exit-non-zero-on-fix`): treat it as part of the edit loop — inspect its edits, rerun the relevant checks, and never commit unreviewed hook edits.
-- An interrupted civ-engine setup or guarded public Node command deliberately leaves its exact repository-root `/.civ-engine-setup.lock` when ownership-safe automatic release cannot complete; only setup can also leave `/.civ-engine-setup-<suffix>/` transactions or a marker-free partially published `/.civ-engine-pin/`. After proving no setup or guarded command is active, remove only individually inspected physical artifacts attributable to that run: the lock must be one regular JSON-token file, each transaction must be one physical directory with its own regular JSON-token `.setup-owner` and only physical descendants, and a partial pin must be preserved unless its matching transaction-side physical `.setup-promotion-claim` record, current destination `dev`/`ino`, token, and physical descendants are independently proven. A crash between final-directory creation and claim-record creation is deliberately unattributed and is never safe for this recovery procedure. Never pass wildcards to deletion or follow links.
 
 ## Conventions
 
