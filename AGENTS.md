@@ -27,6 +27,7 @@ The recursive playtest loop runs on Node ≥ 20.6 against the built ignored `/.c
 
 ## Gates
 
+- Python is pinned to 3.13 by `environment.yml` (`python=3.13`, conda env `py313`) — the env the Python gates below run in. Three places carry their own copy of that number and are bumped with it: `pyproject.toml` (ruff `target-version`), CI (`.github/workflows/test.yml`), and the lockfile re-resolution (`uv pip compile --python-version 3.13`).
 - Every code or behavior change: full unit suite in `py313` — `python -m unittest -v`.
 - Changed Python files: `python -m ruff check <files>`, `python -m ruff format --check <files>`, and `pre-commit run --files <files>` for hook parity.
 - Full-repo `ruff check .`, `ruff format --check .`, and `pre-commit run --all-files` are required for lint/format cleanup tasks; if they fail on known baseline drift during unrelated work, report that honestly and keep changed files clean.
