@@ -32,13 +32,13 @@ os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 
 import torch  # noqa: E402
 import torch.nn.functional as F  # noqa: E402
-from pointer_nets import ARCHITECTURES  # noqa: E402
 from pretrain_bc import NOOP, base_env  # noqa: E402
 from torch import nn  # noqa: E402
 
 from rl.demonstrator import _assign_locomotive_actions, drag_route_actions  # noqa: E402
 from rl.history import default_history  # noqa: E402
 from rl.model import MiniMetroCNN  # noqa: E402
+from rl.pointer_nets import ARCHITECTURES  # noqa: E402
 from rl.privileged_oracle import capture_privileged_snapshot  # noqa: E402
 from rl.protocol import TaskSpec, resolve_render_profile  # noqa: E402
 from rl.training import build_vector_env  # noqa: E402

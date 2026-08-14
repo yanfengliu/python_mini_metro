@@ -92,6 +92,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--n-envs", type=_positive_int, default=8)
     parser.add_argument(
+        "--spatial-pointer",
+        action="store_true",
+        help="read pointer coordinates from a full-resolution heatmap",
+    )
+    parser.add_argument(
         "--shaped-reward",
         action="store_true",
         help="training-time exploration credit; evaluation is unaffected",
@@ -376,6 +381,7 @@ def run(args: argparse.Namespace) -> Path:
                 seed=args.seed,
                 n_envs=args.n_envs,
                 device=args.device,
+                spatial_pointer=args.spatial_pointer,
                 tensorboard_log=tensorboard_dir,
                 verbose=1,
             )

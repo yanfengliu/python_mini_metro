@@ -52,7 +52,6 @@ python_mini_metro/
 |  |- input_coordinator_differential_input.py
 |  |- input_coordinator_differential_support.py
 |  |- passenger_flow_differential_support.py
-|  |- pointer_nets.py
 |  |- pretrain_bc.py
 |  |- profile_rl_history.py
 |  |- profile_rl_history_worker.py
@@ -145,6 +144,7 @@ python_mini_metro/
 |  |  |- passenger.py
 |  |  |- path.py
 |  |  |- path_segment.py
+|  |  |- pointer_nets.py
 |  |  |- segment.py
 |  |  \- station.py
 |  |- event/
@@ -164,6 +164,7 @@ python_mini_metro/
 |  |  |- rect.py
 |  |  |- shape.py
 |  |  |- shaping.py
+|  |  |- spatial_policy.py
 |  |  |- star.py
 |  |  |- triangle.py
 |  |  |- type.py
@@ -367,6 +368,7 @@ python_mini_metro/
 |  |- test_route_planner_selection.py
 |  |- test_shaped_reward.py
 |  |- test_simulation_context.py
+|  |- test_spatial_policy.py
 |  |- test_station.py
 |  \- test_viewport.py
 |- .gitignore
