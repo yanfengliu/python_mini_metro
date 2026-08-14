@@ -363,7 +363,16 @@ starting one.
 
 Also note the arm carried the flat pointer head, which E12 showed cannot resolve
 a station in the first place, so this does not yet test whether a policy that
-*can* point benefits from the same signal. That combination is E17.
+*can* point benefits from the same signal.
+
+**Completed follow-up.** That combination was then run — spatial pointer *and*
+the full-gesture ladder, 600,000 steps — and reached the same place:
+`ep_rew_mean` plateaued at **1.03** with `eval/mean_reward` at **0.00 at every
+checkpoint through 600k**. Three teacher-free PPO configurations have now
+returned exactly zero deliveries: unshaped, proximity-shaped, and
+ladder-shaped-with-a-working-pointer. Go-Explore (E19) reached lines under the
+same no-teacher constraint, which is why the archive approach rather than the
+reward approach is the one worth extending.
 
 **Standing implication:** a bootstrap signal has to form a *ladder* to the
 objective, not a single rung. Each rung must be reachable from the one below it.
