@@ -73,20 +73,38 @@ class ShapedRewardTest(unittest.TestCase):
             "is left with the same zero gradient it had before",
         )
 
-    def test_shaping_cannot_be_farmed_by_redrawing_the_same_line(self):
-        """A second identical route must not pay again."""
+    def test_total_shaping_is_bounded_so_it_cannot_be_farmed(self):
+        """A spam-clicking policy must not outscore one that actually plays.
+
+        Proximity credit is dense by design -- that is what makes it reachable --
+        so without a ceiling 0.02 per pointer-down over a long episode would beat
+        the ~19-20 a real game earns, and standing next to a station clicking
+        forever would be the optimal policy.
+        """
+        import numpy as np
+
+        from rl.privileged_oracle import capture_privileged_snapshot
+        from rl.protocol import ActionKind, canonical_to_action_coordinate
+
         env = _env(shaped=True)
         self.addCleanup(env.close)
+        inner = env.unwrapped
+        station = capture_privileged_snapshot(inner).station_positions[0]
+        x, y = canonical_to_action_coordinate(*station, inner.task_spec.render_profile)
+        spam = np.array([int(ActionKind.DOWN.value), x, y], dtype=np.int64)
 
-        first = _draw_opening_route(env)
-        second = _draw_opening_route(env)
+        total = 0.0
+        for _ in range(4000):
+            _, reward, terminated, truncated, _ = env.step(spam)
+            total += float(reward)
+            if terminated or truncated:
+                break
 
-        self.assertGreater(first, 0.0)
-        self.assertLessEqual(
-            second,
-            0.0,
-            f"redrawing paid {second} a second time; shaping must track a "
-            "high-water mark so it cannot be farmed by erase-and-redraw",
+        self.assertLess(
+            total,
+            5.0,
+            f"clicking one station repeatedly earned {total}; the shaping budget "
+            "must keep a degenerate policy far below the ~19-20 real play earns",
         )
 
     def test_a_delivery_still_dominates_the_shaping_credit(self):

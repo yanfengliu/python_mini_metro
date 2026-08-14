@@ -297,6 +297,44 @@ policy is cloned, non-recurrent, and cannot in principle exceed its teacher.
 
 ---
 
+## E14 — Reward shaping on the connection milestone (teacher-free attempt 1)
+
+**Hypothesis:** paying partial credit for joining stations onto a route gives an
+exploring policy the gradient the deliveries reward cannot.
+
+**Measured:** across **24 random episodes and 8,721 decisions, 0 received any
+shaping credit.**
+
+**Verdict:** REFUTED, and obviously so in hindsight. The credit was attached to
+"a usable line exists", which is *precisely* the event E4 measured as
+unreachable. Shaping an unreachable milestone reproduces the zero gradient it
+was built to remove. **Lesson: a shaping signal must be reachable by the policy
+that needs it — check that it fires under random play before training on it.**
+
+---
+
+## E15 — Dense proximity shaping, and the farming exploit it creates
+
+**Hypothesis:** a signal available on *every* pointer-down, rising smoothly as
+the click nears a station, is reachable where a milestone is not.
+
+**Measured:** **24 of 24** random episodes received credit, mean 0.233 per
+episode. The gradient is no longer zero.
+
+**But it is farmable.** Dense credit is payable on every action, so at 0.02 per
+pointer-down over a 4000-decision episode a policy could bank ~80 against the
+~19-20 real play earns. The optimal policy would be to stand beside a station
+and click forever. Capped with a per-episode budget of 1.0; a spam-click policy
+now scores **1.00 total**, verified by driving exactly that degenerate policy.
+
+**Verdict:** CONFIRMED as reachable, with the exploit closed. Whether it is
+*sufficient* to learn from scratch is E16 and is not yet answered. Shaping is a
+`gym.Wrapper`, not a `RewardMode`, because adding an enum member rotates the
+protocol fingerprint and breaks task reconstruction for every saved model — the
+suite caught that with six identity failures and a legacy byte-compat error.
+
+---
+
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not
@@ -311,3 +349,9 @@ policy is cloned, non-recurrent, and cannot in principle exceed its teacher.
 5. **Cloning cannot exceed its teacher.** The scripted expert averages ~19, so
    that is the ceiling of every BC result here. Beating it requires a better
    teacher or genuine RL fine-tuning.
+6. **A shaping signal must be reachable, and then it must be bounded.** E14
+   shaped an unreachable milestone and changed nothing; E15 made it dense and
+   immediately created a farming exploit worth 4x the real objective. Both
+   failure modes are cheap to test for before any training run: check the signal
+   fires under random play, then drive a deliberately degenerate policy against
+   it.
