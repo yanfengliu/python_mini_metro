@@ -240,6 +240,17 @@ def play(
         print(
             f"  episode {episode + 1}/{episodes}: {int(delivered)} deliveries in {decisions} decisions"
         )
+    if record is not None and best[1]:
+        record.parent.mkdir(parents=True, exist_ok=True)
+        best[1][0].save(
+            record,
+            save_all=True,
+            append_images=best[1][1:],
+            duration=80,
+            loop=0,
+            optimize=True,
+        )
+        print(f"  recorded best episode ({best[0]} deliveries) -> {record}")
     return results
 
 
