@@ -49,6 +49,18 @@ MAX_STATIONS = 20
 MAX_PATHS = 4
 SHAPE_SLOTS = 8
 
+# Fixed slot per shape type. Must not depend on what the episode happened
+# to spawn first; the last slot absorbs anything unrecognised.
+SHAPE_ORDER = {
+    "RECT": 0,
+    "CIRCLE": 1,
+    "TRIANGLE": 2,
+    "CROSS": 3,
+    "DIAMOND": 4,
+    "PENTAGON": 5,
+    "STAR": 6,
+}
+
 TICKS_PER_DECISION = 6
 # The game is endless survival: stations keep arriving and the run ends when
 # the agent can no longer keep up. A horizon that cuts an episode short
@@ -60,7 +72,13 @@ TICKS_PER_DECISION = 6
 DEFAULT_MAX_DECISIONS = 200_000
 
 STATION_FEATURES = 3 + SHAPE_SLOTS + SHAPE_SLOTS
-PATH_FEATURES = 4
+PATH_FEATURES = 5
+
+# Distance from every station to every line's nearest endpoint. Absolute
+# positions alone force a flat network to infer pairwise geometry from two
+# arbitrary slots; extending a line is fundamentally a question of how much
+# longer it becomes, so that quantity is given directly.
+REACH_FEATURES = MAX_STATIONS * MAX_PATHS
 # Counters the game tracks, normalised. A future unlock means adding a reader to
 # _resources and bumping this; nothing else in the environment changes.
 RESOURCE_FEATURES = 14
@@ -121,7 +139,6 @@ class SemanticMetroEnv(gym.Env):
         self._mediator: Mediator | None = None
         self._decision = 0
         self._last_deliveries = 0
-        self._shape_index: dict[str, int] = {}
 
         self.action_space = spaces.Discrete(len(ACTION_TABLE))
         self.observation_space = spaces.Box(
@@ -133,15 +150,22 @@ class SemanticMetroEnv(gym.Env):
         return (
             MAX_STATIONS * STATION_FEATURES
             + MAX_PATHS * PATH_FEATURES
+            + REACH_FEATURES
             + RESOURCE_FEATURES
         )
 
     def _shape_slot(self, shape) -> int:
+        """Canonical slot for a shape type, identical in every episode.
+
+        An earlier version assigned slots in order of first appearance, so
+        CIRCLE was slot 1 on one seed and slot 0 on another. The whole game
+        is matching a passenger's shape to a destination station's shape, so
+        an encoding that moves between episodes makes that unlearnable.
+        """
+
         name = getattr(shape, "type", shape)
         name = getattr(name, "name", str(name))
-        if name not in self._shape_index:
-            self._shape_index[name] = len(self._shape_index) % SHAPE_SLOTS
-        return self._shape_index[name]
+        return SHAPE_ORDER.get(name, SHAPE_SLOTS - 1)
 
     @staticmethod
     def _path_station_indices(mediator, path) -> list[int]:
@@ -151,6 +175,39 @@ class SemanticMetroEnv(gym.Env):
         return [
             lookup[id(station)] for station in path.stations if id(station) in lookup
         ]
+
+    @staticmethod
+    def _route_length(path) -> float:
+        """Total distance a metro travels along this line, in canonical pixels."""
+
+        stations = list(path.stations)
+        total = 0.0
+        for first, second in zip(stations, stations[1:]):
+            total += (
+                (first.position.left - second.position.left) ** 2
+                + (first.position.top - second.position.top) ** 2
+            ) ** 0.5
+        return total
+
+    @staticmethod
+    def _distance_to_path(station, path) -> float:
+        """How far this station sits from the nearest end of this line.
+
+        Extending a line is a question of how much longer it becomes, and that
+        is a pairwise quantity a flat network would otherwise have to infer by
+        comparing two arbitrary observation slots.
+        """
+
+        ends = [path.stations[0], path.stations[-1]] if path.stations else []
+        best = None
+        for end in ends:
+            distance = (
+                (end.position.left - station.position.left) ** 2
+                + (end.position.top - station.position.top) ** 2
+            ) ** 0.5
+            if best is None or distance < best:
+                best = distance
+        return 0.0 if best is None else best
 
     @staticmethod
     def _scaled(value: float, typical: float) -> float:
@@ -244,7 +301,22 @@ class SemanticMetroEnv(gym.Env):
                 values[cursor + 1] = len(path.stations) / MAX_STATIONS
                 values[cursor + 2] = len(getattr(path, "metros", ())) / 4.0
                 values[cursor + 3] = min(1.0, len(path.stations) / 8.0)
+                # Route length is the travel time a metro pays each lap, so it
+                # is what makes a long detour cost deliveries rather than gain
+                # them. Without it the agent optimises coverage blind to speed.
+                values[cursor + 4] = self._scaled(self._route_length(path), 4000.0)
             cursor += PATH_FEATURES
+
+        for slot in range(MAX_STATIONS):
+            for line in range(MAX_PATHS):
+                if slot < len(mediator.stations) and line < len(mediator.paths):
+                    values[cursor] = 1.0 - self._scaled(
+                        self._distance_to_path(
+                            mediator.stations[slot], mediator.paths[line]
+                        ),
+                        2000.0,
+                    )
+                cursor += 1
 
         resources = self._resources(mediator)
         values[cursor : cursor + len(resources)] = resources
@@ -293,7 +365,6 @@ class SemanticMetroEnv(gym.Env):
         self._mediator = Mediator(seed=seed if seed is not None else 0)
         self._decision = 0
         self._last_deliveries = 0
-        self._shape_index = {}
         return self._observe(), {}
 
     def _apply(self, index: int) -> bool:

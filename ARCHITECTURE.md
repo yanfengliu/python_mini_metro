@@ -29,8 +29,6 @@ python_mini_metro/
 |        |- rendering/
 |        \- rl-framework/
 |- scripts/
-|  |- ablate_pointer_head.py
-|  |- bc_spatial.py
 |  |- evaluate_policy.py
 |  |- evaluate_rl.py
 |  |- fixtures/
@@ -52,7 +50,6 @@ python_mini_metro/
 |  |- input_coordinator_differential_input.py
 |  |- input_coordinator_differential_support.py
 |  |- passenger_flow_differential_support.py
-|  |- pretrain_bc.py
 |  |- profile_rl_history.py
 |  |- profile_rl_history_worker.py
 |  |- read_training_progress.py
@@ -338,7 +335,6 @@ python_mini_metro/
 |  |- test_player_env.py
 |  |- test_path_handles.py
 |  |- test_path_redraw.py
-|  |- test_pretrain_bc.py
 |  |- test_record_playthrough.py
 |  |- test_recursive_checkpoint.py
 |  |- test_recursive_oracles.py

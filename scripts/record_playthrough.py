@@ -24,7 +24,7 @@ from PIL import Image  # noqa: E402
 from rl.player_env import PlayerPixelEnv  # noqa: E402
 from rl.protocol import FIDELITY_RENDER_PROFILE, resolve_render_profile  # noqa: E402
 
-POLICIES = ("random", "noop", "demonstrator", "model")
+POLICIES = ("random", "noop", "model")
 
 
 def _positive_int(value: str) -> int:
@@ -102,24 +102,7 @@ def record(args: argparse.Namespace) -> dict[str, object]:
     decisions = 0
     ended = "max-decisions"
 
-    if args.policy == "demonstrator":
-        from rl.demonstrator import run_delivery_demonstration
-
-        result = run_delivery_demonstration(
-            env, max_decisions=min(400, args.max_decisions)
-        )
-        # The demonstrator resets to its own fixed seed, so the summary must
-        # report the seed it chose rather than the one requested.
-        decisions = int(result.metrics["decisions"])
-        deliveries += float(result.metrics["total_reward"])
-        seed_used = int(result.metrics["seed"])
-
-    actor = _Actor(
-        "noop" if args.policy == "demonstrator" else args.policy,
-        env,
-        args.model,
-        args.device,
-    )
+    actor = _Actor(args.policy, env, args.model, args.device)
     actor.reset()
 
     def capture(frame: np.ndarray) -> None:

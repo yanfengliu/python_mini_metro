@@ -1,9 +1,9 @@
 """The recorder must produce a watchable file and a summary that tells the truth.
 
-Its first version read the demonstrator's results off the wrong object with
-``getattr(..., default)``, so it silently reported zero deliveries for a run that
-had actually delivered. A recording whose summary understates the run is worse
-than no recording, because it looks like evidence.
+A recording whose summary understates the run is worse than no recording, because
+it looks like evidence. The scripted-demonstrator policy was removed once random
+play in the semantic lane outscored it roughly ninefold, leaving it a baseline
+that measured nothing.
 """
 
 import os
@@ -41,19 +41,6 @@ class RecordPlaythroughTest(unittest.TestCase):
         self.assertEqual(summary["frames_written"], summary["_frames_on_disk"])
         self.assertGreaterEqual(summary["frames_captured"], summary["frames_written"])
         self.assertGreater(summary["bytes"], 0)
-
-    def test_demonstrator_summary_reports_the_deliveries_it_actually_made(self):
-        """The demonstrator delivers by contract, so a zero here is a reporting bug."""
-        summary = self._run(
-            "--policy", "demonstrator", "--max-decisions", "200", "--stride", "10"
-        )
-
-        self.assertGreater(
-            summary["deliveries"],
-            0,
-            "the demonstrator is verified to deliver, so a zero means the summary "
-            "read the wrong field rather than that the run failed",
-        )
 
     def test_random_play_is_recorded_up_to_its_own_game_over(self):
         summary = self._run(

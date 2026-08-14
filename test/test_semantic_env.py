@@ -152,6 +152,41 @@ class SemanticEnvTest(unittest.TestCase):
 
         self.assertTrue(all(b >= a for a, b in zip(counts, counts[1:])))
 
+    def test_shape_slots_are_the_same_in_every_episode(self):
+        """The game is shape-matching, so a slot that moves makes it unlearnable."""
+        from rl.semantic_env import SHAPE_ORDER
+
+        seen = {}
+        for seed in range(4):
+            env = SemanticMetroEnv()
+            env.reset(seed=seed)
+            for station in env._mediator.stations:
+                name = station.shape.type.name
+                slot = env._shape_slot(station.shape)
+                self.assertEqual(seen.setdefault(name, slot), slot)
+                self.assertEqual(slot, SHAPE_ORDER[name])
+            env.close()
+
+    def test_the_observation_carries_station_to_line_distance(self):
+        """Extending a line is a pairwise question; absolute positions alone hide it."""
+        env = SemanticMetroEnv()
+        env.reset(seed=0)
+        self.addCleanup(env.close)
+        mediator = env._mediator
+
+        while len(mediator.stations) < 2:
+            env.step(0)
+        connect = next(
+            index
+            for index, (kind, first, second) in enumerate(ACTION_TABLE)
+            if kind == ActionKind.CONNECT and first == 0 and second == 1
+        )
+        env.step(connect)
+
+        near = env._distance_to_path(mediator.stations[0], mediator.paths[0])
+        self.assertEqual(near, 0.0, "a station on the line is zero distance from it")
+        self.assertGreater(env._route_length(mediator.paths[0]), 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()
