@@ -82,6 +82,7 @@ python_mini_metro/
 |  |- source-provenance.mjs
 |  |- record_playthrough.py
 |  |- train_rl.py
+|  |- train_semantic.py
 |  |- verify_input_coordinator_differential.py
 |  |- verify_passenger_flow_differential.py
 |  \- verify_path_lifecycle_differential.py

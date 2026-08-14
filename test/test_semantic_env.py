@@ -28,7 +28,7 @@ def _play(seed: int, rng: np.random.Generator):
     env.reset(seed=seed)
     delivered = 0.0
     while True:
-        masks = env.action_masks()
+        masks = env.action_mask_components()
         action = np.array(
             [int(rng.choice(np.flatnonzero(mask))) for mask in masks], dtype=np.int64
         )
@@ -74,7 +74,7 @@ class SemanticEnvTest(unittest.TestCase):
 
         applied = attempted = 0
         for _ in range(300):
-            masks = env.action_masks()
+            masks = env.action_mask_components()
             action = np.array(
                 [int(rng.choice(np.flatnonzero(mask))) for mask in masks],
                 dtype=np.int64,
@@ -99,7 +99,7 @@ class SemanticEnvTest(unittest.TestCase):
         env.reset(seed=0)
         self.addCleanup(env.close)
 
-        self.assertFalse(env.action_masks()[0][SemanticAction.REMOVE_LINE])
+        self.assertFalse(env.action_mask_components()[0][SemanticAction.REMOVE_LINE])
 
     def test_connect_is_masked_off_once_every_line_slot_is_used(self):
         env = SemanticMetroEnv()
@@ -114,7 +114,7 @@ class SemanticEnvTest(unittest.TestCase):
             env.step(np.array([SemanticAction.CONNECT, 0, 1], dtype=np.int64))
 
         if len(env._mediator.paths) >= MAX_PATHS:
-            self.assertFalse(env.action_masks()[0][SemanticAction.CONNECT])
+            self.assertFalse(env.action_mask_components()[0][SemanticAction.CONNECT])
 
     def test_the_observation_matches_its_declared_space(self):
         env = SemanticMetroEnv()

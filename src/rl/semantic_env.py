@@ -130,7 +130,7 @@ class SemanticMetroEnv(gym.Env):
         self._shape_index = {}
         return self._observe(), {}
 
-    def action_masks(self) -> list[np.ndarray]:
+    def action_mask_components(self) -> list[np.ndarray]:
         """Per-component legality, in the form sb3-contrib's MaskablePPO wants.
 
         Limiting the decision space is the whole point of this lane. Station
@@ -176,6 +176,15 @@ class SemanticMetroEnv(gym.Env):
         second = np.zeros(MAX_STATIONS, dtype=bool)
         second[: max(1, stations)] = True
         return [kinds, first, second]
+
+    def action_masks(self) -> np.ndarray:
+        """Flat mask over concatenated MultiDiscrete components.
+
+        sb3-contrib expects one boolean vector of length sum(nvec); a list
+        of per-component arrays has inhomogeneous shape and fails to stack.
+        """
+
+        return np.concatenate(self.action_mask_components())
 
     def _apply(self, action: np.ndarray) -> bool:
         """Carry out one intent, reporting whether it was legal and took effect."""
