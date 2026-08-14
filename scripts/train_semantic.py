@@ -40,7 +40,17 @@ def make_env(seed: int):
     return thunk
 
 
-def evaluate(model, episodes: int, base_seed: int) -> list[float]:
+def evaluate(
+    model, episodes: int, base_seed: int, *, deterministic: bool
+) -> list[float]:
+    """Play held-out episodes.
+
+    Both modes are reported because they disagree enormously here. WAIT is
+    the most likely action at almost every individual step -- correctly, since
+    most steps should wait -- so a greedy argmax waits forever and scores
+    zero, while sampling from the same policy delivers. Reporting only the
+    deterministic figure would have recorded a working policy as a failure.
+    """
 
     scores = []
     for index in range(episodes):
@@ -50,7 +60,7 @@ def evaluate(model, episodes: int, base_seed: int) -> list[float]:
         while True:
             masks = env.action_masks()
             action, _ = model.predict(
-                observation, action_masks=masks, deterministic=True
+                observation, action_masks=masks, deterministic=deterministic
             )
             observation, reward, terminated, truncated, _ = env.step(action)
             total += float(reward)
@@ -93,14 +103,19 @@ def main(argv: list[str] | None = None) -> int:
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
     model.save(args.output)
 
-    scores = evaluate(model, args.eval_episodes, args.eval_seed)
-    print(
-        f"\nheld-out episodes (seed base {args.eval_seed}): {[int(s) for s in scores]}"
-    )
-    print(
-        f"deliveries: mean {np.mean(scores):.2f}  median {np.median(scores):.1f}  "
-        f"max {max(scores):.0f}"
-    )
+    for label, deterministic in (("deterministic", True), ("stochastic", False)):
+        scores = evaluate(
+            model, args.eval_episodes, args.eval_seed, deterministic=deterministic
+        )
+        print(
+            f"{label} on {args.eval_episodes} held-out episodes "
+            f"(seed base {args.eval_seed}):"
+        )
+        print(f"  per-episode: {[int(s) for s in scores]}")
+        print(
+            f"  deliveries: mean {np.mean(scores):.2f}  median {np.median(scores):.1f}  "
+            f"max {max(scores):.0f}"
+        )
     print("reference: random legal play mean 2.8; scripted expert ~19-20")
     vec.close()
     return 0

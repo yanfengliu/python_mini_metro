@@ -509,6 +509,53 @@ intervention that helps random exploration, shaped RL, and Go-Explore at once.
 
 ---
 
+## E20 — The semantic lane: name stations instead of pointing at pixels
+
+**Change (user's call):** clicking anywhere but a station is meaningless, so stop
+making it expressible. `SemanticMetroEnv` hands the agent station positions and
+shapes, who is waiting and for what, and line/fleet state, and takes actions that
+*name* stations and lines. Action space falls from 8x192x108 = 165,888 to
+5x20x20 = 2,000, and every action means something.
+
+**Measured, with no learning at all:**
+
+| | pixel task | semantic | semantic + masks |
+| --- | --- | --- | --- |
+| random builds a usable line | 0 / 48 | 2 / 12 | **12 / 12** |
+| random delivers | never | 0 / 12 | **6 / 12** |
+| deliveries | 0 | 0 | **mean 2.8, max 8** |
+
+Masking is load-bearing, not a convenience: station slots run to twenty while a
+young game has three, so unmasked sampling wastes nearly every CONNECT on a
+station that does not exist.
+
+**MaskablePPO, 400,000 steps, 20 held-out episodes on disjoint seeds:**
+
+per-episode `[9, 8, 5, 8, 9, 4, 0, 7, 8, 6, 3, 1, 1, 1, 9, 8, 7, 9, 0, 9]` —
+**mean 5.60, median 7.0, max 9**, against random-legal 2.8 and the scripted
+expert's ~19-20.
+
+**Verdict:** CONFIRMED as the unblock. This is the first reward curve on this
+project that climbed on *real deliveries* rather than shaping credit; every
+pixel-lane run either sat at exactly 0.00 or banked a shaping budget while
+evaluation stayed at zero. It roughly doubles random play and remains well short
+of the scripted expert, so the lane is open but not solved.
+
+**A reporting bug worth keeping.** The first evaluation of this model reported
+**0.00 across all 20 episodes** while training reward read 5.91. The policy was
+fine; the evaluator used `deterministic=True`, and `WAIT` is the single most
+likely action at almost every step — correctly, since most steps should wait — so
+greedy argmax waits forever. Measured on the same checkpoint: deterministic
+`WAIT x3335, CONNECT x1`, mean 0.00; stochastic `WAIT x2126, CONNECT x2057,
+ASSIGN x43`, mean 6.25. **For any task with a dominant no-op, greedy evaluation
+can report a working policy as a total failure.** The evaluator now reports both.
+
+**Standing note:** this lane is strictly easier than the pixel task and its
+scores are not interchangeable with pixel-task scores. The pixel environment is
+untouched and remains the player-equivalent lane.
+
+---
+
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not
@@ -523,7 +570,14 @@ intervention that helps random exploration, shaped RL, and Go-Explore at once.
 5. **Cloning cannot exceed its teacher.** The scripted expert averages ~19, so
    that is the ceiling of every BC result here. Beating it requires a better
    teacher or genuine RL fine-tuning.
-6. **The difficulty is targeting precision, at every rung.** Stations cover
+6. **If an action is meaningless, do not make it expressible.** Removing pixel
+   coordinates from the action space achieved in one change what better
+   encoders, spatial heatmaps, shaping ladders and an exploration archive could
+   not: a *random* policy now delivers where no PPO run on pixels ever did.
+7. **With a dominant no-op action, greedy evaluation is misleading.** The same
+   checkpoint scored 0.00 deterministic and 6.25 stochastic, because WAIT is the
+   most likely single action almost everywhere. Report both.
+8. **The difficulty is targeting precision, at every rung.** Stations cover
    ~0.14% of the coordinate grid and fleet controls less; random exploration
    clears any given rung with probability 0.1-0.4%. Go-Explore compounds rungs
    and reached lines, then stalled on the locomotive control. Enlarging the
