@@ -335,6 +335,41 @@ suite caught that with six identity failures and a legacy byte-compat error.
 
 ---
 
+## E16 — Learning without a teacher, on shaped reward alone
+
+**Hypothesis:** with a reachable, bounded shaping signal (E15) an agent can find
+the game unaided — the barrier was a zero gradient, not difficulty.
+
+**Measured**, RecurrentPPO from scratch, 300,000 steps, shaping on, flat pointer
+head:
+
+| metric | result |
+| --- | --- |
+| `rollout/ep_rew_mean` (shaped) | 0.31 → **0.97, then flat** |
+| `eval/mean_reward` (true deliveries, unshaped) | **0.00** at 100k, 150k, 200k, 250k, 300k |
+
+**Verdict:** REFUTED as posed, and instructive. The gradient was real — reward
+moved off zero for the first time on this task, against 0.00 across 3M steps in
+E4 — but the agent converged to collecting **exactly the 1.0 shaping budget** and
+never earned a single passenger.
+
+**Reasoning:** the budget that stops the bootstrap being farmed (E15) also caps
+the incentive. Once banked there is no further gradient until a delivery, and a
+delivery still requires the same unreachable conjunction. Proximity credit
+teaches "click near stations"; it does not teach "complete the drag", because
+pointer-down → motion → pointer-up on a *different* station remains a sequence
+random exploration does not produce. The intermediate rung is missing, not the
+starting one.
+
+Also note the arm carried the flat pointer head, which E12 showed cannot resolve
+a station in the first place, so this does not yet test whether a policy that
+*can* point benefits from the same signal. That combination is E17.
+
+**Standing implication:** a bootstrap signal has to form a *ladder* to the
+objective, not a single rung. Each rung must be reachable from the one below it.
+
+---
+
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not
@@ -349,7 +384,11 @@ suite caught that with six identity failures and a legacy byte-compat error.
 5. **Cloning cannot exceed its teacher.** The scripted expert averages ~19, so
    that is the ceiling of every BC result here. Beating it requires a better
    teacher or genuine RL fine-tuning.
-6. **A shaping signal must be reachable, and then it must be bounded.** E14
+6. **A bootstrap signal must form a ladder, not a single rung.** Shaping
+   proximity moved reward off zero for the first time, and the agent then banked
+   exactly the budget and stopped: true deliveries stayed at 0.00 through
+   300,000 steps. Every rung has to be reachable from the one below it.
+7. **A shaping signal must be reachable, and then it must be bounded.** E14
    shaped an unreachable milestone and changed nothing; E15 made it dense and
    immediately created a farming exploit worth 4x the real objective. Both
    failure modes are cheap to test for before any training run: check the signal
