@@ -206,3 +206,9 @@ game_over_button_padding_y = 12
 game_over_button_spacing = 18
 game_over_button_width = 300
 game_over_button_height = 64
+
+# Fraction of the surface height reserved for the playfield. Stations spawn
+# above it and the resource-control band sits below it, so raising
+# station_size without lowering this squeezes the band until the layout
+# stops validating.
+playfield_bottom_ratio = 0.9

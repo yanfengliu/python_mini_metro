@@ -21,6 +21,7 @@ from config import (
     path_button_buy_text_bottom_gap,
     path_button_dist_to_bottom,
     path_handle_quantization_margin,
+    playfield_bottom_ratio,
     resource_control_horizontal_offsets,
     resource_control_vertical_offset,
     speed_button_buffer,
@@ -184,7 +185,9 @@ def validate_resource_control_layout(surface_width: int, surface_height: int) ->
         for path_x, _ in path_centers
         for offset, radius in zip(resource_control_horizontal_offsets, control_radii)
     )
-    station_safe_bottom = height * 0.9 + station_size + path_handle_quantization_margin
+    station_safe_bottom = (
+        height * playfield_bottom_ratio + station_size + path_handle_quantization_margin
+    )
     locked_text_bottom = path_y - button_size - path_button_buy_text_bottom_gap
 
     def separated(
@@ -203,7 +206,17 @@ def validate_resource_control_layout(surface_width: int, surface_height: int) ->
         or y + radius > height
         for x, y, radius in controls
     ):
-        raise ValueError("surface cannot fit the reserved resource-control band")
+        shortfall = max(
+            max(radius - y + station_safe_bottom, radius - (height - y))
+            for _, y, radius in controls
+        )
+        raise ValueError(
+            f"resource controls do not fit a {width}x{height} surface: the band "
+            f"below the playfield spans {station_safe_bottom:.0f}..{height} px "
+            f"and needs {shortfall:.0f} px more. Lower playfield_bottom_ratio "
+            f"(currently {playfield_bottom_ratio}), reduce station_size "
+            f"(currently {station_size}), or use a taller surface."
+        )
     if any(
         not separated(first, second)
         for index, first in enumerate(controls)
