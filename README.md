@@ -20,6 +20,24 @@ python -m pip install -r requirements-rl-locked.txt
 ```
 
 Both lockfiles are universal Python 3.13 resolutions with hashes and platform markers; pip selects the matching Linux or Windows wheels while preserving the same reviewed dependency graph.
+### Training on an NVIDIA GPU
+
+On Windows those lockfiles resolve to a **CPU-only** PyTorch: every `nvidia-*` wheel they pin carries a `sys_platform == 'linux'` marker, so a Windows install silently gets `torch==2.13.0` without CUDA and training never touches the GPU. Check before committing to a long run:
+
+```powershell
+python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+```
+
+If that prints `+cpu` or `False`, apply the opt-in CUDA overlay. It pins the same torch version as the shared lockfile, so only the CUDA variant changes:
+
+```powershell
+python -m pip install -r requirements-rl-cuda-locked.txt --no-deps
+```
+
+`--no-deps` is required, not optional. The PyTorch index mirrors older copies of shared transitive dependencies, and a full resolve against it downgrades `pillow` and `setuptools` into vulnerabilities the main lockfile already fixes.
+
+The overlay needs an NVIDIA driver supporting CUDA 13.0 or newer, and is verified on an RTX 4090 (compute capability 8.9). CI does not install it, because the hosted runners have no GPU. `scripts/train_rl.py` already defaults to `--device auto`, so no flag is needed once CUDA is present; the resolved device is recorded as `device_resolved` in each run's `training-manifest.json`.
+
 
 The recursive playtest also requires Node.js 20.6 or newer and the isolated civ-engine checkout described by `scripts/civ-engine-pin.json`. The checkout is retained at the ignored repo-local `/.civ-engine-pin/` path; neither setup nor recursive execution reads or mutates a sibling `../civ-engine` checkout. The engine build uses its own development lock, while the root exposes only an exact validated link and never installs that nested build-only graph into root `node_modules`. The package lock, Git commit, package version, physical resolution path, and complete runtime-tree digest are verified against the descriptor before recursive execution.
 

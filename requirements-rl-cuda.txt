@@ -1,0 +1,19 @@
+# Opt-in CUDA overlay for local GPU training. CI does not install this file.
+#
+# requirements-rl-locked.txt resolves to a CPU-only torch on Windows: its
+# nvidia-* wheels all carry `sys_platform == 'linux'` markers, so a Windows
+# install silently gets `torch==2.13.0` (CPU) and never sees the GPU.
+#
+# Apply this AFTER requirements-rl-locked.txt, and only with --no-deps: the
+# PyTorch index mirrors older copies of shared transitive dependencies, and a
+# full resolve against it downgrades pillow 12.3.0 -> 12.2.0 and setuptools
+# 83.0.0 -> 78.1.0, reintroducing CVEs the main lockfile already fixes.
+#
+#   python -m pip install -r requirements-rl-cuda-locked.txt --no-deps
+#
+# Same torch version as the shared lockfile, so only the CUDA variant changes.
+# Requires an NVIDIA driver supporting CUDA 13.0+ (verified: RTX 4090, cc8.9).
+--index-url https://download.pytorch.org/whl/cu130
+
+torch==2.13.0+cu130
+torchvision==0.28.0+cu130
