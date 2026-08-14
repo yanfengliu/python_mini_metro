@@ -10,7 +10,14 @@ from torch import nn
 
 
 class MiniMetroCNN(BaseFeaturesExtractor):
-    """Downsample widescreen frames before a bounded adaptive-pooling head."""
+    """Downsample widescreen frames, keeping the convolutional grid intact.
+
+    The flattened grid is sized from ``observation_space`` at construction, so a
+    finer render profile yields a finer representation. An earlier revision
+    pooled to a fixed 3x5 grid, which made every profile collapse to the same 960
+    values and left each cell covering 64x60 px -- coarser than the station
+    spacing the pointer action has to resolve.
+    """
 
     def __init__(self, observation_space: Any, features_dim: int = 256) -> None:
         if isinstance(features_dim, bool) or not isinstance(features_dim, int):
@@ -32,11 +39,13 @@ class MiniMetroCNN(BaseFeaturesExtractor):
             nn.ReLU(),
             nn.Conv2d(64, 64, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
-            nn.AdaptiveAvgPool2d((3, 5)),
             nn.Flatten(),
         )
+        with torch.no_grad():
+            probe = torch.zeros(1, channels, int(shape[1]), int(shape[2]))
+            flattened_dim = int(self.encoder(probe).shape[1])
         self.projection = nn.Sequential(
-            nn.Linear(64 * 3 * 5, features_dim),
+            nn.Linear(flattened_dim, features_dim),
             nn.ReLU(),
         )
 

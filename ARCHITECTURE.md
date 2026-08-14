@@ -336,6 +336,7 @@ python_mini_metro/
 |  |- test_rl_history_integration.py
 |  |- test_rl_legacy_compat.py
 |  |- test_rl_manifest.py
+|  |- test_rl_model_spatial_acuity.py
 |  |- test_rl_protocol.py
 |  |- test_rl_resource_profile.py
 |  |- test_rl_resource_profile_cli.py

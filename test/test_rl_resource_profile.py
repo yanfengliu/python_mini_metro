@@ -12,6 +12,7 @@ from rl.history import (
     TEN_MULTISCALE_HISTORY_LAYOUT,
     contiguous_history,
 )
+from rl.protocol import RENDER_PROFILES
 from rl.resource_profile import (
     BASELINE_CANDIDATE,
     EIGHT_MULTISCALE_CANDIDATE,
@@ -400,16 +401,51 @@ class TestMacContract(unittest.TestCase):
         )
 
         self.assertEqual(eight.cnn_convolutions, 77_021_184)
-        self.assertEqual(eight.cnn_projection, 245_760)
+        self.assertEqual(eight.cnn_projection, 1_376_256)
         self.assertEqual(eight.actor_lstm, 524_288)
         self.assertEqual(eight.critic_lstm, 524_288)
         self.assertEqual(eight.actor_mlp, 20_480)
         self.assertEqual(eight.critic_mlp, 20_480)
         self.assertEqual(eight.action_head, 19_712)
         self.assertEqual(eight.value_head, 64)
-        self.assertEqual(eight.total, 78_376_256)
-        self.assertEqual(twelve.total, 110_226_752)
+        self.assertEqual(eight.total, 79_506_752)
+        self.assertEqual(twelve.total, 111_357_248)
         self.assertEqual(twelve.total - eight.total, 31_850_496)
+
+    def test_projection_estimate_tracks_the_live_encoder_at_every_profile(self) -> None:
+        """The analytical projection must follow the real CNN, not a copied constant.
+
+        These drifted apart once already: the estimate kept modelling a removed
+        3x5 pooling head while the live encoder had started flattening its full
+        convolutional grid, and every assertion above still passed.
+        """
+        import gymnasium as gym
+        import torch
+
+        from rl.model import MiniMetroCNN
+
+        frames = 8
+        for profile in RENDER_PROFILES:
+            with self.subTest(profile=profile.name):
+                shape = (frames * 3, profile.height, profile.width)
+                extractor = MiniMetroCNN(
+                    gym.spaces.Box(low=0, high=255, shape=shape, dtype="uint8"),
+                    features_dim=256,
+                )
+                with torch.no_grad():
+                    live_flat = int(extractor.encoder(torch.zeros(1, *shape)).shape[1])
+
+                estimate = estimate_inference_macs(
+                    contiguous_history(frames), render_profile=profile
+                )
+
+                self.assertEqual(
+                    estimate.cnn_projection,
+                    live_flat * 256,
+                    f"{profile.name}: estimate models a "
+                    f"{estimate.cnn_projection // 256}-wide projection but the live "
+                    f"encoder flattens to {live_flat}",
+                )
 
 
 if __name__ == "__main__":

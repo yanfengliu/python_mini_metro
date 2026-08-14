@@ -17,6 +17,7 @@ from rl.history import (
     contiguous_history,
     history_for_layout,
 )
+from rl.protocol import FAST_RENDER_PROFILE, RenderProfile
 
 BASELINE_CANDIDATE = "8-contiguous"
 EIGHT_MULTISCALE_CANDIDATE = "8-multiscale"
@@ -434,12 +435,24 @@ class InferenceMacEstimate:
         )
 
 
-def estimate_inference_macs(history: HistoryDescriptor) -> InferenceMacEstimate:
-    """Estimate the live recurrent policy's inference MACs for one valid row."""
+def estimate_inference_macs(
+    history: HistoryDescriptor,
+    render_profile: RenderProfile = FAST_RENDER_PROFILE,
+) -> InferenceMacEstimate:
+    """Estimate the live recurrent policy's inference MACs for one valid row.
+
+    The projection width follows the convolutional grid, so this estimate is
+    profile-dependent; it was not while the encoder pooled to a fixed 3x5 grid.
+    """
 
     if not isinstance(history, HistoryDescriptor):
         raise TypeError("history must be a HistoryDescriptor")
-    height, width = 108, 192
+    if not isinstance(render_profile, RenderProfile):
+        raise TypeError(
+            "render_profile must be a RenderProfile, "
+            f"received {type(render_profile).__name__}"
+        )
+    height, width = render_profile.height, render_profile.width
     first_height = conv2d_output_size(height, kernel=8, stride=4, padding=2)
     first_width = conv2d_output_size(width, kernel=8, stride=4, padding=2)
     second_height = conv2d_output_size(first_height, kernel=4, stride=2, padding=1)
@@ -478,7 +491,7 @@ def estimate_inference_macs(history: HistoryDescriptor) -> InferenceMacEstimate:
     mlp_macs = linear_macs(256, 64) + linear_macs(64, 64)
     return InferenceMacEstimate(
         cnn_convolutions=convolution_macs,
-        cnn_projection=linear_macs(64 * 3 * 5, 256),
+        cnn_projection=linear_macs(64 * third_height * third_width, 256),
         actor_lstm=recurrent_macs,
         critic_lstm=recurrent_macs,
         actor_mlp=mlp_macs,
