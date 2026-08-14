@@ -134,3 +134,45 @@ class ShapedRewardTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ShapingStaysOutOfEvaluationTest(unittest.TestCase):
+    """Shaping is scaffolding; a shaped evaluation would silently inflate scores."""
+
+    def test_thunks_apply_shaping_only_when_asked(self):
+        from rl.protocol import TaskSpec
+        from rl.training import make_env_thunks
+
+        plain = make_env_thunks(TaskSpec(), n_envs=1, seed=0)[0]
+        shaped = make_env_thunks(TaskSpec(), n_envs=1, seed=0, shaped_reward=True)[0]
+
+        self.assertFalse(plain.shaped_reward)
+        self.assertTrue(shaped.shaped_reward)
+
+        built_plain = plain()
+        self.addCleanup(built_plain.close)
+        built_shaped = shaped()
+        self.addCleanup(built_shaped.close)
+
+        self.assertNotIsInstance(built_plain, ConnectionShapedReward)
+        self.assertIsInstance(built_shaped, ConnectionShapedReward)
+
+    def test_the_training_script_never_shapes_the_evaluation_environment(self):
+        """Read the call sites directly: a shaped eval env would inflate every score."""
+        import re
+        from pathlib import Path
+
+        source = Path(__file__).resolve().parents[1] / "scripts" / "train_rl.py"
+        text = source.read_text(encoding="utf-8")
+        calls = re.findall(
+            r"(\w+_env) = build_vector_env\((.*?)\n        \)", text, re.S
+        )
+        shaped = {name for name, body in calls if "shaped_reward" in body}
+
+        self.assertIn("train_env", shaped)
+        self.assertNotIn(
+            "eval_env",
+            shaped,
+            "the evaluation environment must never receive shaping, or reported "
+            "deliveries include exploration credit",
+        )

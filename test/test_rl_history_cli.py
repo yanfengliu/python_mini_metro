@@ -270,7 +270,15 @@ class TestHistoryCliResolution(unittest.TestCase):
                 self.assertEqual(
                     build.call_args_list,
                     [
-                        call(ANY, n_envs=8, seed=42, history=history),
+                        # The training env carries the shaping flag; the
+                        # evaluation env must never receive it.
+                        call(
+                            ANY,
+                            n_envs=8,
+                            seed=42,
+                            shaped_reward=False,
+                            history=history,
+                        ),
                         call(ANY, n_envs=1, seed=10_042, history=history),
                     ],
                 )

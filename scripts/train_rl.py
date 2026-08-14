@@ -91,6 +91,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="separate evaluation seed (default: training seed + 10000)",
     )
     parser.add_argument("--n-envs", type=_positive_int, default=8)
+    parser.add_argument(
+        "--shaped-reward",
+        action="store_true",
+        help="training-time exploration credit; evaluation is unaffected",
+    )
     parser.add_argument("--device", default="auto")
     parser.add_argument("--algorithm", choices=SUPPORTED_ALGORITHMS)
     parser.add_argument(
@@ -355,6 +360,7 @@ def run(args: argparse.Namespace) -> Path:
             spec,
             n_envs=args.n_envs,
             seed=args.seed,
+            shaped_reward=args.shaped_reward,
             history=history,
         )
         eval_env = build_vector_env(

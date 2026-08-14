@@ -104,6 +104,7 @@ class PlayerEnvThunk:
     seed: int
     map_id: str | None = None
     map_definition_version: int | None = None
+    shaped_reward: bool = False
 
     def __call__(self) -> Any:
         from rl.player_env import PlayerPixelEnv
@@ -118,6 +119,12 @@ class PlayerEnvThunk:
         )
         env.action_space.seed(self.seed)
         env.observation_space.seed(self.seed)
+        if self.shaped_reward:
+            # Training-time only. The task, its fingerprints and evaluation
+            # are unchanged; this just gives exploration a gradient to follow.
+            from rl.shaping import ConnectionShapedReward
+
+            env = ConnectionShapedReward(env)
         return env
 
 
@@ -126,6 +133,7 @@ def make_env_thunks(
     *,
     n_envs: int,
     seed: int,
+    shaped_reward: bool = False,
 ) -> tuple[PlayerEnvThunk, ...]:
     if isinstance(n_envs, bool) or not isinstance(n_envs, int) or n_envs <= 0:
         raise ValueError("n_envs must be a positive integer")
@@ -140,6 +148,7 @@ def make_env_thunks(
             seed=seed + rank,
             map_id=task_spec.map_id,
             map_definition_version=task_spec.map_definition_version,
+            shaped_reward=shaped_reward,
         )
         for rank in range(n_envs)
     )
@@ -161,6 +170,7 @@ def build_vector_env(
     seed: int,
     history: HistoryDescriptor | None = None,
     frame_stack: int | None = None,
+    shaped_reward: bool = False,
 ) -> Any:
     """Build workers, monitoring, and one exact descriptor-driven history."""
 
@@ -182,6 +192,7 @@ def build_vector_env(
         task_spec,
         n_envs=n_envs,
         seed=seed,
+        shaped_reward=shaped_reward,
     )
     base_class = select_base_vec_env_class(n_envs)
     if n_envs == 1:
