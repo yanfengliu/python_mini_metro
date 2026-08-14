@@ -10,6 +10,11 @@ python_mini_metro/
 |  |- devlog/
 |  |  |- summary.md
 |  |  |- detailed/
+|  |- learning/
+|  |  |- lessons.md
+|  |  \- lessons-evidence.md
+|  |- policies/
+|  |  \- local-rules.md
 |  |- rl-experiments.md
 |  |- rl-model-selection.md
 |  \- threads/
