@@ -411,6 +411,56 @@ for a pointer-up that lands on a *different* station and completes one.
 
 ---
 
+## E18 — Go-Explore: archive, return, explore
+
+**Research:** [Go-Explore](https://www.nature.com/articles/s41586-020-03157-9) (Ecoffet et al., Nature 2021) targets exactly this failure. Its
+premise is that exploration algorithms *forget*: an agent that stumbles into a
+promising state wanders off and cannot get back. So it archives states, **returns**
+to one without exploring, then explores onward, and progress accumulates.
+[Random Network Distillation](https://arxiv.org/abs/1810.12894) was considered and rejected on its documented
+failure mode — it detects only large state changes, while here a drawn line moves
+a few hundred of 20,736 pixels and the clock and moving metros change constantly
+and mean nothing.
+
+**Two prerequisites verified before building:** the game serialises and restores
+*exactly* (simulation time, paths and the observation itself are byte-identical
+after a round trip), so returning costs one deserialize rather than a replay. And
+`serialize_game` **refuses to save mid-gesture** — "cannot save while a
+path-creation gesture is active" — which is precisely the state worth returning
+to, so a cell stores its last saveable ancestor plus the action suffix that
+reaches it. That is Go-Explore's own deterministic phase.
+
+**Measured**, 800 iterations x 40 random steps:
+
+| | |
+| --- | --- |
+| cells archived | 12 |
+| **cells holding the pointer on a station** | **4** |
+| iterations ending mid-drag | 381/800 |
+| usable lines created | **0** |
+| deliveries | **0** |
+
+**Verdict:** the machinery works; the budget does not. Mid-drag states — the
+promising intermediate — *are* archived and returned to. The arithmetic explains
+the zero: a drag ends at the **first** pointer-up, and a pointer-up lands on a
+different station roughly 0.4% of the time, so ~268 visits to held cells buys
+about **one** expected completion. Observing zero is within noise, not evidence
+against the method.
+
+**A correction this experiment forced.** E15 recorded random play completing a
+drag in "roughly 4% of episodes". That was **one lucky episode out of 24**; a
+second seed set gave zero, and 24,000 random actions here produced no line at
+all. The real rate is nearer 1 in 1,000 episodes. This is the same error E9
+already recorded and I repeated it — reporting a rate from a single event.
+
+**A claim corrected in passing:** the gesture is **two** precise hits, not four.
+`DOWN` on one station then `UP` on another creates a line with no motion between
+them, verified directly. Motion is only needed to route through additional
+stations. The conjunction is therefore two ~0.14%-of-grid hits, which is the
+whole difficulty.
+
+---
+
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not
