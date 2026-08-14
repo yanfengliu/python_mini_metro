@@ -1,25 +1,37 @@
 """A semantic environment: choose stations and lines, not pixels.
 
-The pixel task's difficulty turned out to be almost entirely targeting precision.
-A station covers about 0.034% of the coordinate grid, so a random click lands on
-one roughly 0.1% of the time, and drawing a line needs two such hits in sequence
--- about one in a million. Measured consequences: random play built a usable line
-in 0 of 48 episodes, three separately configured PPO runs delivered exactly zero
-across 3M, 300k and 600k steps, and Go-Explore reached lines only by archiving
-lucky states and then stalled on a smaller target still, the locomotive control.
+The pixel task's difficulty was almost entirely targeting precision. A station
+covers about 0.034% of the coordinate grid, so a random click lands on one
+roughly 0.1% of the time and a line needs two such hits -- about one in a
+million. Measured consequences: random play built a usable line in 0 of 48
+episodes, three PPO configurations delivered exactly zero across 3M, 300k and
+600k steps, and Go-Explore reached lines only by archiving lucky states before
+stalling on a smaller control still.
 
-None of that difficulty is Mini Metro. It is the cost of expressing "connect
-these two stations" as a pair of pixel coordinates.
+None of that is Mini Metro. It is the cost of expressing "connect these two
+stations" as a pair of pixel coordinates. So this environment removes pixels
+from both sides: the agent is told what the game is about and acts by naming
+stations and lines.
 
-So this environment removes the pixels from both sides. The agent is handed the
-things the game is actually about -- where the stations are, what shape each one
-is, who is waiting and for what -- and acts by naming stations and lines. Every
-action is meaningful; there is no way to click on nothing.
+Two properties are load-bearing, and both were learned the hard way.
+
+**The offered actions must match the live game exactly.** An earlier version
+masked CONNECT against a constant ceiling of four line slots while a fresh game
+unlocks *one*, so 283 of 284 CONNECT attempts were silent no-ops and nearly half
+of every episode was thrown away. The action space is therefore a flat table
+whose legality is recomputed from the mediator every step -- an approximate mask
+is a slow leak that reads as a weak policy.
+
+**Whatever gates the agent's options must be visible to it.** Line slots unlock
+on delivery milestones, so a model that cannot see the unlock state or its
+distance to the next threshold is guessing about the rules it plays under. The
+resource block reports every counter the game tracks and carries the distance to
+the next unlock, and is written to extend to future unlocks rather than to
+enumerate today's.
 
 The pixel environment is unchanged and remains the player-equivalent task. This
-is the separate structured lane that `docs/rl-model-selection.md` pre-registers,
-and results from the two are not interchangeable: this one is strictly easier
-and cannot be quoted as a pixel-task score.
+is the separate structured lane `docs/rl-model-selection.md` pre-registers; it is
+strictly easier and its scores are not interchangeable with pixel-task scores.
 """
 
 from __future__ import annotations
@@ -37,24 +49,67 @@ MAX_STATIONS = 20
 MAX_PATHS = 4
 SHAPE_SLOTS = 8
 
-# One decision advances this many simulation ticks, matching the pixel task's
-# pacing so episode lengths and delivery totals stay comparable.
 TICKS_PER_DECISION = 6
-DEFAULT_MAX_DECISIONS = 4000
+# The game is endless survival: stations keep arriving and the run ends when
+# the agent can no longer keep up. A horizon that cuts an episode short
+# right-censors its delivery total and understates the policy -- measured, 5
+# of 8 episodes were being truncated at 4000, and lifting the cap took random
+# play from a censored 102.8 to an uncensored 180.8. This value is a backstop
+# against a non-terminating run, not a design limit; episodes should end
+# because the game ended.
+DEFAULT_MAX_DECISIONS = 200_000
+
+STATION_FEATURES = 3 + SHAPE_SLOTS + SHAPE_SLOTS
+PATH_FEATURES = 4
+# Counters the game tracks, normalised. A future unlock means adding a reader to
+# _resources and bumping this; nothing else in the environment changes.
+RESOURCE_FEATURES = 14
+
+# Deliveries out from a milestone at which "an unlock is imminent" reads as ~0.
+UNLOCK_HORIZON = 20.0
 
 
-class SemanticAction(IntEnum):
-    """What the agent can do, expressed as intent rather than as a gesture."""
-
+class ActionKind(IntEnum):
     WAIT = 0
     CONNECT = 1
     ASSIGN_LOCOMOTIVE = 2
     ATTACH_CARRIAGE = 3
-    REMOVE_LINE = 4
+    PURCHASE_LINE = 4
+    EXTEND_LINE = 5
+
+
+def _build_action_table() -> tuple[tuple[int, int, int], ...]:
+    """Enumerate every action once, so the mask can be exact rather than per-axis.
+
+    Independent per-component masks over a MultiDiscrete cannot express
+    conditional legality: the kind and the index are drawn separately, so
+    "assign a locomotive" could pair with a line that cannot take one, and
+    nothing could forbid CONNECT pairing a station with itself. A flat table
+    makes every entry individually checkable against the live game.
+    """
+    table: list[tuple[int, int, int]] = [(ActionKind.WAIT, 0, 0)]
+    for first in range(MAX_STATIONS):
+        for second in range(first + 1, MAX_STATIONS):
+            table.append((ActionKind.CONNECT, first, second))
+    for path in range(MAX_PATHS):
+        table.append((ActionKind.ASSIGN_LOCOMOTIVE, path, 0))
+    for path in range(MAX_PATHS):
+        table.append((ActionKind.ATTACH_CARRIAGE, path, 0))
+    table.append((ActionKind.PURCHASE_LINE, 0, 0))
+    # A real metro line runs through many stations. Without this the agent
+    # could only ever build two-station lines, which caps the network
+    # structurally no matter how well it plays.
+    for line in range(MAX_PATHS):
+        for station in range(MAX_STATIONS):
+            table.append((ActionKind.EXTEND_LINE, line, station))
+    return tuple(table)
+
+
+ACTION_TABLE = _build_action_table()
 
 
 class SemanticMetroEnv(gym.Env):
-    """Mini Metro with a structured observation and a structured action space."""
+    """Mini Metro with a structured observation and an exactly-masked action set."""
 
     metadata = {"render_modes": []}
 
@@ -68,19 +123,18 @@ class SemanticMetroEnv(gym.Env):
         self._last_deliveries = 0
         self._shape_index: dict[str, int] = {}
 
-        self.action_space = spaces.MultiDiscrete(
-            [len(SemanticAction), MAX_STATIONS, MAX_STATIONS]
-        )
+        self.action_space = spaces.Discrete(len(ACTION_TABLE))
         self.observation_space = spaces.Box(
             low=-1.0, high=1.0, shape=(self._observation_size(),), dtype=np.float32
         )
 
     @staticmethod
     def _observation_size() -> int:
-        per_station = 3 + SHAPE_SLOTS + SHAPE_SLOTS
-        per_path = 4
-        globals_ = 5
-        return MAX_STATIONS * per_station + MAX_PATHS * per_path + globals_
+        return (
+            MAX_STATIONS * STATION_FEATURES
+            + MAX_PATHS * PATH_FEATURES
+            + RESOURCE_FEATURES
+        )
 
     def _shape_slot(self, shape) -> int:
         name = getattr(shape, "type", shape)
@@ -88,6 +142,83 @@ class SemanticMetroEnv(gym.Env):
         if name not in self._shape_index:
             self._shape_index[name] = len(self._shape_index) % SHAPE_SLOTS
         return self._shape_index[name]
+
+    @staticmethod
+    def _path_station_indices(mediator, path) -> list[int]:
+        """Indices into mediator.stations for the stations on this line."""
+
+        lookup = {id(station): index for index, station in enumerate(mediator.stations)}
+        return [
+            lookup[id(station)] for station in path.stations if id(station) in lookup
+        ]
+
+    @staticmethod
+    def _scaled(value: float, typical: float) -> float:
+        """Compress an unbounded counter without saturating it.
+
+        Line credits reach 210 in a long game while a naive min(1, v/8)
+        saturates at 8, so the model could not tell eight credits from two
+        hundred -- it could see that it could afford something, never how much
+        headroom it had. A log curve keeps small values well separated and
+        still bounds the large ones.
+        """
+
+        import math
+
+        return min(1.0, math.log1p(max(0.0, value)) / math.log1p(typical))
+
+    @staticmethod
+    def _count(mediator, name: str) -> float:
+        """Read a counter that may be absent OR present-but-None.
+
+        available_tunnels is None on maps without tunnels, and a getattr
+        default only fires when the attribute is missing -- not when it holds
+        None. Defaulting on the value rather than on presence is the
+        difference between a zero and a TypeError mid-episode.
+        """
+
+        value = getattr(mediator, name, None)
+        return 0.0 if value is None else float(value)
+
+    def _unlock_proximity(self, milestones, deliveries: int) -> float:
+        """1.0 when the next unlock is imminent, 0.0 when far off or exhausted."""
+        upcoming = next((m for m in milestones if m > deliveries), None)
+        if upcoming is None:
+            return 0.0
+        return max(0.0, 1.0 - (upcoming - deliveries) / UNLOCK_HORIZON)
+
+    def _resources(self, mediator) -> list[float]:
+        """Every counter that gates what the agent may do, plus unlock distance.
+
+        Line slots unlock on delivery milestones, so reporting the distance to
+        the next threshold lets a policy anticipate an unlock rather than
+        discover it -- the difference between planning and reacting.
+        """
+        deliveries = mediator.deliveries
+        purchasable = mediator.get_next_path_button_idx_to_purchase()
+        can_buy = purchasable is not None and mediator.can_purchase_path_button_idx(
+            purchasable
+        )
+        return [
+            self._scaled(mediator.line_credits, 200.0),
+            self._scaled(self._count(mediator, "available_locomotives"), 12.0),
+            self._scaled(self._count(mediator, "available_carriages"), 12.0),
+            self._scaled(self._count(mediator, "assigned_carriages"), 12.0),
+            self._scaled(self._count(mediator, "available_tunnels"), 12.0),
+            mediator.get_unlocked_num_paths() / MAX_PATHS,
+            min(1.0, mediator.get_unlocked_num_stations() / MAX_STATIONS),
+            min(1.0, self._count(mediator, "purchased_num_paths") / MAX_PATHS),
+            len(mediator.paths) / MAX_PATHS,
+            min(1.0, len(mediator.stations) / MAX_STATIONS),
+            1.0 if can_buy else 0.0,
+            self._unlock_proximity(
+                getattr(mediator, "path_unlock_milestones", ()) or (), deliveries
+            ),
+            self._unlock_proximity(
+                getattr(mediator, "station_unlock_milestones", ()) or (), deliveries
+            ),
+            self._scaled(self._decision, 5000.0),
+        ]
 
     def _observe(self) -> np.ndarray:
         mediator = self._mediator
@@ -104,7 +235,7 @@ class SemanticMetroEnv(gym.Env):
                 for passenger in station.passengers:
                     slot_index = self._shape_slot(passenger.destination_shape)
                     values[cursor + 3 + SHAPE_SLOTS + slot_index] += 0.1
-            cursor += 3 + SHAPE_SLOTS + SHAPE_SLOTS
+            cursor += STATION_FEATURES
 
         for slot in range(MAX_PATHS):
             if slot < len(mediator.paths):
@@ -113,14 +244,49 @@ class SemanticMetroEnv(gym.Env):
                 values[cursor + 1] = len(path.stations) / MAX_STATIONS
                 values[cursor + 2] = len(getattr(path, "metros", ())) / 4.0
                 values[cursor + 3] = min(1.0, len(path.stations) / 8.0)
-            cursor += 4
+            cursor += PATH_FEATURES
 
-        values[cursor] = len(mediator.stations) / MAX_STATIONS
-        values[cursor + 1] = len(mediator.paths) / MAX_PATHS
-        values[cursor + 2] = min(1.0, mediator.line_credits / 8.0)
-        values[cursor + 3] = min(1.0, self._decision / self.max_decisions)
-        values[cursor + 4] = min(1.0, mediator.deliveries / 50.0)
+        resources = self._resources(mediator)
+        values[cursor : cursor + len(resources)] = resources
         return np.clip(values, -1.0, 1.0)
+
+    def action_masks(self) -> np.ndarray:
+        """Exact legality for every enumerated action, recomputed from the game."""
+        mediator = self._mediator
+        assert mediator is not None
+        stations = len(mediator.stations)
+        paths = len(mediator.paths)
+        purchasable = mediator.get_next_path_button_idx_to_purchase()
+        can_buy = purchasable is not None and mediator.can_purchase_path_button_idx(
+            purchasable
+        )
+        can_connect = stations >= 2 and paths < mediator.get_unlocked_num_paths()
+
+        mask = np.zeros(len(ACTION_TABLE), dtype=bool)
+        for index, (kind, first, second) in enumerate(ACTION_TABLE):
+            if kind == ActionKind.WAIT:
+                mask[index] = True
+            elif kind == ActionKind.CONNECT:
+                mask[index] = can_connect and second < stations
+            elif kind == ActionKind.ASSIGN_LOCOMOTIVE:
+                mask[index] = first < paths and mediator.can_assign_locomotive(
+                    mediator.paths[first]
+                )
+            elif kind == ActionKind.ATTACH_CARRIAGE:
+                mask[index] = first < paths and mediator.can_attach_carriage(
+                    mediator.paths[first]
+                )
+            elif kind == ActionKind.PURCHASE_LINE:
+                mask[index] = can_buy
+            else:
+                if first >= paths or second >= stations:
+                    mask[index] = False
+                else:
+                    on_line = self._path_station_indices(
+                        mediator, mediator.paths[first]
+                    )
+                    mask[index] = second not in on_line
+        return mask
 
     def reset(self, *, seed: int | None = None, options=None):
         super().reset(seed=seed)
@@ -130,98 +296,30 @@ class SemanticMetroEnv(gym.Env):
         self._shape_index = {}
         return self._observe(), {}
 
-    def action_mask_components(self) -> list[np.ndarray]:
-        """Per-component legality, in the form sb3-contrib's MaskablePPO wants.
-
-        Limiting the decision space is the whole point of this lane. Station
-        slots run to twenty while a young game has three, so an unmasked
-        sampler spends almost every CONNECT on an index that does not exist,
-        and a fifth of its actions removing the lines it just built.
-        """
-
+    def _apply(self, index: int) -> bool:
         mediator = self._mediator
         assert mediator is not None
-        stations = len(mediator.stations)
-        paths = len(mediator.paths)
-
-        kinds = np.zeros(len(SemanticAction), dtype=bool)
-        kinds[SemanticAction.WAIT] = True
-        kinds[SemanticAction.CONNECT] = stations >= 2 and paths < MAX_PATHS
-        assignable = any(mediator.can_assign_locomotive(p) for p in mediator.paths)
-        attachable = any(mediator.can_attach_carriage(p) for p in mediator.paths)
-        kinds[SemanticAction.ASSIGN_LOCOMOTIVE] = assignable
-        kinds[SemanticAction.ATTACH_CARRIAGE] = attachable
-        # Removing a line is legal but never useful to an exploring policy, so
-        # it is masked out rather than left to undo progress at random.
-        kinds[SemanticAction.REMOVE_LINE] = False
-
-        # Per-component masks cannot express conditional legality: this vector
-        # is chosen without knowing which kind will be sampled alongside it, so
-        # a combination can still be refused. Narrowing it to indices that are
-        # useful under *some* enabled kind keeps that rare; making it exact
-        # needs a flattened Discrete over enumerated actions.
-        first = np.zeros(MAX_STATIONS, dtype=bool)
-        usable_paths = [
-            index
-            for index, path in enumerate(mediator.paths)
-            if mediator.can_assign_locomotive(path)
-            or mediator.can_attach_carriage(path)
-        ]
-        if kinds[SemanticAction.CONNECT]:
-            first[:stations] = True
-        for index in usable_paths:
-            first[index] = True
-        if not first.any():
-            first[0] = True
-        second = np.zeros(MAX_STATIONS, dtype=bool)
-        second[: max(1, stations)] = True
-        return [kinds, first, second]
-
-    def action_masks(self) -> np.ndarray:
-        """Flat mask over concatenated MultiDiscrete components.
-
-        sb3-contrib expects one boolean vector of length sum(nvec); a list
-        of per-component arrays has inhomogeneous shape and fails to stack.
-        """
-
-        return np.concatenate(self.action_mask_components())
-
-    def _apply(self, action: np.ndarray) -> bool:
-        """Carry out one intent, reporting whether it was legal and took effect."""
-        mediator = self._mediator
-        assert mediator is not None
-        kind = SemanticAction(int(action[0]) % len(SemanticAction))
-        first, second = int(action[1]), int(action[2])
-
-        if kind is SemanticAction.WAIT:
+        kind, first, second = ACTION_TABLE[int(index)]
+        if kind == ActionKind.WAIT:
             return True
-        if kind is SemanticAction.CONNECT:
-            count = len(mediator.stations)
-            if first >= count or second >= count or first == second:
-                return False
-            if len(mediator.paths) >= MAX_PATHS:
-                return False
+        if kind == ActionKind.CONNECT:
             return (
                 mediator.create_path_from_station_indices([first, second]) is not None
             )
-        if kind in (SemanticAction.ASSIGN_LOCOMOTIVE, SemanticAction.ATTACH_CARRIAGE):
-            if first >= len(mediator.paths):
-                return False
-            path = mediator.paths[first]
-            if kind is SemanticAction.ASSIGN_LOCOMOTIVE:
-                return mediator.can_assign_locomotive(
-                    path
-                ) and mediator.assign_locomotive(path)
-            return mediator.can_attach_carriage(path) and mediator.attach_carriage(path)
-        if first >= len(mediator.paths):
-            return False
-        return mediator.remove_path_by_index(first)
+        if kind == ActionKind.ASSIGN_LOCOMOTIVE:
+            return mediator.assign_locomotive(mediator.paths[first])
+        if kind == ActionKind.ATTACH_CARRIAGE:
+            return mediator.attach_carriage(mediator.paths[first])
+        if kind == ActionKind.PURCHASE_LINE:
+            return mediator.try_purchase_path_button_by_index()
+        route = self._path_station_indices(mediator, mediator.paths[first])
+        return mediator.replace_path_by_index(first, route + [second])
 
     def step(self, action):
         mediator = self._mediator
         if mediator is None:
             raise RuntimeError("environment must be reset before use")
-        applied = self._apply(np.asarray(action, dtype=np.int64))
+        applied = self._apply(int(np.asarray(action).ravel()[0]))
         for _ in range(TICKS_PER_DECISION):
             mediator.increment_time(16)
         self._decision += 1
