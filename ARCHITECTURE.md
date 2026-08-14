@@ -10,6 +10,7 @@ python_mini_metro/
 |  |- devlog/
 |  |  |- summary.md
 |  |  |- detailed/
+|  |- rl-experiments.md
 |  |- rl-model-selection.md
 |  \- threads/
 |     |- README.md
