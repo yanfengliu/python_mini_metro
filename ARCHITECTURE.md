@@ -24,6 +24,7 @@ python_mini_metro/
 |        \- rl-framework/
 |- scripts/
 |  |- ablate_pointer_head.py
+|  |- bc_spatial.py
 |  |- evaluate_policy.py
 |  |- evaluate_rl.py
 |  |- fixtures/
