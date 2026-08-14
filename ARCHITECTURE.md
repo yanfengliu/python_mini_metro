@@ -23,6 +23,8 @@ python_mini_metro/
 |        |- rendering/
 |        \- rl-framework/
 |- scripts/
+|  |- ablate_pointer_head.py
+|  |- evaluate_policy.py
 |  |- evaluate_rl.py
 |  |- fixtures/
 |  |  |- checkpoint-v1.json
