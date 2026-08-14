@@ -32,7 +32,7 @@ os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 
 import torch  # noqa: E402
 import torch.nn.functional as F  # noqa: E402
-from gymnasium import spaces  # noqa: E402
+from pointer_nets import ARCHITECTURES  # noqa: E402
 from pretrain_bc import NOOP, base_env  # noqa: E402
 from torch import nn  # noqa: E402
 
@@ -268,6 +268,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--record", type=Path, help="write a GIF of the best episode")
     parser.add_argument(
+        "--arch",
+        choices=sorted(ARCHITECTURES),
+        default="unet",
+        help="strided keeps the Nature-DQN stack; unet preserves resolution",
+    )
+    parser.add_argument(
         "--pointer-depth",
         type=int,
         default=6,
@@ -290,9 +296,17 @@ def main(argv: list[str] | None = None) -> int:
             f"({observations.nbytes / 2**20:.0f} MiB)"
         )
 
-        space = spaces.Box(low=0, high=255, shape=observations.shape[1:], dtype="uint8")
-        model = ConditionalSpatialPolicy(
-            space, profile.width, profile.height, pointer_depth=args.pointer_depth
+        channels = observations.shape[1]
+        factory = ARCHITECTURES[args.arch]
+        model = (
+            factory(
+                channels,
+                profile.width,
+                profile.height,
+                depth=args.pointer_depth,
+            )
+            if args.arch == "strided"
+            else factory(channels, profile.width, profile.height)
         )
         print(f"policy parameters: {sum(p.numel() for p in model.parameters()):,}\n")
         train(

@@ -46,6 +46,7 @@ python_mini_metro/
 |  |- input_coordinator_differential_input.py
 |  |- input_coordinator_differential_support.py
 |  |- passenger_flow_differential_support.py
+|  |- pointer_nets.py
 |  |- pretrain_bc.py
 |  |- profile_rl_history.py
 |  |- profile_rl_history_worker.py
