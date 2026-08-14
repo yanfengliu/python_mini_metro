@@ -1,3 +1,7 @@
+## 2026-08-13
+
+- Deleted the pre-commit gate outright — the installed hook, `.pre-commit-config.yaml`, and all eight `PRE_COMMIT_HOME` stores. It re-ran the same ruff at the same version the direct gate already runs (both `0.15.12`), no CI job ever invoked it, and its `--fix --exit-non-zero-on-fix` hook rewrote files mid-commit — a footgun that had cost its own Invariants bullet. Replaced by a Gates rule that writes formatting in at the end of each validated unit (`ruff format` then `ruff check --fix`) and re-runs the suite if either edits. Two stores purged clean; twelve Codex-sandbox-owned clone directories under six roots resist deletion and need an elevated `takeown`. Detail in [detailed/2026-08-13_2026-08-13.md](detailed/2026-08-13_2026-08-13.md).
+
 ## 2026-08-07
 
 - Retired the `## Known traps` section from `AGENTS.md`, which `../fleet/FLEET.md` no longer lists. The `pre-commit run` mutation warning became an Invariants bullet beside the other commit-hygiene rules; the civ-engine lock/transaction/partial-pin recovery procedure was deleted as a strict subset of the `README.md` Installation section that owns it, clause for clause and without the exact PowerShell commands. Note for anyone following a citation: the `docs/threads/` REVIEW records that say "per the AGENTS.md known-traps procedure" now point at a heading that is gone — the procedure they mean is the README one.

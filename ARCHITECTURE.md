@@ -352,7 +352,6 @@ python_mini_metro/
 |  |- test_station.py
 |  \- test_viewport.py
 |- .gitignore
-|- .pre-commit-config.yaml
 |- AGENTS.md
 |- ARCHITECTURE.md
 |- CLAUDE.md
