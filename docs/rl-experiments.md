@@ -370,6 +370,47 @@ objective, not a single rung. Each rung must be reachable from the one below it.
 
 ---
 
+## E17 — Was it exploring? Entropy and action frequencies of the shaped run
+
+**Question:** did the agent explore the action space at all, or collapse early?
+
+**Measured**, from the 300,000-step shaped run (`train/entropy_loss` is negative
+entropy; maximum for `MultiDiscrete([8,192,108])` is 12.02 nats):
+
+| | start | end |
+| --- | --- | --- |
+| entropy | 12.016 | **10.603** |
+
+Still **88% of maximum entropy** after 300k steps. But the aggregate hides the
+structure. Sampling 1,500 actions from the final checkpoint:
+
+| kind | frequency | uniform |
+| --- | --- | --- |
+| **down** | **63.5%** | 12.5% |
+| motion | 4.6% | 12.5% |
+| up | 2.9% | 12.5% |
+| others | 4.6-6.7% each | 12.5% |
+
+x coordinate spread: std **48.7** against a uniform 55.4.
+
+**Verdict:** exploration collapsed on precisely the dimension the reward
+addressed and stayed random on the dimensions it did not. Proximity credit is
+paid only on pointer-**down**, and pointer-down is enriched 5x. Coordinates are
+still near-uniform — and they hold 9.94 of the 10.60 remaining nats, which is
+why aggregate entropy looks high while the policy is in fact committed on kind.
+
+**The damaging part:** motion (4.6%) and up (2.9%) were driven *below* uniform.
+PPO correctly inferred they were worth less than pointer-down, so the shaping
+actively taught the agent to stop performing the two actions a drag requires. A
+reward that pays for one step of a sequence does not merely fail to teach the
+sequence, it suppresses the rest of it.
+
+**Implication for the ladder E16 called for:** rungs must cover the whole
+gesture, not its first step — credit for a drag in progress, and a larger credit
+for a pointer-up that lands on a *different* station and completes one.
+
+---
+
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not
