@@ -62,6 +62,8 @@ from rl.training import (  # noqa: E402
     task_spec_from_manifest,
 )
 
+NEWLINE = chr(10)
+
 
 def _positive_int(value: str) -> int:
     parsed = int(value)
@@ -480,11 +482,49 @@ def run(args: argparse.Namespace) -> Path:
     return manifest_path
 
 
+def require_usable_device(requested: str, *, cuda_available: bool) -> str:
+    """Resolve --device, refusing to quietly fall back to CPU.
+
+    A Windows RL install resolves a CPU-only torch unless the CUDA overlay is
+    applied, and the failure is invisible: training runs, the logs look
+    healthy, and it is roughly 100x slower. "auto" means "give me the
+    accelerator", so it is an error when there is none. An explicit "cpu" is a
+    stated intent and is always honoured.
+    """
+
+    if requested == "cpu":
+        return "cpu"
+    if requested in ("auto", "cuda") and not cuda_available:
+        raise SystemExit(
+            NEWLINE.join(
+                (
+                    f"--device {requested} requires CUDA, but torch reports no "
+                    "CUDA device.",
+                    "On Windows the default torch wheel from PyPI is CPU-only; "
+                    "the CUDA build installs separately:",
+                    "    python -m pip install -r "
+                    "requirements-rl-cuda-locked.txt --no-deps",
+                    "To train on CPU deliberately instead, pass --device cpu.",
+                )
+            )
+        )
+    if requested == "auto":
+        return "cuda"
+    return requested
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.resume_manifest is not None and args.resume is None:
         parser.error("--resume-manifest requires --resume")
+    # Resolve the device before any long-running work, so a CPU-only install
+    # fails in the first second rather than after hours at 1/100th the speed.
+    import torch
+
+    args.device = require_usable_device(
+        args.device, cuda_available=torch.cuda.is_available()
+    )
     try:
         manifest_path = run(args)
     except (RuntimeError, ValueError, OSError) as error:
