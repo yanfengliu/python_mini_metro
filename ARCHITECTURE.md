@@ -69,6 +69,7 @@ python_mini_metro/
 |  |- source-provenance-engine.mjs
 |  |- source-provenance-git-safety.mjs
 |  |- source-provenance.mjs
+|  |- record_playthrough.py
 |  |- train_rl.py
 |  |- verify_input_coordinator_differential.py
 |  |- verify_passenger_flow_differential.py
@@ -321,6 +322,7 @@ python_mini_metro/
 |  |- test_player_env.py
 |  |- test_path_handles.py
 |  |- test_path_redraw.py
+|  |- test_record_playthrough.py
 |  |- test_recursive_checkpoint.py
 |  |- test_recursive_oracles.py
 |  |- test_recursive_playtest.py

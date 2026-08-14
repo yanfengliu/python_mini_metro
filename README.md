@@ -20,6 +20,17 @@ python -m pip install -r requirements-rl-locked.txt
 ```
 
 Both lockfiles are universal Python 3.13 resolutions with hashes and platform markers; pip selects the matching Linux or Windows wheels while preserving the same reviewed dependency graph.
+### Watching a playthrough
+
+`scripts/record_playthrough.py` records a game as an animated GIF whose frames are the exact observation tensor the policy receives, so the recording shows what the agent sees rather than a privileged view:
+
+```powershell
+python scripts/record_playthrough.py --policy demonstrator --output output/rec/demo.gif
+python scripts/record_playthrough.py --policy model --model output/run1/best_model.zip --output output/rec/agent.gif
+```
+
+`--policy` accepts `random`, `noop`, `demonstrator`, or `model`. It prints a summary with lifetime deliveries, decisions taken, and how the episode ended. Reference points on the Classic map: random play delivers 0 and reaches game over in 364 decisions, and the built-in demonstrator delivers 20 in 958.
+
 ### Training on an NVIDIA GPU
 
 On Windows those lockfiles resolve to a **CPU-only** PyTorch: every `nvidia-*` wheel they pin carries a `sys_platform == 'linux'` marker, so a Windows install silently gets `torch==2.13.0` without CUDA and training never touches the GPU. Check before committing to a long run:
