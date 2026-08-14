@@ -145,6 +145,11 @@ def cell_key(env: PlayerPixelEnv) -> tuple:
         snapshot.deliveries,
         snapshot.simulation_time_ms // TIME_BUCKET_MS,
         held,
+        # Fleet size belongs in the key for the same reason the pointer does. A
+        # line with no locomotive carries nobody, so without this the archive
+        # gives assigning one no selection pressure at all -- 12,000 iterations
+        # found 7 lines and zero deliveries.
+        len(getattr(env._require_mediator(), "metros", ())),
     )
 
 
@@ -239,6 +244,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "best_deliveries": best,
         "cells_with_a_delivery": len(delivering),
         "cells_with_a_line": len([k for k in archive if k[1]]),
+        "cells_with_a_locomotive": len([k for k in archive if k[5]]),
+        "cells_with_line_and_locomotive": len([k for k in archive if k[1] and k[5]]),
     }
 
 

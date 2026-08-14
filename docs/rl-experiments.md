@@ -461,6 +461,45 @@ whole difficulty.
 
 ---
 
+## E19 — Go-Explore with the budget it needed: the first teacher-free lines
+
+**Measured**, 12,000 then 15,000 iterations x 10 random steps:
+
+| | 800 iters | 12,000 | 15,000 (fleet in key) |
+| --- | --- | --- | --- |
+| cells | 12 | 30 | 35 |
+| **usable lines created** | 0 | **7** | **10** |
+| locomotives assigned | — | — | **0** |
+| deliveries | 0 | 0 | 0 |
+
+**Verdict:** CONFIRMED for the first rung, and this is the headline result of the
+teacher-free work. **Go-Explore draws lines with no teacher** — in 40-60
+decisions — which nothing else here has done: random play never does it (0 across
+48 episodes), and PPO never does it (0 across 3M steps and two shaped runs).
+Verified through an independent code path, `count_connected_stations` returning 2
+after restoring an archived cell.
+
+Deliveries stay at zero for a structural reason, and adding fleet size to the
+cell key found the wall rather than climbing it: **no locomotive was ever
+assigned**. A line with no locomotive carries nobody, and assigning one means
+clicking a small "+" control that exists only in states that already have a
+line. It is the same targeting problem one rung up.
+
+**What the whole teacher-free arc establishes:** every rung of this game is a
+precise click on a small target — a station covers ~0.14% of the coordinate
+grid, a fleet control less. Random exploration clears each rung with probability
+in the 0.1-0.4% range, Go-Explore compounds rungs but pays ~1,000 trials each,
+and shaped PPO banks whichever rung it can reach and stops. The difficulty is not
+strategy, credit assignment, or horizon. It is **targeting precision**, and it
+recurs identically at every level of the interaction.
+
+That is the strongest argument yet for the render change, and it reframes it:
+enlarging stations and controls is not cosmetic and not only a perception fix —
+it raises the hit probability of every rung simultaneously, which is the single
+intervention that helps random exploration, shaped RL, and Go-Explore at once.
+
+---
+
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not
@@ -475,7 +514,12 @@ whole difficulty.
 5. **Cloning cannot exceed its teacher.** The scripted expert averages ~19, so
    that is the ceiling of every BC result here. Beating it requires a better
    teacher or genuine RL fine-tuning.
-6. **A bootstrap signal must form a ladder, not a single rung.** Shaping
+6. **The difficulty is targeting precision, at every rung.** Stations cover
+   ~0.14% of the coordinate grid and fleet controls less; random exploration
+   clears any given rung with probability 0.1-0.4%. Go-Explore compounds rungs
+   and reached lines, then stalled on the locomotive control. Enlarging the
+   render targets is therefore the one change that helps every method at once.
+7. **A bootstrap signal must form a ladder, not a single rung.** Shaping
    proximity moved reward off zero for the first time, and the agent then banked
    exactly the budget and stopped: true deliveries stayed at 0.00 through
    300,000 steps. Every rung has to be reachable from the one below it.
