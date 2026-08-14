@@ -1,8 +1,15 @@
 # Opt-in CUDA overlay for local GPU training. CI does not install this file.
 #
-# requirements-rl-locked.txt resolves to a CPU-only torch on Windows: its
-# nvidia-* wheels all carry `sys_platform == 'linux'` markers, so a Windows
-# install silently gets `torch==2.13.0` (CPU) and never sees the GPU.
+# requirements-rl-locked.txt resolves to a CPU-only torch on Windows, because it
+# pins a bare `torch==2.13.0` with no index: PyPI's Windows torch wheel is the
+# CPU build, and CUDA builds for Windows exist only on download.pytorch.org.
+#
+# The `sys_platform == 'linux'` markers on the nvidia-* wheels are NOT the cause
+# and are not a misdetection -- they are correct guards that Windows rightly
+# evaluates as false. On Linux, PyPI's torch is CUDA-enabled and pulls those
+# packages as dependencies, which is why a universal lockfile lists them at all.
+# On Windows the CUDA runtime ships inside the torch wheel as bundled DLLs, so
+# no nvidia-* package is installed even when CUDA is working.
 #
 # Apply this AFTER requirements-rl-locked.txt, and only with --no-deps: the
 # PyTorch index mirrors older copies of shared transitive dependencies, and a
