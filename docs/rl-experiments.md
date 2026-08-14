@@ -263,6 +263,40 @@ like, and it matters because PPO samples its actions.
 
 ---
 
+## E13 — Raising the information ceiling under a resolution-preserving encoder
+
+**Hypothesis:** E2 showed extra input resolution was wasted because the encoder
+averaged it away, and E12 replaced that encoder. A resolution-preserving network
+should now convert extra pixels into score, where the strided one could not.
+
+**Measured**, U-Net at the fidelity profile (320x180) against the same U-Net at
+fast (192x108), 12 held-out episodes:
+
+| lane | pointer loss | deterministic | stochastic |
+| --- | --- | --- | --- |
+| U-Net @ fast 192x108 | 0.656 | 3.75 (max 17) | 3.83 |
+| **U-Net @ fidelity 320x180** | **0.467** | **17.33 (max 21)** | 16.08 (max 22) |
+
+Per-episode deterministic: 21, 14, 18, 21, 21, 20, 18, 13, 20, 19, 3, 20. All
+twelve ended in game over; **none hit the 4000-decision horizon**, so no total is
+right-censored.
+
+**Verdict:** CONFIRMED, and the largest single jump measured — 3.75 to 17.33,
+against a scripted teacher averaging ~19-20. Ten of twelve episodes score 18 or
+better. This is the other half of E11: render sets the information ceiling and
+architecture decides how much survives, and only fixing both converts pixels into
+deliveries.
+
+**Caveats, stated because the protocol in `rl-model-selection.md` demands them.**
+This is **one seed and 12 episodes**, against a pre-registered standard of five
+seeds and 20 episodes with run-level statistics — so the number is a strong
+signal, not a settled effect size. The fidelity arm also used batch size 64
+against 96 for the fast arms, to fit memory, so it differs in **two** variables
+rather than one; the resolution comparison is confounded to that extent. And the
+policy is cloned, non-recurrent, and cannot in principle exceed its teacher.
+
+---
+
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not
