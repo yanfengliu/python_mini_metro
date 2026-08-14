@@ -158,6 +158,7 @@ python_mini_metro/
 |  |  |- polygon.py
 |  |  |- rect.py
 |  |  |- shape.py
+|  |  |- shaping.py
 |  |  |- star.py
 |  |  |- triangle.py
 |  |  |- type.py
@@ -359,6 +360,7 @@ python_mini_metro/
 |  |- test_route_planner_queries.py
 |  |- test_route_planner_resolution_order.py
 |  |- test_route_planner_selection.py
+|  |- test_shaped_reward.py
 |  |- test_simulation_context.py
 |  |- test_station.py
 |  \- test_viewport.py
