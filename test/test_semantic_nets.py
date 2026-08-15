@@ -65,10 +65,10 @@ class PointerHeadTest(unittest.TestCase):
             latent, _ = policy.mlp_extractor(features)
             return policy._action_logits(latent)[0]
 
-    def _mid_game_observation(self):
+    def _mid_game_observation(self, seed: int = 0):
         env = SemanticMetroEnv()
-        observation, _ = env.reset(seed=0)
-        rng = np.random.default_rng(0)
+        observation, _ = env.reset(seed=seed)
+        rng = np.random.default_rng(seed)
         for _ in range(200):
             observation, _, terminated, truncated, _ = env.step(
                 int(rng.choice(np.flatnonzero(env.action_masks())))
@@ -79,34 +79,46 @@ class PointerHeadTest(unittest.TestCase):
         return observation
 
     def test_changing_a_station_moves_only_the_actions_that_name_it(self):
-        observation = self._mid_game_observation()
-        target = 2
-        base = self._logits(observation)
+        """Averaged over several states, because one state is not the property.
 
-        perturbed = observation.copy()
-        block = slice(target * STATION_FEATURES, (target + 1) * STATION_FEATURES)
-        perturbed[block] += 0.5
-        moved = (self._logits(perturbed) - base).abs()
+        An earlier version asserted a ratio above 10 from a single measurement
+        that happened to read 236. Across random initialisations the ratio
+        actually spans 3.1 to 21.5, so that threshold failed roughly half the
+        time -- a flaky gate on a real property. What the mechanism guarantees
+        is that the ratio is well above 1 (a flat head scores exactly 1); the
+        magnitude is an artefact of the untrained weights.
+        """
 
-        naming = [
-            index
-            for index, (kind, first, second) in enumerate(ACTION_TABLE)
-            if kind in NAMING_KINDS and target in (first, second)
-        ]
-        unrelated = [
-            index
-            for index, (kind, first, second) in enumerate(ACTION_TABLE)
-            if kind in NAMING_KINDS and target not in (first, second)
-        ]
+        ratios = []
+        for offset in range(4):
+            observation = self._mid_game_observation(seed=offset)
+            target = 2
+            base = self._logits(observation)
+            perturbed = observation.copy()
+            block = slice(target * STATION_FEATURES, (target + 1) * STATION_FEATURES)
+            perturbed[block] += 0.5
+            moved = (self._logits(perturbed) - base).abs()
+            naming = [
+                index
+                for index, (kind, first, second) in enumerate(ACTION_TABLE)
+                if kind in NAMING_KINDS and target in (first, second)
+            ]
+            unrelated = [
+                index
+                for index, (kind, first, second) in enumerate(ACTION_TABLE)
+                if kind in NAMING_KINDS and target not in (first, second)
+            ]
+            ratios.append(
+                float(moved[naming].mean()) / max(float(moved[unrelated].mean()), 1e-12)
+            )
 
-        naming_shift = float(moved[naming].mean())
-        other_shift = float(moved[unrelated].mean())
+        mean_ratio = sum(ratios) / len(ratios)
         self.assertGreater(
-            naming_shift,
-            other_shift * 10,
-            f"actions naming station {target} moved {naming_shift:.5f} against "
-            f"{other_shift:.5f} for the rest; the head is not reading the entity "
-            "each action refers to and has degraded to a flat categorical",
+            mean_ratio,
+            2.0,
+            f"actions naming a station moved only {mean_ratio:.1f}x more than "
+            f"unrelated ones (per-state {[round(r, 1) for r in ratios]}); a flat "
+            "head scores 1.0, so the pointer has degraded to one",
         )
 
     def test_it_emits_one_logit_per_table_entry(self):
