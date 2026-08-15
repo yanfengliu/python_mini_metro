@@ -1193,6 +1193,68 @@ than a constant.
 
 ---
 
+## E34 -- search was picking lucky futures, not good actions
+
+Search rolls each candidate to the end of the episode and takes the best. Those
+rollouts are deterministic given the serialised state, and the serialised state
+*includes the RNG*. So each candidate is scored against exactly one future -- the
+one that will actually happen -- and search knows which passengers and stations
+are coming. The 574-float observation encodes none of that.
+
+The test holds the board fixed and varies only the RNG, at decision 0 of seed
+9000:
+
+| candidate | future 0 | future 1 | future 2 | future 3 | **mean** |
+| --- | --- | --- | --- | --- | --- |
+| `CONNECT(0,2)` *(the heuristic's pick)* | **291** | **292** | 274 | 285 | 285.5 |
+| `CONNECT(0,1)` | 266 | 287 | **328** | **302** | **295.8** |
+| `CONNECT(1,2)` | 275 | 275 | 289 | 275 | 278.5 |
+
+**The best action changes with the future -- 2 of 4 each way.** And the headline
+number from E29 does not survive. Measured against the one real future,
+`CONNECT(0,2)` scored 275 and `CONNECT(0,1)` scored 380, a gap of 105 that was
+the entire basis for "the teacher is ~40% below its own action space". **In
+expectation the gap is about 10.** The other ~95 was luck.
+
+**This is the winner's curse, and it was designed in.** A single rollout is a
+one-sample estimate of a candidate's value. Taking the max over noisy one-sample
+estimates selects for the candidate with the luckiest sample, not the best action,
+and the selected estimate is biased upward. The numbers show the noise is the
+same size as the signal: within any one future the candidates differ by 17-54
+deliveries, while one *fixed* candidate varies by up to 62 across futures
+(`CONNECT(0,1)`: 266 to 328).
+
+**The error of principle.** Monte Carlo rollout in a stochastic environment
+averages each candidate over sampled futures. What is implemented here is the
+K=1 case, which is only correct when the environment is deterministic. This game
+is not -- passenger and station spawns are random -- and the *simulator* being
+reproducible was mistaken for the *game* being deterministic. E30's determinism
+and fidelity checks were both correct and both irrelevant to this: they proved
+the rollout faithfully reproduces one future, and said nothing about whether one
+future is enough.
+
+**What it explains.** Three results that looked unrelated are one result.
+
+* Search's paired +58.32 over the heuristic is partly foreknowledge, not skill.
+  It genuinely delivers those passengers in that game, but no reactive policy can
+  reproduce it, because the information it used is not in the observation.
+* Distillation stalls at 52% held-out agreement (E31) because a fraction of the
+  labels are unlearnable by construction -- identical observations, different
+  correct answers.
+* The distilled policy scores 193.20, indistinguishable from cloning the
+  heuristic at 194.7 (E32), because once the luck is averaged out the learnable
+  part of search's policy is not far from the heuristic's.
+
+**Consequence.** The fix is the standard one: average each candidate over K
+independent futures, which estimates E[return | state, action]. That quantity is
+a function of the observation, so it is learnable in principle, and it removes
+the selection bias. It costs K times more rollouts, and it will almost certainly
+shrink search's margin over the heuristic -- the honest margin is the one worth
+having. The 90-episode generation run was stopped at 25 episodes; its labels
+carry this defect.
+
+---
+
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not
