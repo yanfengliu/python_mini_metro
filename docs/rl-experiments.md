@@ -971,6 +971,51 @@ rather than the heuristic's.
 
 ---
 
+## E30 -- search beats the heuristic on every seed, and by a lot
+
+Following E29's finding that the teacher was the ceiling, the question is
+whether choosing by rollout actually converts into score across whole episodes
+rather than at a single probed decision. Paired design: the same seed is played
+twice, once by search and once by the heuristic, so layout luck cancels.
+
+| seed | search | heuristic | gap | overrode | longest line |
+| --- | --- | --- | --- | --- | --- |
+| 9000 | **803** | 275 | **+528** | 9/32 | 11 |
+| 9001 | 318 | 253 | +65 | 15/27 | 8 |
+| 9002 | 265 | 174 | +91 | 8/19 | 8 |
+| 9003 | 276 | 217 | +59 | 7/18 | 8 |
+| 9004 | 393 | 391 | +2 | 6/22 | 8 |
+| 9005 | 468 | 279 | +189 | 8/21 | 9 |
+| 9006 | 474 | 425 | +49 | 10/24 | 9 |
+| 9007 | 266 | 221 | +45 | 6/17 | 7 |
+
+**search 407.88, heuristic 279.38, paired gap +128.50 +/-117.96, won 8/8.**
+
+**CONFIRMED.** This is the first method in this repository to beat the scripted
+heuristic, and it does so on every seed. The previous best of any kind was the
+heuristic's ~262-279; the best *learned* policy was 194.7 and the best evaluated
+policy 175.3, statistically tied with a control that builds one line and waits.
+
+Three things worth noting in the detail.
+
+**It overrides rarely.** Between 6 and 15 of roughly 17-32 search points, so most
+of the heuristic's choices are already right and a minority of decisions carry
+the entire 128-delivery gap. That is consistent with E28's observation that this
+game multiplies decisions rather than averaging them -- and it is why imitation
+metrics could look healthy at 77% agreement while the score did not move.
+
+**It builds bigger networks.** Longest line rises from the heuristic's typical
+7-8 stations to 8-11. Search finds that committing further to one line pays,
+which is exactly the kind of long-horizon consequence a 150-step lookahead was
+blind to and a myopic scripted rule cannot represent.
+
+**The variance is enormous.** The +/-117.96 interval is wide because seed 9000
+gained +528 while seed 9004 gained +2. The lower bound is still positive, but the
+honest statement is that search wins consistently and by a wildly seed-dependent
+amount, not that it reliably triples the score.
+
+---
+
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not
