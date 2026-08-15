@@ -78,7 +78,10 @@ def run(args) -> dict:
 
     def make(rank: int):
         def thunk():
-            env = SemanticMetroEnv()
+            env = SemanticMetroEnv(
+                remove_min_age=args.remove_min_age,
+                remove_penalty=args.remove_penalty,
+            )
             env.reset(seed=args.seed + rank)
             return ActionMasker(env, lambda e: e.action_masks())
 
@@ -154,6 +157,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--n-steps", type=int, default=256)
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--normalize-returns", action="store_true")
+    parser.add_argument("--remove-min-age", type=int, default=0)
+    parser.add_argument("--remove-penalty", type=float, default=0.0)
     args = parser.parse_args(argv)
 
     result = run(args)

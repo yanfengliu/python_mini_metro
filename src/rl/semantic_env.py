@@ -145,10 +145,25 @@ class SemanticMetroEnv(gym.Env):
     metadata = {"render_modes": []}
 
     def __init__(
-        self, *, max_decisions: int = DEFAULT_MAX_DECISIONS, seed: int | None = None
+        self,
+        *,
+        max_decisions: int = DEFAULT_MAX_DECISIONS,
+        seed: int | None = None,
+        remove_min_age: int = 0,
+        remove_penalty: float = 0.0,
     ):
         super().__init__()
         self.max_decisions = int(max_decisions)
+        # Removing a line is individually free: from identical states the next
+        # 800 decisions return 18.3 when a line is kept and 18.7 when it is
+        # destroyed. An action with no cost is never pushed away from, so the
+        # policy drifts onto it -- the collapsed run chose REMOVE as argmax in
+        # 73% of states while it was 17% of the legal set -- and once no line
+        # survives, every return is 0 and the gradient vanishes. These two
+        # knobs are the candidate interventions against that trap.
+        self.remove_min_age = int(remove_min_age)
+        self.remove_penalty = float(remove_penalty)
+        self._line_born: dict[int, int] = {}
         self._mediator: Mediator | None = None
         self._decision = 0
         self._last_deliveries = 0
@@ -179,6 +194,13 @@ class SemanticMetroEnv(gym.Env):
         name = getattr(shape, "type", shape)
         name = getattr(name, "name", str(name))
         return SHAPE_ORDER.get(name, SHAPE_SLOTS - 1)
+
+    def _line_age(self, mediator, index: int) -> int:
+        """Decisions since this line was created."""
+        if index >= len(mediator.paths):
+            return 0
+        born = self._line_born.get(id(mediator.paths[index]))
+        return self._decision if born is None else self._decision - born
 
     @staticmethod
     def _path_station_indices(mediator, path) -> list[int]:
@@ -364,7 +386,13 @@ class SemanticMetroEnv(gym.Env):
             elif kind == ActionKind.PURCHASE_LINE:
                 mask[index] = can_buy
             elif kind == ActionKind.REMOVE_LINE:
-                mask[index] = first < paths
+                # A line may only be redrawn once it has existed a while. The
+                # collapsed policy ran a remove-then-rebuild loop; an age gate
+                # breaks that directly while leaving genuine redraw available.
+                mask[index] = (
+                    first < paths
+                    and self._line_age(mediator, first) >= self.remove_min_age
+                )
             else:
                 if first >= paths or second >= stations:
                     mask[index] = False
@@ -392,6 +420,7 @@ class SemanticMetroEnv(gym.Env):
         self._seed = seed
         self._decision = 0
         self._last_deliveries = 0
+        self._line_born = {}
         return self._observe(), {}
 
     def _apply(self, index: int) -> bool:
@@ -421,13 +450,23 @@ class SemanticMetroEnv(gym.Env):
         mediator = self._mediator
         if mediator is None:
             raise RuntimeError("environment must be reset before use")
-        applied = self._apply(int(np.asarray(action).ravel()[0]))
+        chosen = int(np.asarray(action).ravel()[0])
+        kind = ACTION_TABLE[chosen][0]
+        applied = self._apply(chosen)
         for _ in range(TICKS_PER_DECISION):
             mediator.increment_time(16)
         self._decision += 1
+        # Record when each line came into being, so the age gate has something
+        # to measure. Keyed by object identity because indices shift on removal.
+        for path in mediator.paths:
+            self._line_born.setdefault(id(path), self._decision)
 
         deliveries = mediator.deliveries
         reward = float(deliveries - self._last_deliveries)
+        if applied and kind == ActionKind.REMOVE_LINE:
+            # Destroying a line is otherwise free -- measured at 18.7 against
+            # 18.3 for keeping it -- so nothing opposes drifting onto it.
+            reward -= self.remove_penalty
         self._last_deliveries = deliveries
         terminated = bool(mediator.is_game_over)
         truncated = self._decision >= self.max_decisions and not terminated
