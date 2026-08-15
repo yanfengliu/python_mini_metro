@@ -101,6 +101,11 @@ def run(args) -> dict:
         seed=args.seed,
         device=args.device,
         n_steps=args.n_steps,
+        # SB3 defaults to 10 epochs; this repo's own reviewed PPO_DEFAULTS uses 4.
+        # arXiv 2405.00662 measures that more epochs accelerates the rise in
+        # pre-activation norm and the fall in feature rank that precede collapse,
+        # and swept only 4/6/8 -- the semantic lane has been running above all of it.
+        n_epochs=args.n_epochs,
         batch_size=args.batch_size,
         learning_rate=schedule,
         ent_coef=args.ent_coef,
@@ -155,6 +160,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-grad-norm", type=float, default=0.5)
     parser.add_argument("--target-kl", type=float, default=None)
     parser.add_argument("--n-steps", type=int, default=256)
+    parser.add_argument("--n-epochs", type=int, default=10)
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--normalize-returns", action="store_true")
     parser.add_argument("--remove-min-age", type=int, default=0)

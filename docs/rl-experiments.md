@@ -14,7 +14,9 @@ Reference points on Classic, used throughout:
 | --- | --- |
 | random | 0 (game over in 364 decisions) |
 | scripted expert | ~19-20 |
-| trained agent (semantic lane) | **190.8 mean / max 383** |
+| scripted heuristic (no learning) | **277.2 mean** |
+| random legal play, REMOVE excluded | 178.2 mean |
+| trained agent (semantic lane) | 190.8 mean -- **below the script** |
 
 There is no win condition. `GAME_RULES.md` defines only game over, so the
 objective is lifetime passengers delivered before the system is overwhelmed.
@@ -675,6 +677,62 @@ So the success criterion is reachable and close: reach the capacity wall
 reliably, rather than die early to a mistake. The open question is whether the
 wall sits at ~200 deliveries for every policy, or whether better routing pushes
 it further -- which is exactly what a non-collapsing training run would answer.
+
+---
+
+## E24 — Adversarial review: the headline result was below a 30-line script
+
+An adversarial reviewer was asked to refute E21's claims and did. All numbers on
+E21's own held-out seed set (base 9000), 20 episodes.
+
+| policy | mean | median | max |
+| --- | --- | --- | --- |
+| **scripted heuristic, ~15 actions/episode, no learning** | **277.15** | 277.5 | 410 |
+| trained agent (E21, stochastic) | 190.80 | 179.5 | 383 |
+| **random legal play, REMOVE_LINE excluded** | **178.2** | 189.5 | 257 |
+| build one 2-station line then wait forever | 5.6 | 6.5 | 9 |
+| random legal play (the published baseline) | 0.0 | 0 | 0 |
+
+**Verdict: SUPERSEDED. E21's three claims do not survive.**
+
+**"The first policy that plays the game" is false.** A script that buys a line
+slot, connects nearest unserved stations, crews each line and otherwise waits
+beats the agent on **17 of 20 seeds** and outlives it (10,614 decisions against
+~6,000-7,000). The agent is not merely coasting -- freezing it into WAIT after N
+decisions costs most of its score (N=200 -> 19.6, N=1000 -> 54.0, unfrozen ->
+201.4), so its decisions carry ~73% of its result. The accurate charge is that
+its active play is **worse than a fixed rule**.
+
+**"Random legal play scores 0, so any positive score is learning" is false.**
+Delete one action kind from random sampling -- REMOVE_LINE -- and the identical
+uniform policy scores **178.2**, reproducing **93%** of the agent's headline.
+Random play fires REMOVE 68-87 times per episode and terminates at exactly 417
+decisions on all 20 seeds, byte-identical to doing nothing. Its 0 is a
+no-op-equivalent outcome, not a difficulty measurement. The repo already
+contained the contradiction: `semantic_env.py` records random play at 180.8
+before REMOVE was un-masked. **Every "beats random" comparison after that commit
+is inflated.**
+
+**"Decision freedom was restored" is false.** In the trained policy's own state
+distribution (4 seeds, 23,286 states): median **2** legal actions, median **0**
+*constructive* ones, and **61%** of states offering nothing but WAIT and
+REMOVE. The agency gate reads a healthy 4 only because it samples *random*
+play's distribution, where constant self-destruction manufactures rebuild
+options. Un-masking REMOVE raised the counter by adding destructive entries.
+
+**The gate itself is weak.** `test_env_agency.py` stayed fully green under three
+environment-breaking mutations: horizon forced to 450 (re-censoring the very bug
+it cites), lines capped at 3 stations, and fleet assignment masked out entirely
+so no delivery is possible. And
+`test_a_degenerate_policy_cannot_outscore_real_play` **cannot fail** -- its
+baseline is random play scoring 0, so the bar is a hardcoded 1.0 floor, and the
+two policies it tests are guaranteed to score 0.
+
+**Fixed in this commit:** the age gate keyed by `id(path)` leaked on **71%** of
+fresh lines (CPython recycles addresses and `setdefault` kept the dead line's
+birth time); now keyed by `path.id`, pruned each step, and failing closed --
+measured 0%. And `train_semantic.py` printed the false random-baseline claim on
+every run.
 
 ---
 

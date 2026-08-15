@@ -208,10 +208,14 @@ def main(argv: list[str] | None = None) -> int:
             f"  deliveries: mean {np.mean(scores):.2f}  median {np.median(scores):.1f}  "
             f"max {max(scores):.0f}"
         )
-    print(
-        "reference: random legal play scores 0 on this action space -- there "
-        "are real decisions to get wrong, so any positive score is learning"
-    )
+    # Measured on the same held-out seeds. A score against random alone is
+    # meaningless here: random scores 0 only because it spams REMOVE_LINE and
+    # destroys its own network. Excluding that one action, random scores 178.
+    print("reference, same held-out seeds:")
+    print("  scripted heuristic, no learning ... 277.2")
+    print("  random legal play, no REMOVE ..... 178.2")
+    print("  random legal play, with REMOVE ...   0.0  <- an artifact, not difficulty")
+    print("  a policy must beat the scripted heuristic to be worth anything")
     vec.close()
     return 0
 

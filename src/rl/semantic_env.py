@@ -199,8 +199,10 @@ class SemanticMetroEnv(gym.Env):
         """Decisions since this line was created."""
         if index >= len(mediator.paths):
             return 0
-        born = self._line_born.get(id(mediator.paths[index]))
-        return self._decision if born is None else self._decision - born
+        born = self._line_born.get(mediator.paths[index].id)
+        # An unrecorded line is NEWBORN, not maximally old. The previous default
+        # failed open in the same direction as the id-recycling bug.
+        return 0 if born is None else self._decision - born
 
     @staticmethod
     def _path_station_indices(mediator, path) -> list[int]:
@@ -458,8 +460,18 @@ class SemanticMetroEnv(gym.Env):
         self._decision += 1
         # Record when each line came into being, so the age gate has something
         # to measure. Keyed by object identity because indices shift on removal.
+        # Keyed by path.id (a unique string), NOT id(path): CPython recycles
+        # freed addresses, and setdefault then refuses to overwrite the dead
+        # line's birth time, so a brand-new line inherits it and reports a large
+        # age. Measured: 71% of fresh lines were immediately removable, and the
+        # leak was worst on exactly the remove-then-rebuild loop the gate exists
+        # to break. Pruned each step so it cannot grow without bound.
+        live = {path.id for path in mediator.paths}
+        self._line_born = {
+            key: born for key, born in self._line_born.items() if key in live
+        }
         for path in mediator.paths:
-            self._line_born.setdefault(id(path), self._decision)
+            self._line_born.setdefault(path.id, self._decision)
 
         deliveries = mediator.deliveries
         reward = float(deliveries - self._last_deliveries)
