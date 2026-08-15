@@ -825,6 +825,21 @@ available, it just has to outweigh the divergence it costs.
 The mechanism was verified before being trusted -- over 2048 steps, KL to the
 reference grows 0.0110 unanchored against 0.0078 at coefficient 1.0.
 
+**Completed run (700k steps).** The early monotonic climb did not continue. Full
+eval history: 155, 167, 186, 175, 144, 178, 194, 152, 192, 105, 151, 170, 194,
+165 -- it plateaus and oscillates rather than improving, best 194.4.
+
+Final, 20 held-out episodes: **deterministic 170.90, stochastic 166.70**, against
+the scripted heuristic's 277.2 and random-legal-play-without-REMOVE's 178.2.
+
+**So the anchor fixed stability, not performance.** No collapse across 700k steps
+where the unanchored run died by 100k -- that part is real and reproducible. But
+the policy settles *below* a random baseline that merely refrains from destroying
+its own lines, and far below its own teacher. At coefficient 10 that is partly by
+construction: a strong anchor holds the policy near its reference, which prevents
+collapse and improvement alike. The next question is whether a weaker or annealed
+coefficient buys improvement without giving back the stability.
+
 **Caveats.** Checkpoint evals use 8 episodes, whose 95% interval on this task is
 roughly +/-46, so 185.5 -> 175.4 is noise and only the anchored-vs-unanchored gap
 is resolvable. One seed. And the run has not yet passed its own 261.8 teacher or
