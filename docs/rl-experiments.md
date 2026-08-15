@@ -736,6 +736,63 @@ every run.
 
 ---
 
+## E25 — Cloning the heuristic: two missing quantities, and an honest ceiling
+
+The from-scratch search was abandoned after the collapse diagnosis was refuted
+(E24) and no branch reproduced the collapse at 800k. Instead: clone the scripted
+heuristic, then fine-tune. Two defects were found, both of the same shape -- a
+quantity the machinery depended on was simply absent, so the visible symptom
+pointed nowhere near the cause.
+
+**Defect 1: the decision was not representable from the observation.** The clone
+scored 198.8 against a 276.9 teacher despite 97.8% label agreement. That figure
+was WAIT drowning everything: agreement on the teacher's **real** decisions was
+**44.2%**, and it inverted a specific pair -- teacher EXTEND 14 / PREPEND 9,
+clone 8 / 12. The teacher grafts each station onto the nearer line **end**, but
+the observation reported only distance to the *nearest* endpoint, collapsing the
+two ends into one number. Adding both (574 floats, was 494) took real-decision
+agreement **44.2% -> 81.5%** and deliveries **198.8 -> 227.0**.
+
+**Defect 2: the critic was never cloned.** Warm-starting PPO destroyed the policy
+within 50k steps, twice, at `ent_coef` 0.001 and again at 0.0 -- so entropy was
+not the cause. The clone trained only the policy head, leaving the value function
+at initialisation: **0.28 against true discounted returns of ~32**. PPO's first
+advantages were therefore (return minus garbage). Fitting the critic to the
+teacher's own return-to-go moved it to **21.12**, and the first fine-tune eval
+went **0.2 -> 146.5**.
+
+**Where it actually lands, on 12 held-out episodes:**
+
+| policy | mean | 95% CI |
+| --- | --- | --- |
+| scripted heuristic (teacher) | ~262 | -- |
+| **cloned policy, deterministic** | **197.67** | +/-42.91 |
+| control: one line then wait forever | 189.75 | +/-46.95 |
+| control: random legal play | 0.00 | -- |
+
+**Verdict: PARTIAL, and the honest reading is negative.** The clone's +7.9 margin
+over a trivial control is far inside the interval -- it does **not** clearly beat
+"build one line and wait", and it remains well below its own teacher. A recorded
+episode reaches 378 deliveries and dies at a genuine game over, having built one
+9-station line and spent **8,848 of 8,904 decisions waiting**.
+
+**What that says about the task.** Every strong policy here converges on the same
+shape: one line through every station, fully crewed, then wait. E23 showed the
+difficulty ramp is keyed to deliveries, and the fleet is hard-capped at 4
+locomotives and 2 carriages on the RL path, so total in-transit capacity is 36
+riders regardless of skill. The ceiling may simply be close, and the remaining
+headroom is route *ordering* -- which is exactly the decision the observation was
+blind to until this experiment.
+
+**Still unproven:** that any learned policy can exceed the scripted heuristic.
+Fine-tuning from the corrected clone rose to 146.5 at 50k then fell to 46.4 at
+100k, so PPO still erodes a cloned policy even with a fitted critic and zero
+entropy bonus. The best-evidenced untried remedy is AlphaStar's continual KL
+penalty toward the frozen reference, worth +380 Elo in their ablation against
++84 for initialisation alone.
+
+---
+
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not
