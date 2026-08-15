@@ -161,7 +161,8 @@ def main(argv: list[str] | None = None) -> int:
     ]
     print(
         f"searching {args.episodes} episodes on {args.workers} workers; "
-        f"the heuristic scores ~262 and search should exceed it"
+        f"the heuristic scores ~262 and search should exceed it",
+        flush=True,
     )
     results = []
     # Results are written after every episode rather than once at the end.
