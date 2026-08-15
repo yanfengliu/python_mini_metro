@@ -322,5 +322,60 @@ class SearchTriggerTest(unittest.TestCase):
         )
 
 
+class ScoredRolloutTest(unittest.TestCase):
+    """Every rollout search performs is kept, and kept against the right board.
+
+    A search point costs one full-episode simulation per candidate, and taking
+    only the argmax discards five sixths of that. The losing evaluations are
+    recorded so each search point becomes a preference ordering rather than a
+    single hard label -- but they index into their own episode's rows, so
+    concatenating episodes must shift every index by the rows already written.
+    Getting that wrong attaches one episode's rollout values to another
+    episode's board, which trains the policy on fiction while every array shape
+    stays valid and every score keeps printing.
+    """
+
+    def _episode(self, rows, evaluations):
+        return {
+            "observations": np.zeros((rows, 4), dtype=np.float32),
+            "actions": np.arange(rows, dtype=np.int64),
+            "masks": np.ones((rows, 4), dtype=bool),
+            "returns": np.zeros(rows, dtype=np.float32),
+            "eval_row": np.array(evaluations, dtype=np.int64),
+            "eval_action": np.array([7] * len(evaluations), dtype=np.int64),
+            "eval_value": np.arange(len(evaluations), dtype=np.float32),
+        }
+
+    def test_evaluations_are_reindexed_onto_the_right_episode(self):
+        import tempfile
+        from pathlib import Path
+
+        from search_dataset import save
+
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / "data.npz"
+            # Episode A keeps 3 rows and scored rollouts at its rows 0 and 2;
+            # episode B keeps 2 rows and scored at its own rows 0 and 1.
+            save(target, [self._episode(3, [0, 2]), self._episode(2, [0, 1])])
+            archive = np.load(target)
+            rows = archive["eval_row"].tolist()
+            observations = len(archive["observations"])
+            archive.close()
+
+        self.assertEqual(
+            rows,
+            [0, 2, 3, 4],
+            f"scored rollouts landed on rows {rows} instead of [0, 2, 3, 4]; the "
+            "second episode's evaluations were not shifted past the first "
+            "episode's rows, so they describe the wrong board",
+        )
+        self.assertLess(
+            max(rows),
+            observations,
+            f"a scored rollout points at row {max(rows)} of only {observations} "
+            "observations, so it indexes past the end of the dataset",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

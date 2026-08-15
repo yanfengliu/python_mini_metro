@@ -31,9 +31,14 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 
+from rl.heuristic import choose  # noqa: E402
 from rl.semantic_env import ACTION_TABLE, ActionKind, SemanticMetroEnv  # noqa: E402
 
-CONTROLS = ("random", "wait", "oneline")
+# `heuristic` is the bar that matters. The other three exist to catch a policy
+# that has learned nothing: `random` and `wait` score ~0, and `oneline` builds a
+# single line and never acts again -- which every learned policy here matched to
+# within noise, so beating it says almost nothing.
+CONTROLS = ("random", "wait", "oneline", "heuristic")
 
 
 def _first_legal(env, kinds) -> int | None:
@@ -56,6 +61,8 @@ def play_control(name: str, seed: int, rng: np.random.Generator) -> dict:
                 action = int(rng.choice(np.flatnonzero(mask)))
             elif name == "wait":
                 action = 0
+            elif name == "heuristic":
+                action = choose(env)
             else:
                 # Build once, crew it, then stop touching anything.
                 action = _first_legal(
@@ -137,7 +144,7 @@ def main(argv: list[str] | None = None) -> int:
         scores = [play_control(name, seed, rng)["score"] for seed in seeds]
         results.append(summarise(f"control:{name}", scores))
         print(
-            f"  control:{name:<8} mean {results[-1]['mean']:8.2f} "
+            f"  control:{name:<10} mean {results[-1]['mean']:8.2f} "
             f"+/-{results[-1]['ci95']:6.2f}  median {results[-1]['median']:7.1f}  "
             f"max {results[-1]['max']:7.1f}"
         )
@@ -165,12 +172,29 @@ def main(argv: list[str] | None = None) -> int:
             (row for row in results if row["label"].startswith("policy")),
             key=lambda row: row["mean"],
         )
-        margin = best_policy["mean"] - best_control["mean"]
-        combined = (best_policy["ci95"] ** 2 + best_control["ci95"] ** 2) ** 0.5
-        verdict = "BEATS" if margin > combined else "does NOT clearly beat"
+        # Every player ran the SAME seeds, so the comparison is paired. Treating
+        # the two means as independent throws that away and widens the interval
+        # for nothing -- layout luck is enormous here (seed-to-seed scores span
+        # 110 to 803), and pairing cancels it exactly.
+        gap = np.array(best_policy["scores"], dtype=float) - np.array(
+            best_control["scores"], dtype=float
+        )
+        paired_stderr = gap.std(ddof=1) / np.sqrt(len(gap)) if len(gap) > 1 else 0.0
+        paired_ci = 1.96 * paired_stderr
+        verdict = "BEATS" if gap.mean() - paired_ci > 0 else "does NOT clearly beat"
         print(
             f"\n  {best_policy['label']} {verdict} {best_control['label']}: "
-            f"margin {margin:+.1f}, combined 95% interval +/-{combined:.1f}"
+            f"paired gap {gap.mean():+.1f} +/-{paired_ci:.1f}, "
+            f"won {int((gap > 0).sum())}/{len(gap)}"
+        )
+        results.append(
+            {
+                "label": f"paired:{best_policy['label']}-vs-{best_control['label']}",
+                "n": len(gap),
+                "mean": round(float(gap.mean()), 2),
+                "ci95": round(float(paired_ci), 2),
+                "won": int((gap > 0).sum()),
+            }
         )
 
     if args.output:

@@ -56,7 +56,13 @@ def collect(seed: int, candidates: int, cap: int, wait_keep: float, gamma: float
     env = SemanticMetroEnv()
     observation, _ = env.reset(seed=seed)
     observations, actions, masks = [], [], []
-    kept_at, rewards = [], []
+    # Every rollout search performs, not just the one it acted on. A search
+    # point costs `candidates` full-episode simulations and the argmax throws
+    # away all but one of them -- five sixths of the most expensive computation
+    # here. Keeping the losing evaluations turns each search point into a full
+    # preference ordering over its shortlist, which is the AlphaZero policy
+    # target rather than a single hard label.
+    evaluated, kept_at, rewards = [], [], []
     searches = overrides = 0
     last_signature: frozenset | None = None
 
@@ -81,6 +87,13 @@ def collect(seed: int, candidates: int, cap: int, wait_keep: float, gamma: float
             searches += 1
             action = max(scored)[1]
             overrides += int(action != preferred)
+            evaluated.append(
+                {
+                    "at": len(rewards),
+                    "actions": np.array([a for _, a in scored], dtype=np.int64),
+                    "values": np.array([v for v, _ in scored], dtype=np.float32),
+                }
+            )
         else:
             action = preferred
 
@@ -104,11 +117,31 @@ def collect(seed: int, candidates: int, cap: int, wait_keep: float, gamma: float
     for step in range(len(rewards) - 1, -1, -1):
         togo[step] = rewards[step] + gamma * togo[step + 1]
 
+    # The evaluations are stored flat with an index per row, since each search
+    # point has a different shortlist length and ragged arrays do not survive
+    # npz cleanly.
+    flat_row, flat_action, flat_value = [], [], []
+    at_to_row = {at: row for row, at in enumerate(kept_at)}
+    for record in evaluated:
+        row = at_to_row.get(record["at"])
+        if row is None:
+            # The search point was a WAIT that subsampling dropped; its
+            # observation was never kept, so its evaluations have nothing to
+            # attach to.
+            continue
+        for action_index, value in zip(record["actions"], record["values"]):
+            flat_row.append(row)
+            flat_action.append(int(action_index))
+            flat_value.append(float(value))
+
     return {
         "observations": np.stack(observations),
         "actions": np.array(actions, dtype=np.int64),
         "masks": np.stack(masks),
         "returns": np.array([togo[at] for at in kept_at], dtype=np.float32),
+        "eval_row": np.array(flat_row, dtype=np.int64),
+        "eval_action": np.array(flat_action, dtype=np.int64),
+        "eval_value": np.array(flat_value, dtype=np.float32),
         "deliveries": delivered,
         "searches": searches,
         "overrides": overrides,
@@ -126,6 +159,16 @@ def save(path, results) -> dict[str, int]:
         key: np.concatenate([r[key] for r in results])
         for key in ("observations", "actions", "masks", "returns")
     }
+    # `eval_row` indexes into each episode's own observations, so concatenating
+    # episodes has to shift every index by the rows already written. Getting
+    # this wrong would silently attach one episode's rollout values to another
+    # episode's board.
+    rows, offset = [], 0
+    for result in results:
+        rows.append(result["eval_row"] + offset)
+        offset += len(result["actions"])
+    eval_row = np.concatenate(rows) if rows else np.zeros(0, dtype=np.int64)
+
     path.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
         path,
@@ -133,6 +176,9 @@ def save(path, results) -> dict[str, int]:
         actions=stacked["actions"],
         masks=stacked["masks"],
         returns=stacked["returns"],
+        eval_row=eval_row,
+        eval_action=np.concatenate([r["eval_action"] for r in results]),
+        eval_value=np.concatenate([r["eval_value"] for r in results]),
     )
     kinds: dict[str, int] = {}
     for action in stacked["actions"]:
@@ -197,6 +243,10 @@ def main(argv: list[str] | None = None) -> int:
         f"against the heuristic's ~262"
     )
     print(f"dataset: {labels} labels, mix {kinds}")
+    print(
+        f"  plus {len(np.load(args.output)['eval_value'])} scored rollouts kept as "
+        "preference targets"
+    )
     print(f"saved: {args.output}")
     return 0
 
