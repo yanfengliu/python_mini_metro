@@ -1094,6 +1094,63 @@ ordering rather than a single label, at no extra simulation cost.
 
 ---
 
+## E32 -- better labels do not move the learned score, and E29 was incomplete
+
+The distilled policy from E31, evaluated on 20 held-out seeds against the full
+control set:
+
+| player | mean | 95% CI |
+| --- | --- | --- |
+| control: random | 0.00 | -- |
+| control: wait | 0.00 | -- |
+| control: one line then wait | 174.75 | +/-30.40 |
+| **control: scripted heuristic** | **267.35** | +/-33.28 |
+| distilled, deterministic | 179.85 | +/-23.12 |
+| distilled, stochastic | 193.20 | +/-32.33 |
+
+**Paired against the heuristic: -74.2 +/-24.1, won 1 of 20.**
+
+**REFUTED, and it refutes part of E29 with it.** The distilled policy scores
+193.20. Cloning the *heuristic* scored 194.7. Those are the same number. Search
+labels come from a player scoring 306.75 where the heuristic scores 248.43, and
+distilling the better teacher produced no improvement whatsoever.
+
+E29 concluded "the labels were wrong" and called that the whole explanation for
+the 170-195 plateau. The first half stands: the heuristic really is ~40% below
+its own action space, and search really does beat it on 27 of 28 paired seeds.
+The second half does not. Fixing the labels was necessary and is not sufficient,
+because the learner cannot absorb the better labels from this much data --
+held-out agreement sits at 52% (E31) and 52% agreement scores about 190 whoever
+the teacher is.
+
+**So there are two separate ceilings, and they were being conflated.**
+
+* The *heuristic* ceiling, ~250-280, caused by a myopic rule. Search breaks it.
+* The *imitation* ceiling, ~190, caused by a 364-way decision that depends on a
+  global comparison across all station-line pairs being learned from a few
+  hundred real decisions. Neither a better teacher nor a better architecture has
+  moved it: cloning, anchored PPO, a pointer head, DAgger, and now search
+  distillation all land in 158-195.
+
+**What actually distinguishes the two.** Search does not *predict* which action
+is good, it *measures* it, and it re-measures at every decision point. That is
+not a representational advantage a network can be handed by better labels -- it
+is a different amount of computation per decision. Expecting one forward pass to
+reproduce hundreds of full-episode simulations was the unexamined assumption.
+
+**Consequence.** Two routes remain, and the first is already in flight.
+Quantity: 90 more search episodes, roughly quadrupling the real-decision count.
+Density: each search point scores one full-episode rollout per candidate and only
+the argmax was kept, so recording all of them turns every decision point into a
+preference ordering over its shortlist at no extra simulation cost -- roughly six
+times the supervision from the same compute.
+
+If neither moves held-out agreement well above 52%, the honest conclusion is that
+this task wants search at inference time rather than a policy that has memorised
+one, and the deliverable is the search player.
+
+---
+
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not

@@ -161,7 +161,8 @@ def main(argv: list[str] | None = None) -> int:
             print(
                 f"  policy:{mode:<11} mean {results[-1]['mean']:8.2f} "
                 f"+/-{results[-1]['ci95']:6.2f}  median {results[-1]['median']:7.1f}  "
-                f"max {results[-1]['max']:7.1f}"
+                f"max {results[-1]['max']:7.1f}",
+                flush=True,
             )
 
         best_control = max(
