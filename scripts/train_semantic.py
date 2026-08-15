@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from pathlib import Path
 
 import numpy as np
 
@@ -136,6 +137,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--learning-rate", type=float, default=3e-4)
     parser.add_argument("--eval-every", type=int, default=50_000)
+    parser.add_argument("--resume", type=Path, help="warm-start from a saved policy")
+    parser.add_argument("--ent-coef", type=float, default=0.01)
     parser.add_argument("--checkpoint-episodes", type=int, default=5)
     parser.add_argument(
         "--arch",
@@ -161,24 +164,33 @@ def main(argv: list[str] | None = None) -> int:
         policy = "MlpPolicy"
         policy_kwargs = {}
 
-    model = MaskablePPO(
-        policy,
-        vec,
-        policy_kwargs=policy_kwargs,
-        seed=args.seed,
-        device=args.device,
-        n_steps=256,
-        batch_size=256,
-        # Decayed, not flat. At a constant 3e-4 the previous run's approx_kl
-        # rose from 0.0037 to 0.0128 and its clip fraction from 0.034 to
-        # 0.082 while the score halved: updates got larger as the policy got
-        # worse. A step size that suits a crude policy is too hot once an
-        # episode runs thousands of decisions and one bad update costs a
-        # whole network.
-        learning_rate=lambda progress: args.learning_rate * progress,
-        ent_coef=0.01,
-        verbose=1,
-    )
+    if args.resume:
+        # Start from a policy that already plays. From-scratch training on this
+        # lane has failed in every configuration tried, and the cloned heuristic
+        # starts at ~197 against random-never-removes' 181 and the script's 277.
+        model = MaskablePPO.load(str(args.resume), env=vec, device=args.device)
+        model.learning_rate = args.learning_rate
+        model.ent_coef = args.ent_coef
+        print(f"resumed from {args.resume}", flush=True)
+    else:
+        model = MaskablePPO(
+            policy,
+            vec,
+            policy_kwargs=policy_kwargs,
+            seed=args.seed,
+            device=args.device,
+            n_steps=256,
+            batch_size=256,
+            # Decayed, not flat. At a constant 3e-4 the previous run's approx_kl
+            # rose from 0.0037 to 0.0128 and its clip fraction from 0.034 to
+            # 0.082 while the score halved: updates got larger as the policy got
+            # worse. A step size that suits a crude policy is too hot once an
+            # episode runs thousands of decisions and one bad update costs a
+            # whole network.
+            learning_rate=lambda progress: args.learning_rate * progress,
+            ent_coef=args.ent_coef,
+            verbose=1,
+        )
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
     keeper = KeepBest(
         args.output, args.eval_every, args.checkpoint_episodes, args.eval_seed
