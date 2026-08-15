@@ -32,6 +32,7 @@ from rl.semantic_env import (
     MAX_STATIONS,
     PATH_FEATURES,
     REACH_FEATURES,
+    REACH_PER_PAIR,
     RESOURCE_FEATURES,
     STATION_FEATURES,
     ActionKind,
@@ -77,7 +78,7 @@ class PointerExtractor(nn.Module):
         self.features_dim = features_dim
         self.width = width
         self.station = nn.Sequential(
-            nn.Linear(STATION_FEATURES + MAX_PATHS, width),
+            nn.Linear(STATION_FEATURES + MAX_PATHS * REACH_PER_PAIR, width),
             nn.ReLU(inplace=True),
             nn.Linear(width, width),
             nn.ReLU(inplace=True),
@@ -106,8 +107,9 @@ class PointerExtractor(nn.Module):
             batch, MAX_PATHS, PATH_FEATURES
         )
         cursor += PATH_BLOCK
+        # Each (station, line) pair now carries head AND tail distance.
         reach = observations[:, cursor : cursor + REACH_FEATURES].view(
-            batch, MAX_STATIONS, MAX_PATHS
+            batch, MAX_STATIONS, MAX_PATHS * REACH_PER_PAIR
         )
         cursor += REACH_FEATURES
         resources = observations[:, cursor : cursor + RESOURCE_FEATURES]
