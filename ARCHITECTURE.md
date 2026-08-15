@@ -162,6 +162,7 @@ python_mini_metro/
 |  |  |- polygon.py
 |  |  |- rect.py
 |  |  |- semantic_env.py
+|  |  |- semantic_nets.py
 |  |  |- shape.py
 |  |  |- shaping.py
 |  |  |- spatial_policy.py
@@ -367,6 +368,7 @@ python_mini_metro/
 |  |- test_route_planner_resolution_order.py
 |  |- test_route_planner_selection.py
 |  |- test_semantic_env.py
+|  |- test_semantic_nets.py
 |  |- test_shaped_reward.py
 |  |- test_simulation_context.py
 |  |- test_spatial_policy.py

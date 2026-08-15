@@ -79,6 +79,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--eval-episodes", type=int, default=20)
     parser.add_argument("--eval-seed", type=int, default=9000)
     parser.add_argument("--device", default="cuda")
+    parser.add_argument(
+        "--arch",
+        choices=("mlp", "pointer"),
+        default="mlp",
+        help="pointer scores each action from the entities it names",
+    )
     parser.add_argument("--output", default="output/semantic/model")
     args = parser.parse_args(argv)
 
@@ -88,9 +94,19 @@ def main(argv: list[str] | None = None) -> int:
     vec = VecMonitor(
         DummyVecEnv([make_env(args.seed + rank) for rank in range(args.n_envs)])
     )
+    if args.arch == "pointer":
+        from rl.semantic_nets import PointerExtractor, build_pointer_policy_class
+
+        policy = build_pointer_policy_class()
+        policy_kwargs = dict(features_extractor_class=PointerExtractor)
+    else:
+        policy = "MlpPolicy"
+        policy_kwargs = {}
+
     model = MaskablePPO(
-        "MlpPolicy",
+        policy,
         vec,
+        policy_kwargs=policy_kwargs,
         seed=args.seed,
         device=args.device,
         n_steps=256,
