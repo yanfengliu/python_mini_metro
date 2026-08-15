@@ -255,6 +255,7 @@ python_mini_metro/
 |  |- test_agent_play_threshold.py
 |  |- test_coverage_utils.py
 |  |- test_env.py
+|  |- test_env_agency.py
 |  |- test_gameplay.py
 |  |- test_game_clock.py
 |  |- test_game_renderer.py

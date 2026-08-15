@@ -94,6 +94,8 @@ class ActionKind(IntEnum):
     ATTACH_CARRIAGE = 3
     PURCHASE_LINE = 4
     EXTEND_LINE = 5
+    PREPEND_LINE = 6
+    REMOVE_LINE = 7
 
 
 def _build_action_table() -> tuple[tuple[int, int, int], ...]:
@@ -120,6 +122,17 @@ def _build_action_table() -> tuple[tuple[int, int, int], ...]:
     for line in range(MAX_PATHS):
         for station in range(MAX_STATIONS):
             table.append((ActionKind.EXTEND_LINE, line, station))
+    # Which END a station joins changes the route order, and route order is
+    # what a metro's lap time is made of. Append-only left the agent unable
+    # to act on the very geometry the observation reports.
+    for line in range(MAX_PATHS):
+        for station in range(MAX_STATIONS):
+            table.append((ActionKind.PREPEND_LINE, line, station))
+    # Redrawing is a real strategic move, not just undoing progress. Masking
+    # it out left a median of ONE legal action per step, so the policy had
+    # nothing to decide and the score measured the simulation, not the agent.
+    for line in range(MAX_PATHS):
+        table.append((ActionKind.REMOVE_LINE, line, 0))
     return tuple(table)
 
 
@@ -350,6 +363,8 @@ class SemanticMetroEnv(gym.Env):
                 )
             elif kind == ActionKind.PURCHASE_LINE:
                 mask[index] = can_buy
+            elif kind == ActionKind.REMOVE_LINE:
+                mask[index] = first < paths
             else:
                 if first >= paths or second >= stations:
                     mask[index] = False
@@ -383,7 +398,11 @@ class SemanticMetroEnv(gym.Env):
             return mediator.attach_carriage(mediator.paths[first])
         if kind == ActionKind.PURCHASE_LINE:
             return mediator.try_purchase_path_button_by_index()
+        if kind == ActionKind.REMOVE_LINE:
+            return mediator.remove_path_by_index(first)
         route = self._path_station_indices(mediator, mediator.paths[first])
+        if kind == ActionKind.PREPEND_LINE:
+            return mediator.replace_path_by_index(first, [second] + route)
         return mediator.replace_path_by_index(first, route + [second])
 
     def step(self, action):

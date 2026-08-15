@@ -6,6 +6,14 @@ A rule earns a place here when it would change how the next unrelated task is ap
 
 ## RL work
 
+- **An environment change is not done until `test_env_agency.py` passes.** Any
+  edit to an action space, mask, observation or reward gets measured by what
+  the agent can now reach, express, decide and exploit -- not by whether it
+  runs. Six defects here shared exactly that shape, each looked like a weak
+  policy rather than a broken environment, and each was found by playing the
+  environment rather than by reading the code. If a new property is learned,
+  add it to that gate rather than to a note.
+
 - **Every experiment gets a ledger entry, including the ones that fail.** `docs/rl-experiments.md` records the hypothesis, what was measured, and a blunt verdict — CONFIRMED, REFUTED, INVALID, SUPERSEDED. Negative results and reversed conclusions are the point of the file, not an embarrassment to be tidied out of it; a wrong first answer that is written down is cheaper than the same wrong answer reached twice.
 
 - **Report against the protocol in `docs/rl-model-selection.md`, or say plainly that you did not.** It pre-registers five seeds per configuration, at least 20 held-out evaluation episodes, run-level rather than pooled-episode statistics, and best-seed scores as a diagnostic only. Most exploratory runs here will not meet that bar. Stating the shortfall alongside the number is acceptable; quoting the number as though it met the bar is not.

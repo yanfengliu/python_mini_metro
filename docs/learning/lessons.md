@@ -18,6 +18,8 @@ When a lesson becomes a gate — a test, a lint rule, a fixed command — delete
 
 ### Model and task design
 
+- Validate the capability the agent gained, not the mechanism you built: measure what it can now reach, express, decide and exploit. ([evidence](lessons-evidence.md#validate-the-capability-not-the-mechanism))
+
 - Match a representation's finest addressable unit to the smallest target it must resolve, before tuning anything else about it. ([evidence](lessons-evidence.md#match-the-finest-addressable-unit-to-the-smallest-target))
 - A training-time signal must be reachable by the policy that needs it, and then bounded against being farmed. ([evidence](lessons-evidence.md#a-training-signal-must-be-reachable-then-bounded))
 - Keep training-time concerns out of fingerprinted contracts; a wrapper costs nothing, an enum member invalidates every saved artifact. ([evidence](lessons-evidence.md#keep-training-time-concerns-out-of-fingerprinted-contracts))

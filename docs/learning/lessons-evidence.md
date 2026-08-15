@@ -93,3 +93,38 @@ Programmatic edits failed repeatedly in one session for two reasons, both silent
 The GIF case is the one that cost real work: the save block's anchor had been reformatted, the edit silently never applied, and a full training run finished having captured frames it never wrote.
 
 What works: read the file, detect its line ending from its own bytes, assert each anchor immediately before its own write rather than batching, and re-read after any formatter run.
+
+---
+
+## Validate the capability, not the mechanism
+
+**Anchor:** 2026-08-14; `test/test_env_agency.py`, and experiments E14-E20 in `docs/rl-experiments.md`.
+
+Six environment defects in one project shared a single shape. Each time the
+mechanism was verified -- it imported, it ran, the loss descended -- and the
+capability the agent actually gained was not. Each looked like a weak policy
+rather than a broken environment, and every one was found by *playing* the
+environment, never by reading the code.
+
+    shaping paid for a milestone exploration never reaches   0 payouts / 24 episodes
+    a denser signal was farmable                             ~80 vs ~20 for real play
+    the mask advertised line slots the game had not unlocked 283 of 284 actions no-ops
+    lines could only ever hold two stations                  no network expressible
+    the shape encoding moved between episodes                shape-matching unlearnable
+    the mask left one legal action per step                  the score measured the sim
+
+The last is the sharpest. After fixing everything else the environment scored
+171.5 with a random policy and looked solved; the median number of legal
+actions per step was **one**. The agent was watching the simulation. Restoring
+route editing took the median to 4 and random play to 0 -- a worse number and
+a far better environment, because there were finally decisions to get wrong.
+
+What was tried and abandoned: reasoning about these from the code. Every
+defect above is invisible in a diff and obvious in a rollout. The five
+questions that catch them are cheap and now run as tests -- can the agent
+reach the signal, express the strategies the game rewards, decide between
+real options, and not exploit any of it, and does an episode end because the
+game ended?
+
+Deleted from `lessons.md` when `test_env_agency.py` covers a case fully; the
+rule stays only while judgement is still doing work the gate cannot.
