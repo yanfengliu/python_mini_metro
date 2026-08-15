@@ -23,7 +23,13 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../scripts")
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 
 import numpy as np  # noqa: E402
-from search_policy import STRUCTURAL, _restore, _rollout, _signature  # noqa: E402
+from search_policy import (  # noqa: E402
+    STRUCTURAL,
+    _restore,
+    _rollout,
+    _signature,
+    shortlist_for,
+)
 
 from rl.heuristic import choose  # noqa: E402
 from rl.semantic_env import ACTION_TABLE, SemanticMetroEnv  # noqa: E402
@@ -218,6 +224,84 @@ class PolicyImprovementTest(unittest.TestCase):
             "WAIT is masked out, so search has no do-nothing baseline and would "
             "be forced to take a structural action at every decision point",
         )
+
+
+class ShortlistTest(unittest.TestCase):
+    """What search is allowed to consider decides what it can ever find."""
+
+    def test_it_always_offers_the_action_being_improved_on(self):
+        """Dropping `preferred` removes the guarantee search rests on.
+
+        Rolling the heuristic's own pick measures exactly what the heuristic
+        would score from this state, so including it is what makes search
+        provably no worse than the policy it improves. Without it search could
+        pick the best of a bad shortlist and lose.
+        """
+        rng = np.random.default_rng(0)
+        structural = list(range(20, 90))
+
+        for preferred in (25, 61, 88):
+            shortlist = shortlist_for(rng, structural, preferred, candidates=6)
+
+            self.assertIn(
+                preferred,
+                shortlist,
+                f"the heuristic's choice {preferred} was left off the shortlist "
+                f"{shortlist}; search can then score worse than the policy it "
+                "is supposed to improve",
+            )
+            self.assertIn(
+                0,
+                shortlist,
+                f"WAIT was left off the shortlist {shortlist}; search would be "
+                "forced to act at every decision point it examines",
+            )
+
+    def test_it_samples_alternatives_instead_of_taking_the_lowest_indices(self):
+        """Slicing biases every search toward the same corner of the map.
+
+        The action table is ordered by (kind, first, second), so
+        `structural[:n]` systematically offers station 0 and 1 and never looks
+        at the far side of the board. Sampling costs the same rollouts.
+        """
+        rng = np.random.default_rng(0)
+        structural = list(range(100, 200))
+
+        seen = set()
+        for _ in range(40):
+            seen.update(shortlist_for(rng, structural, 100, candidates=6))
+        seen.discard(0)
+        seen.discard(100)
+
+        lowest = set(structural[:5])
+        self.assertGreater(
+            len(seen),
+            len(lowest),
+            f"across 40 searches only {sorted(seen)} were ever considered; the "
+            "shortlist is sliced by action index rather than sampled, so the "
+            "far side of the map is never examined",
+        )
+
+    def test_it_stays_within_the_rollout_budget(self):
+        """Each extra candidate is a full-episode rollout, so the cap is real."""
+        rng = np.random.default_rng(0)
+        structural = list(range(20, 90))
+
+        for preferred in (0, 33):
+            shortlist = shortlist_for(rng, structural, preferred, candidates=6)
+
+            self.assertLessEqual(
+                len(shortlist),
+                7,
+                f"shortlist {shortlist} exceeds the 6-candidate budget plus "
+                "WAIT; every entry costs a full-episode rollout",
+            )
+            self.assertEqual(
+                len(shortlist),
+                len(set(shortlist)),
+                f"shortlist {shortlist} repeats a candidate, so a rollout is "
+                "spent scoring the same action twice",
+            )
 
 
 class SearchTriggerTest(unittest.TestCase):

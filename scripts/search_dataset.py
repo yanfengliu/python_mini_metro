@@ -37,7 +37,13 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 
-from search_policy import STRUCTURAL, _restore, _rollout, _signature  # noqa: E402
+from search_policy import (  # noqa: E402
+    STRUCTURAL,
+    _restore,
+    _rollout,
+    _signature,
+    shortlist_for,
+)
 
 from rl.heuristic import choose  # noqa: E402
 from rl.semantic_env import ACTION_TABLE, ActionKind, SemanticMetroEnv  # noqa: E402
@@ -64,10 +70,7 @@ def collect(seed: int, candidates: int, cap: int, wait_keep: float, gamma: float
 
         if structural and (preferred != 0 or signature != last_signature):
             last_signature = signature
-            shortlist = [preferred] if preferred != 0 else []
-            shortlist += [i for i in structural if i != preferred][: candidates - 1]
-            if 0 not in shortlist:
-                shortlist.append(0)
+            shortlist = shortlist_for(rng, structural, preferred, candidates)
             document = serialize_game(env._mediator)
             at = env._decision
             scored = [

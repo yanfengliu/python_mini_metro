@@ -103,9 +103,35 @@ def _signature(mask) -> frozenset:
     )
 
 
+def shortlist_for(rng, structural, preferred: int, candidates: int) -> list[int]:
+    """The heuristic's pick, a sample of the alternatives, and WAIT.
+
+    The alternatives are SAMPLED rather than sliced. `structural[:n]` takes the
+    first entries by action-table index, and the table is ordered by
+    (kind, first, second) -- so slicing systematically offers station 0 and 1
+    and never looks at the far side of the map. Sampling removes that bias for
+    the same number of rollouts.
+
+    `preferred` is always included so search can never do worse than the policy
+    it is improving: rolling it out measures exactly what the heuristic would
+    score from here. WAIT is always included so "not yet" stays available.
+    """
+    alternatives = [index for index in structural if index != preferred]
+    room = candidates - (1 if preferred != 0 else 0)
+    if len(alternatives) > room:
+        alternatives = [
+            int(index) for index in rng.choice(alternatives, size=room, replace=False)
+        ]
+    shortlist = ([preferred] if preferred != 0 else []) + alternatives
+    if 0 not in shortlist:
+        shortlist.append(0)
+    return shortlist
+
+
 def play(seed: int, candidates: int, cap: int) -> dict:
     env = SemanticMetroEnv()
     env.reset(seed=seed)
+    rng = np.random.default_rng(seed)
     delivered = 0.0
     decisions = searches = overrides = 0
     last_signature: frozenset | None = None
@@ -123,12 +149,7 @@ def play(seed: int, candidates: int, cap: int) -> dict:
             action = preferred
         else:
             last_signature = signature
-            # Rank by the heuristic's own preference so the candidate set stays
-            # small and sensible, then add WAIT as the do-nothing baseline.
-            shortlist = [preferred] if preferred != 0 else []
-            shortlist += [i for i in structural if i != preferred][: candidates - 1]
-            if 0 not in shortlist:
-                shortlist.append(0)
+            shortlist = shortlist_for(rng, structural, preferred, candidates)
 
             document = serialize_game(env._mediator)
             at = env._decision
