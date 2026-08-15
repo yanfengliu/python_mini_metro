@@ -169,6 +169,18 @@ def save(path, results) -> dict[str, int]:
         offset += len(result["actions"])
     eval_row = np.concatenate(rows) if rows else np.zeros(0, dtype=np.int64)
 
+    # Which episode each row came from. Without this a held-out split can only
+    # be taken over samples, and samples from one episode share a board, a
+    # layout and a difficulty ramp -- so a random split leaks the validation set
+    # into training and reports a generalisation number that is nothing of the
+    # kind. Splitting by episode is the only honest option.
+    episode = np.concatenate(
+        [
+            np.full(len(result["actions"]), result["seed"], dtype=np.int64)
+            for result in results
+        ]
+    )
+
     path.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
         path,
@@ -179,6 +191,7 @@ def save(path, results) -> dict[str, int]:
         eval_row=eval_row,
         eval_action=np.concatenate([r["eval_action"] for r in results]),
         eval_value=np.concatenate([r["eval_value"] for r in results]),
+        episode=episode,
     )
     kinds: dict[str, int] = {}
     for action in stacked["actions"]:

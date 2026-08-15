@@ -40,7 +40,30 @@ import torch  # noqa: E402
 from rl.semantic_env import ACTION_TABLE, ActionKind, SemanticMetroEnv  # noqa: E402
 
 
-def fit(model, data, *, epochs, batch_size, lr, report):
+def _real_agreement(policy, device, observations, actions, masks) -> float:
+    """Agreement on decisions that are not WAIT, which is the only kind that
+    distinguishes a player from a policy that waits forever.
+    """
+    import torch as th
+
+    real = np.flatnonzero(actions != 0)
+    if len(real) == 0:
+        return float("nan")
+    with th.no_grad():
+        obs = th.as_tensor(observations[real]).to(device).float()
+        mask = th.as_tensor(masks[real]).to(device)
+        features = policy.extract_features(obs)
+        latent_pi, _ = policy.mlp_extractor(features)
+        raw = (
+            policy._action_logits(latent_pi)
+            if hasattr(policy, "_action_logits")
+            else policy.action_net(latent_pi)
+        )
+        predicted = raw.masked_fill(~mask, -1e8).argmax(-1).cpu().numpy()
+    return float((predicted == actions[real]).mean())
+
+
+def fit(model, data, *, epochs, batch_size, lr, report, validation=None):
     observations, actions, masks, returns = data
     policy = model.policy
     device = model.device
@@ -88,13 +111,15 @@ def fit(model, data, *, epochs, batch_size, lr, report):
             value_losses.append(float(value_loss.item()))
 
         if (epoch + 1) % report == 0 or epoch == epochs - 1:
-            print(
+            line = (
                 f"  epoch {epoch + 1}/{epochs}: action {np.mean(action_losses):.4f}  "
                 f"value {np.mean(value_losses):.1f}  "
-                f"agreement {correct / total:.1%}  "
-                f"on real decisions {real_correct / max(len(real), 1):.1%}",
-                flush=True,
+                f"train real-decision {real_correct / max(len(real), 1):.1%}"
             )
+            if validation is not None:
+                held = _real_agreement(policy, device, *validation)
+                line += f"  HELD-OUT {held:.1%}"
+            print(line, flush=True)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -110,6 +135,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--report", type=int, default=10)
+    parser.add_argument(
+        "--holdout",
+        type=float,
+        default=0.25,
+        help="fraction of EPISODES reserved for validation (0 disables)",
+    )
     parser.add_argument(
         "--output", type=Path, default=Path("output/semantic/distilled")
     )
@@ -130,6 +161,40 @@ def main(argv: list[str] | None = None) -> int:
     actions = archive["actions"]
     masks = archive["masks"]
     returns = archive["returns"]
+    episode = archive["episode"] if "episode" in archive.files else None
+
+    # The split is by EPISODE, never by sample. Samples from one episode share a
+    # board, a layout and a difficulty ramp, so a random sample split puts
+    # near-duplicate states on both sides and reports a generalisation number
+    # that is nothing of the kind -- which matters here, because 250 epochs
+    # reached 92.7% training agreement on 4,815 labels and that is exactly the
+    # regime where memorisation is indistinguishable from learning.
+    validation = None
+    if episode is not None and args.holdout > 0:
+        seeds = np.unique(episode)
+        held = seeds[: max(1, int(len(seeds) * args.holdout))]
+        keep = ~np.isin(episode, held)
+        validation = (
+            observations[~keep],
+            actions[~keep],
+            masks[~keep],
+        )
+        print(
+            f"held out {len(held)} of {len(seeds)} episodes "
+            f"({int((~keep).sum())} labels) as a validation set"
+        )
+        observations, actions, masks, returns = (
+            observations[keep],
+            actions[keep],
+            masks[keep],
+            returns[keep],
+        )
+    elif episode is None:
+        print(
+            "WARNING: this dataset has no episode ids, so no honest held-out "
+            "split is possible; training agreement alone cannot distinguish "
+            "learning from memorisation"
+        )
 
     kinds: dict[str, int] = {}
     for action in actions:
@@ -171,6 +236,7 @@ def main(argv: list[str] | None = None) -> int:
         batch_size=args.batch_size,
         lr=args.learning_rate,
         report=args.report,
+        validation=validation,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     model.save(str(args.output))

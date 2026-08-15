@@ -1048,6 +1048,52 @@ while saying nothing reliable about *by how much*.
 
 ---
 
+## E31 -- distillation memorises; held-out agreement is flat at ~52%
+
+Search's labels are better than the heuristic's (E29, E30), so the next step was
+distilling them into a network that plays at that standard without searching.
+28 search episodes produced 4,815 labels, of which 495 are real decisions.
+
+Training agreement climbed convincingly:
+
+| epochs | 50 | 100 | 150 | 200 | 250 |
+| --- | --- | --- | --- | --- | --- |
+| **train** real-decision | 55.2% | 69.0% | 83.7% | 90.8% | **92.9%** |
+| **held-out** real-decision | 52.0% | 49.6% | 49.6% | 53.5% | **52.8%** |
+
+**REFUTED, and the training number is worthless.** Held-out agreement is flat
+across the entire run -- it is no better at epoch 250 than at epoch 50 -- while
+training agreement nearly doubles. Every one of those 190 extra epochs bought
+memorisation of specific boards and nothing that transfers.
+
+Without the split this would have been reported as a success: 92.7% agreement
+with a teacher that scores 306.75 reads like a solved problem.
+
+**The split has to be by episode.** Samples from one episode share a board, a
+layout and a difficulty ramp, so a random split over the 4,815 samples puts
+near-duplicate states on both sides and would have shown a healthy validation
+curve while measuring nothing. The dataset had no episode ids at all, which is
+why this was not checkable when the first model was trained; they are now
+recorded, and the existing dataset was backfilled from the run log (4,815 labels
+across 28 episodes, an exact match, so the mapping is reconstructed rather than
+guessed).
+
+**What this says about the bottleneck.** ~52% held-out agreement on real
+decisions means the policy reproduces about half of search's choices on an unseen
+board. 21 training episodes carry roughly 370 real decisions -- for a 364-way
+action space over a game whose right answer depends on a global comparison across
+all station-line pairs, that is very little. The constraint has moved from label
+*quality* (fixed by search) to label *quantity*.
+
+**Consequence.** Two routes, and they are complementary. Generate far more search
+episodes, which is expensive; and use the evaluations already being thrown away
+-- each search point scores one full-episode rollout per candidate and only the
+argmax was kept, so five sixths of the most expensive computation here was
+discarded. Recording all of them turns every search point into a preference
+ordering rather than a single label, at no extra simulation cost.
+
+---
+
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not

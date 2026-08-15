@@ -335,8 +335,9 @@ class ScoredRolloutTest(unittest.TestCase):
     stays valid and every score keeps printing.
     """
 
-    def _episode(self, rows, evaluations):
+    def _episode(self, rows, evaluations, seed=0):
         return {
+            "seed": seed,
             "observations": np.zeros((rows, 4), dtype=np.float32),
             "actions": np.arange(rows, dtype=np.int64),
             "masks": np.ones((rows, 4), dtype=bool),
@@ -356,9 +357,16 @@ class ScoredRolloutTest(unittest.TestCase):
             target = Path(folder) / "data.npz"
             # Episode A keeps 3 rows and scored rollouts at its rows 0 and 2;
             # episode B keeps 2 rows and scored at its own rows 0 and 1.
-            save(target, [self._episode(3, [0, 2]), self._episode(2, [0, 1])])
+            save(
+                target,
+                [
+                    self._episode(3, [0, 2], seed=111),
+                    self._episode(2, [0, 1], seed=222),
+                ],
+            )
             archive = np.load(target)
             rows = archive["eval_row"].tolist()
+            episodes = archive["episode"].tolist()
             observations = len(archive["observations"])
             archive.close()
 
@@ -374,6 +382,17 @@ class ScoredRolloutTest(unittest.TestCase):
             observations,
             f"a scored rollout points at row {max(rows)} of only {observations} "
             "observations, so it indexes past the end of the dataset",
+        )
+        # Episode ids exist so a held-out split can be taken by EPISODE. A split
+        # by sample puts near-duplicate states from one board on both sides and
+        # reports a generalisation number that is nothing of the kind.
+        self.assertEqual(
+            episodes,
+            [111, 111, 111, 222, 222],
+            f"rows were labelled {episodes} instead of [111, 111, 111, 222, 222]; "
+            "without correct episode ids a validation split cannot separate "
+            "boards, and training agreement becomes indistinguishable from "
+            "memorisation",
         )
 
 
