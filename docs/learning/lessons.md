@@ -12,6 +12,8 @@ When a lesson becomes a gate — a test, a lint rule, a fixed command — delete
 
 ### Measurement
 
+- A deterministic simulation is not a faithful one: prove a snapshot reproduces the live run's continuation, since a rewound seed is perfectly repeatable and perfectly wrong. ([evidence](lessons-evidence.md#deterministic-is-not-faithful))
+- Drive a gate with a policy that can actually play; one driven by random play only tests what bad play happens to touch. ([evidence](lessons-evidence.md#drive-a-gate-with-play-that-can-play))
 - Read the outcome curve before optimising the machinery that produces it; a real defect on a path that carries no signal buys nothing. ([evidence](lessons-evidence.md#read-the-outcome-curve-before-optimising-the-machinery-that-produces-it))
 - When two metrics from one experiment disagree in direction, the measurement is wrong — not the surprising one. ([evidence](lessons-evidence.md#when-two-metrics-disagree-in-direction-the-measurement-is-wrong))
 - Do not report an effect size from a handful of trials when the outcome is bimodal; the mean is mostly a count of lucky seeds. ([evidence](lessons-evidence.md#do-not-report-an-effect-size-from-a-handful-of-bimodal-trials))
@@ -21,6 +23,8 @@ When a lesson becomes a gate — a test, a lint rule, a fixed command — delete
 
 ### Model and task design
 
+- Before scaling a student, measure the teacher's own headroom; imitation cannot exceed its labels, and a plateau across unrelated architectures indicts the target rather than the learner. ([evidence](lessons-evidence.md#measure-the-teachers-headroom-before-scaling-the-student))
+- Set a lookahead from the measured interval between consequences; one shorter than that gap sees cost without benefit and reliably recommends inaction. ([evidence](lessons-evidence.md#set-a-lookahead-from-the-interval-between-consequences))
 - Validate the capability the agent gained, not the mechanism you built: measure what it can now reach, express, decide and exploit. ([evidence](lessons-evidence.md#validate-the-capability-not-the-mechanism))
 
 - Match a representation's finest addressable unit to the smallest target it must resolve, before tuning anything else about it. ([evidence](lessons-evidence.md#match-the-finest-addressable-unit-to-the-smallest-target))
