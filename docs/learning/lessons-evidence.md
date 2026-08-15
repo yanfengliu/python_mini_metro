@@ -255,3 +255,64 @@ real network, all three mutations turn the suite red: 4, 3 and 4 failures.
 limits a competent player reaches, and drive it with one.
 
 Anchor: `test/test_env_agency.py`; mutations re-proved 2026-08-15.
+
+
+## Resample the simulator's randomness when planning inside it
+
+A lookahead player was built for this game: at each decision point, serialise the
+state, try each candidate, roll it to the end of the episode, keep the best. It
+beat the scripted heuristic on 27 of 28 paired seeds, +58.32 +/-20.99, reaching
+837 deliveries on a board where the heuristic managed 275.
+
+The serialised state includes the RNG. So each candidate was scored against
+exactly one future -- the one that would actually happen -- and the planner knew
+which passengers and stations were coming. The observation handed to any learned
+policy encodes none of that.
+
+Holding the board fixed at decision 0 of seed 9000 and varying only the RNG:
+
+    CONNECT(0,2)   291  292  274  285      mean 285.5   <- the heuristic's pick
+    CONNECT(0,1)   266  287  328  302      mean 295.8
+    CONNECT(1,2)   275  275  289  275      mean 278.5
+
+The best action changes with the future, two of four each way. Against the single
+real future the gap between the top two was 105 deliveries; in expectation it is
+about 10. Roughly 95% of the headline finding was luck.
+
+This is the winner's curse. One rollout is a one-sample estimate of a candidate's
+value; taking the max over noisy one-sample estimates selects the luckiest sample
+rather than the best action, and biases the winner upward. Here the noise is the
+size of the signal -- candidates differ by 17-54 deliveries within a future,
+while one *fixed* candidate varies by up to 62 across futures.
+
+**Why the existing gates could not catch it.** Two properties had been carefully
+verified: that rollouts are reproducible, and that a snapshot rolled forward
+reproduces the live game's own continuation exactly. Both were correct. Both were
+irrelevant -- they prove the rollout reproduces ONE future faithfully, and say
+nothing about whether one future is enough. The reasoning error is specific: **the
+simulator being reproducible was mistaken for the game being deterministic.**
+Spawns in this game are random; a reproducible simulator lets you replay a
+future, it does not make that future the only one.
+
+**What it cost.** Three findings that each invited a separate explanation had one
+cause. The planner's margin was partly foreknowledge rather than skill.
+Distillation stalled at 52% held-out agreement because a fraction of the labels
+were unlearnable by construction -- identical observations, different correct
+answers. And the distilled policy scored 193.20 against cloning-the-heuristic's
+194.7, because once luck is averaged out the learnable part of the planner's
+policy is close to the heuristic's. Several sessions of work went into
+architecture and data before the target itself was questioned.
+
+**Rule.** If an agent plans inside a simulator, resample the simulator's
+randomness and average -- and use common random numbers across candidates so the
+comparison isolates the action. Otherwise the planner optimises against a future
+it was handed, scores well, and emits training targets that nothing without the
+same handout can reproduce.
+
+One practical note: reseeding looked broken at first. Rollouts of 600 and 1,500
+decisions returned identical scores across futures and only diverged from about
+3,000, because a changed spawn sequence takes time to reach the outcome being
+measured.
+
+Anchor: E34 in `docs/rl-experiments.md`; `expected_value` and its four gates in
+`scripts/search_policy.py` / `test/test_search_policy.py`.

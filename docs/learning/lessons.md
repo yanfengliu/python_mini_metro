@@ -12,6 +12,7 @@ When a lesson becomes a gate — a test, a lint rule, a fixed command — delete
 
 ### Measurement
 
+- Resample a simulator's randomness when planning inside it; a reproducible simulator is not a deterministic game, and one rollout per candidate selects the luckiest future rather than the best action. ([evidence](lessons-evidence.md#resample-the-simulators-randomness-when-planning-inside-it))
 - A deterministic simulation is not a faithful one: prove a snapshot reproduces the live run's continuation, since a rewound seed is perfectly repeatable and perfectly wrong. ([evidence](lessons-evidence.md#deterministic-is-not-faithful))
 - Drive a gate with a policy that can actually play; one driven by random play only tests what bad play happens to touch. ([evidence](lessons-evidence.md#drive-a-gate-with-play-that-can-play))
 - Read the outcome curve before optimising the machinery that produces it; a real defect on a path that carries no signal buys nothing. ([evidence](lessons-evidence.md#read-the-outcome-curve-before-optimising-the-machinery-that-produces-it))
