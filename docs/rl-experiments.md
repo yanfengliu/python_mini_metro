@@ -1151,6 +1151,48 @@ one, and the deliverable is the search player.
 
 ---
 
+## E33 -- the critic does not generalise either, so search cannot be shortcut yet
+
+Search costs tens of minutes per episode because every candidate is rolled to the
+end of the game. The standard fix is to stop early and add V(s), which is an
+order-of-magnitude saving and converts directly into more episodes -- and more
+episodes is exactly what E31 and E32 identified as the constraint. That requires
+a critic that works on boards it never trained on.
+
+Distilled critic, evaluated on the same 7 held-out episodes (1,164 states):
+
+| | |
+| --- | --- |
+| actual return-to-go | mean 34.85, sd 9.90 |
+| predicted | mean 34.26, sd 12.80 |
+| mean absolute error | 8.81 |
+| correlation | **+0.418** |
+| R^2 against predicting the mean | **-0.594** |
+
+**REFUTED for now.** A negative R^2 means the critic is worse than a constant:
+predicting 34.85 for every state would beat it. It has learned the average and
+then added noise around it, with predicted spread (12.80) wider than the real
+spread (9.90) -- overconfident in exactly the way that makes a leaf evaluation
+dangerous, since search would act on differences that are not there.
+
+**One caveat against writing the route off.** Search does not need calibrated
+values, only correct *ranking* among candidates, and the correlation is positive
+at +0.418. So the failure is not total. But +0.418 is far too weak to trust for
+choosing between actions whose true values differ by a few deliveries, which is
+what most decision points look like.
+
+**Where this leaves things.** Both halves of the distilled network fail to
+generalise from 21 training episodes -- the policy at 52% held-out agreement
+(E31), the critic below a constant baseline here. That is one consistent story
+rather than two failures, and it points at the same cause: too few episodes. The
+90-episode run in flight roughly quadruples the real-decision count, and this
+measurement should be repeated against it before the AlphaZero-style loop
+(policy proposes candidates, critic evaluates leaves, distil, repeat) is
+attempted, because every stage of that loop depends on the critic being better
+than a constant.
+
+---
+
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not
