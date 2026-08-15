@@ -1014,6 +1014,38 @@ gained +528 while seed 9004 gained +2. The lower bound is still positive, but th
 honest statement is that search wins consistently and by a wildly seed-dependent
 amount, not that it reliably triples the score.
 
+### E30 correction -- the +128.50 was an eight-seed artefact
+
+A second, independent paired set of 15 seeds (20000-20026, search's own dataset
+run against the heuristic on the identical boards) gives a very different effect
+size:
+
+```
+paired gap +30.20 +/-16.48 over 15 seeds; search won 14, tied 1, lost 0
+```
+
+Per-seed gaps: +3, +73, +18, +32, +7, +76, +93, +3, +17, +79, +21, +0, +6, +8, +17.
+
+**The direction survives and the magnitude does not.** Across all 23 paired seeds
+measured so far, search beat the heuristic on 22, tied 1, and lost 0 -- it has
+never once been worse, which is what rollout policy improvement predicts and is
+the claim actually worth making. But the headline +128.50 was inflated by seed
+9000's +528, one outlier in a sample of eight. Excluding it, the first set's mean
+gap is +71.4; the second set's is +30.20. The typical gain is a few tens of
+deliveries, with occasional large wins on boards where committing to one long
+line pays off dramatically.
+
+This is a repeat of a mistake already recorded in `docs/learning/lessons.md`:
+*do not report an effect size from a handful of trials when the outcome is
+bimodal; the mean is mostly a count of lucky seeds.* The rule was written, read
+at session start, and violated anyway. What makes it easy to miss is that the
+paired 95% interval on eight seeds (+/-117.96) did exclude zero, so the result
+looked statistically clean -- pairing correctly established *that* search wins
+while saying nothing reliable about *by how much*.
+
+**Revised standing claim:** search beats the heuristic reliably and by roughly
+30-70 deliveries on a typical board, not by the ~130 first reported.
+
 ---
 
 ## Standing conclusions
