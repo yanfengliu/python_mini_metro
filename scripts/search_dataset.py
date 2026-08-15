@@ -28,7 +28,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 import numpy as np
@@ -120,6 +120,27 @@ def _one(job):
     return collect(*job)
 
 
+def save(path, results) -> dict[str, int]:
+    """Write everything collected so far, and report the label mix."""
+    stacked = {
+        key: np.concatenate([r[key] for r in results])
+        for key in ("observations", "actions", "masks", "returns")
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(
+        path,
+        observations=stacked["observations"],
+        actions=stacked["actions"],
+        masks=stacked["masks"],
+        returns=stacked["returns"],
+    )
+    kinds: dict[str, int] = {}
+    for action in stacked["actions"]:
+        name = ActionKind(ACTION_TABLE[action][0]).name
+        kinds[name] = kinds.get(name, 0) + 1
+    return kinds
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--episodes", type=int, default=24)
@@ -143,42 +164,38 @@ def main(argv: list[str] | None = None) -> int:
         f"the heuristic scores ~262 and search should exceed it"
     )
     results = []
+    # Results are written after every episode rather than once at the end.
+    # A search episode costs tens of minutes -- the better search plays, the
+    # longer the game runs and the more decision points it accrues -- so a run
+    # that saved only on completion would throw away hours if one slow seed
+    # hung or the process died. `as_completed` also means a single long episode
+    # no longer hides the results of every episode that finished before it,
+    # which is how a healthy run came to look wedged.
     with ProcessPoolExecutor(max_workers=args.workers) as pool:
-        for result in pool.map(_one, jobs):
+        futures = {pool.submit(_one, job): job[0] for job in jobs}
+        for done in as_completed(futures):
+            result = done.result()
             results.append(result)
             print(
                 f"  seed {result['seed']}: {result['deliveries']:6.0f} deliveries, "
                 f"{result['searches']:3d} searches, "
                 f"{result['overrides']:3d} overrode the heuristic, "
-                f"{len(result['actions']):4d} labels",
+                f"{len(result['actions']):4d} labels "
+                f"[{len(results)}/{len(jobs)} done]",
                 flush=True,
             )
+            save(args.output, results)
 
     scores = np.array([r["deliveries"] for r in results])
-    stacked = {
-        key: np.concatenate([r[key] for r in results])
-        for key in ("observations", "actions", "masks", "returns")
-    }
-    kinds: dict[str, int] = {}
-    for action in stacked["actions"]:
-        name = ActionKind(ACTION_TABLE[action][0]).name
-        kinds[name] = kinds.get(name, 0) + 1
-
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    np.savez_compressed(
-        args.output,
-        observations=stacked["observations"],
-        actions=stacked["actions"],
-        masks=stacked["masks"],
-        returns=stacked["returns"],
-    )
+    kinds = save(args.output, results)
+    labels = sum(kinds.values())
     stderr = scores.std(ddof=1) / np.sqrt(len(scores)) if len(scores) > 1 else 0.0
     print(
         f"\nsearch scored mean {scores.mean():.2f} +/-{1.96 * stderr:.2f} "
         f"(median {np.median(scores):.0f}, max {scores.max():.0f}) "
         f"against the heuristic's ~262"
     )
-    print(f"dataset: {len(stacked['actions'])} labels, mix {kinds}")
+    print(f"dataset: {labels} labels, mix {kinds}")
     print(f"saved: {args.output}")
     return 0
 
