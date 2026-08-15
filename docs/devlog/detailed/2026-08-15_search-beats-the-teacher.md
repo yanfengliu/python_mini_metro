@@ -70,3 +70,46 @@ One root cause: every gate in that file was driven by **random play**, which cra
 Worse, `test_a_degenerate_policy_cannot_outscore_real_play` could not fail at all. It compared against `max(max(real), 1.0)` where `real` was random play, which scores about zero here — so the floor did the work and the assertion read `0.0 <= 1.0` regardless of the environment.
 
 All now driven by the heuristic, with each mutation re-applied and proved to turn the suite red: horizon 450 → 4 failures, 3-station cap → 3, fleet masked → 4.
+
+
+## The correction: search was picking lucky futures
+
+Everything above is measured correctly and the headline conclusion drawn from it was still wrong.
+
+Rollouts are deterministic given the serialised state, and that state **includes the RNG**. So every candidate was scored against exactly one future — the one that will actually happen — and search knew which passengers and stations were coming. The 574-float observation encodes none of it.
+
+Holding the board fixed at decision 0 of seed 9000 and varying only the RNG:
+
+| candidate | f0 | f1 | f2 | f3 | mean |
+| --- | --- | --- | --- | --- | --- |
+| `CONNECT(0,2)` *(heuristic's pick)* | **291** | **292** | 274 | 285 | 285.5 |
+| `CONNECT(0,1)` | 266 | 287 | **328** | **302** | 295.8 |
+| `CONNECT(1,2)` | 275 | 275 | 289 | 275 | 278.5 |
+
+The best action changes with the future, two of four each way. And the number that launched this entire line of work does not survive: against the one real future `CONNECT(0,2)` scored 275 and `CONNECT(0,1)` scored 380, a gap of 105. **In expectation the gap is about 10.**
+
+### Why this was invisible
+
+The determinism and fidelity checks were both correct, and both irrelevant to the actual defect. They proved the rollout reproduces *one* future exactly — and said nothing about whether one future is enough. I built a careful gate against the failure I had thought of, and it could not see the one I had not.
+
+The reasoning error is specific and worth naming: **the simulator being reproducible was mistaken for the game being deterministic.** Mini Metro's passenger and station spawns are random. A reproducible simulator lets you replay a future; it does not make that future the only one.
+
+Formally this is the winner's curse. A single rollout is a one-sample estimate of a candidate's value; taking the max over noisy one-sample estimates selects the candidate with the luckiest sample rather than the best action, and the selected estimate is biased upward. The measurements show the noise is the size of the signal — candidates differ by 17–54 deliveries within a future, while one *fixed* candidate varies by up to 62 across futures.
+
+### What it explains
+
+Three results that had looked like three separate problems are one problem.
+
+- Search's paired +58.32 over the heuristic is partly foreknowledge. It genuinely delivers those passengers in that game — the score is real — but no reactive policy can reproduce it, because the information it used is not in the observation.
+- Distillation stalls at 52% held-out agreement because a fraction of the labels are unlearnable *by construction*: identical observations, different correct answers.
+- The distilled policy scores 193.20, statistically indistinguishable from cloning the heuristic at 194.7, because once the luck is averaged out the learnable part of search's policy is close to the heuristic's.
+
+### The fix
+
+Average each candidate over K sampled futures, which estimates E[return | state, action] — a function of the observation, hence learnable in principle, and free of the selection bias. Common random numbers across candidates at a decision point (the same K future keys for everyone) cancel the shared between-future variation so the comparison isolates the action, at no extra cost.
+
+One detail cost a confusing test failure. Reseeding produces *identical* rollout values at 600 and 1,500 decisions and only diverges from about 3,000, because a changed spawn sequence takes time to reach the delivery count. A short check reads as a broken RNG swap when the swap is fine.
+
+### The generalisable lesson
+
+An agent that plans inside a simulator can only be trusted if the simulator's randomness is resampled. Otherwise the planner optimises against a future it has been handed, scores well, and produces training targets that nothing without that same handout can reproduce. The symptom is exactly what was seen here: excellent planner scores, a stubborn imitation ceiling, and a critic that cannot generalise — three findings that invite three separate explanations and have one cause.
