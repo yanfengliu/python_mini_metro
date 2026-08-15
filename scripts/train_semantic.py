@@ -19,6 +19,8 @@ import sys
 
 import numpy as np
 
+NL_MARKER = chr(10)
+
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
@@ -71,6 +73,59 @@ def evaluate(
     return scores
 
 
+class KeepBest:
+    """Evaluate periodically and save whichever policy actually scored best.
+
+    A run is not monotonic. The previous one peaked at 97.5 deliveries near
+    500k steps and fell to 35.5 by 856k, and because the trainer only saved
+    at the end, the best policy it ever had was thrown away. Keeping the
+    final weights assumes the last update was the best one, which the
+    measured curve says is false.
+    """
+
+    def __init__(self, output, every, episodes, seed):
+        from stable_baselines3.common.callbacks import BaseCallback
+
+        self.output = output
+        self.every = every
+        self.episodes = episodes
+        self.seed = seed
+        self.best = float("-inf")
+        self.history = []
+        self._base = BaseCallback
+
+    def build(self):
+        keeper = self
+
+        class _Callback(keeper._base):
+            def _on_step(self) -> bool:
+                if self.num_timesteps % keeper.every != 0:
+                    return True
+                scores = evaluate(
+                    self.model,
+                    keeper.episodes,
+                    keeper.seed,
+                    deterministic=False,
+                )
+                mean = float(np.mean(scores))
+                keeper.history.append((self.num_timesteps, mean))
+                marker = ""
+                if mean > keeper.best:
+                    keeper.best = mean
+                    self.model.save(f"{keeper.output}-best")
+                    marker = "  <- new best, saved"
+                self.model.save(f"{keeper.output}-latest")
+                print(
+                    f"[eval] {self.num_timesteps:,} steps: "
+                    f"{mean:.1f} deliveries over {keeper.episodes} "
+                    f"held-out episodes{marker}",
+                    flush=True,
+                )
+                return True
+
+        return _Callback()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--total-timesteps", type=int, default=300_000)
@@ -79,6 +134,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--eval-episodes", type=int, default=20)
     parser.add_argument("--eval-seed", type=int, default=9000)
     parser.add_argument("--device", default="cuda")
+    parser.add_argument("--learning-rate", type=float, default=3e-4)
+    parser.add_argument("--eval-every", type=int, default=50_000)
+    parser.add_argument("--checkpoint-episodes", type=int, default=5)
     parser.add_argument(
         "--arch",
         choices=("mlp", "pointer"),
@@ -111,13 +169,31 @@ def main(argv: list[str] | None = None) -> int:
         device=args.device,
         n_steps=256,
         batch_size=256,
-        learning_rate=3e-4,
+        # Decayed, not flat. At a constant 3e-4 the previous run's approx_kl
+        # rose from 0.0037 to 0.0128 and its clip fraction from 0.034 to
+        # 0.082 while the score halved: updates got larger as the policy got
+        # worse. A step size that suits a crude policy is too hot once an
+        # episode runs thousands of decisions and one bad update costs a
+        # whole network.
+        learning_rate=lambda progress: args.learning_rate * progress,
         ent_coef=0.01,
         verbose=1,
     )
-    model.learn(total_timesteps=args.total_timesteps)
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
+    keeper = KeepBest(
+        args.output, args.eval_every, args.checkpoint_episodes, args.eval_seed
+    )
+    model.learn(total_timesteps=args.total_timesteps, callback=keeper.build())
     model.save(args.output)
+
+    if keeper.history:
+        print(NL_MARKER + "evaluation history:")
+        for step, mean in keeper.history:
+            print(f"  {step:>10,}  {mean:8.1f}")
+        print(f"best {keeper.best:.1f}, kept at {args.output}-best")
+        from sb3_contrib import MaskablePPO as _Maskable
+
+        model = _Maskable.load(f"{args.output}-best", device=args.device)
 
     for label, deterministic in (("deterministic", True), ("stochastic", False)):
         scores = evaluate(
