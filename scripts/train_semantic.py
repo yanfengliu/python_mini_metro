@@ -139,6 +139,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--eval-every", type=int, default=50_000)
     parser.add_argument("--resume", type=Path, help="warm-start from a saved policy")
     parser.add_argument("--ent-coef", type=float, default=0.01)
+    parser.add_argument("--anchor-coef", type=float, default=0.0)
     parser.add_argument("--checkpoint-episodes", type=int, default=5)
     parser.add_argument(
         "--arch",
@@ -168,7 +169,21 @@ def main(argv: list[str] | None = None) -> int:
         # Start from a policy that already plays. From-scratch training on this
         # lane has failed in every configuration tried, and the cloned heuristic
         # starts at ~197 against random-never-removes' 181 and the script's 277.
-        model = MaskablePPO.load(str(args.resume), env=vec, device=args.device)
+        if args.anchor_coef > 0:
+            # Hold the reference throughout, not just at initialisation.
+            # AlphaStar measures init alone at +84 Elo and the continual KL
+            # penalty at +380 on top; here an unanchored warm start decayed
+            # from 146.5 deliveries at 50k to 46.4 by 100k.
+            from rl.anchored_ppo import build_anchored_ppo_class
+
+            reference = MaskablePPO.load(str(args.resume), device=args.device)
+            model = build_anchored_ppo_class().load(
+                str(args.resume), env=vec, device=args.device
+            )
+            model.set_anchor(reference, args.anchor_coef)
+            print(f"anchored to {args.resume} at coef {args.anchor_coef}", flush=True)
+        else:
+            model = MaskablePPO.load(str(args.resume), env=vec, device=args.device)
         model.learning_rate = args.learning_rate
         model.ent_coef = args.ent_coef
         print(f"resumed from {args.resume}", flush=True)
