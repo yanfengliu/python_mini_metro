@@ -93,7 +93,7 @@ crowded family can be spotted:
 - **E. Prior art.** Known PPO collapse modes in long-horizon, high-variance,
   masked-action settings. Cheapest branch and explicitly in the portfolio.
 
-## Diagnosis (move 3: judged on what is proved)
+## SUPERSEDED diagnosis (kept for the record; see the correction below)
 
 **Mechanism, evidenced:** the collapse is an *absorbing state* that recreates the
 zero-reward condition PPO cannot escape.
@@ -129,6 +129,68 @@ bound would reject.
 
 **The single sentence:** an individually costless action that is collectively
 fatal will be drifted into, and the state it leads to has no gradient back out.
+
+---
+
+## Correction (move 4: the adversarial audit killed it)
+
+**The diagnosis above is refuted.** An adversarial reviewer was asked to break it
+and broke it on five points, three of which I re-verified independently.
+
+**1. Removal is not free -- it COSTS.** Replicating the paired measurement at
+n=48 instead of n=6, at the same 800-decision horizon: keep 21.04, remove 18.23,
+paired difference **-2.81, 95% CI [-4.53, -1.10]**. The sign is reversed. Measured
+paired sd is 6.06, so n=6 gives a half-width of +/-6.36 -- 2.3x the true effect,
+with roughly **8% power**. Two numbers quoted to 0.1 from an instrument whose
+resolution was +/-6.4, on a bimodal outcome, which is the third time this exact
+error has been made here (E9, E18, now this).
+
+**2. The availability denominator was wrong.** The 17% figure comes from *random
+play's* state distribution. In the states a competent policy actually occupies I
+measure a mean legal set of **3.26** with **81.5% offering only WAIT or REMOVE**
+(the reviewer measured 2.03 and 98.9% on the v3 policy). Against the right
+denominator, 73% argmax is ~1.5x availability, not 4x.
+
+**3. The collapsed policy has no REMOVE preference in probability mass.** Masked
+entropy **1.020 nats against the healthy policy's 0.019** -- it is near-uniform
+over the legal set (86% of uniform vs 2%). PPO samples from mass, not argmax, and
+E20 already recorded that argmax is misleading on this task.
+
+**4. It is not an absorbing state.** Verified in this repo's own v4 log: peak
+102.0, falls to **34.2 at 714k, then recovers to 47.1**. A state whose gradient is
+identically zero cannot recover. Only v5 reached ~0, and it was stopped 58k steps
+later -- the one run allowed to continue past a decline is the one that recovered.
+
+**5. The reproduction never reproduced.** Confirmed independently: the baseline
+passes at 0.934 retention and its peak is the *last logged rollout*, still rising.
+
+### The corrected chain
+
+Something destroys the policy's **sharpness** (entropy 0.019 -> 1.020). Because
+81-99% of the states a competent policy occupies offer only WAIT or REMOVE, any
+loss of sharpness converts directly into a destroyed network scoring what random
+legal play scores. **REMOVE is the transmission, not the driver.** Penalising it
+removes the transmission, leaves the driver, and hands the agent a free floor --
+random legal play that merely never removes scores **181.67**, above every peak in
+this entire search.
+
+The unlagged clock (the held-out eval, not the 100-episode-lagged `ep_rew_mean`)
+puts **entropy first**: it starts rising at ~274k, before the eval dies at 300k,
+while `value_loss` only crashes at 311k -- after the policy is already worthless.
+That promotes family B, which the superseded diagnosis argued against.
+
+### What the search is now
+
+Branches `ent0` (ent_coef 0.0) and `ent001` (0.001) against the collapsing
+configuration at 900k steps -- past v4's ~500k decline, since the old 400k horizon
+demonstrably stopped short. The question is whether the constant entropy pressure
+toward uniform-over-legal is what erodes sharpness once the advantage signal
+weakens.
+
+**New disqualifier, learned from the audit:** any candidate must be scored against
+**random-legal-never-removes (181.67)**, not against zero. Both previously proposed
+fixes fail this -- `--remove-min-age 200` lets *random play* score 45.67 and clear
+`MIN_PEAK=40` with retention ~1.0, passing having learned nothing.
 
 ## Status
 
