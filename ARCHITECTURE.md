@@ -78,6 +78,7 @@ python_mini_metro/
 |  |- source-provenance-git-safety.mjs
 |  |- source-provenance.mjs
 |  |- record_playthrough.py
+|  |- record_semantic.py
 |  |- train_rl.py
 |  |- train_semantic.py
 |  |- verify_input_coordinator_differential.py

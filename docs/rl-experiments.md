@@ -14,7 +14,7 @@ Reference points on Classic, used throughout:
 | --- | --- |
 | random | 0 (game over in 364 decisions) |
 | scripted expert | ~19-20 |
-| trained agent, best so far | 3.75 mean / max 17 |
+| trained agent (semantic lane) | **190.8 mean / max 383** |
 
 There is no win condition. `GAME_RULES.md` defines only game over, so the
 objective is lifetime passengers delivered before the system is overwhelmed.
@@ -553,6 +553,52 @@ can report a working policy as a total failure.** The evaluator now reports both
 **Standing note:** this lane is strictly easier than the pixel task and its
 scores are not interchangeable with pixel-task scores. The pixel environment is
 untouched and remains the player-equivalent lane.
+
+---
+
+## E21 — The semantic lane, trained: 190.8 deliveries on held-out seeds
+
+**Setup:** MaskablePPO, 600,000 steps, one seed, on the corrected environment --
+exact per-action masking, routes editable in both directions, episodes running to
+a real game over, canonical shape slots, and station-to-line distances in the
+observation.
+
+**Training curve** (`rollout/ep_rew_mean`):
+
+| steps | 73k | 139k | 192k | 256k | 323k | 475k | 600k |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| deliveries | 1.1 | 26.7 | 50.1 | 67.5 | 108 | 162 | **222** |
+
+It never plateaued; the budget ran out first. Episode length rose from 506 to
+~3,400 decisions, so the agent is *surviving* longer, which is the actual
+objective rather than a proxy for it.
+
+**Held-out, 20 episodes, seeds disjoint from training, stochastic:**
+
+`[186, 198, 109, 180, 184, 264, 242, 179, 146, 336, 117, 383, 111, 108, 136, 101, 189, 178, 176, 293]`
+
+**mean 190.80, median 179.5, max 383**, against **0** for random legal play on the
+same action space.
+
+**Verdict:** CONFIRMED. This is the first policy on this project that plays the
+game. A recorded episode reached 174 deliveries over 6,174 decisions ending in a
+genuine game over, with 2 lines and a 7-station route, and its action mix shows
+real strategy rather than coasting: 147 prepends, 73 connects, **71 removals** and
+57 extends -- it redraws lines, the move that had been masked out as "never
+useful to an exploring policy".
+
+**Caveats, stated because the protocol demands them.** One seed against the
+pre-registered five. The **deterministic** evaluation reads 0.00 on all 20
+episodes -- the greedy-no-op trap from E20, since WAIT is 94% of correct play and
+argmax therefore waits forever; the stochastic figure is the real one. And the
+random baseline of 0 is not a claim that the game is hard for a random policy in
+general, only on this action space, where removals and mis-ordered routes undo
+progress.
+
+**Open thread:** across 6,174 decisions the agent used ASSIGN_LOCOMOTIVE 4 times,
+ATTACH_CARRIAGE twice and PURCHASE_LINE once. Either those options are rarely
+offered or they are badly under-used, and a line without a locomotive carries
+nobody. That is the next measurement.
 
 ---
 
