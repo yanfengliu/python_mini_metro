@@ -105,7 +105,15 @@ def clone(model, observations, actions, masks, returns, *, epochs, batch_size, l
 
             features = policy.extract_features(obs)
             latent_pi, latent_vf = policy.mlp_extractor(features)
-            logits = policy.action_net(latent_pi).masked_fill(~mask, -1e8)
+            # Go through the policy's OWN logit path, not action_net directly.
+            # The pointer policy computes logits in _action_logits and never
+            # uses action_net at inference, so training action_net produced 98%
+            # agreement on a dead path and 0.2% on the decisions that matter.
+            if hasattr(policy, "_action_logits"):
+                raw = policy._action_logits(latent_pi)
+            else:
+                raw = policy.action_net(latent_pi)
+            logits = raw.masked_fill(~mask, -1e8)
             value = policy.value_net(latent_vf).flatten()
 
             action_loss = torch.nn.functional.cross_entropy(logits, target)
@@ -134,6 +142,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--learning-rate", type=float, default=3e-4)
     parser.add_argument("--wait-keep", type=float, default=0.02)
     parser.add_argument("--gamma", type=float, default=0.999)
+    parser.add_argument("--arch", choices=("mlp", "pointer"), default="mlp")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--output", type=Path, default=Path("output/semantic/bc"))
@@ -160,9 +169,22 @@ def main(argv: list[str] | None = None) -> int:
     venv = DummyVecEnv(
         [lambda: ActionMasker(SemanticMetroEnv(), lambda e: e.action_masks())]
     )
+    if args.arch == "pointer":
+        # The teacher's rule is a comparison over station-line PAIRS -- nearest
+        # unserved station to nearest line end. A flat MLP over a 574-vector has
+        # to rediscover that from scratch for every slot; a pointer head scores
+        # each action from the entities it names, which is the same shape.
+        from rl.semantic_nets import PointerExtractor, build_pointer_policy_class
+
+        policy_class = build_pointer_policy_class()
+        policy_kwargs = dict(features_extractor_class=PointerExtractor)
+    else:
+        policy_class = "MlpPolicy"
+        policy_kwargs = {}
     model = MaskablePPO(
-        "MlpPolicy",
+        policy_class,
         venv,
+        policy_kwargs=policy_kwargs,
         seed=args.seed,
         device=args.device,
         n_steps=256,

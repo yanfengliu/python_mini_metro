@@ -848,6 +848,49 @@ but has not yet won.
 
 ---
 
+## E27 — The pointer head does not help the semantic lane, and a dead-path bug
+
+**Hypothesis:** every learned policy plateaus at ~170-195 while the scripted
+heuristic reaches 277. The heuristic's rule is a comparison over station-line
+*pairs* -- nearest unserved station to nearest line end -- which a flat MLP over a
+574-vector must rediscover per slot, and which the pointer head expresses
+structurally. So clone the heuristic with the pointer architecture.
+
+**A bug found on the way, worth more than the result.** The cloning loop called
+`policy.action_net(latent_pi)` directly. The pointer policy computes its logits in
+`_action_logits()` and **never uses `action_net` at inference**, so training
+optimised a head the policy does not consult: 98.0% surface agreement on a dead
+path, **0.2% agreement on the teacher's real decisions, and 0.0 deliveries**. The
+clone now routes through the policy's own logit path.
+
+**Measured**, after the fix, 6 held-out episodes:
+
+| clone | real-decision agreement | deliveries |
+| --- | --- | --- |
+| MLP | 71.8% | **194.7** (max 271) |
+| pointer | 73.0% | 158.0 (max 206) |
+
+**Verdict: REFUTED.** The pointer head matches the MLP on fidelity to the teacher
+and plays *worse*. Whatever separates 195 from 277 is not the flat head's
+inability to compare pairs -- both architectures reproduce ~72% of the teacher's
+decisions and both fall well short of it.
+
+That sharpens the open question. The clone disagrees with its teacher on ~28% of
+roughly fourteen decisions per episode, i.e. about four wrong choices, and those
+four cost ~70 deliveries. The gap is not capacity or architecture; it is that a
+handful of specific decisions carry almost all the value, and imitation at 72%
+fidelity is not close enough. That argues for DAgger-style correction on the
+states the clone actually visits, rather than more offline demonstrations of
+states the teacher visits.
+
+**Note on the surface metric.** 98% label agreement was reported three times in
+this lane and meant nothing each time: the dataset is ~91% WAIT after
+subsampling, so a policy that always waits scores 91%, and the dead-path clone
+scored 98% while delivering zero. Only real-decision agreement is informative
+here.
+
+---
+
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not
