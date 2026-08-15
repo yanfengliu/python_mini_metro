@@ -27,3 +27,20 @@ A rule earns a place here when it would change how the next unrelated task is ap
 - **The observation is a design surface, not a given.** Render scale, entity sizes and contrast are as legitimate to change as the network, and are sometimes the cheaper fix — a passenger 0.5 px wide is destroyed before any architecture sees it. Weigh the two together rather than treating the game as fixed.
 
 - **But changing the game is the more expensive lever, so price it.** Render or mechanic changes rotate task fingerprints, invalidate trained policies and saved runs, and are locally high-risk under `AGENTS.md`. Re-derive how much game change is still needed *after* the model-side fix, rather than inheriting a number sized against the old model.
+
+## Shell mechanics on this machine
+
+- **Write commit messages through a file or a quoted heredoc, never `-m "..."`.**
+  A double-quoted `-m` is still interpreted by the shell, so backticks become
+  command substitution: a message describing a `candidates` argument was
+  committed with the word silently deleted and `candidates: command not found`
+  printed to stderr, which is easy to miss among Git's own line-ending warnings.
+  `main` here forbids force-pushing, so an amend cannot fix a message that has
+  already been pushed — the defect is permanent. Use `git commit -F <file>` or
+  `git commit -F - <<'EOF'`.
+
+- **Prefer a scratchpad Python file over an inline heredoc for multi-line
+  edits.** Heredoc terminators are repeatedly swallowed here — the shell reports
+  `unexpected EOF while looking for matching quote` and the whole edit is lost —
+  because the files are CRLF. Writing the patch script to the scratchpad with
+  the Write tool and running it costs one extra call and does not fail.
