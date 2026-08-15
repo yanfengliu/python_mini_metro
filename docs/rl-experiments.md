@@ -793,6 +793,46 @@ penalty toward the frozen reference, worth +380 Elo in their ablation against
 
 ---
 
+## E26 — A KL anchor stops the drift that ended every previous fine-tune
+
+**Hypothesis:** every warm start so far decayed. AlphaStar's ablation says
+*initialising* from a reference is worth +84 Elo while a **continual** KL penalty
+toward that same frozen reference is worth **+380** on top -- the reference is an
+anchor, not a launch pad.
+
+**Measured**, identical starting policy (`bc3`), identical hyperparameters, the
+only difference being `--anchor-coef 10.0`:
+
+| steps | anchored | unanchored |
+| --- | --- | --- |
+| 50k | 155.2 | 146.5 |
+| 100k | **167.0** | **46.4** |
+| 150k | **185.5** | -- |
+| 200k | 175.4 | -- |
+
+**Verdict: CONFIRMED.** This is the first configuration on this project where a
+policy *improves* with training rather than degrading. The unanchored run lost
+two-thirds of its score between 50k and 100k; the anchored run gained.
+
+**Why it works where `target_kl` would not.** `target_kl` bounds one update
+against the *previous* policy, so a slow drift made of many individually-tiny
+steps passes it untouched -- and that is exactly the drift observed here, and
+exactly why the earlier `targetkl` branch showed nothing. The anchor bounds
+distance from a *fixed good policy*, so drift accumulates a cost instead of being
+free. It remains a floor rather than a ceiling: a better action is still
+available, it just has to outweigh the divergence it costs.
+
+The mechanism was verified before being trusted -- over 2048 steps, KL to the
+reference grows 0.0110 unanchored against 0.0078 at coefficient 1.0.
+
+**Caveats.** Checkpoint evals use 8 episodes, whose 95% interval on this task is
+roughly +/-46, so 185.5 -> 175.4 is noise and only the anchored-vs-unanchored gap
+is resolvable. One seed. And the run has not yet passed its own 261.8 teacher or
+convincingly cleared the 189.8 one-line control -- it is improving, which is new,
+but has not yet won.
+
+---
+
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not
