@@ -1,20 +1,23 @@
-"""Clone the scripted heuristic, then hand the weights to PPO.
+"""Clone the scripted heuristic -- policy AND value -- then hand PPO the weights.
 
-Training this lane from scratch has now failed in every configuration tried, and
-the best learned policy (190.8) still loses to a fifteen-action script (276.9) on
-17 of 20 seeds. Rather than keep searching for a from-scratch fix, this starts
-PPO from a policy that already plays, which is what finally worked on the pixel
-lane.
+Training this lane from scratch has failed in every configuration tried, and the
+best learned policy still loses to a fifteen-action script. So PPO starts from a
+policy that already plays, which is what finally worked on the pixel lane.
+
+Two things are cloned, and the second one is not optional. Cloning only the
+policy leaves the critic at its initialisation -- measured at 0.28 while true
+discounted returns are ~30-60 at gamma=0.999 -- so PPO's very first advantages
+are (return minus garbage) and the fine-tune destroys the cloned policy within
+50,000 steps. That was observed twice before the cause was found.
 
 The dataset is brutally imbalanced by construction: the heuristic acts about 14
-times in 7,000 decisions, so 99.8% of its labels are WAIT. Cloning that directly
-produces a policy that waits forever -- the exact greedy-no-op failure already
-recorded as E20. So non-WAIT decisions are kept in full and WAIT is subsampled,
-with the ratio reported rather than assumed.
+times in 7,000 decisions, so ~99.8% of its labels are WAIT. Cloning that directly
+produces a policy that waits forever, which is the greedy-no-op failure already
+recorded as E20. Non-WAIT decisions are therefore kept in full and WAIT is
+subsampled, with the resulting mix reported rather than assumed.
 
 Cross-entropy is computed over the *masked* distribution, because that is what
-the policy actually samples from; scoring against the unmasked logits would train
-it on 364 actions the game will never offer.
+the policy actually samples from.
 """
 
 from __future__ import annotations
@@ -36,15 +39,16 @@ from rl.heuristic import choose  # noqa: E402
 from rl.semantic_env import ACTION_TABLE, ActionKind, SemanticMetroEnv  # noqa: E402
 
 
-def collect(episodes: int, wait_keep: float, seed: int):
+def collect(episodes: int, wait_keep: float, seed: int, gamma: float):
     """Play the heuristic, keeping every real decision and a slice of the waits."""
     rng = np.random.default_rng(seed)
-    observations, actions, masks = [], [], []
+    observations, actions, masks, returns = [], [], [], []
     scores = []
     for index in range(episodes):
         env = SemanticMetroEnv()
         observation, _ = env.reset(seed=seed + index)
         delivered = 0.0
+        kept_at, rewards = [], []
         try:
             while True:
                 mask = env.action_masks()
@@ -53,12 +57,22 @@ def collect(episodes: int, wait_keep: float, seed: int):
                     observations.append(observation.copy())
                     actions.append(action)
                     masks.append(mask.copy())
+                    kept_at.append(len(rewards))
                 observation, reward, terminated, truncated, _ = env.step(action)
+                rewards.append(float(reward))
                 delivered += float(reward)
                 if terminated or truncated:
                     break
         finally:
             env.close()
+
+        # Discounted return-to-go for every kept state, so the critic can be
+        # fitted to what this policy actually earns from here.
+        togo = np.zeros(len(rewards) + 1, dtype=np.float64)
+        for step in range(len(rewards) - 1, -1, -1):
+            togo[step] = rewards[step] + gamma * togo[step + 1]
+        returns.extend(float(togo[at]) for at in kept_at)
+
         scores.append(delivered)
         print(
             f"  episode {index + 1}/{episodes}: {int(delivered)} deliveries, "
@@ -69,48 +83,57 @@ def collect(episodes: int, wait_keep: float, seed: int):
         np.stack(observations),
         np.array(actions, dtype=np.int64),
         np.stack(masks),
+        np.array(returns, dtype=np.float32),
         scores,
     )
 
 
-def clone(model, observations, actions, masks, *, epochs, batch_size, lr):
+def clone(model, observations, actions, masks, returns, *, epochs, batch_size, lr):
     policy = model.policy
     device = model.device
     optimizer = torch.optim.Adam(policy.parameters(), lr=lr)
     total = len(observations)
     for epoch in range(epochs):
         order = np.random.permutation(total)
-        losses, correct = [], 0
+        action_losses, value_losses, correct = [], [], 0
         for start in range(0, total, batch_size):
             index = order[start : start + batch_size]
             obs = torch.as_tensor(observations[index]).to(device).float()
             target = torch.as_tensor(actions[index]).to(device)
             mask = torch.as_tensor(masks[index]).to(device)
-            latent_pi, _ = policy.mlp_extractor(policy.extract_features(obs))
-            logits = policy.action_net(latent_pi)
-            # Score against what the policy will actually sample from.
-            logits = logits.masked_fill(~mask, -1e8)
-            loss = torch.nn.functional.cross_entropy(logits, target)
+            target_value = torch.as_tensor(returns[index]).to(device).float()
+
+            features = policy.extract_features(obs)
+            latent_pi, latent_vf = policy.mlp_extractor(features)
+            logits = policy.action_net(latent_pi).masked_fill(~mask, -1e8)
+            value = policy.value_net(latent_vf).flatten()
+
+            action_loss = torch.nn.functional.cross_entropy(logits, target)
+            value_loss = torch.nn.functional.mse_loss(value, target_value)
+            loss = action_loss + 0.5 * value_loss
+
             optimizer.zero_grad()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(policy.parameters(), 0.5)
             optimizer.step()
-            losses.append(float(loss.item()))
+            action_losses.append(float(action_loss.item()))
+            value_losses.append(float(value_loss.item()))
             correct += int((logits.argmax(-1) == target).sum())
         print(
-            f"  epoch {epoch + 1}/{epochs}: loss {np.mean(losses):.4f}  "
-            f"agreement {correct / total:.1%}",
+            f"  epoch {epoch + 1}/{epochs}: action {np.mean(action_losses):.4f}  "
+            f"value {np.mean(value_losses):.1f}  agreement {correct / total:.1%}",
             flush=True,
         )
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--episodes", type=int, default=25)
-    parser.add_argument("--epochs", type=int, default=30)
+    parser.add_argument("--episodes", type=int, default=30)
+    parser.add_argument("--epochs", type=int, default=40)
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--learning-rate", type=float, default=3e-4)
     parser.add_argument("--wait-keep", type=float, default=0.02)
+    parser.add_argument("--gamma", type=float, default=0.999)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--output", type=Path, default=Path("output/semantic/bc"))
@@ -120,8 +143,8 @@ def main(argv: list[str] | None = None) -> int:
     from sb3_contrib.common.wrappers import ActionMasker
     from stable_baselines3.common.vec_env import DummyVecEnv
 
-    observations, actions, masks, scores = collect(
-        args.episodes, args.wait_keep, args.seed
+    observations, actions, masks, returns, scores = collect(
+        args.episodes, args.wait_keep, args.seed, args.gamma
     )
     kinds = {}
     for action in actions:
@@ -129,18 +152,29 @@ def main(argv: list[str] | None = None) -> int:
         kinds[name] = kinds.get(name, 0) + 1
     print(f"\nteacher: mean {np.mean(scores):.1f} deliveries over {len(scores)} games")
     print(f"dataset: {len(observations)} samples, label mix {kinds}")
+    print(
+        f"returns to fit: mean {returns.mean():.1f}  max {returns.max():.1f} "
+        f"(gamma {args.gamma})"
+    )
 
     venv = DummyVecEnv(
         [lambda: ActionMasker(SemanticMetroEnv(), lambda e: e.action_masks())]
     )
     model = MaskablePPO(
-        "MlpPolicy", venv, seed=args.seed, device=args.device, n_steps=256, verbose=0
+        "MlpPolicy",
+        venv,
+        seed=args.seed,
+        device=args.device,
+        n_steps=256,
+        gamma=args.gamma,
+        verbose=0,
     )
     clone(
         model,
         observations,
         actions,
         masks,
+        returns,
         epochs=args.epochs,
         batch_size=args.batch_size,
         lr=args.learning_rate,
