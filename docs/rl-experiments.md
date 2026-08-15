@@ -891,6 +891,49 @@ here.
 
 ---
 
+## E28 — DAgger raises fidelity and does not raise score
+
+**Hypothesis:** the clone reproduces ~72% of the teacher's ~14 real decisions per
+episode. More offline demonstrations cannot fix that, because they demonstrate
+states the *teacher* reaches while the clone's mistakes take it elsewhere. DAgger
+labels the states the *policy* visits, so the training distribution converges on
+the policy's own.
+
+**Measured**, 8 rounds x 10 episodes, aggregating to 10,314 labelled samples:
+
+| round | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| agreement | 74.8% | 77.2% | 74.2% | 76.4% | 78.2% | 73.6% | **85.0%** | 73.6% |
+| deliveries | 178 | 154 | **263** | 173 | 221 | 203 | 234 | 166 |
+
+Agreement rose from the clone's 71.8% to a 77.3% final. **Score did not follow.**
+Definitive evaluation, 16 held-out episodes:
+
+| policy | mean | 95% CI |
+| --- | --- | --- |
+| scripted heuristic | ~262 | -- |
+| **DAgger policy** | **175.31** | +/-37.23 |
+| control: one line then wait | 174.81 | +/-38.22 |
+
+**Verdict: REFUTED as a route to the teacher's score.** DAgger did exactly what it
+promises -- it improved fidelity on the policy's own distribution -- and the
+score is statistically identical to a control that builds one line and never acts
+again. The assumed link from imitation fidelity to performance does not hold
+here.
+
+**What that implies.** Three architecturally different approaches now converge on
+the same 170-195 band: cloning, cloning plus anchored PPO, and DAgger. The
+scripted heuristic reaches 262 from the same action space and observation. So the
+gap is not stability (the anchor fixed that), not architecture (the pointer head
+was refuted in E27), and not distribution mismatch (DAgger addressed that
+directly). What remains is that ~14 decisions per episode each carry enormous
+value, their quality depends on a global comparison over all station-line pairs,
+and a network that gets 3-4 of them wrong loses ~70 deliveries no matter how
+closely it matches the teacher elsewhere. Imitation metrics average over
+decisions; this game multiplies them.
+
+---
+
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not
