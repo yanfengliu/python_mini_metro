@@ -934,6 +934,43 @@ decisions; this game multiplies them.
 
 ---
 
+## E29 -- the teacher was the ceiling, and it is ~40% below the action space
+
+After DAgger (E28) showed fidelity rising without score rising, the remaining
+suspect was the teacher itself. Testing it is cheap, because the game serialises
+exactly: take a decision point, try each candidate, and roll it to the end of the
+episode under the heuristic. Deterministic replay was verified first -- three
+rollouts from one snapshot return the same value, and a snapshot rolled forward
+800 decisions reproduces the live game's 19.0 deliveries exactly -- so these are
+the real futures, not estimates.
+
+Seed 9000, first four decision points:
+
+| decision | the heuristic's choice | its value | best candidate found | value |
+| --- | --- | --- | --- | --- |
+| 0 | `CONNECT(0,2)` | 275 | `CONNECT(0,1)` | **380** |
+| 1 | `PREPEND_LINE(0,1)` | 275 | `ASSIGN_LOCOMOTIVE(0,0)` | **398** |
+| 2 | `ASSIGN_LOCOMOTIVE(0,0)` | 275 | `WAIT` | 287 |
+| 3 | `ASSIGN_LOCOMOTIVE(0,0)` | 275 | tied | 275 |
+
+**This explains the entire plateau.** At the very first decision of the game the
+heuristic gives up ~105 deliveries, and at the second ~123. Every learned policy
+in this repository was trained to imitate that. Cloning, anchored PPO, the
+pointer head and DAgger were all competing to reproduce a player that is roughly
+40% below what its own action space allows -- so the 170-195 band was never a
+learning failure, it was faithful reproduction of a mediocre target.
+
+It also retires the standing explanation from E28. The claim there was that ~14
+decisions each carry enormous value and imitation averages where the game
+multiplies. The multiplication is real, but the binding constraint is simpler and
+was measured rather than inferred: **the labels were wrong**.
+
+**Consequence.** Better labels are available without any new architecture, from
+the simulator that already exists. The next step is to distil search's choices
+rather than the heuristic's.
+
+---
+
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not
