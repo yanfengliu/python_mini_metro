@@ -75,6 +75,53 @@ class SnapshotFidelityTest(unittest.TestCase):
             "the search is comparing noise rather than actions",
         )
 
+    def test_a_rollout_predicts_the_future_the_live_game_produces(self):
+        """Determinism is not enough; the simulated future must be the real one.
+
+        A restore that rewound the RNG to the episode start would be perfectly
+        deterministic and would pass the test above, while simulating a future
+        that never happens -- search would then be optimising a fiction, and the
+        only symptom would be a mediocre score. This plays the same decisions
+        twice, once by continuing the live game and once from a snapshot taken
+        part-way through, and requires the same answer.
+
+        The simulating environment is reset on a *different* seed first, so a
+        rollout that secretly depended on its own episode seed rather than on the
+        restored state would diverge here.
+        """
+        live = SemanticMetroEnv()
+        live.reset(seed=9000)
+        _advance(live, 500)
+        document = serialize_game(live._mediator)
+        at = live._decision
+
+        real = 0.0
+        for _ in range(800):
+            _, reward, terminated, truncated, _ = live.step(choose(live))
+            real += float(reward)
+            if terminated or truncated:
+                break
+        live.close()
+
+        simulated = SemanticMetroEnv()
+        simulated.reset(seed=1)
+        _restore(simulated, document, at)
+        predicted = 0.0
+        for _ in range(800):
+            _, reward, terminated, truncated, _ = simulated.step(choose(simulated))
+            predicted += float(reward)
+            if terminated or truncated:
+                break
+        simulated.close()
+
+        self.assertEqual(
+            predicted,
+            real,
+            f"the snapshot rollout predicted {predicted} deliveries where the "
+            f"live game produced {real}; search would be choosing actions for a "
+            "future that will not happen",
+        )
+
     def test_restore_puts_back_the_decision_count(self):
         """The ramp reads `_decision`; a reset one simulates an easier game."""
         env = SemanticMetroEnv()
