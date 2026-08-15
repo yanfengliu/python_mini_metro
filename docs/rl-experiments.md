@@ -602,6 +602,46 @@ nobody. That is the next measurement.
 
 ---
 
+## E22 — A run is not monotonic, and the peak was thrown away
+
+**Measured**, v4 (MaskablePPO, MLP, diverse layouts, flat 3e-4):
+
+| steps | 400k | 500k | 600k | 700k | 856k |
+| --- | --- | --- | --- | --- | --- |
+| deliveries | 76.9 | **97.5** | 89.4 | 46.0 | 35.5 |
+
+Not noise. Across the same span `entropy_loss` went **-0.282 to -0.420**,
+`approx_kl` **0.0037 to 0.0128**, and `clip_fraction` **0.034 to 0.082**: updates
+grew larger as the policy got worse. A step size that suits a crude policy is too
+hot once an episode runs thousands of decisions and one bad update costs a whole
+network.
+
+**Verdict:** CONFIRMED, and the damage was self-inflicted. The trainer called
+`model.save()` only at the end, so the 97.5 policy was never written to disk. The
+run's best result is now only a number in a log — unrecoverable. Losing the peak
+was worse than the collapse, because the collapse was recoverable and the loss is
+not.
+
+**Fixed:** a `KeepBest` callback evaluates on held-out seeds every `--eval-every`
+steps and saves whichever policy actually scored best, plus a `-latest` for
+resuming; the final report reloads the best rather than assuming the last update
+was the good one. The learning rate decays with progress. The evaluation history
+prints inline, so a collapse is visible while it happens instead of reconstructed
+from a log afterwards.
+
+**A second error this exposed.** v3 was described as "never plateaued" and that
+was read as headroom justifying a 1.2M-step follow-up. It was flat at 206 from
+600k onward — it had plateaued, and a still-rising final number was mistaken for
+a trend. Same shape as the six-episode mean in E9: extrapolating from the
+direction of travel rather than from the data.
+
+**Early v5 comparison** (checkpointed, decaying LR): 0.0 at 50k, **57.6** at
+100k, **89.6** at 150k, 81.8 at 200k — reaching by 150k roughly what v4 needed
+~500k to reach. One seed against one seed, so that is a hypothesis about the
+learning rate, not a measurement.
+
+---
+
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not

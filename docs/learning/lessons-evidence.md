@@ -128,3 +128,27 @@ game ended?
 
 Deleted from `lessons.md` when `test_env_agency.py` covers a case fully; the
 rule stays only while judgement is still doing work the gate cannot.
+
+---
+
+## Save the best result while it exists
+
+**Anchor:** 2026-08-14, commit `b2c5cc4`; `docs/rl-experiments.md` E22.
+
+A 1.2M-step run peaked at **97.5** deliveries near 500k and fell to **35.5** by 856k. The trainer saved only at the end, so the best policy it ever produced was never written to disk and is now only a number in a log file.
+
+The collapse itself was recoverable; the loss was not. Two habits follow. Evaluate periodically on held-out data and keep the best-scoring weights, not the last ones — "the run finished" and "the run's best result is available" are different claims. And print the evaluation history inline, so a collapse is visible while it happens rather than reconstructed afterwards from a log by someone who already suspects it.
+
+The collapse had a diagnosable cause worth recognising again: `entropy_loss`, `approx_kl` and `clip_fraction` all rose together while the score halved. Updates getting larger as performance degrades means the step size no longer suits the policy, not that the policy needs more steps.
+
+---
+
+## A stated intention is not a completed action
+
+**Anchor:** 2026-08-14; a turn that ended with "I'm going to stop this run and re-launch with checkpointing" while the run kept training and degraded from 40.0 to 35.5.
+
+The plan was correct, specific, and entirely unexecuted. The turn read as though the work had happened because the reasoning that led to it had happened, and the run was only stopped after the user asked whether it had been.
+
+What makes this hard to self-catch is that describing the fix produces the same sense of resolution as applying it. The check that works is mechanical rather than introspective: before ending a turn, any sentence written in the future tense about work in this session is either done first or is explicitly flagged as not done. "I will X" and "X is done" must never be indistinguishable in the same report.
+
+The same turn also corrected a separate instance of reading a trend from a still-rising last number, which is the tell — a turn spent noticing one bias is not immune to another.

@@ -16,6 +16,9 @@ When a lesson becomes a gate — a test, a lint rule, a fixed command — delete
 - When two metrics from one experiment disagree in direction, the measurement is wrong — not the surprising one. ([evidence](lessons-evidence.md#when-two-metrics-disagree-in-direction-the-measurement-is-wrong))
 - Do not report an effect size from a handful of trials when the outcome is bimodal; the mean is mostly a count of lucky seeds. ([evidence](lessons-evidence.md#do-not-report-an-effect-size-from-a-handful-of-bimodal-trials))
 
+- Save the best result while it exists; a training run is not monotonic and the final weights are not the peak. ([evidence](lessons-evidence.md#save-the-best-result-while-it-exists))
+- A stated intention is not a completed action -- end a turn on what was done, not on what will be done next. ([evidence](lessons-evidence.md#a-stated-intention-is-not-a-completed-action))
+
 ### Model and task design
 
 - Validate the capability the agent gained, not the mechanism you built: measure what it can now reach, express, decide and exploit. ([evidence](lessons-evidence.md#validate-the-capability-not-the-mechanism))
