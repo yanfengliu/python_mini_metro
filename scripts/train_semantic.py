@@ -116,7 +116,10 @@ def main(argv: list[str] | None = None) -> int:
             f"  deliveries: mean {np.mean(scores):.2f}  median {np.median(scores):.1f}  "
             f"max {max(scores):.0f}"
         )
-    print("reference: random legal play mean 2.8; scripted expert ~19-20")
+    print(
+        "reference: random legal play scores 0 on this action space -- there "
+        "are real decisions to get wrong, so any positive score is learning"
+    )
     vec.close()
     return 0
 
