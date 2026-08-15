@@ -31,7 +31,9 @@ its default policy whenever the comparison is exact -- and here it is.
 from __future__ import annotations
 
 import argparse
+import copy
 import os
+import random
 import sys
 from concurrent.futures import ProcessPoolExecutor
 
@@ -87,6 +89,44 @@ def _rollout(env, document, decision: int, action: int, cap: int) -> float:
     return total
 
 
+def reseeded(document, key: int):
+    """The same board, a different future.
+
+    Rollouts are deterministic given the serialised state, and that state
+    includes the RNG -- so scoring a candidate once measures it against exactly
+    the future that will happen. Replacing the RNG lets a candidate be measured
+    against futures the agent could not have known about.
+    """
+    variant = copy.deepcopy(document)
+    variant["rng"] = {
+        "python": random.Random(key).getstate(),
+        "numpy": np.random.default_rng(key).bit_generator.state,
+    }
+    return variant
+
+
+def expected_value(env, document, decision: int, action: int, cap: int, futures):
+    """Mean return of one candidate across a fixed set of sampled futures.
+
+    A single rollout is a one-sample estimate, and taking the max over noisy
+    one-sample estimates selects the luckiest sample rather than the best action.
+    Measured on seed 9000: candidates differ by 17-54 deliveries within one
+    future, while a fixed candidate varies by up to 62 across futures -- the
+    noise is the size of the signal, so the max was mostly selecting luck.
+
+    `futures` is the SAME list of keys for every candidate at a decision point.
+    That is common random numbers, and it matters: it cancels the shared
+    variation between futures so the comparison isolates the action, at no extra
+    cost.
+    """
+    if not futures:
+        return _rollout(env, document, decision, action, cap)
+    total = 0.0
+    for key in futures:
+        total += _rollout(env, reseeded(document, key), decision, action, cap)
+    return total / len(futures)
+
+
 def _signature(mask) -> frozenset:
     """Which structural KINDS are currently available.
 
@@ -128,7 +168,7 @@ def shortlist_for(rng, structural, preferred: int, candidates: int) -> list[int]
     return shortlist
 
 
-def play(seed: int, candidates: int, cap: int) -> dict:
+def play(seed: int, candidates: int, cap: int, futures: int = 0) -> dict:
     env = SemanticMetroEnv()
     env.reset(seed=seed)
     rng = np.random.default_rng(seed)
@@ -153,8 +193,17 @@ def play(seed: int, candidates: int, cap: int) -> dict:
 
             document = serialize_game(env._mediator)
             at = env._decision
+            # One draw of future keys, shared by every candidate here.
+            keys = (
+                [int(k) for k in rng.integers(0, 2**31 - 1, size=futures)]
+                if futures
+                else []
+            )
             scored = [
-                (_rollout(env, document, at, candidate, cap), candidate)
+                (
+                    expected_value(env, document, at, candidate, cap, keys),
+                    candidate,
+                )
                 for candidate in shortlist
             ]
             _restore(env, document, at)
@@ -199,8 +248,8 @@ def baseline(seed: int) -> int:
 
 
 def _one(job):
-    seed, candidates, cap = job
-    return play(seed, candidates, cap), baseline(seed)
+    seed, candidates, cap, futures = job
+    return play(seed, candidates, cap, futures), baseline(seed)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -210,13 +259,30 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--candidates", type=int, default=6)
     parser.add_argument("--cap", type=int, default=20_000)
     parser.add_argument("--workers", type=int, default=8)
+    parser.add_argument(
+        "--futures",
+        type=int,
+        default=4,
+        help=(
+            "sampled futures to average each candidate over; 0 reproduces the "
+            "one-sample search that selected lucky futures rather than good "
+            "actions"
+        ),
+    )
     args = parser.parse_args(argv)
 
     print(
         f"lookahead: {args.candidates} candidates rolled to episode end, "
-        f"heuristic as the default policy, {args.workers} workers"
+        f"averaged over {args.futures or 1} "
+        f"{'sampled future' if args.futures == 1 else 'sampled futures'}"
+        f"{' (ONE-SAMPLE: selects lucky futures)' if not args.futures else ''}, "
+        f"heuristic as the default policy, {args.workers} workers",
+        flush=True,
     )
-    jobs = [(args.seed + i, args.candidates, args.cap) for i in range(args.episodes)]
+    jobs = [
+        (args.seed + i, args.candidates, args.cap, args.futures)
+        for i in range(args.episodes)
+    ]
     searched, control = [], []
     with ProcessPoolExecutor(max_workers=args.workers) as pool:
         for result, default in pool.map(_one, jobs):

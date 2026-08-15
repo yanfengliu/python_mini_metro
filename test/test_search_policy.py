@@ -28,6 +28,8 @@ from search_policy import (  # noqa: E402
     _restore,
     _rollout,
     _signature,
+    expected_value,
+    reseeded,
     shortlist_for,
 )
 
@@ -223,6 +225,112 @@ class PolicyImprovementTest(unittest.TestCase):
             bool(mask[0]),
             "WAIT is masked out, so search has no do-nothing baseline and would "
             "be forced to take a structural action at every decision point",
+        )
+
+
+class SampledFutureTest(unittest.TestCase):
+    """Averaging over futures is what stops search selecting luck.
+
+    A single rollout scores a candidate against the one future that will
+    actually happen, because the serialised state carries the RNG. Taking the
+    max over those one-sample estimates picks the luckiest sample rather than
+    the best action -- measured on seed 9000, candidates differ by 17-54
+    deliveries within a future while one fixed candidate varies by up to 62
+    across futures.
+    """
+
+    def test_reseeding_changes_the_future(self):
+        """If the RNG swap did nothing, averaging would be theatre.
+
+        The rollout has to be long enough for a changed spawn sequence to reach
+        the delivery count. Measured on this state: identical at 600 and 1,500
+        decisions, diverging from 3,000. A shorter check would have read as a
+        broken RNG swap when the swap was fine.
+        """
+        env = SemanticMetroEnv()
+        env.reset(seed=9000)
+        _advance(env, 400)
+        document = serialize_game(env._mediator)
+        at = env._decision
+
+        values = {
+            key: _rollout(env, reseeded(document, key), at, 0, 3500) for key in range(3)
+        }
+        env.close()
+
+        self.assertGreater(
+            len(set(values.values())),
+            1,
+            f"three reseeded futures all returned {set(values.values())}; the RNG "
+            "swap is not taking effect, so averaging over futures would return "
+            "the same one-sample estimate it is meant to replace",
+        )
+
+    def test_reseeding_leaves_the_board_alone(self):
+        """Only the future may change; a different board is a different problem."""
+        env = SemanticMetroEnv()
+        env.reset(seed=9000)
+        _advance(env, 400)
+        document = serialize_game(env._mediator)
+
+        def board(doc):
+            return (
+                [(s["position"], s["shapeType"]) for s in doc["stations"]],
+                doc["deliveries"],
+                doc["steps"],
+                len(doc["paths"]),
+            )
+
+        original = board(document)
+        variant = board(reseeded(document, 7))
+        env.close()
+
+        self.assertEqual(
+            variant,
+            original,
+            "reseeding altered the board itself, so candidates would be compared "
+            "across different problems rather than across different futures",
+        )
+
+    def test_it_averages_rather_than_taking_one_sample(self):
+        env = SemanticMetroEnv()
+        env.reset(seed=9000)
+        _advance(env, 400)
+        document = serialize_game(env._mediator)
+        at = env._decision
+        keys = [1, 2, 3]
+
+        singles = [_rollout(env, reseeded(document, k), at, 0, 600) for k in keys]
+        averaged = expected_value(env, document, at, 0, 600, keys)
+        env.close()
+
+        self.assertAlmostEqual(
+            averaged,
+            sum(singles) / len(singles),
+            places=5,
+            msg=f"expected_value returned {averaged} where the mean of "
+            f"{singles} is {sum(singles) / len(singles)}; it is not averaging "
+            "over the futures it was given",
+        )
+
+    def test_no_futures_reproduces_the_one_sample_search(self):
+        """The old behaviour stays reachable, so the two can be compared."""
+        env = SemanticMetroEnv()
+        env.reset(seed=9000)
+        _advance(env, 400)
+        document = serialize_game(env._mediator)
+        at = env._decision
+
+        single = _rollout(env, document, at, 0, 600)
+        empty = expected_value(env, document, at, 0, 600, [])
+        env.close()
+
+        self.assertEqual(
+            empty,
+            single,
+            f"with no sampled futures expected_value returned {empty} where the "
+            f"plain rollout returns {single}; the one-sample baseline is no "
+            "longer reproducible and the two cannot be compared",
         )
 
 
