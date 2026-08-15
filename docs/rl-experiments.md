@@ -642,6 +642,42 @@ learning rate, not a measurement.
 
 ---
 
+## E23 — The game escalates on the agent's score, not on the clock
+
+**Measured** under the v3 policy on two independent seeds, recording when each new
+station arrives:
+
+| new station | seed 9000 | seed 9005 |
+| --- | --- | --- |
+| 4th | decision 456, **10 deliveries** | decision 527, **10 deliveries** |
+| 5th | decision 1687, **40** | decision 1792, **40** |
+| 6th | decision 3558, **90** | decision 3603, **90** |
+| 7th | decision 5615, **160** | decision 5566, **160** |
+
+The decision counts differ; the **delivery counts are identical**. Stations arrive
+on a delivery ladder at 10, 40, 90, 160 -- first differences 30, 50, 70, so a
+quadratic schedule -- and not on a timer.
+
+**Verdict:** CONFIRMED, and it defines the goal's endpoint. The difficulty ramp is
+*driven by the agent's own success*: every delivery brings the next station
+closer, and each station adds passengers the same capped fleet must serve. Both
+runs ended at 7 stations with 2 lines, 217 and 186 deliveries.
+
+**What this means for "spawn beyond the point of sustainability".** That point is
+structural, not distant: line slots unlock on delivery milestones, and the fleet
+is fixed at 4 locomotives and 2 carriages because the weekly-offer upgrades that
+grow it are interactive-play only and never applied on the headless path. Total
+in-transit capacity is therefore 36 riders no matter how well the agent plays. A
+policy that keeps improving does not escape the ramp -- it *accelerates* it, and
+the run ends when arrivals at 7+ stations exceed what 4 locomotives can move.
+
+So the success criterion is reachable and close: reach the capacity wall
+reliably, rather than die early to a mistake. The open question is whether the
+wall sits at ~200 deliveries for every policy, or whether better routing pushes
+it further -- which is exactly what a non-collapsing training run would answer.
+
+---
+
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not
