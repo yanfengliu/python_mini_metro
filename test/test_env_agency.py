@@ -127,6 +127,33 @@ class EnvironmentAgencyTest(unittest.TestCase):
             "its delivery total understates the run",
         )
 
+    def test_training_sees_a_new_layout_every_episode(self):
+        """Diversity. A vector env auto-resets without a seed, and a constant
+        default meant eight parallel environments trained 600,000 steps on one
+        identical board. An explicit seed must still pin the game exactly.
+        """
+
+        env = SemanticMetroEnv()
+        env.reset(seed=7)
+        pinned = [(s.position.left, s.position.top) for s in env._mediator.stations]
+        env.reset(seed=7)
+        repeated = [(s.position.left, s.position.top) for s in env._mediator.stations]
+        layouts = set()
+        for _ in range(5):
+            env.reset()
+            layouts.add(
+                tuple((s.position.left, s.position.top) for s in env._mediator.stations)
+            )
+        env.close()
+
+        self.assertEqual(pinned, repeated, "an explicit seed must reproduce exactly")
+        self.assertGreater(
+            len(layouts),
+            1,
+            "every unseeded reset produced the same layout, so training would "
+            "see one board no matter how many environments or steps it runs",
+        )
+
     def test_a_degenerate_policy_cannot_outscore_real_play(self):
         """Non-exploitability. Any single repeated action must go nowhere."""
         rng = np.random.default_rng(1)

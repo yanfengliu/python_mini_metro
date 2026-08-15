@@ -376,8 +376,20 @@ class SemanticMetroEnv(gym.Env):
         return mask
 
     def reset(self, *, seed: int | None = None, options=None):
+        """Start a new game, drawing a fresh layout when no seed is given.
+
+        A vector environment auto-resets *without* a seed, so defaulting to a
+        constant meant every episode after the first replayed one identical
+        layout -- measured: eight parallel environments trained 600,000 steps
+        on a single board. An explicit seed still pins the game exactly, which
+        is what evaluation and the tests rely on.
+        """
+
         super().reset(seed=seed)
-        self._mediator = Mediator(seed=seed if seed is not None else 0)
+        if seed is None:
+            seed = int(self.np_random.integers(0, 2**31 - 1))
+        self._mediator = Mediator(seed=seed)
+        self._seed = seed
         self._decision = 0
         self._last_deliveries = 0
         return self._observe(), {}
