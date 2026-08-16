@@ -369,6 +369,23 @@ class FleetManagement:
         if bool(getattr(host, "is_paused", False)):
             return 0
         try:
+            # Nothing queued means nothing to settle, and the canonical check
+            # below is expensive -- it reaches carriage_state_is_canonical,
+            # which rebuilds the whole routing graph. The return value is
+            # identical either way: with no queued metro `candidates` is empty,
+            # the loop body never runs and this returns 0, exactly as the
+            # not-canonical branch does. The predicate has no side effects, so
+            # skipping it is unobservable.
+            #
+            # It matters because settle runs ~12 times per environment step and
+            # the RL action table has no UNASSIGN action at all, so the queue is
+            # empty on essentially every call.
+            if not any(
+                metro.is_unassignment_queued is True
+                for path in host.paths
+                for metro in path.metros
+            ):
+                return 0
             if not _queue_state_is_canonical(host):
                 return 0
             paths = tuple(host.paths)
