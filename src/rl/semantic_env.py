@@ -425,9 +425,37 @@ class SemanticMetroEnv(gym.Env):
         return (
             len(mediator.stations),
             len(paths),
-            tuple(len(path.stations) for path in paths),
+            # WHICH stations are on each line, not merely how many. Route length
+            # plus line id looked sufficient because `_apply` only ever grows a
+            # route, so equal ids and equal lengths implied equal membership --
+            # a property of the current caller, not of the game. A same-length
+            # edit (line [0,1] becoming [0,2]) left the fingerprint identical
+            # while inverting four EXTEND/PREPEND entries: one legal action
+            # withheld and one illegal action offered.
+            tuple(tuple(self._path_station_indices(mediator, path)) for path in paths),
             tuple(len(path.metros) for path in paths),
+            # How many of those metros are queued for unassignment.
+            # `carriage_management._attach_candidate` filters on this flag, and
+            # the plain metro count does not move when one is queued. No action
+            # in this env's table can queue one, so it is unreachable from here
+            # -- but the mediator's public API and any restored save can embody
+            # it, and "unreachable from the current caller" is how the two
+            # defects above got in.
+            tuple(
+                sum(
+                    1
+                    for metro in path.metros
+                    if getattr(metro, "is_unassignment_queued", False)
+                )
+                for path in paths
+            ),
             tuple(path.id for path in paths),
+            # Game over is read transitively by both crew predicates
+            # (fleet_management.can_assign and carriage_management's host check)
+            # and changes nothing else here, so without it the cache kept
+            # advertising ASSIGN_LOCOMOTIVE and ATTACH_CARRIAGE on a finished
+            # game.
+            bool(getattr(mediator, "is_game_over", False)),
             mediator.available_locomotives,
             mediator.available_carriages,
             mediator.assigned_carriages,
@@ -447,7 +475,7 @@ class SemanticMetroEnv(gym.Env):
 
         fingerprint = self._mask_fingerprint(mediator)
         if self._mask_cache is not None and self._mask_cache[0] == fingerprint:
-            return self._mask_cache[1]
+            return self._mask_cache[1].copy()
         stations = len(mediator.stations)
         paths = len(mediator.paths)
         purchasable = mediator.get_next_path_button_idx_to_purchase()
@@ -467,7 +495,6 @@ class SemanticMetroEnv(gym.Env):
         mask[_TABLE_BY_KIND[ActionKind.WAIT]] = True
 
         connect = _TABLE_BY_KIND[ActionKind.CONNECT]
-        mask[connect] = can_connect and True
         if can_connect:
             mask[connect] = _TABLE_SECOND[connect] < stations
         mask[_TABLE_BY_KIND[ActionKind.PURCHASE_LINE]] = can_buy
@@ -497,11 +524,13 @@ class SemanticMetroEnv(gym.Env):
         chosen = np.flatnonzero(legal)
         allowed[chosen] = ~served[first_of[chosen], second_of[chosen]]
         mask[on_line] = allowed
-        # Returned directly rather than copied: callers treat the mask as
-        # read-only, and copying it back would give up much of the saving.
-        mask.setflags(write=False)
+        # The cached array is never handed out directly. Returning it shared
+        # made every consumer's `th.as_tensor(mask)` warn that the array is not
+        # writable (a hard failure under -W error), and left the cache one
+        # `mask[i] = False` away from silent corruption. A 364-byte copy costs
+        # far less than the recomputation it still saves.
         self._mask_cache = (fingerprint, mask)
-        return mask
+        return mask.copy()
 
     def reset(self, *, seed: int | None = None, options=None):
         """Start a new game, drawing a fresh layout when no seed is given.

@@ -296,6 +296,23 @@ class TestRequiredFirstPathSelection(_SelectionTestCase):
             "lookup, so a reachable destination later in the list was never "
             "considered; in the live game this raised KeyError and ended the run",
         )
+        # Assert WHICH destination won, not merely that something did. A review
+        # noted the weaker form would still pass if skipping the absent station
+        # corrupted the ranking.
+        routed = [node.station for node in result.node_path]
+        self.assertIs(
+            routed[-1],
+            reachable,
+            f"the plan routed to {routed}; skipping the destination that is "
+            "absent from the graph must leave the remaining ranking untouched, "
+            "so the reachable station is the one that should win",
+        )
+        self.assertNotIn(
+            absent,
+            routed,
+            f"the plan routed through {routed}, which includes the station that "
+            "is not in the routing graph at all",
+        )
 
     def test_rejects_short_reduced_missing_and_wrong_first_paths(self) -> None:
         destinations = [

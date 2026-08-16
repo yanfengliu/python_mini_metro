@@ -71,6 +71,9 @@ def _restore(env, document, decision: int) -> None:
     env._decision = decision
     env._last_deliveries = env._mediator.deliveries
     env._line_born = {}
+    # The mask cache belongs to the game that was just discarded. Restoring a
+    # different game behind it would serve that game's legality for this one.
+    env._mask_cache = None
 
 
 def _rollout(env, document, decision: int, action: int, cap: int) -> float:

@@ -29,6 +29,15 @@ class Node:
             self._id = f"Node-{uuid()}"
         return self._id
 
+    @id.setter
+    def id(self, value: str) -> None:
+        """Kept writable. It was a plain attribute before becoming lazy, and
+        every sibling entity (Path, Station, Metro, Carriage) is assigned one by
+        `save_load`; making Node the sole read-only exception would bite exactly
+        when Node first enters the save schema.
+        """
+        self._id = value
+
     def __eq__(self, other: Node) -> bool:
         return self.station == other.station
 

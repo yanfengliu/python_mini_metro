@@ -99,8 +99,22 @@ class RoutePlanner:
         best_node_path: list[Any] | None = None
         best_path_cost: tuple[int, int] | None = None
         for destination_station in destination_stations:
+            # A station can be in the game and absent from this graph. The
+            # graph is snapshotted once per `move_passengers`, and
+            # `update_unlocked_num_stations` rebinds the station list DURING
+            # that same loop, so a later replan in the same call sees a live
+            # destination list against a stale map. Such a station is on no
+            # path -- both path-construction entry points index the live list,
+            # and actions are applied between ticks -- so a rebuilt graph would
+            # return no route either, and skipping gives the same answer.
+            # `try/except` rather than `in`: one test mapping defines only
+            # `__getitem__`, and `in` on it never terminates via the legacy
+            # iteration protocol.
             start = node_map[start_station]
-            end = node_map[destination_station]
+            try:
+                end = node_map[destination_station]
+            except KeyError:
+                continue
             node_path = find_node_path(start, end)
             if len(node_path) == 1:
                 yield node_path, True
@@ -127,17 +141,19 @@ class RoutePlanner:
     ) -> Any | None:
         best_node_path: list[Any] | None = None
         best_path_cost: tuple[int, int] | None = None
+        # Deliberately unguarded. A review measured zero origin misses across
+        # 24 instrumented episodes -- the origin is always a metro's current
+        # station and the station list only grows -- and an absent origin is a
+        # programming error rather than an unreachable route, so it should
+        # surface rather than silently yield no plan.
         start = node_map[start_station]
         for destination_station in destination_stations:
-            # A station can exist in the game and be absent from this graph:
-            # stations spawn while a tick is in progress, so a passenger can
-            # hold a plan naming one that appeared after the map was built.
-            # Such a station is on no path, which is exactly the unreachable
-            # case handled a few lines below -- so it is skipped the same way
-            # rather than ending the run with a KeyError.
-            if destination_station not in node_map:
+            # See the note in _iter_best_node_path_selections: the same stale
+            # snapshot reaches every node_map lookup in this module.
+            try:
+                end = node_map[destination_station]
+            except KeyError:
                 continue
-            end = node_map[destination_station]
             node_path = find_node_path(start, end)
             if len(node_path) <= 1:
                 continue
@@ -219,8 +235,16 @@ class RoutePlanner:
                 best_node_path: list[Any] | None = None
                 best_path_cost: tuple[int, int] | None = None
                 for destination_station in destination_stations:
+                    # Same stale-snapshot race as the sites above. Only the
+                    # DESTINATION is guarded: an absent destination is genuinely
+                    # unreachable, while an absent ORIGIN is a programming error
+                    # and is left to raise, which
+                    # test_route_planner_iterators pins deliberately.
                     start = node_map[station]
-                    end = node_map[destination_station]
+                    try:
+                        end = node_map[destination_station]
+                    except KeyError:
+                        continue
                     node_path = find_node_path(start, end)
                     if len(node_path) == 1:
                         yield station, passenger, node_path, "arrival"
