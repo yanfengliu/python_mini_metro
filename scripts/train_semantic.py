@@ -93,6 +93,7 @@ class KeepBest:
         self.seed = seed
         self.best = float("-inf")
         self.history = []
+        self.last_eval = 0
         self._base = BaseCallback
 
     def build(self):
@@ -100,8 +101,17 @@ class KeepBest:
 
         class _Callback(keeper._base):
             def _on_step(self) -> bool:
-                if self.num_timesteps % keeper.every != 0:
+                # Elapsed-since-last, not modulo. `num_timesteps` advances by
+                # n_envs per call, so it only ever takes multiples of n_envs --
+                # and `num_timesteps % every` can therefore never be zero unless
+                # n_envs happens to divide `every`. With --n-envs 6 and
+                # --eval-every 1000000 the counter steps 6, 12, 18 ... and skips
+                # every multiple of a million, so a run of any length would
+                # produce no evaluation, no checkpoint and no best-model save,
+                # silently.
+                if self.num_timesteps - keeper.last_eval < keeper.every:
                     return True
+                keeper.last_eval = self.num_timesteps
                 scores = evaluate(
                     self.model,
                     keeper.episodes,
