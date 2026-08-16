@@ -1457,6 +1457,56 @@ measured against a broken null.**
 
 ---
 
+## E38 -- 98% agreement with an honest teacher still loses 45 deliveries
+
+Every clone evaluated in this project was trained on the clairvoyant search
+labels (E37), which are unlearnable by construction. That left the obvious
+question never actually asked: can a network reproduce the SCRIPTED HEURISTIC --
+free, deterministic, honest labels -- well enough to matter?
+
+60 episodes of heuristic play, 60 epochs, the same MLP, evaluated paired against
+the blind control on 40 shared seeds with per-seed torch seeding:
+
+| player | deliveries | longest_line |
+| --- | --- | --- |
+| blind net (constant input) | 186.32 +/-26.60 | 6.85 |
+| **clone of the heuristic** | **203.70 +/-26.73** | 7.08 |
+| the heuristic itself | 248.78 +/-30.39 | 7.50 |
+
+| paired | gap | won | MDE(80%) |
+| --- | --- | --- | --- |
+| clone vs blind | +17.38 +/-21.98 | 24/40 | 31.4 |
+| heuristic vs clone | **+45.08 +/-19.40** | **32/40** | 27.7 |
+
+**The clone fits its teacher and still cannot play like it.** Training agreement
+reaches **98.1%**, on labels that are a deterministic function of the state, with
+no hidden information anywhere -- and the result is 45 deliveries worse than the
+thing it copied, landing in the same band as a network that cannot see the board.
+
+**This is the cleanest statement of the real problem, and it is not the one this
+project has been chasing.** It is not label quality: these labels are perfect. It
+is not architecture: the same net reaches 98% agreement. It is not data volume:
+the residual is 2% of decisions.
+
+**Roughly 2% of decisions carry ~18% of the score.** The heuristic acts about 14
+times in 8,000 steps, so a 2% error rate over the decisions that matter is a
+handful of wrong choices per episode, and each one forecloses a line that would
+have compounded for thousands of steps. Imitation metrics average over decisions;
+this game multiplies them. E28 proposed exactly this and could never demonstrate
+it, because every measurement since was made through clairvoyant labels.
+
+**What it implies for anything trained by imitation here.** The ceiling is not
+the teacher's score. It is the teacher's score discounted by however much the
+last few percent of decisions are worth -- and here that discount is 18%. A
+policy cloned from a 248-delivery teacher lands at 204. Getting to the teacher
+requires being right on the decisions that compound, not on more of them.
+
+**Open.** Whether the clone beats the blind control at all is unresolved: +17.38
+against an MDE of 31.4 is underpowered, which is exactly the error this project
+keeps making. Re-running at n=180.
+
+---
+
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not
