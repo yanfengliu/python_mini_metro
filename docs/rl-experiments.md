@@ -1374,6 +1374,89 @@ deeper search, or a genuinely different action representation.
 
 ---
 
+## E37 -- the labels were clairvoyant, and nothing here beats a blind policy
+
+A nine-lane review (four claims verified empirically, each attacked by an
+independent lane, then synthesised) found two defects that neither the claims
+nor I had looked for. Both are larger than anything the claims were about.
+
+### The label generator scored against the future that happens
+
+`scripts/search_dataset.py` passed the **unmodified** serialized document to
+every rollout. The RNG travels inside that document, so each candidate was
+measured against the one future that actually occurs. Verified directly rather
+than accepted:
+
+* `search_dataset.py` scored `_rollout(env, document, ...)` with no reseeding.
+* `search_policy.play` had `futures: int = 0` as its **function** default while
+  the CLI defaulted to 4, so any programmatic caller silently got the oracle.
+* `output/semantic/search.log` -- the run behind "the first method here to beat
+  the heuristic" -- has no futures line in its header. It ran clairvoyant.
+
+The consequence is not "noisy labels". The label is a function of
+(state, realized future); the observation carries state alone. **Every label in
+`output/semantic/search-data*.npz` is unlearnable in principle.** No
+architecture, no quantity of data, no soft target and no DAgger round could have
+fitted them, because the information that produced them is not in the input and
+never will be.
+
+That retires more than the labels. **Every architecture comparison run through
+that pipeline is void** -- the pointer head's 158.0 was never a test of the
+pointer head.
+
+### Nothing learned here beats a network that cannot see
+
+The review's blind control: a network fed a constant vector of ones, sampling
+under the legality mask.
+
+| player | mean | 95% CI |
+| --- | --- | --- |
+| distilled policy, stochastic | 203.71 | +/-35.77 |
+| **blind net + legality mask** | **203.96** | +/-44.70 |
+
+Paired difference -0.25 over 24 seeds, 10/24 wins. And `mask_only` vs `full_obs`
+agreement is +0.47pp at n=495 -- **the 574-float observation carries nothing
+usable through this network.**
+
+So the "158-195 imitation band" that five approaches converged on is not a
+property of imitation, of architecture, or of teacher quality. **It is the score
+of mask-restricted prior sampling.** The action mask alone, sampled from, plays
+at ~204.
+
+Two direct training runs confirm it from the other side. Online PPO from
+scratch, 11,000,088 steps (~1,300 episodes, against the 146 previously called a
+plateau) reached **175.4**, still below the blind control. A warm-started
+KL-anchored run peaked at 207.0 at 6M steps and oscillated to 152.6 by 8M. Both
+stopped: they had answered.
+
+### The instrument was wrong throughout
+
+`longest_line` alone explains **R^2 = 0.892** of delivery variance, and
+`corr(steps, deliveries) = 0.973`. Deliveries is a 4-5 rung ordinal ladder with
+roughly 90-delivery spacing wearing a continuous costume, and per-episode noise
+is about one whole rung. **Any effect below ~45 deliveries is sub-rung and needs
+n in the hundreds.** That is why every dispute in this project has been a power
+dispute -- including the three effect sizes I quoted from small samples today.
+
+Worse, the controls were wrong. `oneline` scores 189.75, *below* the blind
+sampler at 204, and `random` scores 0 only because uniform-over-legal
+self-destructs. **Every historical "beats the baseline" claim in this file was
+measured against a broken null.**
+
+### Standing implications
+
+* Distilling `search-data*.npz`: permanently dead. Keep the datasets as a
+  cautionary fixture.
+* The imitation branch's ceiling arithmetic: honest search is heuristic + ~10
+  (E36), so a perfect distillation of a perfect honest teacher tops out near 275
+  against a free scripted heuristic at ~262. Best case for the whole branch is
+  about +13 deliveries.
+* The primary outcome should be `longest_line` or a survival model on it, with
+  deliveries secondary; the null should be masked-prior sampling at ~204; and
+  every reported null needs its minimum detectable effect stated beside it.
+
+---
+
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not
