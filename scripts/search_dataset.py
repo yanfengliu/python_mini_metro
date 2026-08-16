@@ -40,8 +40,8 @@ os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 from search_policy import (  # noqa: E402
     STRUCTURAL,
     _restore,
-    _rollout,
     _signature,
+    expected_value,
     shortlist_for,
 )
 
@@ -50,7 +50,9 @@ from rl.semantic_env import ACTION_TABLE, ActionKind, SemanticMetroEnv  # noqa: 
 from save_game import serialize_game  # noqa: E402
 
 
-def collect(seed: int, candidates: int, cap: int, wait_keep: float, gamma: float):
+def collect(
+    seed: int, candidates: int, cap: int, wait_keep: float, gamma: float, futures: int
+):
     """Play one episode by search, recording every decision it makes."""
     rng = np.random.default_rng(seed)
     env = SemanticMetroEnv()
@@ -79,8 +81,16 @@ def collect(seed: int, candidates: int, cap: int, wait_keep: float, gamma: float
             shortlist = shortlist_for(rng, structural, preferred, candidates)
             document = serialize_game(env._mediator)
             at = env._decision
+            # Averaged over resampled futures. Scoring against `document`
+            # itself measures each candidate against the future that actually
+            # happens -- the RNG travels in the serialised state -- so the
+            # resulting label is a function of (state, realized future) while
+            # the observation carries state alone. Labels generated that way
+            # are unlearnable in principle, which is what every dataset in
+            # output/semantic/search-data*.npz contains.
+            keys = [int(k) for k in rng.integers(0, 2**31 - 1, size=futures)]
             scored = [
-                (_rollout(env, document, at, candidate, cap), candidate)
+                (expected_value(env, document, at, candidate, cap, keys), candidate)
                 for candidate in shortlist
             ]
             _restore(env, document, at)
@@ -207,6 +217,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--candidates", type=int, default=6)
     parser.add_argument("--cap", type=int, default=20_000)
     parser.add_argument("--wait-keep", type=float, default=0.02)
+    parser.add_argument(
+        "--futures",
+        type=int,
+        default=4,
+        help="sampled futures per candidate; 0 is the clairvoyant oracle",
+    )
     parser.add_argument("--gamma", type=float, default=0.999)
     parser.add_argument("--workers", type=int, default=24)
     parser.add_argument(
@@ -215,7 +231,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     jobs = [
-        (args.seed + i, args.candidates, args.cap, args.wait_keep, args.gamma)
+        (
+            args.seed + i,
+            args.candidates,
+            args.cap,
+            args.wait_keep,
+            args.gamma,
+            args.futures,
+        )
         for i in range(args.episodes)
     ]
     print(

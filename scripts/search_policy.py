@@ -171,7 +171,17 @@ def shortlist_for(rng, structural, preferred: int, candidates: int) -> list[int]
     return shortlist
 
 
-def play(seed: int, candidates: int, cap: int, futures: int = 0) -> dict:
+def play(seed: int, candidates: int, cap: int, futures: int) -> dict:
+    """`futures` is REQUIRED and 0 means clairvoyant.
+
+    With 0, every candidate is scored against the one future that actually
+    happens, because the serialised state carries the RNG. That is not a weaker
+    setting, it is a different and inadmissible experiment: it measures an
+    oracle no observation-conditioned policy can reproduce. It defaulted to 0
+    here while the CLI defaulted to 4, so a programmatic caller silently got the
+    oracle -- which is how a whole dataset of unlearnable labels was generated
+    and how "search beats the heuristic by +128.5" was published.
+    """
     env = SemanticMetroEnv()
     env.reset(seed=seed)
     rng = np.random.default_rng(seed)
