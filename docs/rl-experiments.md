@@ -1255,6 +1255,66 @@ carry this defect.
 
 ---
 
+## E35 -- the network does not beat random at the decisions it is given
+
+Most steps in this game are not decisions, so the natural design is to script the
+forced ones and learn only the rest. The gate used is the same one search uses
+and is computable from the observation alone: a structural action is legal, and
+either the heuristic wants to act or the set of available capabilities changed.
+It hands the policy about 15.4 decisions per game.
+
+The arm that matters is `ablated` -- the identical script making a RANDOM legal
+choice at exactly the same handover points. If the hybrid does not clearly beat
+it, the script is playing the game and the network is decoration.
+
+16 seeds, every player on the same boards:
+
+| player | mean | 95% CI |
+| --- | --- | --- |
+| scripted heuristic | **251.69** | +/-64.50 |
+| policy alone | 185.06 | +/-59.19 |
+| hybrid (script + policy at decision points) | 167.81 | +/-49.01 |
+| ablated (script + RANDOM at the same points) | 116.44 | +/-42.32 |
+
+| paired comparison | gap | won |
+| --- | --- | --- |
+| hybrid vs ablated | **+51.38 +/-58.76** | 10/16 |
+| hybrid vs heuristic | -83.88 +/-24.39 | **0/16** |
+| policy alone vs heuristic | -66.62 +/-24.36 | 1/16 |
+
+**REFUTED.** The hybrid does not clearly beat random choice -- the interval
+includes zero and it wins only 10 of 16. Whatever the distilled policy has
+learned, it is not reliably better than picking a legal action at random on the
+decisions that were judged worth learning.
+
+**Two separate failures, and the second was not anticipated.**
+
+*The network is weak.* Expected, given E31-E34: held-out agreement of 52%,
+labels partly unlearnable, a critic below a constant baseline.
+
+*Splicing costs more than either component.* The hybrid at 167.81 is worse than
+**both** pure players -- the policy alone reaches 185.06 and the heuristic
+251.69. That is not explained by a weak network, because a weak network mixed
+with a strong script should land between them. It is distribution shift: the
+policy was trained on states search visits, and the heuristic drives the game
+into states it never saw, so it is asked for decisions on boards outside its
+training distribution. The composition is worse than its parts.
+
+**Consequence.** The hybrid decomposition is not merely unhelpful here, it is
+actively harmful, and "learn only what matters, script the rest" cannot be
+adopted without training the learned component *on the state distribution the
+script produces* -- which is the DAgger loop already run in E28 with a null
+result.
+
+Incidentally, the `ablated` arm paid for itself immediately by crashing the game.
+Random-but-legal play at decision points reached a state where a passenger held a
+travel plan naming a station that had spawned after the routing graph was built,
+raising `KeyError` in `route_planner` (seed 50007, step 8587). The scripted
+heuristic never explores oddly enough to reach it. Fixed, with a test written
+from the reproduction.
+
+---
+
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not
