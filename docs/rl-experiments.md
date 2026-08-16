@@ -1501,9 +1501,36 @@ last few percent of decisions are worth -- and here that discount is 18%. A
 policy cloned from a 248-delivery teacher lands at 204. Getting to the teacher
 requires being right on the decisions that compound, not on more of them.
 
-**Open.** Whether the clone beats the blind control at all is unresolved: +17.38
-against an MDE of 31.4 is underpowered, which is exactly the error this project
-keeps making. Re-running at n=180.
+**Settled at n=180 (MDE 16.1): the clone does NOT beat the blind control.**
+
+```
+blind      179.42 +/-11.18      longest_line 6.74
+hclone     187.08 +/-13.31      longest_line 6.87
+heuristic  267.47 +/-15.31      longest_line 7.71
+
+clone vs blind        +7.66 +/-11.29,  won  95/180   (a coin flip)
+clone vs blind        +0.13 +/-0.13,   won  58/180   on longest_line
+heuristic vs clone   +80.39 +/-13.06,  won 155/180
+```
+
+### The number that explains it, and why 98.1% was the wrong one
+
+98.1% was *training* agreement on a WAIT-dominated mixture. Measured on 12 unseen
+seeds, following the teacher so both are always judged on the same board:
+
+| decisions | agreement | count |
+| --- | --- | --- |
+| all | 99.9% | 89,621 of 89,667 |
+| **real (non-WAIT)** | **72.8%** | **123 of 169** |
+
+**The clone gets about four of its fourteen real decisions per episode wrong, and
+that costs 80 deliveries.** Every headline agreement figure in this file --
+including the ones used to justify DAgger and the pointer head -- was an
+aggregate over a population that is 99.8% forced WAIT, and therefore said nothing
+about the decisions that carry the score.
+
+**The rule for anything measured here: quote agreement on decisions the teacher
+did not spend on WAIT, or do not quote agreement.**
 
 ---
 
