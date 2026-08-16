@@ -192,6 +192,29 @@ class TestGraph(unittest.TestCase):
         node = Node(station)
         self.assertIn("Node-", repr(node))
 
+    def test_node_ids_are_lazy_but_stable_and_unique(self):
+        """The id is generated on first read; it must still behave like an id.
+
+        Nodes are rebuilt roughly 24 times per simulation step, so generating a
+        uuid in the constructor cost ~8% of a profiled episode for a value
+        nothing reads. Making it lazy is only safe while it stays stable across
+        reads and distinct between instances.
+        """
+
+        def make():
+            return Node(
+                Station(
+                    Rect(station_color, 2 * station_size, 2 * station_size),
+                    Point(0, 0),
+                )
+            )
+
+        first, second = make(), make()
+
+        self.assertEqual(first.id, first.id, "the id changed between reads")
+        self.assertNotEqual(first.id, second.id, "two nodes were given the same id")
+        self.assertTrue(first.id.startswith("Node-"), first.id)
+
     def test_build_station_nodes_dict_skips_being_created_paths(self):
         station_a = Station(
             Rect(station_color, 2 * station_size, 2 * station_size), Point(0, 0)
