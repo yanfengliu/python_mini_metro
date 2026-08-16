@@ -129,6 +129,14 @@ class RoutePlanner:
         best_path_cost: tuple[int, int] | None = None
         start = node_map[start_station]
         for destination_station in destination_stations:
+            # A station can exist in the game and be absent from this graph:
+            # stations spawn while a tick is in progress, so a passenger can
+            # hold a plan naming one that appeared after the map was built.
+            # Such a station is on no path, which is exactly the unreachable
+            # case handled a few lines below -- so it is skipped the same way
+            # rather than ending the run with a KeyError.
+            if destination_station not in node_map:
+                continue
             end = node_map[destination_station]
             node_path = find_node_path(start, end)
             if len(node_path) <= 1:

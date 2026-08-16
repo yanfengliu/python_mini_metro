@@ -255,6 +255,48 @@ class TestRequiredFirstPathSelection(_SelectionTestCase):
             [self.start, self.first_destination, self.second_destination],
         )
 
+    def test_a_destination_outside_the_graph_is_unreachable_not_a_crash(self) -> None:
+        """A station can exist in the game and be absent from the routing graph.
+
+        Stations spawn while a tick is in progress, so a passenger can hold a
+        travel plan naming a station that appeared after `node_map` was built.
+        Reproduced from real play on seed 50007 at step 8587: the game held 9
+        stations, the map held 8, and the missing one was on no path at all --
+        `in_mediator_stations: True, in_node_map: False, on_any_path: False`.
+
+        Looking it up raised `KeyError` and killed the run. A station with no
+        line is unreachable, which this function already handles for the case
+        where the graph search comes back empty, so the same answer is correct
+        here: skip it, keep considering the others.
+        """
+        reachable = support.station("reachable", "triangle")
+        absent = support.station("absent", "triangle")
+        reachable_node = support.node(reachable)
+        # `absent` is deliberately NOT in the map, exactly as a station that
+        # spawned after the map was built would not be.
+        node_map = support.LoggingMapping(
+            {self.start: self.start_node, reachable: reachable_node}
+        )
+        shared = support.path("shared", self.start, reachable)
+
+        result = self.planner.get_travel_plan_starting_with_path(
+            self.start,
+            [absent, reachable],
+            node_map,
+            get_required_first_path_id=lambda: "shared",
+            find_node_path=lambda start, end: [self.start_node, end],
+            get_reduce_node_path=lambda: lambda node_path: node_path,
+            get_find_shared_path=lambda: lambda a, b: shared,
+            get_plan_factory=lambda: support.FakeTravelPlan,
+        )
+
+        self.assertIsNotNone(
+            result,
+            "a destination missing from the routing graph aborted the whole "
+            "lookup, so a reachable destination later in the list was never "
+            "considered; in the live game this raised KeyError and ended the run",
+        )
+
     def test_rejects_short_reduced_missing_and_wrong_first_paths(self) -> None:
         destinations = [
             support.station("one", "triangle"),
