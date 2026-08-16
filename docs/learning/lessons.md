@@ -32,6 +32,10 @@ When a lesson becomes a gate — a test, a lint rule, a fixed command — delete
 - A training-time signal must be reachable by the policy that needs it, and then bounded against being farmed. ([evidence](lessons-evidence.md#a-training-signal-must-be-reachable-then-bounded))
 - Keep training-time concerns out of fingerprinted contracts; a wrapper costs nothing, an enum member invalidates every saved artifact. ([evidence](lessons-evidence.md#keep-training-time-concerns-out-of-fingerprinted-contracts))
 
+- Key a cache on what the DOMAIN can change, not on what the current caller happens to do; "unreachable from here" is a property of today's caller and expires silently. ([evidence](lessons-evidence.md#key-a-cache-on-what-the-domain-can-change))
+- A gate is only real once mutation-proved against the specific defect; pin the inputs that reproduce it, because a nearby seed can pass with the bug live. ([evidence](lessons-evidence.md#mutation-prove-a-gate-against-its-own-defect))
+- Freeze the tree before review: run reviewers against a pinned commit or worktree, or they review a moving target. ([evidence](lessons-evidence.md#freeze-the-tree-before-review))
+
 ### Editing this repo
 
 - Anchor programmatic text edits to the file's real bytes: these files are CRLF, and a formatter may already have rewritten the line you are matching. ([evidence](lessons-evidence.md#anchor-text-edits-to-the-files-real-bytes))

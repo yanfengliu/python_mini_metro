@@ -316,3 +316,74 @@ measured.
 
 Anchor: E34 in `docs/rl-experiments.md`; `expected_value` and its four gates in
 `scripts/search_policy.py` / `test/test_search_policy.py`.
+
+
+## Key a cache on what the domain can change
+
+A mask cache was added to the RL environment, keyed on a fingerprint of cheap
+state. Three review lanes found three separate terms missing, and all three had
+the same shape of justification behind them.
+
+| missing term | why it looked safe | why it was not |
+| --- | --- | --- |
+| route membership | `_apply` only ever GROWS a route, so equal ids + equal lengths implied equal membership | `replace_path_by_index` is public API and a restored save can embody any route |
+| `is_game_over` | every consumer breaks its loop on `terminated` before the next mask | one `while not done` idiom, or restoring a finished game, makes it live |
+| `is_unassignment_queued` | this environment's action table has no UNASSIGN action | the mediator's public API has one, and a restored save can arrive queued |
+
+Each is true today, and each is a property of the *current caller* rather than of
+the game. The cache is a property of the game. Two of the three produced a
+demonstrably wrong mask -- one legal action withheld and one illegal action
+offered per line end -- and a wrong mask does not raise; it surfaces later as a
+policy that will not learn.
+
+**Rule.** When keying a cache or fingerprint, enumerate what the underlying
+domain can change, not what today's callers happen to do. If a term is omitted
+because "nothing calls that", the cache is correct by coincidence and the
+coincidence is not tested anywhere.
+
+Anchor: `_mask_fingerprint` in `src/rl/semantic_env.py`; three-lane review
+2026-08-15.
+
+## Mutation-prove a gate against its own defect
+
+An equivalence test was written specifically to catch a stale mask cache. It
+compared the environment's mask against an independently written naive mask at
+every step of two full episodes. It passed with three cache defects live.
+
+Two reasons, both about *which* states it visited rather than about its logic. It
+broke out of the loop on `terminated`, so it never compared the one state where
+`is_game_over` mattered. And its random-play episode used seed 11. When the
+terminal-state comparison was added, the mutation *still* was not caught, because
+seed 11's terminal state does not reproduce it. A review sweep of 50 episodes
+identified seeds 8, 17 and 18 as the ones that do; pinning those turned the gate
+red.
+
+Separately, dropping route membership from the fingerprint was caught by no test
+until a third one was written, because the `_restore` cache-clear independently
+covered the same scenario -- two fixes, one gate, and either fix alone made it
+pass.
+
+**Rule.** After writing a gate, apply the exact defect it was written for and
+confirm it fails. If it does not, the gate is decoration. Pin the inputs that
+reproduce -- a neighbouring seed is not evidence. And when two fixes cover one
+scenario, add a test that isolates each, or the redundant one is the only cover.
+
+Anchor: `test/test_semantic_env_mask_equivalence.py`; mutations run 2026-08-15.
+
+## Freeze the tree before review
+
+Three review lanes were run on a set of changes while work continued in the same
+working tree. About twenty minutes in, the external reviewer noticed a probe
+script giving opposite answers on two runs, found six files dirty that had been
+clean at its start, re-ran its entire analysis in a throwaway detached worktree
+at a pinned commit, and said so in its report.
+
+That was the reviewer's save, not the author's. Had it not noticed, its findings
+would have been a mixture of the reviewed state and a state that no longer
+existed -- and the report would have looked exactly as authoritative.
+
+**Rule.** Commit or stash first, hand reviewers an explicit ref, and do not edit
+the reviewed files until they return. Reviewing a moving target produces
+confident findings about a state nobody can reproduce.
+
+Anchor: external `claude -p` review of commit 47997a3, 2026-08-15.
