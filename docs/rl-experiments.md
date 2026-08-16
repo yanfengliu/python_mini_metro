@@ -1315,6 +1315,65 @@ from the reproduction.
 
 ---
 
+## E36 -- with foreknowledge removed, search does not beat the heuristic
+
+E34 showed that scoring each candidate against a single rollout measures it
+against the one future that actually happens, because the serialised state
+carries the RNG. The fix is to average each candidate over independently
+resampled futures, using common random numbers so the comparison isolates the
+action. This is that measurement, at scale.
+
+20 paired seeds, 3 candidates averaged over 3 sampled futures, rollouts to
+episode end:
+
+```
+search:     mean 274.90   max 405
+heuristic:  mean 267.35   max 425
+paired gap: +7.55 +/-17.70   (search won 11/20, lost 9)
+```
+
+Seed by seed against the *same* seeds measured one-sample:
+
+| seed | 9000 | 9001 | 9002 | 9003 | 9004 | 9005 | 9006 | 9007 | mean |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| one-sample | **+528** | +65 | +91 | +59 | +2 | +189 | +49 | +45 | **+128.5** |
+| honest | +17 | -51 | +4 | +57 | -17 | +45 | -37 | +57 | **+9.4** |
+
+**REFUTED, and it retires E29 and E30 with it.** Seed 9000 falls from +528 to
++17. The interval spans zero, and search now loses on 9 of 20 seeds rather than
+0 of 28. The scripted heuristic is not "40% below its own action space" (E29);
+that number was the winner's curse. Search is not worth +58.32 (E30); that was
+the same artefact measured on more seeds, which is why more seeds did not
+expose it -- the bias is in every sample, so averaging samples cannot remove it.
+
+**One honest caveat in the other direction.** Three futures is still a small
+sample, and taking a max over three noisy means retains some selection bias. So
++7.55 is an upper bound on the true margin rather than an estimate of it. The
+defensible claim is that search is *not worse* than its default policy -- which
+is what rollout policy improvement guarantees -- and that any advantage beyond
+that is too small to measure at this budget.
+
+**What this kills.** The entire search-as-better-teacher programme. Search was
+adopted (E29-E31) because it appeared to reach decisions the heuristic missed,
+which would make its choices better training labels. They are not better labels;
+they are the heuristic's labels plus noise. That explains, without any further
+theory, why distilling them produced 193.20 against cloning-the-heuristic's 194.7
+(E32), and why held-out agreement stalled at 52% (E31) -- a fraction of those
+labels were coin flips.
+
+**What survives.** The measurement apparatus is sound and was worth building: the
+exact serialise/restore round-trip, the fidelity gate against the live game, the
+sampled-future averaging, and the paired protocol. They are what made this
+falsifiable.
+
+**Where this leaves the goal.** No learned policy beats the heuristic, and now no
+*planner* does either. The heuristic at ~267 is a stronger baseline than it
+looked, and beating it needs something structurally different from
+one-step-lookahead-over-itself -- a better default policy inside the rollout, a
+deeper search, or a genuinely different action representation.
+
+---
+
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not
