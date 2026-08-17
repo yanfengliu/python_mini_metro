@@ -217,9 +217,13 @@ def main(argv: list[str] | None = None) -> int:
             verbose=1,
         )
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
-    keeper = KeepBest(
-        args.output, args.eval_every, args.checkpoint_episodes, args.eval_seed
-    )
+    # `--eval-episodes`, NOT `--checkpoint-episodes`. This passed the latter for
+    # the whole of this project's history, so every in-training evaluation ran on
+    # 5 episodes whatever the flag said -- against a score distribution spanning
+    # 110 to 800, an MDE near +/-190. Every "new best, saved" was therefore a
+    # five-episode lottery, and the checkpoints selected that way are what later
+    # comparisons were run against.
+    keeper = KeepBest(args.output, args.eval_every, args.eval_episodes, args.eval_seed)
     model.learn(total_timesteps=args.total_timesteps, callback=keeper.build())
     model.save(args.output)
 
