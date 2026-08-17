@@ -26,6 +26,8 @@ Players are named on the command line:
     random      uniform over legal actions
     defer       the gate's DEFER action, which must equal `heuristic` exactly
     model:PATH  a saved MaskablePPO/PPO policy, sampled or greedy
+    variant:NAME  a one-rule change to the heuristic, from
+                  `scripts/heuristic_variants.py` -- the headroom probe
 
 `defer` exists as a self-check: it goes through the learned-policy plumbing but
 must return the heuristic's score to the delivery, so a non-zero gap means the
@@ -94,6 +96,17 @@ def play(arm: str, seed: int, spec: dict) -> dict:
     inner = getattr(env, "inner", env)
     rng = np.random.default_rng((seed << 8) ^ (abs(hash(arm)) & 0xFF))
     model = _load_model(arm[len("model:") :]) if arm.startswith("model:") else None
+    variant = None
+    if arm.startswith("variant:"):
+        from heuristic_variants import VARIANTS
+
+        name = arm[len("variant:") :]
+        if name not in VARIANTS:
+            raise ValueError(
+                f"unknown variant {name!r}; scripts/heuristic_variants.py defines "
+                f"{sorted(VARIANTS)}"
+            )
+        variant = VARIANTS[name]
     total = 0.0
     queries = 0
     deviations = 0
@@ -102,6 +115,8 @@ def play(arm: str, seed: int, spec: dict) -> dict:
             mask = _masks(env)
             if arm == "heuristic":
                 action = choose(inner)
+            elif variant is not None:
+                action = variant(inner)
             elif arm == "wait":
                 action = 0
             elif arm == "random":
