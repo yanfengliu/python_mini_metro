@@ -184,6 +184,100 @@ def _make(
     return choose
 
 
+# Feature scales, in canonical pixels and station counts, chosen so every
+# feature is order 1 and the weights are directly comparable.
+_GAP_SCALE = 500.0
+_LENGTH_SCALE = 2000.0
+_COUNT_SCALE = 10.0
+
+
+def _end_features(positions, station, route, at_head):
+    """The six numbers the learned rule scores a candidate end by.
+
+    Deliberately small and local: this decision is binary and fires about 59
+    times an episode, so the search space has to be small enough that paired
+    evaluation can resolve it. Everything here is already in the observation.
+    """
+    head, tail = route[0], route[-1]
+    near, far = (head, tail) if at_head else (tail, head)
+    gap = _distance(positions[station], (near.position.left, near.position.top))
+    other = _distance(positions[station], (far.position.left, far.position.top))
+    length = 0.0
+    for first, second in zip(route, route[1:]):
+        length += _distance(
+            (first.position.left, first.position.top),
+            (second.position.left, second.position.top),
+        )
+    return np.array(
+        [
+            gap / _GAP_SCALE,
+            other / _GAP_SCALE,
+            1.0 if at_head else 0.0,
+            len(route) / _COUNT_SCALE,
+            length / _LENGTH_SCALE,
+            1.0,
+        ]
+    )
+
+
+def make_end_scorer(weights):
+    """The heuristic, with the graft end chosen by `weights . features`.
+
+    `weights = [-1, 0, 0, 0, 0, 0]` scores each candidate by the negative
+    distance to it, which IS the scripted rule -- so a search seeded there
+    starts at the bar exactly rather than approximately. `learn_end_rule.py`
+    asserts that byte-for-byte before it optimises anything.
+    """
+
+    weights = np.asarray(weights, dtype=float)
+
+    def choose(env) -> int:
+        mediator = env._mediator
+        positions = _station_positions(mediator)
+        served = _served(mediator)
+        unserved = [i for i in range(len(positions)) if i not in served]
+        legal = _legal_by_kind(env)
+
+        if ActionKind.PURCHASE_LINE in legal:
+            return legal[ActionKind.PURCHASE_LINE][0][0]
+
+        best = None
+        for kind in (ActionKind.EXTEND_LINE, ActionKind.PREPEND_LINE):
+            for index, line, station in legal.get(kind, ()):
+                if station not in unserved or line >= len(mediator.paths):
+                    continue
+                route = list(mediator.paths[line].stations)
+                if not route:
+                    continue
+                at_head = kind is ActionKind.PREPEND_LINE
+                score = float(
+                    weights @ _end_features(positions, station, route, at_head)
+                )
+                if best is None or score > best[0]:
+                    best = (score, index)
+        if best is not None:
+            return best[1]
+
+        connected = _connect(mediator, legal, positions, unserved)
+        if connected is not None:
+            return connected
+
+        for kind in (ActionKind.ASSIGN_LOCOMOTIVE, ActionKind.ATTACH_CARRIAGE):
+            if kind in legal:
+                return legal[kind][0][0]
+        return 0
+
+    return choose
+
+
+def load_learned(path="output/endrule/best.json"):
+    """The weights the search settled on, as a playable policy."""
+    import json
+
+    with open(path, encoding="utf-8") as handle:
+        return make_end_scorer(json.load(handle)["mean_weights"])
+
+
 # Each entry changes exactly one rule. The scale on a graft penalty is in
 # canonical pixels, so it is comparable with the distances it is added to: a
 # station is 30 px and a typical inter-station gap is a few hundred.

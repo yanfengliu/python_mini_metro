@@ -117,12 +117,21 @@ def play(arm: str, seed: int, spec: dict) -> dict:
         from heuristic_variants import VARIANTS
 
         name = arm[len("variant:") :]
-        if name not in VARIANTS:
+        if name.startswith("learned"):
+            # `variant:learned` or `variant:learned:<path>` -- the weights
+            # `learn_end_rule.py` settled on, played through the same
+            # harness as every other arm.
+            from heuristic_variants import load_learned
+
+            _, _, where = name.partition(":")
+            variant = load_learned(where or "output/endrule/best.json")
+        elif name not in VARIANTS:
             raise ValueError(
                 f"unknown variant {name!r}; scripts/heuristic_variants.py defines "
                 f"{sorted(VARIANTS)}"
             )
-        variant = VARIANTS[name]
+        else:
+            variant = VARIANTS[name]
     total = 0.0
     queries = 0
     deviations = 0
