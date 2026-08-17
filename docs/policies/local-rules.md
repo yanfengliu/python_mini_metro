@@ -73,3 +73,45 @@ A rule earns a place here when it would change how the next unrelated task is ap
   for hours past the point where their answer was already legible -- two training
   runs kept going after both had settled, and a search run held twenty cores
   while its own partial output already showed the effect collapsing.
+
+## Adding an observation feature
+
+**Do not add a feature until you can state the measurement that would prove it
+useless, and then run it.** Features here have been added on plausible reasoning
+and have never once moved the score. The observation reached 654 floats of which
+**590 are constant across an entire episode and only 45 are non-zero at any
+instant** -- roughly 7% carrying signal -- because every addition was justified
+by an argument rather than a result.
+
+The record:
+
+| feature | argument for it | what it bought |
+| --- | --- | --- |
+| per-end distances (`REACH`) | the teacher's rule needs them | agreement 44% -> 81.5%, score unchanged |
+| rank of nearest unserved (`RANK`) | the network cannot do the argmin, so hand it over | agreement 73.8% -> 83.3%, score +2 |
+
+Both were verified to fire correctly -- the rank block marks the teacher's own
+graft target 5 times out of 5 -- and neither moved the outcome. Correct and
+load-bearing is not the same as useful.
+
+**The bar, before the feature is written:**
+
+1. **Name the falsifier.** What measurement, at what sample size, would show this
+   feature is worthless? If the answer is "agreement goes up", that is not a
+   falsifier: agreement has never predicted score in this project across the
+   0-83% range (E40, E41).
+2. **Measure the outcome, paired, at adequate n.** Deliveries is a ~5-rung ladder
+   with one rung of per-episode noise, so anything under ~45 deliveries needs n
+   in the hundreds. State the minimum detectable effect beside the result.
+3. **Have an independent subagent review it as a harsh critic BEFORE it is
+   committed.** Not a summary of the change -- give it the diff, the claimed
+   benefit and the measurement, and ask it to find the reason the measurement
+   does not support the claim. Every multi-lane review run in this repo has found
+   a defect the author missed, including three in a cache the author had already
+   gated and mutation-tested.
+4. **If it does not move the outcome, remove it.** A feature that is merely
+   harmless still costs: it dilutes the input, and it is one more thing a future
+   session must reason about. Dead weight in an observation is not free.
+
+The same bar applies to removing a feature: prove the removal is neutral before
+claiming it is a simplification.
