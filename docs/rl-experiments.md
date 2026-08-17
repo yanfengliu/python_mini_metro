@@ -1650,6 +1650,54 @@ Two things follow, and neither has been tried.
 
 ---
 
+## E41 -- handing the network the argmin does not help either
+
+E40 concluded by elimination that the whole gap is WHICH station pair gets
+chosen, and proposed the direct remedy: stop supplying the distances and hoping a
+network discovers the argmin, and supply the ranking itself.
+
+Implemented as 80 new observation features (`RANK_FEATURES`), one per
+station-line pair, holding 1.0 for the nearest UNSERVED station to that line's
+nearer end and falling off with rank. Verified load-bearing before training:
+across a full episode, **5 of 5** of the heuristic's graft targets were the
+station the feature marks as nearest. The observation grew 574 -> 654 floats.
+
+Held-out real-decision agreement rose, and by more than any architecture change
+managed: **73.8% -> 83.3%** at its best readout, against the plain
+observation's 72.8-76.9% ceiling and the pointer head's ~81%.
+
+The score did not follow.
+
+| player | deliveries | longest_line |
+| --- | --- | --- |
+| clone with ranks | 189.25 +/-18.83 | 6.88 |
+| the heuristic | 263.01 +/-21.15 | 7.64 |
+
+**heuristic beats it +73.76 +/-15.16, winning 82 of 100.** Against the earlier
+clones at 185-187, supplying the argmin is worth about two deliveries.
+
+**REFUTED.** This was the strongest remaining hypothesis and it fails the same
+way everything else has: agreement moves, score does not. It is now the fourth
+independent confirmation of E40's central finding -- across architectures
+(MLP/pointer), data volume (9x), action-space edits (REMOVE ban) and now feature
+engineering, **held-out agreement with the teacher has never once predicted the
+score.**
+
+**What that rules out.** The gap is not the argmin, because the argmin was handed
+over and nothing happened. Whatever the heuristic is doing that a copy of it
+cannot do, it is not "identify the nearest unserved station" -- a clone can now
+do that at 83% and still plays 74 deliveries worse.
+
+**What is left, stated precisely.** The heuristic's advantage survives only in
+the full trajectory it produces. A policy that agrees with it on 83% of decisions
+lands on a different board within a few decisions, and from there the teacher's
+remaining choices are answers to questions it is no longer being asked. That is
+compounding divergence, and no imitation objective addresses it -- which is
+consistent with DAgger, whose entire purpose is that problem, also having failed
+here (E28).
+
+---
+
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not

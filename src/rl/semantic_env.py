@@ -83,6 +83,23 @@ PATH_FEATURES = 5
 # the PREPEND-versus-EXTEND decision.
 REACH_PER_PAIR = 2
 REACH_FEATURES = MAX_STATIONS * MAX_PATHS * REACH_PER_PAIR
+
+# The COMPARISON, not just its inputs. The distances above are everything the
+# scripted heuristic's rule needs -- it grafts the nearest unserved station onto
+# a line's nearer end -- and a network given only those distances never learns
+# the rule: held-out agreement sits at 74-81% whatever the architecture, and 9x
+# the data does not move it (E39/E40). What the rule requires is an ARGMIN over
+# ~80 station-line pairs, and selection is not what a flat head over a
+# fixed-slot vector does well; slot i also holds a different station on every
+# board, so nothing learned about one slot transfers.
+#
+# So the ranking is computed and supplied directly. Per (station, line): 1.0 if
+# this station is the nearest UNSERVED one to that line's nearer end, falling
+# off with rank. This does not tell the agent what to do -- it still has to
+# decide whether to extend, which line, and whether to act at all -- it removes
+# only the argmin it demonstrably cannot perform.
+RANK_PER_PAIR = 1
+RANK_FEATURES = MAX_STATIONS * MAX_PATHS * RANK_PER_PAIR
 # Counters the game tracks, normalised. A future unlock means adding a reader to
 # _resources and bumping this; nothing else in the environment changes.
 RESOURCE_FEATURES = 14
@@ -211,6 +228,7 @@ class SemanticMetroEnv(gym.Env):
             MAX_STATIONS * STATION_FEATURES
             + MAX_PATHS * PATH_FEATURES
             + REACH_FEATURES
+            + RANK_FEATURES
             + RESOURCE_FEATURES
         )
 
@@ -399,6 +417,27 @@ class SemanticMetroEnv(gym.Env):
                     values[cursor] = 1.0 - self._scaled(head, 2000.0)
                     values[cursor + 1] = 1.0 - self._scaled(tail, 2000.0)
                 cursor += REACH_PER_PAIR
+
+        # Rank of each station among the UNSERVED ones by distance to this
+        # line's nearer end. 1.0 is nearest; a station already on the line, or
+        # a slot with no station or no line, stays 0.
+        for line in range(MAX_PATHS):
+            order: list[tuple[float, int]] = []
+            if line < len(mediator.paths):
+                path = mediator.paths[line]
+                on_line = set(self._path_station_indices(mediator, path))
+                for slot in range(min(MAX_STATIONS, len(mediator.stations))):
+                    if slot in on_line:
+                        continue
+                    head, tail = self._distances_to_ends(mediator.stations[slot], path)
+                    order.append((min(head, tail), slot))
+                order.sort()
+            ranked = {slot: position for position, (_, slot) in enumerate(order)}
+            for slot in range(MAX_STATIONS):
+                position = ranked.get(slot)
+                if position is not None:
+                    values[cursor + slot * MAX_PATHS + line] = 1.0 / (1.0 + position)
+        cursor += RANK_FEATURES
 
         resources = self._resources(mediator)
         values[cursor : cursor + len(resources)] = resources
