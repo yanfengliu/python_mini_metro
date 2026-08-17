@@ -55,7 +55,7 @@ def _crewed_by(mediator, entries, score) -> int:
     return best[1] if best is not None else entries[0][0]
 
 
-def _graft(env, mediator, legal, positions, unserved, penalty):
+def _graft(env, mediator, legal, positions, unserved, penalty, end_rule=None):
     """The heuristic's graft, plus `penalty(path)` added to each candidate gap."""
     best = None
     for kind in (ActionKind.EXTEND_LINE, ActionKind.PREPEND_LINE):
@@ -68,6 +68,13 @@ def _graft(env, mediator, legal, positions, unserved, penalty):
             end = route[-1] if kind is ActionKind.EXTEND_LINE else route[0]
             gap = _distance(positions[station], (end.position.left, end.position.top))
             gap += penalty(mediator.paths[line])
+            if end_rule == "far":
+                gap = -gap
+            elif end_rule == "arbitrary":
+                # Deterministic in the state, so the arm is reproducible, but
+                # uncorrelated with which end is nearer. Knuth's multiplicative
+                # hash over the decision index and the table entry.
+                gap = float(((env._decision * 2654435761) ^ (index * 40503)) % 1000)
             if best is None or gap < best[0]:
                 best = (gap, index)
     return None if best is None else best[1]
@@ -92,6 +99,7 @@ def _make(
     defer_purchase=0,
     spare_line=None,
     spare_min_stations=0,
+    end_rule=None,
 ):
     """Build a `choose`-compatible policy differing in one rule.
 
@@ -158,7 +166,7 @@ def _make(
                     return 0
 
         penalty = graft_penalty or (lambda path: 0.0)
-        grafted = _graft(env, mediator, legal, positions, unserved, penalty)
+        grafted = _graft(env, mediator, legal, positions, unserved, penalty, end_rule)
         if grafted is not None:
             return grafted
 
@@ -230,4 +238,13 @@ VARIANTS = {
     "v12-second-line-mid-farthest": _make(
         spare_line="farthest-any-pair", spare_min_stations=4
     ),
+    # The LAST lever. Grafting is the only decision with more than one option,
+    # and it has exactly two: head or tail. The heuristic takes the nearer end,
+    # which is also the one that adds least route length, so lap time -- the
+    # thing four trains are actually rationed by -- is decided here and nowhere
+    # else. If taking the FAR end, or an arbitrary end, costs little, then the
+    # only real decision in the game barely matters and the heuristic is at the
+    # ceiling of this action space.
+    "v13-graft-far-end": _make(end_rule="far"),
+    "v14-graft-arbitrary-end": _make(end_rule="arbitrary"),
 }

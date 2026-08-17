@@ -1998,9 +1998,83 @@ experiment is rerun:
   alternative" understates what the gate makes it cost.
 
 ---
+## E46 -- head or tail is the whole game, and it explains every prior score
+
+E44 established that the scripted policy faces exactly one decision with more
+than one option: which END of its single line a new station joins. Two
+candidates, about 59 times an episode. That looked like a reason the task has no
+headroom. It is the opposite.
+
+**Measured**, n=100, changing only the end-selection rule and nothing else:
+
+| arm | mean | vs heuristic | 95% CI | MDE(80%) | W/L/T |
+| --- | --- | --- | --- | --- | --- |
+| heuristic (nearest end) | 253.32 | +0.00 | -- | -- | 0/0/100 |
+| v0-rebuilt (control) | 253.32 | +0.00 | 0.00 | 0.00 | 0/0/100 |
+| **v14 arbitrary end** | **193.14** | **-60.18** | 14.20 | 20.30 | 17/79/4 |
+| v13 always far end | 149.09 | -104.23 | 13.47 | 19.25 | 2/98/0 |
+
+**The single binary choice spans 104 deliveries.** Nothing else in the action
+space comes close: crewing is forced, a second line is negative, deferring a
+purchase is +0.87 +/-8.30.
+
+### What this explains
+
+Coin-flipping that one decision scores **193.14**. The blind control scores
+183.2, the MLP clone 187.1, the pointer clone 184.7, the rank clone 189.25, and
+direct RL 175.4 -- **every learned policy this project has produced sits in the
+band an arbitrary head-or-tail rule produces**, and none is distinguishable from
+it.
+
+So the seven-experiment mystery of "why does nothing learned beat the heuristic,
+and why is everything stuck at 185-190" has a single mechanical answer. There is
+one decision. Getting it right is worth 253, getting it at chance is worth 193,
+getting it wrong is worth 149. Every learner has been at chance on it.
+
+It also retires the framing of E40 and E41 rather than contradicting them. E40
+concluded "the entire gap lives in which station pair is chosen" and E41 handed
+the network the argmin and got nothing. Both were looking at station SELECTION.
+The decision that carries the score is not which station, it is which end -- and
+the observation has carried the two distances needed for it since the REACH
+block was added, which is why adding rank features on top changed agreement and
+not score.
+
+### What it does NOT establish
+
+That the heuristic is optimal. Nearest-end is the greedy rule for growing a
+path, and greedy is not optimal for path growth: a sequence of locally minimal
+insertions can produce a worse final route than a sequence that occasionally
+takes the longer end. That is exactly the residual the honest search measured at
+**+7.55 +/-17.70 (n=20, E36)** -- consistent with zero, consistent with a real
+single-digit gain, and never re-measured at adequate n.
+
+**CONFIRMED as a characterisation of the task.** The action space offers one
+real decision; it is worth 104 deliveries; the heuristic takes the greedy side
+of it; every learned policy is at chance on it. A learned policy that beats the
+heuristic has to beat GREEDY NEAREST-END INSERTION on a path-growing problem --
+which is a well-posed question with a small expected answer, and it is the only
+question this action space still contains.
+
+**The next measurement, stated precisely.** Re-run honest search at n>=200 with
+the event gate (which makes it ~130x cheaper per episode), restricted to the
+graft decision alone. If the gap is a real +7, that is the ceiling of this
+action space and the goal as stated is unreachable without changing the game. If
+it is larger, the search's own default policy is the thing to distil.
+
+---
+
 ## Standing conclusions
 
-0. **The task is smaller than it looks, and the bar is near its ceiling.**
+0. **There is ONE decision, it is binary, and it is worth 104 deliveries.**
+   Crewing is forced (one legal option, always). A second line is worth
+   -95. The only choice is which END of the single line a new station
+   joins: nearest scores 253, arbitrary 193, farthest 149. Every learned
+   policy this project has produced -- blind 183, clones 185-189, direct
+   RL 175 -- sits in the band an arbitrary rule produces, so all of them
+   have been at chance on the one decision that carries the score. Beating
+   the heuristic means beating greedy nearest-end insertion, and nothing
+   else in this action space is worth measuring.
+0b. **The task is smaller than it looks, and the bar is near its ceiling.**
    The fleet is four metros and the heuristic deploys all of them on one
    line. Its crewing decisions have exactly one legal option and its graft
    decisions exactly two, so nine experiments' worth of "the learner cannot
