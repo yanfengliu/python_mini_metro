@@ -166,6 +166,11 @@ def paired_readout(path, seeds, spec, workers, reference) -> dict:
         "ci95": half,
         "won": int(np.sum(diff > 0)),
         "lost": int(np.sum(diff < 0)),
+        # Ties are the headline number for a residual policy: a gap of -0.84
+        # on 8 wins and 6 losses means 36 of 50 seeds were played EXACTLY as
+        # the heuristic plays them. Without it, a policy that has collapsed
+        # onto DEFER reads as a policy that is drawing.
+        "tied": int(np.sum(diff == 0)),
         "n": n,
         "deviation_rate": float(
             np.sum([r["deviations"] for r in rows])
@@ -182,9 +187,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--n-steps", type=int, default=64)
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--learning-rate", type=float, default=3e-4)
-    parser.add_argument("--gamma", type=float, default=0.997)
+    # 1.0, not 0.997. A policy step is ONE inner decision when the policy
+    # acts and up to `wait_backstop` when it waits (measured: 201 decisions,
+    # 19.3 game-seconds, on 32 of 32 substitutions), so per-step discounting
+    # runs at an action-dependent rate in game time and charges ~0.3% of the
+    # remaining return for the privilege of acting -- a bias pointing against
+    # exactly the deviation this run exists to elicit. Episodes are finite
+    # and about 51 steps, so undiscounted is well defined.
+    parser.add_argument("--gamma", type=float, default=1.0)
     parser.add_argument("--ent-coef", type=float, default=0.003)
-    parser.add_argument("--reward-scale", type=float, default=10.0)
+    # Default 1.0, i.e. off. Measured: with `normalize_advantage=True` the
+    # policy loss is scale-invariant, the policy and value parameter sets are
+    # disjoint (separate towers, separate heads, a zero-parameter feature
+    # extractor), and Adam at eps=1e-5 normalises the rescaling out of the
+    # value tower. It is retained as an explicit knob rather than deleted so
+    # a future value-head change can turn it back on deliberately.
+    parser.add_argument("--reward-scale", type=float, default=1.0)
     parser.add_argument(
         "--defer-bias",
         type=float,
@@ -234,7 +252,13 @@ def main(argv: list[str] | None = None) -> int:
         eval_seeds,
         spec,
         args.eval_workers,
-        os.path.join(os.path.dirname(args.output) or ".", "heuristic-reference.json"),
+        # Keyed to THIS run's output name. Two arms training side by side
+        # shared one file, and since the heuristic's score cannot depend on
+        # `scope` (its branch calls `choose(env.inner)` and never reads the
+        # gated mask) each arm invalidated the other's cache and rewrote it
+        # non-atomically -- 50 wasted episodes and a truncated-read window
+        # that would kill a multi-hour run at startup.
+        f"{args.output}-heuristic-reference.json",
     )
     print(
         f"heuristic reference on {len(eval_seeds)} eval seeds: "
@@ -263,14 +287,48 @@ def main(argv: list[str] | None = None) -> int:
     # the mass on DEFER; without this the run spends its first tens of
     # thousands of steps rediscovering that random deviation is bad.
     with th.no_grad():
-        model.policy.action_net.weight.mul_(0.01)
+        # NOT `weight.mul_(0.01)`. SB3 already applies ortho_init with gain
+        # 0.01 to the action head, so multiplying again left the weights at
+        # std 5.2e-6: the opening policy was not the heuristic but "DEFER with
+        # probability p, otherwise UNIFORM over the legal actions", measured
+        # at 211.85 deliveries against the heuristic's 248.78 -- a -36.92 gap
+        # the run then spent 30,000 steps un-learning, which read as progress.
+        # It also throttled learning: gradients into the policy trunk are
+        # proportional to the action head's norm, and 5.2e-6 is below Adam's
+        # own eps, so only the bias could move.
         model.policy.action_net.bias.zero_()
         model.policy.action_net.bias[-1] = args.defer_bias
+
+    # Readout ZERO, before a single gradient step. The claim this design
+    # rests on is "training starts at the bar", and an unmeasured claim in a
+    # docstring is how the initialisation defect above survived.
+    initial = f"{args.output}-init"
+    model.save(initial)
+    opening = paired_readout(initial, eval_seeds, spec, args.eval_workers, reference)
+    print(
+        f"[eval] step        0  policy {opening['mean']:7.2f}  "
+        f"heuristic {opening['heuristic']:7.2f}  "
+        f"gap {opening['gap']:+8.2f} +/-{opening['ci95']:.2f}  "
+        f"W/L/T {opening['won']}/{opening['lost']}/{opening['tied']}  "
+        f"deviate {opening['deviation_rate'] * 100:5.2f}%",
+        flush=True,
+    )
+    if opening["gap"] < -10:
+        print(
+            "WARNING: the run does not start at the bar. Raise --defer-bias "
+            "until the opening gap is within noise of zero, or the run will "
+            "spend its budget un-learning its own initialisation.",
+            flush=True,
+        )
 
     class Readout(BaseCallback):
         def __init__(self):
             super().__init__()
-            self.best = -float("inf")
+            # A residual policy that cannot beat DEFER has nothing to report,
+            # and DEFER's gap is 0 by construction. Without this floor an
+            # artifact named `-best` always exists and a killed run hands the
+            # next step a policy that lost.
+            self.best = 0.0
             self.bad = 0
             self.flat = 0
             self.next_at = args.eval_every
@@ -287,7 +345,7 @@ def main(argv: list[str] | None = None) -> int:
                 f"[eval] step {self.num_timesteps:>8}  "
                 f"policy {row['mean']:7.2f}  heuristic {row['heuristic']:7.2f}  "
                 f"gap {row['gap']:+8.2f} +/-{row['ci95']:.2f}  "
-                f"W/L {row['won']}/{row['lost']}  "
+                f"W/L/T {row['won']}/{row['lost']}/{row['tied']}  "
                 f"deviate {row['deviation_rate'] * 100:5.2f}%  "
                 f"({elapsed / 60:.1f} min)",
                 flush=True,

@@ -1,8 +1,8 @@
 """Query the policy at decision points, not every 6 ticks.
 
 `SemanticMetroEnv` asks for an action every `TICKS_PER_DECISION`, so a full
-episode is roughly 7,600 decisions -- and the scripted heuristic acts on about
-15 of them. Measured over 8 seeds: 7,606 decisions per episode, 14.8 actions.
+episode is thousands of decisions -- and the scripted heuristic acts on about
+15 of them. Measured over 200 seeds: 6,860 decisions per episode, 14 actions.
 So over 99.8% of every rollout is spent emitting WAIT, the policy gradient for
 the handful of real choices is diluted about 500:1, and a delivery's credit has
 to travel back across thousands of no-ops. That is not a hard game; it is a hard
@@ -17,9 +17,12 @@ re-queried on the very next decision.
 positions, the served set, and the mask. None of the three can move while the
 mask stands still: a new station index makes fresh CONNECT/EXTEND/PREPEND
 entries legal, and only an agent action changes line membership. Measured on 8
-seeds, deliveries, decision counts and the whole action sequence are identical
-with the gate and without it, at 20.6 policy queries per episode instead of
-7,606 -- a 365x reduction.
+200 independent seeds, deliveries, decision counts and the whole (decision,
+action) sequence are identical with the gate and without it, at 50.9 policy
+queries per episode against 6,860 -- a 135x reduction at the shipped
+`wait_backstop`. With the backstop disabled the purely event-driven count is
+about 19 queries, or 332x; those are the numbers for a different setting and
+are not what this ships with.
 
 **The asymmetry is load-bearing.** An earlier version fast-forwarded after every
 action, not just after WAIT. It scored 0 deliveries against 525, because the
@@ -29,10 +32,18 @@ gate sat idle for the whole backstop while the run died at the 40-second
 overcrowding deadline. Acting changes what to do next without changing what is
 *possible*; `test_event_gate.py` pins that.
 
-**What it costs.** The policy can no longer act at an arbitrary tick, so this is
-a restriction on the policy class -- like frame-skip. A restricted class cannot
-score above the unrestricted one, so the gate cannot inflate a result; and the
-bar it is measured against, the heuristic, provably scores the same either way.
+**What it costs, stated carefully.** The gate cannot inflate a learned score:
+the policy acts strictly less often, and the bar it is measured against
+provably scores the same either way. The converse does NOT follow, and an
+earlier version of this note claimed it did. A gated WAIT blacks the policy
+out for up to `wait_backstop` decisions -- 19.2 game-seconds against a
+40-second overcrowding clock -- and passenger pressure is exactly what the
+mask does not encode, so a policy that loses to the heuristic UNDER the gate
+has not been shown to lose to it ungated. The heuristic is immune only
+because it ignores passengers entirely. (The subset argument is also weaker
+than it looks: expressing gated-WAIT requires remembering the mask the policy
+decided against, which a Markov policy cannot do, so the gated class is a
+subset of the history-dependent ungated class rather than of the Markov one.)
 
 **DEFER**, optional, is the second half. It is one extra action meaning "play
 whatever the heuristic would play here". A policy that always defers *is* the
@@ -49,19 +60,36 @@ import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
 
-from rl.semantic_env import ACTION_TABLE, ActionKind, SemanticMetroEnv
+from rl.semantic_env import (
+    ACTION_TABLE,
+    MAX_STATIONS,
+    ActionKind,
+    SemanticMetroEnv,
+)
 
-# 20 game-seconds. Only a backstop: it exists so WAIT is never absorbing and a
-# learned policy can still act on passenger pressure, which does not move the
-# mask. The heuristic never reaches it -- with the backstop disabled entirely
-# the action sequence is unchanged -- so it costs the anchor nothing.
+# 20 game-seconds. It exists so WAIT is never absorbing and a learned policy
+# can still act on passenger pressure, which does not move the mask.
+#
+# It is NOT rarely reached: measured over 16 seeds, 457 of 545 WAIT decisions
+# (83.9%) end at the backstop rather than at a mask change. So most of the
+# query reduction at this default is fixed frame-skip, not event structure --
+# the purely event-driven count is 19 queries per episode (332x) against 51
+# here (135x). What IS established is that the value cannot move the anchor:
+# sweeping it over 1, 2, 5, 50, 200, 5000 and 100000 across 16 seeds leaves
+# the heuristic's deliveries, decision counts and action sequence identical in
+# all 112 episodes, so it is not a knob that quietly tunes the baseline.
 DEFAULT_WAIT_BACKSTOP = 200
 
 # One-hot over ActionKind, plus the two table arguments normalised by
 # MAX_STATIONS. Small on purpose: it says what DEFER would do, nothing more.
 PROPOSAL_FEATURES = len(ActionKind) + 2
 
-_NORMALISER = float(max(len(ACTION_TABLE) and 20, 1))
+# The table's arguments are station and line indices, so MAX_STATIONS bounds
+# both. Written out rather than as the constant 20 it happened to equal: the
+# previous expression evaluated to 20.0 unconditionally while its comment
+# claimed to normalise by MAX_STATIONS, so raising MAX_STATIONS would have
+# silently pushed the proposal block outside its declared Box(-1, 1).
+_NORMALISER = float(MAX_STATIONS)
 
 # How much of the table a deviation may reach.
 #

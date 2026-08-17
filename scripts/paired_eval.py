@@ -53,6 +53,14 @@ os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 # so the CLT applies to it even though a single episode is bimodal.
 Z95 = 1.959963985
 
+# The 80%-power minimum detectable effect, z(0.975) + z(0.80). This is what
+# `blind_control.py` and the MDE(80%) column of `docs/rl-experiments.md` have
+# always meant by MDE, and it is 1.43x the half-width of the 95% interval --
+# an effect between those two is significant and under-powered at the same
+# time. Reporting the interval under the name MDE understated the bar in the
+# very harness built to stop under-powered claims.
+MDE80 = 2.801585
+
 _MODEL_CACHE: dict[str, object] = {}
 
 
@@ -90,11 +98,19 @@ def _masks(env) -> np.ndarray:
 def play(arm: str, seed: int, spec: dict) -> dict:
     """One episode of one player on one board."""
     from rl.heuristic import choose
+    from rl.semantic_env import ACTION_TABLE
 
     env = _make_env(spec)
     obs, _ = env.reset(seed=seed)
     inner = getattr(env, "inner", env)
-    rng = np.random.default_rng((seed << 8) ^ (abs(hash(arm)) & 0xFF))
+    # Seeded from the arm's NAME BYTES, not `hash(arm)`: `hash` on a str is
+    # salted by PYTHONHASHSEED, every pool worker is a fresh interpreter
+    # under Windows spawn, and the same (arm, seed) therefore drew a
+    # different stream in every worker and every rerun. Measured: five
+    # distinct salts inside one run.
+    rng = np.random.default_rng(
+        (seed << 8) ^ (int.from_bytes(arm.encode(), "little") & 0xFF)
+    )
     model = _load_model(arm[len("model:") :]) if arm.startswith("model:") else None
     variant = None
     if arm.startswith("variant:"):
@@ -110,6 +126,7 @@ def play(arm: str, seed: int, spec: dict) -> dict:
     total = 0.0
     queries = 0
     deviations = 0
+    actions: list[tuple[int, int]] = []
     try:
         while True:
             mask = _masks(env)
@@ -120,7 +137,14 @@ def play(arm: str, seed: int, spec: dict) -> dict:
             elif arm == "wait":
                 action = 0
             elif arm == "random":
-                action = int(rng.choice(np.flatnonzero(mask)))
+                # Uniform over the legal TABLE, never over DEFER. DEFER is
+                # appended to the mask, so sampling the mask made the null
+                # play the scripted heuristic -- measured at 24% of decisions
+                # under scope=all and 92% under scope=kind, where the offered
+                # set is about two entries. A null that plays the bar is not
+                # a null.
+                table = mask[: len(ACTION_TABLE)]
+                action = int(rng.choice(np.flatnonzero(table)))
             elif arm == "defer":
                 action = env.DEFER
             elif model is not None:
@@ -133,6 +157,8 @@ def play(arm: str, seed: int, spec: dict) -> dict:
                     f"unknown player {arm!r}; expected one of heuristic, wait, "
                     "random, defer, or model:<path-to-a-saved-policy>"
                 )
+            if action != 0:
+                actions.append((int(getattr(env, "decisions", queries)), int(action)))
             obs, reward, terminated, truncated, info = env.step(action)
             deviations += int(info.get("deviated", False))
             total += float(reward)
@@ -145,6 +171,9 @@ def play(arm: str, seed: int, spec: dict) -> dict:
         "arm": arm,
         "seed": seed,
         "score": total,
+        # Persisted per seed, not just averaged. An equivalence claim is
+        # about the trajectory, and a dump of scores alone cannot check one.
+        "actions": actions,
         "queries": queries,
         "deviations": deviations,
         "decisions": getattr(env, "decisions", queries),
@@ -175,8 +204,9 @@ def summarise(scores: dict[str, dict[int, float]], reference: str, seeds) -> lis
                 "sd": sd,
                 "vs_reference": float(diff.mean()),
                 "ci95": half,
-                # The smallest true paired gap this n could have detected.
-                "mde": Z95 * diff_sd / math.sqrt(n) if n > 1 else float("inf"),
+                # The smallest true paired gap this n could detect 80% of the
+                # time -- NOT the interval half-width, which is 1.43x smaller.
+                "mde": MDE80 * diff_sd / math.sqrt(n) if n > 1 else float("inf"),
                 "won": int(np.sum(diff > 0)),
                 "lost": int(np.sum(diff < 0)),
                 "tied": int(np.sum(diff == 0)),
@@ -195,6 +225,9 @@ def _print_table(rows: list[dict], reference: str) -> None:
         if row["arm"] != reference:
             if abs(row["vs_reference"]) <= row["ci95"]:
                 verdict = "  not distinguishable"
+            elif abs(row["vs_reference"]) < row["mde"]:
+                # Significant but under-powered by this repo's own standard.
+                verdict = "  under-powered"
             elif row["vs_reference"] > 0:
                 verdict = "  BETTER"
             else:
@@ -204,7 +237,13 @@ def _print_table(rows: list[dict], reference: str) -> None:
             f"{row['vs_reference']:>+14.2f}{row['ci95']:>10.2f}"
             f"{f'{row["won"]}/{row["lost"]}/{row["tied"]}':>14}{verdict}"
         )
-    print(f"\nMDE at this n: +/-{max(r['mde'] for r in rows if r['mde'] < 1e9):.2f}")
+    # Per arm, not the maximum across arms. The old headline reported the
+    # noisiest arm's spread -- run a model beside `random` and the printed MDE
+    # belonged to `random`.
+    print("\nMDE(80% power) per arm, the bar this n can actually clear:")
+    for row in rows:
+        if row["arm"] != reference and row["mde"] < 1e9:
+            print(f"  {row['arm']:<28}+/-{row['mde']:.2f}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -226,6 +265,26 @@ def main(argv: list[str] | None = None) -> int:
 
     if "defer" in args.arms and not args.defer:
         parser.error("the 'defer' arm needs --defer, which is what adds the action")
+    if args.plain:
+        # --plain bypasses the gate entirely, so every gate-shaped flag would
+        # be accepted and dropped -- and the `defer` arm would then die inside
+        # a pool worker with a bare AttributeError on env.DEFER.
+        ignored = [
+            name
+            for name, value in (
+                ("--defer", args.defer),
+                ("--proposal-features", args.proposal_features),
+                ("--deviation-scope", args.deviation_scope != "all"),
+                ("--backstop", args.backstop != parser.get_default("backstop")),
+            )
+            if value
+        ]
+        if ignored:
+            parser.error(
+                f"--plain bypasses the event gate, so {', '.join(ignored)} "
+                "would be accepted and ignored. Drop --plain to use them, or "
+                "drop them to measure the ungated environment."
+            )
     if args.reference not in args.arms:
         parser.error(
             f"--reference {args.reference!r} is not among --arms {args.arms}; "
@@ -251,11 +310,13 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     scores: dict[str, dict[int, float]] = {arm: {} for arm in args.arms}
+    traces: dict[str, dict[int, list]] = {arm: {} for arm in args.arms}
     extra: dict[str, list[dict]] = {arm: [] for arm in args.arms}
     done = 0
     with ProcessPoolExecutor(max_workers=args.workers) as pool:
         for result in pool.map(_work, jobs, chunksize=1):
             scores[result["arm"]][result["seed"]] = result["score"]
+            traces[result["arm"]][result["seed"]] = result.pop("actions")
             extra[result["arm"]].append(result)
             done += 1
             if done % 25 == 0:
@@ -274,7 +335,13 @@ def main(argv: list[str] | None = None) -> int:
         os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
         with open(args.out, "w", encoding="utf-8") as handle:
             json.dump(
-                {"rows": rows, "scores": scores, "spec": spec, "seeds": seeds},
+                {
+                    "rows": rows,
+                    "scores": scores,
+                    "traces": traces,
+                    "spec": spec,
+                    "seeds": seeds,
+                },
                 handle,
                 indent=2,
             )

@@ -395,10 +395,6 @@ class DeferAction(unittest.TestCase):
             env.close()
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class DeviationScope(unittest.TestCase):
     """`kind` narrows a deviation to the arguments the heuristic picked blind.
 
@@ -483,3 +479,61 @@ class DeviationScope(unittest.TestCase):
         with self.assertRaises(ValueError) as caught:
             EventGatedSemanticEnv(deviation_scope="kind")
         self.assertIn("defer=True", str(caught.exception))
+
+
+class NoSkippedDecisionWasOneTheHeuristicWantedToAct(unittest.TestCase):
+    """The direct proof, rather than the end-state coincidence.
+
+    Comparing action sequences shows the gate did not change the outcome. It
+    does not show WHY, and it only covers the prefix the test budget reaches --
+    the committed sequence tests span 20-37% of their episodes, all early game
+    where the mask carries the most redundant channels.
+
+    This asks the load-bearing question at every decision the gate skips: would
+    the ungated heuristic have acted here? A single yes is a divergence the gate
+    swallowed, whether or not the score happens to survive it. An independent
+    review lane ran this shape over ~310,000 skipped decisions on 60 seeds and
+    with `wait_backstop` swept from 1 to 100,000, and found none; this pins a
+    full episode of it in CI.
+    """
+
+    def test_the_heuristic_would_have_waited_at_every_skipped_decision(self):
+        for seed in (5, 11):
+            with self.subTest(seed=seed):
+                env = EventGatedSemanticEnv()
+                env.reset(seed=seed)
+                skipped = 0
+                try:
+                    while True:
+                        action = choose(env.inner)
+                        _, _, terminated, truncated, _ = env.inner.step(action)
+                        env.decisions += 1
+                        if terminated or truncated:
+                            break
+                        if action != 0:
+                            continue
+                        held = env.inner.action_masks()
+                        for _ in range(env.wait_backstop):
+                            if not np.array_equal(env.inner.action_masks(), held):
+                                break
+                            self.assertEqual(
+                                choose(env.inner),
+                                0,
+                                f"seed {seed}: the gate skipped decision "
+                                f"{env.inner._decision}, where the heuristic wanted "
+                                f"to act",
+                            )
+                            _, _, terminated, truncated, _ = env.inner.step(0)
+                            env.decisions += 1
+                            skipped += 1
+                            if terminated or truncated:
+                                break
+                        if terminated or truncated:
+                            break
+                finally:
+                    env.close()
+                self.assertGreater(skipped, 2000)
+
+
+if __name__ == "__main__":
+    unittest.main()
