@@ -278,6 +278,133 @@ def load_learned(path="output/endrule/best.json"):
         return make_end_scorer(json.load(handle)["mean_weights"])
 
 
+def _two_opt(points, order):
+    """Shorten a route by repeatedly reversing segments. O(n^2) per pass.
+
+    Not brute force: the exact optimum over 9 stations is 181,440 orderings and
+    this runs on every decision. 2-opt lands within a few percent of it and
+    costs microseconds, which is the right trade for a probe whose question is
+    whether the effect exists at all.
+    """
+
+    def length(seq):
+        return sum(_distance(points[a], points[b]) for a, b in zip(seq, seq[1:]))
+
+    best = list(order)
+    best_length = length(best)
+    improved = True
+    while improved:
+        improved = False
+        for i in range(len(best) - 1):
+            for j in range(i + 2, len(best)):
+                candidate = best[: i + 1] + best[i + 1 : j + 1][::-1] + best[j + 1 :]
+                value = length(candidate)
+                if value < best_length - 1e-9:
+                    best, best_length = candidate, value
+                    improved = True
+    return best, best_length
+
+
+def make_rebuilder(threshold=0.10, min_stations=5):
+    """The heuristic, plus: re-lay the line when its order is badly wrong.
+
+    Measured motivation. The route greedy head/tail insertion builds is only
+    ~4% longer than the best route ANY end-choosing policy could reach given
+    the arrival order -- which is why searching the end choice found nothing at
+    +/-3 (E47). But the insertion-reachable route is **34% longer than the
+    optimal ordering of the same stations**, and lap time is what a four-train
+    fleet is rationed by. That headroom is locked behind the action space, not
+    behind the decision rule.
+
+    It is reachable, though: REMOVE_LINE, CONNECT the first two stations of the
+    better order, then EXTEND the rest in sequence. Every step is a legal
+    action, and each costs one decision -- six ticks, 0.1 game-seconds -- so
+    re-laying a nine-station line costs about a second of downtime against a
+    permanently shorter lap.
+
+    Stateless by construction: the target order is recomputed from the live
+    board every call, and the policy's job each step is just "am I a prefix of
+    the target, and if not, what is the next legal step toward it". Nothing is
+    remembered between decisions, so a restored save or an interrupted rebuild
+    behaves identically to one that ran straight through.
+    """
+
+    def choose(env) -> int:
+        mediator = env._mediator
+        positions = _station_positions(mediator)
+        served = _served(mediator)
+        unserved = [i for i in range(len(positions)) if i not in served]
+        legal = _legal_by_kind(env)
+
+        if ActionKind.PURCHASE_LINE in legal:
+            return legal[ActionKind.PURCHASE_LINE][0][0]
+
+        # Only ever reasons about a single line, which is what this policy
+        # family builds; with none yet, fall straight through to the scripted
+        # rules that create one.
+        if len(mediator.paths) == 1 and len(positions) >= min_stations:
+            route = _path_indices(mediator, mediator.paths[0])
+            if len(route) >= min_stations:
+                current = _route_length(positions, route)
+                target, improved = _two_opt(positions, route)
+                if current > 0 and (current - improved) / current > threshold:
+                    step = _rebuild_step(env, mediator, legal, route, target)
+                    if step is not None:
+                        return step
+
+        penalty = lambda path: 0.0  # noqa: E731 - matches _make's default
+        grafted = _graft(env, mediator, legal, positions, unserved, penalty)
+        if grafted is not None:
+            return grafted
+
+        connected = _connect(mediator, legal, positions, unserved)
+        if connected is not None:
+            return connected
+
+        for kind in (ActionKind.ASSIGN_LOCOMOTIVE, ActionKind.ATTACH_CARRIAGE):
+            if kind in legal:
+                return legal[kind][0][0]
+        return 0
+
+    return choose
+
+
+def _path_indices(mediator, path):
+    lookup = {id(station): index for index, station in enumerate(mediator.stations)}
+    return [lookup[id(s)] for s in path.stations if id(s) in lookup]
+
+
+def _route_length(positions, order) -> float:
+    return sum(_distance(positions[a], positions[b]) for a, b in zip(order, order[1:]))
+
+
+def _rebuild_step(env, mediator, legal, route, target):
+    """One legal action toward laying the line out as `target`.
+
+    The line is torn down only when it is NOT already a prefix of the target,
+    so an interrupted rebuild resumes rather than restarting -- and a route
+    that already matches is never touched, which is what stops the policy
+    oscillating between two orderings of equal length.
+    """
+    forward = target
+    backward = target[::-1]
+    for want in (forward, backward):
+        if route == want[: len(route)]:
+            if len(route) == len(want):
+                return None
+            nxt = want[len(route)]
+            for index, line, station in legal.get(ActionKind.EXTEND_LINE, ()):
+                if line == 0 and station == nxt:
+                    return index
+            return None
+    if len(route) <= 2:
+        return None
+    for index, line, _ in legal.get(ActionKind.REMOVE_LINE, ()):
+        if line == 0:
+            return index
+    return None
+
+
 # Each entry changes exactly one rule. The scale on a graft penalty is in
 # canonical pixels, so it is comparable with the distances it is added to: a
 # station is 30 px and a typical inter-station gap is a few hundred.
@@ -341,4 +468,14 @@ VARIANTS = {
     # ceiling of this action space.
     "v13-graft-far-end": _make(end_rule="far"),
     "v14-graft-arbitrary-end": _make(end_rule="arbitrary"),
+    # The lever the action space hides. Greedy is within ~4% of the best
+    # route insertion can REACH, but insertion itself is 34% above the
+    # optimal ordering, and lap time is what four trains are rationed by.
+    "v15-rebuild-10pct": make_rebuilder(threshold=0.10),
+    "v16-rebuild-20pct": make_rebuilder(threshold=0.20),
+    "v17-rebuild-05pct": make_rebuilder(threshold=0.05),
+    "v18-rebuild-30pct": make_rebuilder(threshold=0.30),
+    "v19-rebuild-40pct": make_rebuilder(threshold=0.40),
+    "v20-rebuild-25pct": make_rebuilder(threshold=0.25),
+    "v21-rebuild-15pct": make_rebuilder(threshold=0.15),
 }

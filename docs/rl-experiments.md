@@ -2134,6 +2134,101 @@ now bounded near zero, not that no better policy exists.
 
 ---
 
+## E48 -- the bar is beaten: rebuild the line instead of only growing it
+
+E47 concluded that the scripted policy sits "at or near the ceiling of this
+action space". **That was wrong, and the question that exposed it was "so there
+is really just one way to play this game well?"**
+
+E47's negative was real but narrower than its own summary. It searched WHICH END
+a new station joins, holding the insertion-only growth strategy fixed. Two
+measurements settle why it found nothing and why that says less than it looked
+like:
+
+| route | length vs greedy's | |
+| --- | --- | --- |
+| greedy nearest-end (what the heuristic builds) | -- | |
+| best reachable by ANY head/tail insertion policy | greedy is only **+3.9%** longer (median +0.8%, exact on 4 of 14 seeds) | |
+| optimal ordering of the same stations | best-reachable is **+34.2%** longer | |
+
+So the end decision genuinely has almost nothing in it -- greedy is within a few
+percent of the best any end-choosing rule could reach, which is the mechanism
+behind E47's +/-3 null. **But insertion-only growth is itself stuck 34% above
+the optimal ordering**, and lap time is exactly what a four-train fleet is
+rationed by. The headroom was locked behind the growth strategy, not behind the
+decision rule -- and E47 mistook exhausting the second for exhausting the first.
+
+### Reaching it
+
+Nothing in the action space forbids a better order. `REMOVE_LINE`, then
+`CONNECT` the first two stations of a better route, then `EXTEND` the rest in
+sequence -- every step legal, each costing one decision, six ticks, 0.1
+game-seconds. Re-laying a nine-station line costs about a second of downtime
+against a permanently shorter lap.
+
+`make_rebuilder` in `scripts/heuristic_variants.py` is the scripted policy plus
+exactly that: compute a 2-opt improvement of the current route, and if it saves
+more than `threshold`, tear the line down and re-lay it. It is stateless -- the
+target is recomputed from the live board every call, so an interrupted rebuild
+resumes rather than restarting.
+
+### Measured, n=200 per arm, three independent seed bases
+
+```
+seeds 90000+   heuristic 249.29
+  threshold 0.05    229.34   -19.95 +/-16.01   MDE 22.88    W/L/T  83/104/ 13
+  threshold 0.10    264.62   +15.34 +/-12.57   MDE 17.97    W/L/T  93/ 83/ 24
+  threshold 0.20    281.11   +31.82 +/-10.05   MDE 14.36    W/L/T  79/ 41/ 80
+
+seeds 50000+   heuristic 258.95
+  threshold 0.20    298.38   +39.42 +/-10.61   MDE 15.17    W/L/T  90/ 33/ 77
+  threshold 0.25    286.40   +27.45 +/- 9.53   MDE 13.63    W/L/T  65/ 23/112
+  threshold 0.30    278.94   +19.99 +/- 8.51   MDE 12.17    W/L/T  39/ 16/145
+  threshold 0.40    261.69    +2.73 +/- 3.13   MDE  4.47    W/L/T   6/  3/191
+
+seeds 30000+   heuristic 264.28
+  threshold 0.15    287.32   +23.04 +/-11.58   MDE 16.55    W/L/T  90/ 58/ 52
+  threshold 0.20    288.97   +24.69 +/- 9.67   MDE 13.82    W/L/T  71/ 40/ 89
+```
+
+**CONFIRMED.** At a 20% threshold the policy beats the scripted heuristic by
+**+31.82, +39.42 and +24.69** on three independent 200-seed bases, every one
+outside its 95% interval and above its 80%-power MDE. This is the first thing in
+this project's history to beat the heuristic on a properly powered paired
+comparison.
+
+The dose-response is what makes it a result rather than a lucky arm. Rebuilding
+too eagerly is **negative** (-19.95 at 5%, 135 queries per episode -- it
+thrashes), the effect peaks near 15-20%, and it decays smoothly to nothing at
+40% where the policy barely deviates at all (191 of 200 seeds tied). A threshold
+selected on one seed base replicates on two others.
+
+### What it does and does not mean
+
+It moves the bar from ~250 to ~290. It does **not** produce a learned model:
+this is a scripted policy, 2-opt plus a trigger. What it changes for the
+learning programme is the target -- every "nothing learned beats the heuristic"
+result in this ledger was measured against a bar that leaves 34% of its route
+length on the table, and there is now both a better bar and a better teacher.
+
+It also leaves the obvious learned question open and well-posed: the trigger is
+a single fixed constant, and when to rebuild plainly depends on the state -- how
+many stations are unserved, how full the queues are, how long since the last
+one. A state-dependent trigger is exactly the sort of small, low-variance
+decision the paired harness can now resolve to +/-3.
+
+### The correction
+
+Standing conclusion 0 said the scripted policy was at or near the ceiling of
+this action space. It is not, and it was never measured against anything but
+its own growth strategy. The lesson generalises past this repo: **exhausting
+every variation of a strategy measures the strategy, not the space it sits in.**
+E44's "a second line costs 95 deliveries" and E47's "the end decision is worth
+nothing at +/-3" both survive unchanged -- they were correct and they were about
+the wrong question.
+
+---
+
 ## Standing conclusions
 
 0. **There is ONE decision, it is binary, and it is worth 104 deliveries.**
@@ -2147,8 +2242,13 @@ now bounded near zero, not that no better policy exists.
    else in this action space is worth measuring.
    Searched directly, that decision yields nothing: a six-weight rule
    optimised on deliveries lands at -0.17 +/-2.09 on 200 held-out seeds,
-   193 of them exact ties, at an MDE of +/-2.99. The scripted policy is
-   at or near the ceiling of this action space.
+   193 of them exact ties, at an MDE of +/-2.99 -- because greedy is
+   already within 3.9% of the best route ANY end-choosing policy could
+   reach. **That is not the ceiling of the action space (E48).** Growth
+   by insertion is itself 34% above the optimal ordering, and tearing the
+   line down to re-lay it beats the heuristic by +32, +39 and +25 on three
+   independent 200-seed bases. Exhausting every variation of a strategy
+   measures the strategy, not the space it sits in.
 0b. **The task is smaller than it looks, and the bar is near its ceiling.**
    The fleet is four metros and the heuristic deploys all of them on one
    line. Its crewing decisions have exactly one legal option and its graft

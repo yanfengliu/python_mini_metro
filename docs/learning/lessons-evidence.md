@@ -495,3 +495,35 @@ measurement, not a property of the code you wrote.
 
 Anchor: E45 in `docs/rl-experiments.md`; the `-init` readout in
 `scripts/train_residual.py`, commit 76a6f71.
+
+
+## Exhausting a strategy's variations measures the strategy, not the space
+
+A session's worth of measurement established that the scripted policy's
+decisions were forced or binary, that a second line cost 95 deliveries, and that
+a six-weight search over the one real decision found nothing at +/-3 on 200
+held-out seeds with 193 exact ties. Every one of those numbers was correct. The
+conclusion drawn from them -- "the scripted policy is at or near the ceiling of
+this action space" -- was not, and it survived a full write-up.
+
+The check that broke it took four minutes: compare the route the policy builds
+against the optimal ordering of the same stations. It is **41.6% longer**. A
+second probe split that number in two: greedy is within **3.9%** of the best
+route any end-choosing policy could reach, while insertion-only growth is
+**34.2%** above the optimum. So the decision that had been searched to
+exhaustion really was exhausted, and it was the wrong decision -- the headroom
+lived in a strategy nothing had varied, because every variant tested had been a
+variation *of* that strategy.
+
+Acting on it: tear the line down and re-lay it in a 2-opt order when the saving
+exceeds 20%. Beats the bar by +32, +39 and +25 on three independent 200-seed
+bases, with a dose-response curve that goes negative when the trigger is too
+eager.
+
+**Rule.** When a family of variations all land on the same answer, that is
+evidence about the family, not about the ceiling. Before concluding a system is
+optimal, compute a bound that does not depend on the strategy it uses -- the
+optimal tour, the information-theoretic limit, the offline best -- and compare.
+
+Anchor: E47 and its correction in E48, `docs/rl-experiments.md`;
+`make_rebuilder` in `scripts/heuristic_variants.py`.
