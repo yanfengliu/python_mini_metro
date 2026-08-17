@@ -44,3 +44,32 @@ A rule earns a place here when it would change how the next unrelated task is ap
   `unexpected EOF while looking for matching quote` and the whole edit is lost —
   because the files are CRLF. Writing the patch script to the scratchpad with
   the Write tool and running it costs one extra call and does not fail.
+
+## Long-running jobs
+
+- **Emit the decisive metric while the job runs, not after it.** A run that only
+  reports at the end forces a choice between waiting hours and knowing nothing,
+  and most runs here are decidable long before they finish. The pointer-head RL
+  run was stopped at 6.8M of 20M steps because a proper n=40 evaluation of its
+  checkpoint showed it below the blind control; the eight remaining hours would
+  have bought a confirmed negative. Structure the output so the run can be
+  killed: print the number that predicts the outcome, on a fixed interval, with
+  `flush=True`.
+
+- **Print the number that predicts the outcome, not the one that is convenient.**
+  Behaviour cloning here reported training agreement on a mixture that is 99.8%
+  forced WAIT, so it read 98.1% while held-out agreement on real decisions was
+  72.8% and the policy played like a network fed constant input. Overall
+  agreement never once predicted score. `scripts/bc_semantic.py --readout N` now
+  reports held-out real-decision agreement every N epochs for exactly this
+  reason.
+
+- **State the kill criterion before starting.** "Stop if held-out agreement is
+  flat across two readouts" is a decision that can be made in advance and
+  executed cheaply; "see how it looks at the end" is how a 30M-step run consumed
+  a night to reproduce a result already visible at 6M.
+
+- **Check in on a schedule rather than on completion.** Several jobs here ran
+  for hours past the point where their answer was already legible -- two training
+  runs kept going after both had settled, and a search run held twenty cores
+  while its own partial output already showed the effect collapsing.

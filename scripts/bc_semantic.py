@@ -88,7 +88,54 @@ def collect(episodes: int, wait_keep: float, seed: int, gamma: float):
     )
 
 
-def clone(model, observations, actions, masks, returns, *, epochs, batch_size, lr):
+def held_out_agreement(model, seeds=(80_000, 80_001, 80_002)) -> float:
+    """Agreement with the teacher on decisions it did NOT spend on WAIT.
+
+    Reported DURING training, not after, so a run that is going nowhere can be
+    killed at epoch 10 instead of at the end. Overall agreement is useless for
+    this -- it runs at 99.9% because 99.8% of steps are forced WAIT, while the
+    number that predicts score sits near 75%.
+
+    The teacher is followed rather than the student, so both are always judged
+    on the same board.
+    """
+    from rl.semantic_env import SemanticMetroEnv
+
+    hits = total = 0
+    for seed in seeds:
+        env = SemanticMetroEnv()
+        observation, _ = env.reset(seed=seed)
+        try:
+            while True:
+                teacher = choose(env)
+                if teacher != 0:
+                    predicted, _ = model.predict(
+                        observation,
+                        action_masks=env.action_masks(),
+                        deterministic=True,
+                    )
+                    hits += int(int(np.asarray(predicted).ravel()[0]) == teacher)
+                    total += 1
+                observation, _, terminated, truncated, _ = env.step(teacher)
+                if terminated or truncated:
+                    break
+        finally:
+            env.close()
+    return hits / total if total else float("nan")
+
+
+def clone(
+    model,
+    observations,
+    actions,
+    masks,
+    returns,
+    *,
+    epochs,
+    batch_size,
+    lr,
+    readout=10,
+):
     policy = model.policy
     device = model.device
     optimizer = torch.optim.Adam(policy.parameters(), lr=lr)
@@ -127,11 +174,15 @@ def clone(model, observations, actions, masks, returns, *, epochs, batch_size, l
             action_losses.append(float(action_loss.item()))
             value_losses.append(float(value_loss.item()))
             correct += int((logits.argmax(-1) == target).sum())
-        print(
+        line = (
             f"  epoch {epoch + 1}/{epochs}: action {np.mean(action_losses):.4f}  "
-            f"value {np.mean(value_losses):.1f}  agreement {correct / total:.1%}",
-            flush=True,
+            f"value {np.mean(value_losses):.1f}  train-agreement {correct / total:.1%}"
         )
+        if readout and ((epoch + 1) % readout == 0 or epoch == epochs - 1):
+            # The only number that has ever predicted score. A flat reading here
+            # across successive readouts is grounds to stop the run.
+            line += f"  HELD-OUT real-decision {held_out_agreement(model):.1%}"
+        print(line, flush=True)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -145,6 +196,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--arch", choices=("mlp", "pointer"), default="mlp")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--device", default="cuda")
+    parser.add_argument(
+        "--readout",
+        type=int,
+        default=10,
+        help=(
+            "epochs between held-out real-decision readouts; 0 disables. "
+            "Reported DURING training so a run going nowhere can be stopped "
+            "at epoch 10 rather than at the end"
+        ),
+    )
     parser.add_argument("--output", type=Path, default=Path("output/semantic/bc"))
     args = parser.parse_args(argv)
 
@@ -200,6 +261,7 @@ def main(argv: list[str] | None = None) -> int:
         epochs=args.epochs,
         batch_size=args.batch_size,
         lr=args.learning_rate,
+        readout=args.readout,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     model.save(str(args.output))
