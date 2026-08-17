@@ -96,7 +96,89 @@ defers *is* the heuristic, action for action, and PPO starts at 257 rather than
 at the clone's 189. Deviations are then paid for out of measured deliveries
 rather than out of agreement with a teacher.
 
+**Corrected below.** "PPO starts at 257" was an unmeasured assertion and
+it was wrong -- the initialisation was a random-deviation policy worth
+211.85. See the second half of this document.
+
 The honest caveat, stated before any result: such a policy **contains** the
 heuristic, so "beats the heuristic" only means something alongside the deviation
 rate and an account of what the deviations are. A run that reaches 257 with a 0%
 deviation rate has learned nothing and must be reported as such.
+
+
+## The second half of the session: what the gate was built to enable, and what it found
+
+### The headroom was measured before it was optimised, and it is negative
+
+With the horizon collapsed, the plan was a residual policy: DEFER means "play
+what the heuristic would play", so training starts at the bar and deviations are
+bought with deliveries. Before training, the arbitrary-looking rules were probed
+directly -- and the probe is what mattered.
+
+The heuristic crews `legal[kind][0][0]`, "whichever line sits lowest in the
+action table". That reads as arbitrary. It is **forced**: across 10 episodes the
+crewing rule never once had more than one legal option, and three variants that
+change the rule produce byte-identical play. Grafting has exactly two options
+every time -- head or tail of **one** line. On 12 seeds the heuristic ends with
+`lines=1`, `longest_line == stations`, and unspent line slots.
+
+Opening a spare slot costs **95.07 +/- 24.17 deliveries at n=60**, and every
+second-line arm ends the episode *earlier*. The mechanism, measured: the game
+grants four metros; both arms deploy all four and end with none spare; a second
+line leaves one line carrying **no train for 29% of the episode** against the
+heuristic's 4%. Line slots are not scarce. Trains are, and the heuristic already
+commits all of them to the only line that can use them.
+
+That single fact retro-explains three ledgered results at once. Honest search
+does not beat the heuristic because there is almost nothing to search over.
+Agreement never predicted score because the decisions agreement was measured on
+have zero or two options. Handing the network the argmin did nothing because the
+argmin ranges over two candidates on one line.
+
+### What the critic lanes caught that the author did not
+
+Two lanes, deliberately different: one attacked the gate's equivalence claim,
+one attacked the residual design's validity.
+
+The design lane found the defect that invalidated the running experiment. The
+claim "always deferring IS the heuristic, so training starts at 257" was never
+measured -- and `action_net.weight.mul_(0.01)` on top of SB3's own `ortho_init`
+gain of 0.01 left the weights at std 5.2e-6, so the opening policy was "DEFER
+with probability p, otherwise uniform over legal actions", worth **211.85, a
+-36.92 gap**. Both live arms were un-learning their own initialisation noise
+while printing a closing gap. The run now saves an `-init` checkpoint and
+reports readout zero before a single gradient step.
+
+The equivalence lane could not break the gate and said so, then proved it harder
+than the author had: an independent probe asserting the *ungated* heuristic
+would WAIT at every decision the gate skips -- the mechanism, not the end state
+-- over ~310,000 skipped decisions on 60 seeds it chose itself, at full episode
+length, plus a `wait_backstop` sweep over 1/2/5/50/200/5000/100000. Zero
+divergences, so the backstop is also proved not to be a knob that quietly tunes
+the baseline. That probe is now a test.
+
+It also found two statements in the author's own comments that were simply
+false. "The heuristic never reaches the backstop" -- it reaches it on **83.9%**
+of WAIT decisions, so most of the shipped 135x is fixed frame-skip rather than
+event structure. And "a restricted class cannot score above the unrestricted
+one, so the gate is a valid instrument" does not license the converse: a gated
+WAIT blinds the policy for 19.2 seconds against a 40-second overcrowding clock,
+and passenger pressure is exactly what the mask does not encode, so a policy
+that loses **under** the gate has not been shown to lose ungated. The heuristic
+is immune only because it ignores passengers entirely.
+
+Ten further defects landed in the measurement harness itself -- including an
+`mde` byte-identical to the 95% CI (43% too permissive against this repo's own
+MDE(80%) convention), a `random` null that played the scripted heuristic 92% of
+the time because DEFER was in the mask it sampled from, a readout that printed
+W/L while hiding that 36 of 50 seeds were exact ties, and `unittest.main()`
+above the last test class so `python test/test_event_gate.py` ran 18 of 24 tests
+and reported green.
+
+### Where this leaves the goal
+
+Not achieved, and the reason is now specific rather than mysterious. The task as
+configured is a four-train fleet on one line, the heuristic saturates it, and
+its decisions have one or two options each. A learned policy that beats it has
+to find its advantage inside a choice set that small -- or the game's own
+parameters have to change, which is a different project and a priced one.

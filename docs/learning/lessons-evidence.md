@@ -440,3 +440,58 @@ is "identical behaviour", assert identical behaviour.
 
 Anchor: `test/test_event_gate.py::ASpawnInsideTheWaitStepMustNotBeSleptThrough`,
 pinned to seed 90048; E42.
+
+
+## Count the OPTIONS, not just the decisions
+
+Nine ledgered experiments concluded that a learner could not make the right
+choice. Nobody had counted how many choices there were.
+
+Measured over 10 episodes of the scripted policy that all of them were trying to
+beat: the crewing rule had **exactly one legal option every single time** -- so
+the "arbitrary" tie-break that looked like obvious headroom is forced, and three
+variants that change it produce byte-identical play. The grafting rule had
+**exactly two options every time**: head or tail of ONE line. The policy ends
+every episode with `lines=1` and `longest_line == stations`.
+
+So "the entire gap lives in which station pair gets chosen" was a choice between
+two candidates on one line, and "the network cannot perform the argmin" was an
+argmin over two.
+
+The obvious remedy -- spend the line slots it buys and never uses -- is worth
+**-95.07 +/-24.17 deliveries at n=60**. The binding constraint is the fleet: the
+game grants four metros, the policy deploys all four, and a second line leaves
+one line carrying no train for 29% of the episode against 4%. Single-line play
+is the correct response to a four-train fleet.
+
+**Rule.** Before attributing a failure to the chooser, count the options each
+decision actually offers. A claim of headroom names the decision it lives in and
+how many candidates that decision has; if the answer is one, the rule is forced
+and no learner can improve it.
+
+Anchor: E44 in `docs/rl-experiments.md`; `scripts/heuristic_variants.py`,
+commit 86b19ca.
+
+## An initialisation is a claim, so measure it before the run
+
+An experiment was built on "a policy that always defers IS the heuristic, so
+training starts at the bar rather than 80 deliveries below it". That sentence was
+in two docstrings and a commit message. Nothing measured it.
+
+It was false. `action_net.weight.mul_(0.01)` sat on top of the library's own
+orthogonal init with gain 0.01, leaving the weights at std 5.2e-6 -- so the
+opening policy was not the anchor but "defer with probability p, otherwise
+UNIFORM over the legal actions", worth 211.85 against the anchor's 248.78.
+
+The consequence is worse than a wrong number. Both running arms spent their
+budget un-learning the noise their own initialisation had injected, printing a
+steadily closing gap (-36.9 -> -15.9 -> -3.5) whose end state is simply the
+anchor. Read as "training is working" it is exactly backwards, and the run's
+`-best` selector was a monotone selector for doing nothing.
+
+**Rule.** Save the initial policy and evaluate it as readout zero, before a
+single gradient step. If the run is supposed to start somewhere, that is a
+measurement, not a property of the code you wrote.
+
+Anchor: E45 in `docs/rl-experiments.md`; the `-init` readout in
+`scripts/train_residual.py`, commit 76a6f71.

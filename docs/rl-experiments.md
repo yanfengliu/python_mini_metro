@@ -1851,8 +1851,163 @@ what the environment plays -- because every one of them type-checked, ran clean,
 and produced entirely plausible logs.
 
 ---
+## E44 -- the bar builds one line, and that is the right answer
+
+E40 concluded by elimination that the whole 75-delivery gap lives in **which
+station pair gets chosen**. Nobody had counted how many pairs there are.
+
+**Measured**, every decision the heuristic makes over 10 episodes, with the size
+of the choice set the rule was actually choosing from:
+
+| rule | decisions | options | fraction with >1 |
+| --- | --- | --- | --- |
+| WAIT | 374 | 12.1 legal alternatives | 54.5% |
+| ASSIGN_LOCOMOTIVE | 40 | **always exactly 1** | **0%** |
+| ATTACH_CARRIAGE | 20 | **always exactly 1** | **0%** |
+| GRAFT (extend/prepend) | 59 | **always exactly 2** | 100% |
+| PURCHASE_LINE | 13 | 1 | -- |
+| CONNECT | 10 | 3 | 100% |
+
+The crewing rule -- `legal[kind][0][0]`, "whichever line sits lowest in the
+action table" -- reads as arbitrary and is not. It is **forced**: there is never
+more than one legal option. Three variants that change it produce byte-identical
+play, which is how this was found rather than argued.
+
+GRAFT having exactly two options every time is the finding. Head or tail of
+**one** line. On 12 seeds the heuristic ends with `lines=1` and
+`longest_line == stations`, every time. It buys line slots and never spends
+them, because its CONNECT rule requires two UNSERVED stations while its graft
+rule fires first on every new station, so a second unserved station never
+accumulates. The mask makes CONNECT legal for **any** pair, served or not; the
+restriction to unserved pairs is the heuristic's own.
+
+So the bar that has defeated four architectures, nine experiments, a search
+programme and an imitation programme is a single-line policy running trains
+around one loop. "Which station pair is chosen" has two candidates and they are
+both the same line.
+
+### Opening a second line costs 95 deliveries
+
+`scripts/heuristic_variants.py` changes one rule at a time and is scored by
+`paired_eval.py` on identical seeds. n=60, MDE(80%) stated per arm:
+
+```
+arm                                     mean   vs heur    95CI   MDE80   W/L/T
+heuristic                             247.38     +0.00    0.00    0.00   0/0/60
+v0-rebuilt (control)                  247.38     +0.00    0.00    0.00   0/0/60
+v4-graft-prefers-short                247.38     +0.00    0.00    0.00   0/0/60
+v5-graft-prefers-long                 247.38     +0.00    0.00    0.00   0/0/60
+v6-defer-purchase                     248.25     +0.87    8.30   11.86  14/15/31
+v7-second-line-closest                152.32    -95.07   24.17   34.55   6/48/ 6
+v8-second-line-farthest               152.37    -95.02   24.08   34.43   8/52/ 0
+v9-hold-for-second-line               106.52   -140.87   23.42   33.48   1/58/ 1
+v10-second-line-late-closest          152.32    -95.07   24.17   34.55   6/48/ 6
+v11-second-line-late-farthest         157.03    -90.35   25.02   35.77   8/43/ 9
+v12-second-line-mid-farthest          157.03    -90.35   25.02   35.77   8/43/ 9
+```
+
+`v4` and `v5` push the graft toward short and long lines respectively and are
+**byte-identical to the control**, because a per-line penalty added to both
+candidates of a single line cancels. That is an independent confirmation of
+`lines=1` from a completely different direction.
+
+### The binding constraint is the fleet
+
+Every second-line arm also ends the episode *earlier* -- 4,770 decisions against
+6,839, and 3,714 for the arm that holds a station back. Measured over 8 seeds:
+
+| | lines | metros | spare locomotives | spare carriages | decisions with a line carrying NO train |
+| --- | --- | --- | --- | --- | --- |
+| heuristic | 1 | 4 | 0 | 0 | **4%** |
+| v7 second line | 2 | 4 | 0 | 0 | **29%** (peak 50%) |
+
+Both policies deploy the entire fleet and both end with nothing spare. The game
+grants **four metros**. Splitting them across two lines leaves one line without
+a train for a third of the episode, and a line with no train still attracts the
+passengers routed onto it.
+
+**CONFIRMED, and it reframes the goal.** The single-line strategy is not an
+oversight in the heuristic, it is the correct response to a four-train fleet.
+The headroom that looked obvious -- "it buys line slots it never uses" -- is
+negative by 95 deliveries at n=60, well outside an MDE of +/-34.5. Line slots
+are not the scarce resource; trains are, and the heuristic already commits all
+of them to the only line that can use them.
+
+This is consistent with everything the ledger already contains and explains it
+in one stroke: honest search does not beat the heuristic (E36) because there is
+almost nothing to search over; agreement does not predict score (E40) because
+the decisions agreement is measured on are 0-option or 2-option; and handing the
+network the argmin does nothing (E41) because the argmin ranges over two
+candidates on one line.
+
+---
+
+## E45 -- the residual policy was not starting at the heuristic
+
+The design was: offer DEFER, initialise the action head DEFER-dominant, and let
+PPO be paid to deviate -- so the run starts at the bar rather than 80 deliveries
+below it, and every deviation is bought with measured deliveries rather than
+with agreement.
+
+**The initialisation was never measured, and it was not the heuristic.**
+`action_net.weight.mul_(0.01)` sits on top of SB3's own `ortho_init` gain of
+0.01, leaving the weights at std 5.2e-6. The opening policy was therefore not
+"the heuristic" but "DEFER with probability p, otherwise **uniform over the
+legal actions**". A critic lane built the exact checkpoint the script produces
+and scored it:
+
+| arm | opening policy | heuristic | gap | W/L/T | deviation |
+| --- | --- | --- | --- | --- | --- |
+| scope=all, bias 6.0 | 211.85 | 248.78 | **-36.92 +/-19.75** | 4/17/19 | 2.44% |
+| scope=kind, bias 4.0 | 247.78 | 248.78 | -1.00 +/-5.53 | 3/5/32 | 0.59% |
+
+Both live runs were therefore doing something quite different from what they
+appeared to be doing. Their readouts:
+
+```
+scope=all    gap -36.9 (init) -> -15.94 -> -3.46    deviation 2.44% -> 1.29% -> 0.39%
+scope=kind   gap  -1.0 (init) ->  -3.74 -> -0.84    deviation 0.59% -> 2.26% -> 0.93%
+```
+
+PPO was **un-learning the noise its own initialisation had injected**, and the
+end state of that trajectory is the heuristic. Read as "the gap is closing,
+training is working", it is exactly backwards. Stopped at 30,008 of 150,000
+steps.
+
+The multiply also throttled learning: gradients into the policy trunk are
+proportional to the action head's norm, and 5.2e-6 is below Adam's own `eps`, so
+in practice only the DEFER bias could move.
+
+**INVALID, not refuted.** This says nothing about whether a residual policy can
+beat the heuristic; it says the experiment as built could not have answered the
+question. What it does establish is a discipline: the run now saves an `-init`
+checkpoint and reports **readout zero** before a single gradient step, and warns
+when the opening gap is below -10.
+
+Two further design facts the same review measured, both worth having before the
+experiment is rerun:
+
+* Under `deviation_scope="kind"`, a genuine choice among the arguments of the
+  proposed kind exists at **1.9% of decision points** -- about one per episode.
+  In 73.4% the heuristic proposes WAIT and the offered set is {WAIT, DEFER},
+  which are the same behaviour; in a further 92.9% of acting decisions the only
+  alternative to the proposal is WAIT. That arm is close to a no-op.
+* A gated WAIT substituted for the heuristic's move consumes the **full
+  backstop, 201 decisions, on 32 of 32 substitutions** -- 19.3 game-seconds
+  against a 40-second overcrowding clock. "WAIT is always a legitimate
+  alternative" understates what the gate makes it cost.
+
+---
 ## Standing conclusions
 
+0. **The task is smaller than it looks, and the bar is near its ceiling.**
+   The fleet is four metros and the heuristic deploys all of them on one
+   line. Its crewing decisions have exactly one legal option and its graft
+   decisions exactly two, so nine experiments' worth of "the learner cannot
+   make the right choice" were about a choice between two candidates on one
+   line. Opening a second line costs 95 deliveries. Any future claim of
+   headroom should name the decision it lives in and how many options that
+   decision has.
 1. **Read the reward curve first.** E1 and E2 were real defects that could not
    have moved the score, and were fixed before E4 revealed why.
 2. **The reward is unreachable, not sparse.** Any approach must bootstrap
