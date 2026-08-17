@@ -94,9 +94,27 @@ def _episode(job) -> float:
 
 def evaluate(pool, weights, seeds) -> np.ndarray:
     """Per-seed deliveries for one weight vector."""
-    return np.array(
-        list(pool.map(_episode, [(weights, s) for s in seeds], chunksize=1))
-    )
+    return evaluate_many(pool, [weights], seeds)[0]
+
+
+def evaluate_many(pool, population, seeds) -> list[np.ndarray]:
+    """Every candidate's per-seed deliveries, through ONE barrier.
+
+    Scoring candidates one at a time makes each a separate barrier, and a
+    `pool.map` finishes when its slowest task does. Episode length varies
+    several-fold with how well the policy plays, so a whole 28-worker pool sat
+    idle waiting on two or three long episodes, twelve times a generation --
+    measured at 3.5 cores busy out of 28. Submitting the generation as one job
+    list lets a finished candidate's workers start the next candidate's
+    episodes, and the only barrier left is the one CEM actually needs.
+    """
+    jobs = [(weights, seed) for weights in population for seed in seeds]
+    flat = list(pool.map(_episode, jobs, chunksize=1))
+    width = len(seeds)
+    return [
+        np.array(flat[index * width : (index + 1) * width])
+        for index in range(len(population))
+    ]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -155,11 +173,11 @@ def main(argv: list[str] | None = None) -> int:
                 mean + sigma * rng.standard_normal(len(mean))
                 for _ in range(args.population)
             ]
-            scored = []
-            for weights in population:
-                values = evaluate(pool, weights, seeds)
-                diff = values - base
-                scored.append((float(diff.mean()), weights, diff))
+            results = evaluate_many(pool, population, seeds)
+            scored = [
+                (float((values - base).mean()), weights, values - base)
+                for weights, values in zip(population, results)
+            ]
             scored.sort(key=lambda row: -row[0])
             elites = scored[: args.elite]
             mean = np.mean([row[1] for row in elites], axis=0)

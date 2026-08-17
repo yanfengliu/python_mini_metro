@@ -2063,6 +2063,77 @@ it is larger, the search's own default policy is the thing to distil.
 
 ---
 
+## E47 -- searching the one decision directly, and finding nothing at +/-3
+
+E46 left exactly one question: greedy nearest-end insertion is the rule that
+carries the score, and greedy is not optimal for growing a path, so is there a
+better end-selection rule?
+
+`scripts/learn_end_rule.py` asks it directly. Each candidate end is scored by
+six weights over local features -- distance to this end, distance to the other,
+head-or-tail, stations on the line, route length, bias -- and the weights are
+searched by cross-entropy method against **deliveries**, not against agreement.
+
+**Why CEM and not PPO, stated as a measurement rather than a preference.**
+Per-episode deliveries have SD ~95 against an effect of order 10, and E45
+measured what attributing that to individual actions through a value function
+costs: 30,000 steps spent un-learning the noise of the run's own
+initialisation. CEM attributes nothing to an action. It scores a whole policy
+against the scripted one **on identical seeds**, so board luck cancels inside
+every comparison, and it searches six numbers instead of forty thousand.
+
+**The anchor is checked, not asserted** -- the lesson E45 paid for. Weights
+`[-1, 0, 0, 0, 0, 0]` score each end by the negative distance to it, which IS
+the scripted rule, and the run refuses to start unless the maximum per-seed
+difference against `rl.heuristic` is exactly zero. Measured: **0.00**.
+
+**The search, 5 generations x 12 candidates x 60 paired seeds:**
+
+```
+[gen  0] best-of-12 gap   +2.82 +/-3.53  won 6/60   elite mean gap   +0.45
+[gen  1] best-of-12 gap   +0.02 +/-0.03  won 1/60   elite mean gap   -1.14
+[gen  2] best-of-12 gap   +0.72 +/-1.04  won 4/60   elite mean gap   -0.64
+[gen  3] best-of-12 gap   +2.82 +/-3.53  won 6/60   elite mean gap   +0.69
+[gen  4] best-of-12 gap   +1.28 +/-2.20  won 4/60   elite mean gap   +0.65
+```
+
+Every best-of-12 figure is inside the winner's-curse inflation for twelve draws
+at that standard error, and the elite means straddle zero. The search converges
+back onto the greedy rule because perturbing away from it loses.
+
+**Held out, on seeds the search never saw, n=200:**
+
+| arm | mean | vs heuristic | 95% CI | MDE(80%) | W/L/T |
+| --- | --- | --- | --- | --- | --- |
+| heuristic | 249.29 | +0.00 | -- | -- | -- |
+| **learned end-rule** | 249.12 | **-0.17** | 2.09 | **2.99** | 5/2/**193** |
+| arbitrary end (control) | 180.86 | -68.43 | 10.16 | 14.52 | 25/165/10 |
+
+**REFUTED, and this is the best-powered negative in the ledger.** The MDE is
+**+/-2.99 deliveries** -- an order of magnitude tighter than anything this
+project has measured -- because 193 of 200 seeds are exact ties, so the paired
+variance nearly vanishes. A real improvement of even three deliveries would have
+been visible and there is none.
+
+The control in the same table is what makes the power credible rather than a
+degenerate artefact of a policy that never deviates: the arbitrary-end arm, run
+on the same seeds through the same harness, reproduces E46's effect at -68.43
++/-10.16.
+
+**What is now established.** Within a six-parameter linear family over local
+features, greedy nearest-end insertion is a local optimum to within +/-3
+deliveries. Combined with E36's honest search (+7.55 +/-17.70) and E44's finding
+that every other decision is forced or negative, the scripted policy is at or
+extremely near the ceiling of this action space.
+
+**What is not.** A richer end-rule -- one with lookahead, or with features the
+six do not span, such as where unserved stations are likely to spawn -- is
+untested. So is any policy that changes the game's own parameters. The honest
+statement is that the *marginal* return to better play in this action space is
+now bounded near zero, not that no better policy exists.
+
+---
+
 ## Standing conclusions
 
 0. **There is ONE decision, it is binary, and it is worth 104 deliveries.**
@@ -2074,6 +2145,10 @@ it is larger, the search's own default policy is the thing to distil.
    have been at chance on the one decision that carries the score. Beating
    the heuristic means beating greedy nearest-end insertion, and nothing
    else in this action space is worth measuring.
+   Searched directly, that decision yields nothing: a six-weight rule
+   optimised on deliveries lands at -0.17 +/-2.09 on 200 held-out seeds,
+   193 of them exact ties, at an MDE of +/-2.99. The scripted policy is
+   at or near the ceiling of this action space.
 0b. **The task is smaller than it looks, and the bar is near its ceiling.**
    The fleet is four metros and the heuristic deploys all of them on one
    line. Its crewing decisions have exactly one legal option and its graft
