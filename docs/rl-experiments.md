@@ -1575,6 +1575,81 @@ honest labels on the metric that matters.
 
 ---
 
+## E40 -- imitation fidelity is uncorrelated with score; the gap is selection
+
+Four independent things a clone can copy were measured against what they buy.
+
+**Decision agreement does not predict score.** Held-out real-decision agreement
+against the heuristic, and the score each policy actually reaches:
+
+| policy | held-out agreement | deliveries |
+| --- | --- | --- |
+| blind net (constant input) | ~0% | 183.2 |
+| MLP clone | 72.8% | 187.1 |
+| pointer clone | ~81% | 184.7 |
+| the heuristic | 100% | 260.4 |
+
+Going from 0% to 81% agreement is worth **under 2 deliveries**. The curve is flat
+until it is not: only the teacher's own play reaches the teacher's score. Every
+agreement figure this project has reported as progress -- DAgger's 71.8% -> 77.3%
+among them -- was measuring a quantity with no demonstrated relationship to the
+outcome.
+
+**Action frequency and action mix do not predict score either.** Self-play over
+12 seeds:
+
+| policy | deliveries | actions/episode | dominant kinds |
+| --- | --- | --- | --- |
+| heuristic | 295.8 | 14.3 | ASSIGN 28%, EXTEND 23%, PREPEND 19% |
+| MLP clone | 199.7 | 25.3 | EXTEND 35%, ASSIGN 16%, **REMOVE 10%** |
+| blind | 193.2 | 29.8 | PREPEND 46%, ASSIGN 17% |
+| pointer clone | **175.8** | **13.7** | ASSIGN 32%, PREPEND 21%, no REMOVE |
+
+The pointer clone matches the teacher's action rate (13.7 against 14.3) and its
+action mix, and scores **the worst of the four**. Copying how often and what kind
+is worth nothing.
+
+**Removing a demonstrably wrong behaviour buys nothing.** The MLP clone spends
+10% of its actions on REMOVE_LINE; the heuristic uses it 0 times in 114 actions.
+Banning it via `remove_min_age`, applied to every arm on 60 paired seeds:
+
+```
+heuristic   254.4 -> 254.4   +0.0 +/-0.0   won  0/60
+hclone      167.8 -> 170.5   +2.7 +/-5.4   won 16/60
+pointer     184.5 -> 185.0   +0.5 +/-4.3   won  1/60
+blind       177.6 -> 182.2   +4.5 +/-5.5   won 13/60
+```
+
+That also settles a contested review claim that "65% of the hybrid effect is
+banning line removal" -- measured directly, it is +2.7 +/-5.4.
+
+**More data buys nothing** (E39: 40/120/360 episodes give 76.3/76.9/74.6%).
+**A permutation-correct architecture buys nothing** (the pointer head raised
+agreement ~8pp and moved the score by +1.45 +/-17.23). **Direct RL buys nothing**
+(11M steps from scratch reached 175.4, below the blind control).
+
+### What is left
+
+By elimination, the entire 75-delivery gap lives in **which station pair is
+chosen**, and nothing tried touches it. The heuristic's rule is an argmin over
+station-line distances; those distances are in the observation; no learner has
+converted them into the right selection.
+
+Two things follow, and neither has been tried.
+
+* **Make the comparison explicit in the observation.** Instead of supplying the
+  distances and hoping a network discovers the argmin, supply the ranking -- e.g.
+  a flag per action for "this names the nearest unserved station to this line's
+  nearer end". If the score moves, selection was the bottleneck and the finding
+  is precise. If it does not, the bottleneck is not selection either, and that
+  would be genuinely surprising.
+* **Optimise the score directly at the decision points, not the labels.** Every
+  method tried optimises agreement with a teacher, and agreement has now been
+  shown to be uncorrelated with score over the 0-81% range. That is an argument
+  for a method whose objective is the outcome.
+
+---
+
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not
