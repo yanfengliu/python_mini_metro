@@ -216,11 +216,21 @@ class EventGatedSemanticEnv(gym.Env):
         # advances the game. See `fast_forward`.
         seen = self.inner.action_masks()
         proposal = 0
-        if self._defer and chosen == self.DEFER:
+        deviated = False
+        if self._defer:
             from rl.heuristic import choose
 
+            # Always resolved, not only when DEFER is played, so `deviated`
+            # counts what the policy actually did DIFFERENTLY. Naming the
+            # proposal explicitly is a no-op that a naive counter reads as a
+            # deviation, and under deviation_scope="kind" most decisions offer
+            # exactly {WAIT, DEFER} with the heuristic already proposing WAIT --
+            # so that counter would report constant activity from a policy that
+            # has changed nothing.
             proposal = choose(self.inner)
-            chosen = proposal
+            if chosen == self.DEFER:
+                chosen = proposal
+            deviated = chosen != proposal
         _, reward, terminated, truncated, info = self.inner.step(chosen)
         total = float(reward)
         self.decisions += 1
@@ -230,6 +240,7 @@ class EventGatedSemanticEnv(gym.Env):
             info = dict(tail)
         info = dict(info)
         info["proposal"] = proposal
+        info["deviated"] = deviated
         info["decisions"] = self.decisions
         return self.observe(), total, terminated, truncated, info
 

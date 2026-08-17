@@ -31,6 +31,7 @@ from rl.semantic_env import (
     MAX_PATHS,
     MAX_STATIONS,
     PATH_FEATURES,
+    RANK_FEATURES,
     REACH_FEATURES,
     REACH_PER_PAIR,
     RESOURCE_FEATURES,
@@ -112,6 +113,15 @@ class PointerExtractor(nn.Module):
             batch, MAX_STATIONS, MAX_PATHS * REACH_PER_PAIR
         )
         cursor += REACH_FEATURES
+        # The rank block sits between reach and resources, and this
+        # extractor does not read it -- but it still has to be STEPPED
+        # OVER. Without this line the resource slice started 80 floats
+        # early, so `resources` was the tail of the rank block, which is
+        # all zeros in ordinary play: the network was structurally blind
+        # to locomotives, carriages, credits and the distance to the next
+        # unlock, and trained end to end without error. Measured on a real
+        # observation, the true resource offset is 640 and this read 560.
+        cursor += RANK_FEATURES
         resources = observations[:, cursor : cursor + RESOURCE_FEATURES]
 
         # Each station is encoded with its own distances to every line, so the

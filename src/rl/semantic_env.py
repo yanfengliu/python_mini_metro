@@ -202,6 +202,12 @@ class SemanticMetroEnv(gym.Env):
     ):
         super().__init__()
         self.max_decisions = int(max_decisions)
+        # Remembered, and applied by `reset()` when no seed is given
+        # there. This argument used to be accepted and dropped, so
+        # `SemanticMetroEnv(seed=42)` drew a fresh random board on every
+        # reset -- no TypeError, no warning, and any reproducibility
+        # claim resting on it was simply false.
+        self._default_seed = None if seed is None else int(seed)
         # Removing a line is individually free: from identical states the next
         # 800 decisions return 18.3 when a line is kept and 18.7 when it is
         # destroyed. An action with no cost is never pushed away from, so the
@@ -582,6 +588,8 @@ class SemanticMetroEnv(gym.Env):
         """
 
         super().reset(seed=seed)
+        if seed is None:
+            seed = self._default_seed
         if seed is None:
             seed = int(self.np_random.integers(0, 2**31 - 1))
         self._mediator = Mediator(seed=seed)

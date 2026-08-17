@@ -119,9 +119,8 @@ def _score_one(job):
             else:
                 action, _ = model.predict(obs, action_masks=mask, deterministic=False)
                 action = int(np.asarray(action).ravel()[0])
-                if action != env.DEFER:
-                    deviations += 1
-            obs, reward, terminated, truncated, _ = env.step(action)
+            obs, reward, terminated, truncated, info = env.step(action)
+            deviations += int(info.get("deviated", False))
             total += float(reward)
             queries += 1
             if terminated or truncated:

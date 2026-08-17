@@ -43,7 +43,9 @@ from rl.semantic_env import ACTION_TABLE, SemanticMetroEnv  # noqa: E402
 PLAYERS = ("blind", "policy")
 
 # The dataset whose label marginal the blind control samples.
-DATASET = Path("output/semantic/search-data.npz")
+# Anchored to the repository, not to the working directory: resolved
+# relatively, the control silently depended on where it was launched.
+DATASET = Path(__file__).resolve().parent.parent / "output/semantic/search-data.npz"
 
 
 def play(player: str, seed: int, model=None, prior=None) -> dict:
@@ -121,7 +123,13 @@ def action_prior(path: Path | None = None) -> np.ndarray:
     the board.
     """
     counts = np.ones(len(ACTION_TABLE), dtype=np.float64)  # Laplace
-    if path is not None and path.exists():
+    # No `path.exists()` guard. `output/` is gitignored, so on any fresh
+    # checkout the dataset is absent -- and the guard turned that into a
+    # silent fall-through to the Laplace uniform, which is this repo's
+    # `random` control rather than its blind one. A null that quietly
+    # becomes a different null is worse than one that fails. Calling with
+    # no argument at all still returns the deliberate uniform.
+    if path is not None:
         actions = np.load(path)["actions"]
         for action in actions:
             counts[int(action)] += 1.0

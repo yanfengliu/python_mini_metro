@@ -39,8 +39,14 @@ EXPECTED_FAST_TASK = "719362078a7d98f1e3c944a6a797f7147b29383495f37f417aa9d61e34
 EXPECTED_FIDELITY_TASK = (
     "cd713a6891d8e74dab1aac2ded2edc88a727cb2b5b420948c65731d3a0eb3418"
 )
+# Rotated when `scripts/train_rl.py` gained a `--device cuda:N` guard and a
+# refusal to combine `--spatial-pointer` with `--resume`. This pin is a
+# provenance contract, not a checksum of a file that should never change: it
+# exists so a change to the training sources is a DELIBERATE rotation recorded
+# in a commit, rather than a silent drift between what a manifest claims a model
+# was trained by and what it was actually trained by.
 EXPECTED_LF_TRAINING = (
-    "323a2971605bd208868b7113e558c869702edd0b7ada5ac3f212b705c590cfb7"
+    "d757d610daae1e1c66b4dea174f2996792c147b22701b12ae766703c3f15c919"
 )
 
 

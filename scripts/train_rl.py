@@ -506,7 +506,13 @@ def require_usable_device(requested: str, *, cuda_available: bool) -> str:
 
     if requested == "cpu":
         return "cpu"
-    if requested in ("auto", "cuda") and not cuda_available:
+    # `startswith`, not an exact-string set. `cuda:0` and `cuda:1` are the
+    # ordinary way to name a particular GPU and both slipped past the
+    # membership test, so multi-GPU selection got the silent CPU fallback
+    # this guard exists to prevent -- the invisible ~100x slowdown, on the
+    # one spelling a user reaches for when they have more than one card.
+    wants_cuda = requested == "auto" or requested.startswith("cuda")
+    if wants_cuda and not cuda_available:
         raise SystemExit(
             NEWLINE.join(
                 (
@@ -530,6 +536,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.resume_manifest is not None and args.resume is None:
         parser.error("--resume-manifest requires --resume")
+    if args.resume is not None and args.spatial_pointer:
+        parser.error(
+            "--spatial-pointer cannot be combined with --resume: a warm "
+            "start takes its policy head from the checkpoint, so the flag "
+            "would be silently ignored and the run would report an "
+            "architecture it is not using. Drop --spatial-pointer, or "
+            "train from scratch with it."
+        )
     # Resolve the device before any long-running work, so a CPU-only install
     # fails in the first second rather than after hours at 1/100th the speed.
     import torch

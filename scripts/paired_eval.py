@@ -113,14 +113,13 @@ def play(arm: str, seed: int, spec: dict) -> dict:
                     obs, action_masks=mask, deterministic=spec["deterministic"]
                 )
                 action = int(np.asarray(action).ravel()[0])
-                if getattr(env, "DEFER", None) is not None and action != env.DEFER:
-                    deviations += 1
             else:
                 raise ValueError(
                     f"unknown player {arm!r}; expected one of heuristic, wait, "
                     "random, defer, or model:<path-to-a-saved-policy>"
                 )
-            obs, reward, terminated, truncated, _ = env.step(action)
+            obs, reward, terminated, truncated, info = env.step(action)
+            deviations += int(info.get("deviated", False))
             total += float(reward)
             queries += 1
             if terminated or truncated:

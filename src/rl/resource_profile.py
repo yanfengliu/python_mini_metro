@@ -496,6 +496,12 @@ def estimate_inference_macs(
         critic_lstm=recurrent_macs,
         actor_mlp=mlp_macs,
         critic_mlp=mlp_macs,
-        action_head=linear_macs(64, 8 + 192 + 108),
+        # From the PROFILE, not the fast profile's 192x108 literals. The
+        # action head emits one logit per kind plus one per pixel column
+        # and row, so it scales with the render surface exactly as the
+        # encoder does. Hardcoding it made `render_profile=` move the
+        # convolutions and silently not the head, understating fidelity
+        # inference by 12,800 MACs.
+        action_head=linear_macs(64, 8 + render_profile.width + render_profile.height),
         value_head=linear_macs(64, 1),
     )

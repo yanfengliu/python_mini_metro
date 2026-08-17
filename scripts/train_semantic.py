@@ -150,7 +150,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--resume", type=Path, help="warm-start from a saved policy")
     parser.add_argument("--ent-coef", type=float, default=0.01)
     parser.add_argument("--anchor-coef", type=float, default=0.0)
-    parser.add_argument("--checkpoint-episodes", type=int, default=5)
     parser.add_argument(
         "--arch",
         choices=("mlp", "pointer"),
@@ -175,6 +174,13 @@ def main(argv: list[str] | None = None) -> int:
         policy = "MlpPolicy"
         policy_kwargs = {}
 
+    if args.resume and args.arch != parser.get_default("arch"):
+        parser.error(
+            f"--arch {args.arch} cannot be combined with --resume: a warm "
+            "start takes its architecture from the checkpoint, so the flag "
+            "would be silently ignored. Drop --arch, or train from scratch "
+            "with it."
+        )
     if args.resume:
         # Start from a policy that already plays. From-scratch training on this
         # lane has failed in every configuration tried, and the cloned heuristic
@@ -195,6 +201,18 @@ def main(argv: list[str] | None = None) -> int:
         else:
             model = MaskablePPO.load(str(args.resume), env=vec, device=args.device)
         model.learning_rate = args.learning_rate
+        # Rebuild the SCHEDULE, which is what the optimiser actually
+        # reads. `load()` has already run `_setup_lr_schedule()` off the
+        # checkpoint's saved rate, and `_update_learning_rate` reads
+        # `self.lr_schedule`, never `self.learning_rate` -- so assigning
+        # the attribute alone did nothing. Every warm start in this
+        # project's history therefore trained at the checkpoint's rate, a
+        # constant 3e-4 inherited from the clone, whatever the flag said.
+        # It is checkable after the fact: SB3 pickles the live schedule,
+        # and all eight resumed artifacts on disk carry Constant(0.0003)
+        # beside an attribute of 5e-5 or 1e-4. `ent_coef` on the next line
+        # needs no such call because train() reads it directly.
+        model._setup_lr_schedule()
         model.ent_coef = args.ent_coef
         print(f"resumed from {args.resume}", flush=True)
     else:
@@ -217,12 +235,13 @@ def main(argv: list[str] | None = None) -> int:
             verbose=1,
         )
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
-    # `--eval-episodes`, NOT `--checkpoint-episodes`. This passed the latter for
-    # the whole of this project's history, so every in-training evaluation ran on
-    # 5 episodes whatever the flag said -- against a score distribution spanning
-    # 110 to 800, an MDE near +/-190. Every "new best, saved" was therefore a
-    # five-episode lottery, and the checkpoints selected that way are what later
-    # comparisons were run against.
+    # `--eval-episodes`. For the whole of this project's history this read a
+    # separate `--checkpoint-episodes`, so every in-training evaluation ran
+    # on 5 episodes whatever the flag said -- against a score distribution
+    # spanning 110 to 800, an MDE near +/-190. Every "new best, saved" was
+    # therefore a five-episode lottery, and the checkpoints picked that way
+    # are what later comparisons were run against. The dead flag has since
+    # been removed rather than left accepted-and-ignored.
     keeper = KeepBest(args.output, args.eval_every, args.eval_episodes, args.eval_seed)
     model.learn(total_timesteps=args.total_timesteps, callback=keeper.build())
     model.save(args.output)

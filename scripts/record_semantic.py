@@ -37,8 +37,8 @@ from PIL import Image  # noqa: E402
 from search_policy import (  # noqa: E402
     STRUCTURAL,
     _restore,
-    _rollout,
     _signature,
+    expected_value,
     shortlist_for,
 )
 
@@ -64,8 +64,16 @@ def play(
     every: int,
     candidates: int,
     cap: int,
+    futures: int,
     model=None,
 ) -> tuple[list[Image.Image], dict]:
+    """`futures` is REQUIRED for the same reason it is in `search_policy`.
+
+    Zero means clairvoyant: every candidate scored against the one future
+    that actually happens, because the serialised state carries the RNG.
+    It has no function default here so a programmatic caller cannot get
+    the oracle by omission, which is exactly how it was got before.
+    """
     pygame.init()
     surface = pygame.Surface((screen_width, screen_height))
     env = SemanticMetroEnv()
@@ -100,8 +108,18 @@ def play(
                 shortlist = shortlist_for(rng, structural, preferred, candidates)
                 document = serialize_game(env._mediator)
                 at = env._decision
+                # Through `expected_value` with RESAMPLED futures, not
+                # `_rollout` on the unmodified document. The serialised
+                # state carries the RNG, so a bare rollout scores every
+                # candidate against the one future that actually happens --
+                # an oracle no observation-conditioned policy could
+                # reproduce. `search_policy` was fixed for exactly this and
+                # this recorder kept the old call, so every playthrough it
+                # has produced was the clairvoyant player rather than the
+                # search this repo runs.
+                keys = [int(k) for k in rng.integers(0, 2**31 - 1, size=futures)]
                 scored = [
-                    (_rollout(env, document, at, entry, cap), entry)
+                    (expected_value(env, document, at, entry, cap, keys), entry)
                     for entry in shortlist
                 ]
                 _restore(env, document, at)
@@ -137,6 +155,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--every", type=int, default=40)
     parser.add_argument("--candidates", type=int, default=6)
     parser.add_argument("--cap", type=int, default=15_000)
+    parser.add_argument(
+        "--futures",
+        type=int,
+        default=4,
+        help="sampled futures per candidate; 0 is the clairvoyant oracle",
+    )
     parser.add_argument("--model", type=Path)
     parser.add_argument("--fps", type=int, default=20)
     parser.add_argument(
@@ -157,7 +181,13 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"recording {args.player} on seed {args.seed}, a frame every {args.every}")
     frames, summary = play(
-        args.player, args.seed, args.every, args.candidates, args.cap, model
+        args.player,
+        args.seed,
+        args.every,
+        args.candidates,
+        args.cap,
+        args.futures,
+        model,
     )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
