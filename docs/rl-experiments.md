@@ -1534,6 +1534,47 @@ did not spend on WAIT, or do not quote agreement.**
 
 ---
 
+## E39 -- the 75% decision ceiling is representational, not data-limited
+
+E38 established that a clone of the scripted heuristic gets 72.8% of real
+decisions right on unseen boards, and that the resulting 80-delivery shortfall
+puts it level with a network that cannot see the board. The obvious remedy is
+more data -- and unlike the search labels, heuristic labels are free.
+
+Held-out real-decision agreement, identical 12 evaluation seeds each time,
+teacher followed so both are judged on the same board:
+
+| training episodes | 40 | 120 | 360 |
+| --- | --- | --- | --- |
+| agreement | 76.3% | 76.9% | **74.6%** |
+
+**Flat. Nine times the data changes nothing.** The ceiling is not the quantity of
+labels, and this closes the whole family of remedies that assume it is: more
+episodes, DAgger rounds, soft targets, aggregation. All of them were sold on the
+premise that the learner was starved. It is not.
+
+**Where the difficulty actually sits.** The heuristic's rule is an ARGMIN over
+station-line pairs -- graft the unserved station onto the nearer end of a line,
+or connect the closest unserved pair. The distances that rule needs are in the
+observation; they were added specifically for it (`REACH_PER_PAIR`, the per-end
+distances). So the information is present and the network still cannot use it.
+
+What the network is being asked to do is not function approximation, it is
+SELECTION: identify which of ~80 station-line pairs minimises a distance, then
+emit the single action index that names that pair. A flat MLP over a 574-vector
+has to learn that correspondence separately for every slot, and slot `i` holds a
+different station on every board -- so nothing it learns about slot 3 transfers
+to the board where the same station sits in slot 7.
+
+**Consequence.** Only two things can move this number, and neither is more data:
+an architecture that scores actions from the entities they name, or an
+observation in which the comparison is already made. The pointer head
+(`src/rl/semantic_nets.py`) is the first; its only previous trials were an RL run
+and a distillation on clairvoyant labels, so it has never been tested against
+honest labels on the metric that matters.
+
+---
+
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not
