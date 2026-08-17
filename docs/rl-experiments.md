@@ -1698,6 +1698,159 @@ here (E28).
 
 ---
 
+## E42 -- an episode is 21 decisions, and it has always been 7,600
+
+**Hypothesis:** the semantic lane's difficulty is partly a presentation artefact.
+`SemanticMetroEnv` asks for an action every `TICKS_PER_DECISION`, so an episode
+runs about 7,600 decisions -- and the scripted heuristic acts on 15 of them. If
+over 99.8% of every rollout is spent emitting WAIT, the policy gradient for the
+handful of real choices is diluted about 500:1 and a delivery's credit has to
+travel back across thousands of no-ops.
+
+**Measured first, before designing anything** -- the heuristic over 5 seeds:
+
+| quantity | mean |
+| --- | --- |
+| decisions per episode | 7,989 |
+| actions taken | 14.8 |
+| action-mask changes | 17.2 |
+| observation floats CONSTANT for the whole episode | 572.8 of 654 |
+| observation floats ALWAYS ZERO | 560.8 of 654 |
+
+That last row also settles the "most suspicious open fact" the previous session
+left. The 590 constant floats are not mysterious: **560 of them are permanently
+zero**, because the observation is fixed-slot for 20 stations and 4 lines while
+a real episode reaches 7-10 stations and 1-3 lines. It is padding, not signal
+loss.
+
+### The gate, and the two wrong versions before it
+
+`src/rl/event_gate.py` fast-forwards the simulation -- still WAITing, still
+accruing deliveries -- until the action mask changes, then re-queries.
+
+**Version 1 gated on mask changes alone and scored 0 deliveries against 525.**
+The heuristic's follow-up moves (graft the second station, then crew the line)
+are *already legal* when the first is taken, so the mask does not move; the gate
+sat idle for the whole backstop and the run died at the 40-second overcrowding
+deadline. Acting changes what to do next without changing what is *possible*.
+The gate must therefore be asymmetric: fast-forward only after WAIT, re-query
+immediately after anything else.
+
+**Version 2 read its baseline mask after the WAIT step had executed.** A WAIT
+advances six ticks before the fast-forward begins, so a station spawning inside
+those ticks became the baseline and the gate slept a full backstop through the
+very change it exists to wake for. This survived an n=8 check and was caught
+only by comparing **(decision, action) pairs per seed at n=200**:
+
+```
+seed 90048: plain acts at decision  411, gated at  611   (same action, 203)
+seed 90072: plain acts at decision 5217, gated at 5417   (same action, 286)
+seed 90110: plain acts at decision 9248, gated at 9448   (same action, 288)
+seed 90145: plain acts at decision 3033, gated at 3233   (same action, 199)
+seed 90182: plain acts at decision 6869, gated at 7069   (same action, 207)
+```
+
+Every divergence is the correct action delayed by *exactly* `wait_backstop`.
+Five seeds in 200, and the means were **249.29 against 249.50** -- an aggregate
+that would never have shown it.
+
+### The result
+
+With the baseline captured before the step, on 200 independent seeds:
+
+| | queries/episode | decisions/episode | mean | per-seed mismatches |
+| --- | --- | --- | --- | --- |
+| plain | 6,859.6 | 6,859.6 | 249.29 | -- |
+| gated | **50.9** | 6,862.6 | 249.50 | **0 of 200** |
+
+Deliveries, decision counts and the entire action sequence are identical. The
+horizon a learner sees falls **135x**, and with the backstop disabled entirely
+it is 365x at 20.6 queries.
+
+**CONFIRMED.** The gate is free for the heuristic. It restricts *when* a policy
+may act, which is a restriction on the policy class -- like frame-skip -- so it
+cannot inflate a score, and the bar it is measured against provably scores the
+same either way.
+
+### Why this changes what is affordable
+
+Prior RL runs on this lane burned ~7,600 policy steps per episode. 4,000
+episodes cost 30M steps and about 41 hours. Under the gate the same 4,000
+episodes are 200,000 policy steps. The simulation cost is unchanged -- the game
+still runs every tick -- so training becomes simulation-bound rather than
+policy-bound, which also means the 1.55x sim speedup from the previous session
+now converts into training throughput where before it did not.
+
+---
+
+## E43 -- the rest of the dead knobs
+
+`--eval-episodes` was found by accident, so the whole knob surface was audited:
+every argparse flag plus constructor keywords and module constants, each traced
+from its parse site into its consumer *with the callee's signature opened*, and
+each suspect handed to an independent lane instructed to refute it. **18
+suspected, 13 confirmed, 5 refuted.**
+
+The five refutations matter as much as the confirmations -- `--anchor-coef`,
+`--max-decisions`, `distill_search --gamma`, `--fps`, and `--spatial-pointer`'s
+manifest consumer are all live, and two of them were only shown live by running
+the real script end to end.
+
+**CRITICAL -- `--learning-rate` was dead on every `--resume`.** SB3's `load()`
+builds `lr_schedule` from the checkpoint's saved rate, and
+`_update_learning_rate` reads the schedule and never the attribute the script
+assigned afterwards. So every warm start in this project's history trained at a
+constant 3e-4 inherited from the clone, whatever the flag said. This is
+checkable after the fact rather than by reproduction, because SB3 pickles the
+live schedule into the save: **all eight resumed artifacts on disk carry
+`Constant(0.0003)` beside an attribute of 5e-5 or 1e-4**, and all twelve
+from-scratch checkpoints are clean.
+
+That gives **E26 a live alternative explanation**. The KL anchor was introduced
+because an unanchored warm start decayed from 146.5 to 46.4; `train_semantic.py`
+itself blames a *constant* 3e-4 for exactly that failure mode and installs a
+decaying schedule as the remedy -- into the from-scratch branch only. The
+collapse the anchor was built to cure was measured under the rate the code's own
+comment says causes collapses. E26's conclusion is not refuted; it is
+**unfounded as measured**.
+
+**MAJOR -- `PointerExtractor` never stepped over the rank block.** The
+observation is `stations | paths | reach | RANK | resources`; the extractor
+advanced its cursor past reach and read `resources` immediately, landing 80
+floats early on the tail of the rank block, which is all zeros in ordinary play.
+It was structurally blind to locomotives, carriages, credits and the distance to
+the next unlock, and trained end to end without error. Measured on a real
+observation: true resource offset 640, read at 560, and the slice it fed the
+network was `[0.]*14` against a real block of
+`[0.565 0 0 0.428 0 0.5 0.3 0.5 0.25 0.3 0 0 0 0.974]`.
+
+Blast radius, checked rather than assumed: every checkpoint on disk carries
+`policy_kwargs {}` and the stock policy, so E41 and the rank-rl runs were the
+MLP arm and are unaffected. **E27's pointer comparison was run under it.**
+
+**MAJOR, four more.** `--arch` and `--spatial-pointer` were silently ignored on
+a warm start, so a run could record an architecture it was not using.
+`--device cuda:N` slipped past a membership test against `("auto", "cuda")` and
+got the silent CPU fallback -- the ~100x slowdown -- on the one spelling anyone
+with two cards would use. `blind_control` fell through to the Laplace uniform
+when its gitignored dataset was absent, quietly swapping the blind null for the
+random control. `record_semantic --player search` still called `_rollout` on the
+unmodified document after `search_policy` was fixed, so **every playthrough it
+has produced was the clairvoyant oracle**, including `search-9000.gif` and the
+docstring claims read off it.
+
+**MINOR.** `SemanticMetroEnv(seed=42)` was accepted and dropped -- a fresh
+random board on every reset, no `TypeError`, no warning.
+`estimate_inference_macs` took a `render_profile` that moved the convolutions
+and silently not the action head, written as the literals `8 + 192 + 108`. The
+dead `--checkpoint-episodes` is removed rather than left accepted-and-ignored.
+
+All thirteen are pinned by `test/test_instrument_knobs.py` at the level of
+observable consequence -- what the optimiser reads, what the network is fed,
+what the environment plays -- because every one of them type-checked, ran clean,
+and produced entirely plausible logs.
+
+---
 ## Standing conclusions
 
 1. **Read the reward curve first.** E1 and E2 were real defects that could not

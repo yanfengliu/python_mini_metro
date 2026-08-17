@@ -18,6 +18,8 @@ When a lesson becomes a gate — a test, a lint rule, a fixed command — delete
 - Read the outcome curve before optimising the machinery that produces it; a real defect on a path that carries no signal buys nothing. ([evidence](lessons-evidence.md#read-the-outcome-curve-before-optimising-the-machinery-that-produces-it))
 - When two metrics from one experiment disagree in direction, the measurement is wrong — not the surprising one. ([evidence](lessons-evidence.md#when-two-metrics-disagree-in-direction-the-measurement-is-wrong))
 - Do not report an effect size from a handful of trials when the outcome is bimodal; the mean is mostly a count of lucky seeds. ([evidence](lessons-evidence.md#do-not-report-an-effect-size-from-a-handful-of-bimodal-trials))
+- Count the decision points before optimising the decision maker; how many decisions, how many are forced, how much of the input is live are one probe each and they bound what any learner could have achieved. ([evidence](lessons-evidence.md#count-the-decision-points-before-optimising-the-decision-maker))
+- Validate an equivalence on the per-item sequence -- what was done and when -- never on the summary statistic, which cannot see one good trajectory swapped for another. ([evidence](lessons-evidence.md#validate-an-equivalence-on-the-sequence-not-on-the-total))
 
 - Save the best result while it exists; a training run is not monotonic and the final weights are not the peak. ([evidence](lessons-evidence.md#save-the-best-result-while-it-exists))
 - A stated intention is not a completed action -- end a turn on what was done, not on what will be done next. ([evidence](lessons-evidence.md#a-stated-intention-is-not-a-completed-action))

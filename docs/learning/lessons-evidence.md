@@ -387,3 +387,56 @@ the reviewed files until they return. Reviewing a moving target produces
 confident findings about a state nobody can reproduce.
 
 Anchor: external `claude -p` review of commit 47997a3, 2026-08-15.
+
+## Count the decision points before optimising the decision maker
+
+Five sessions of reinforcement learning ran on the semantic lane -- four
+architectures, nine ledgered experiments, a search programme, an imitation
+programme -- against an environment nobody had counted. Measured in one probe
+that took a minute to write: **7,989 decisions per episode, 14.8 of them
+actions**. Over 99.8% of every rollout was a forced WAIT, so the gradient for
+the choices that matter was diluted about 500:1 and a delivery's credit had to
+travel back across thousands of no-ops.
+
+Collapsing that -- fast-forwarding through WAIT to the next change in the option
+set -- is free for the scripted policy, verified identical on 200 seeds, and
+reduces the horizon a learner sees by 135x. Every prior conclusion about "the
+learner cannot do this" was drawn under the 500:1 dilution.
+
+The same probe answered a question the previous session had recorded as its most
+suspicious open fact: 590 of 654 observation floats constant within an episode.
+560 of them are permanently *zero*, because the observation is fixed-slot for 20
+stations and 4 lines while an episode reaches 7-10 and 1-3. Padding, not signal
+loss. Also one minute of measurement, against a session of speculation.
+
+**Rule.** Before tuning the learner, measure the shape of the problem it is
+given: how many decisions, how many of them are forced, how much of the input
+is live. These are one probe each and they bound what any amount of learning
+could have achieved.
+
+Anchor: E42 in `docs/rl-experiments.md`; `src/rl/event_gate.py`, commit 00c65c6.
+
+## Validate an equivalence on the sequence, not on the total
+
+A wrapper claimed to be free for the scripted policy. Checked on 8 seeds by
+comparing deliveries: identical. Checked on 200 seeds by comparing deliveries:
+249.29 against 249.50, which reads as identical too.
+
+Checked on 200 seeds by comparing **(decision index, action) pairs**: five seeds
+diverged, and every one of them was the *correct action delayed by exactly the
+backstop* -- 411 arriving at 611, 3033 at 3233. The wrapper was reading its
+baseline state after a step had already advanced the game, so a station spawning
+inside that step became the baseline and it slept through the change it existed
+to wake for.
+
+No aggregate could have found this at any sample size, because the defect
+substitutes one good trajectory for another good trajectory. And the first
+mutation test written for the fix compared action *lists* and passed with the
+bug live -- the defect changes WHEN, not WHAT.
+
+**Rule.** An equivalence claim is validated per item on the full trajectory --
+what was done and when -- not on the summary statistic. If the claimed property
+is "identical behaviour", assert identical behaviour.
+
+Anchor: `test/test_event_gate.py::ASpawnInsideTheWaitStepMustNotBeSleptThrough`,
+pinned to seed 90048; E42.

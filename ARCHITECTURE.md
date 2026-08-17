@@ -77,8 +77,10 @@ python_mini_metro/
 |  |- source-provenance-engine.mjs
 |  |- source-provenance-git-safety.mjs
 |  |- source-provenance.mjs
+|  |- paired_eval.py
 |  |- record_playthrough.py
 |  |- record_semantic.py
+|  |- train_residual.py
 |  |- train_rl.py
 |  |- train_semantic.py
 |  |- verify_input_coordinator_differential.py
@@ -161,6 +163,7 @@ python_mini_metro/
 |  |  |- point.py
 |  |  |- polygon.py
 |  |  |- rect.py
+|  |  |- event_gate.py
 |  |  |- semantic_env.py
 |  |  |- semantic_nets.py
 |  |  |- shape.py
@@ -367,6 +370,8 @@ python_mini_metro/
 |  |- test_route_planner_queries.py
 |  |- test_route_planner_resolution_order.py
 |  |- test_route_planner_selection.py
+|  |- test_event_gate.py
+|  |- test_instrument_knobs.py
 |  |- test_semantic_env.py
 |  |- test_semantic_nets.py
 |  |- test_shaped_reward.py
@@ -424,6 +429,8 @@ python_mini_metro/
 - `Mediator.prepare_layout(width, height)` prepares all player hitboxes before input. Rendering consumes those prepared rectangles; drawing primitives never establish or move hitboxes.
 - `src/rl/protocol.py` is the dependency-free, fingerprinted player contract: registered pixel profiles, low-level `MultiDiscrete` action semantics, exact coordinate mapping, cursor pixels, reward modes, fixed ticks, and episode horizon. `src/rl/player_env.py` implements that contract with Gymnasium over the same `GameSession`, player event converter, and `GameRenderer` as the window.
 - `PlayerPixelEnv` exposes live game state only as pixels. Its implementation reads canonical deliveries and line credits, while terminal-metrics v1 deliberately retains the serialized `display_score` key for old manifests. Terminal episode metrics are emitted after the final action; `src/rl/privileged_oracle.py` is an explicitly separate validation/curriculum surface and adds carriage-control positions/counts only for tests and demonstration. `src/rl/demonstrator.py` uses that oracle to create a route, assign a locomotive, attach one carriage through real controls, and reach a positive delivery; neither privileged surface is passed to a learning policy, and the PlayerPixel info/protocol remains unchanged.
+- `src/rl/event_gate.py` wraps `SemanticMetroEnv` so a policy is queried at decision points rather than every six ticks: after WAIT it fast-forwards the simulation until the action mask changes (bounded by `wait_backstop`), and after any other action it re-queries immediately, because acting changes what to do next without changing what is possible. It is verified free for the scripted heuristic on 200 seeds -- identical deliveries, decision counts and the whole (decision, action) sequence -- while cutting the horizon a learner sees from ~6,860 queries per episode to ~51. Optional `defer=True` adds one action meaning "play what the heuristic would play", so a policy that always defers is the heuristic exactly; `deviation_scope` narrows what a deviation may reach, and `proposal_features` appends a ten-float block naming the action DEFER would take. `scripts/train_residual.py` trains against that action space with true deliveries as the reward, printing a paired difference against the heuristic on fixed evaluation seeds during the run. `scripts/paired_eval.py` scores arms on identical seeds, prints the minimum detectable effect beside every result, and reports a gap below it as not distinguishable rather than as a win.
+
 - `src/rl/dependencies.py` owns lazy imports for the optional RL stack. `src/rl/policy.py` owns recurrent/feed-forward hyperparameter contracts plus model construction and loading; fresh runs use SB3-Contrib RecurrentPPO, recurrent minibatches of 64, `src/rl/model.py`'s bounded adaptive-pooling `MiniMetroCNN`, and separate one-layer, 256-unit actor and critic LSTMs, while feed-forward Stable-Baselines3 PPO remains an explicit ablation. `src/rl/history.py` owns dependency-light immutable temporal descriptors and fingerprints plus the single profiled default factory for exact offsets `[128, 64, 7, 6, 5, 4, 3, 2, 1, 0]`; `src/rl/temporal_history.py` owns the optional-dependency bounded vector ring, terminal-copy, and fail-closed reset lifecycle. `src/rl/training.py` owns spawn-safe `base -> VecMonitor -> VecTemporalHistory` construction, default-factory consumption, environment/trainer source hashing (including both dependency lockfiles and history/manifest/temporal modules), and checkpoint callbacks while retaining `DEFAULT_FRAME_STACK = 8` and the former public training imports for explicit contiguous/PPO compatibility. `src/rl/evaluation.py` carries recurrent state across decisions and resets it at episode boundaries. `scripts/train_rl.py` resolves fresh recurrent omission to the promoted ten-frame descriptor, fresh explicit PPO omission to contiguous eight, `--frame-stack` to an explicit contiguous control, and reviewed `--history-layout` names to one descriptor shared by train/eval/persistence; resume and `scripts/evaluate_rl.py` reconstruct only the authenticated saved descriptor. Manifests bind algorithm and exact history identity across resume/evaluation, and evaluation separates final game-over totals from right-censored horizon totals. Core installs include Gymnasium; `requirements-rl.txt` adds Stable-Baselines3, SB3-Contrib, PyTorch transitively, and TensorBoard, while the universal hashed locks resolve platform-specific wheels reproducibly.
 - `src/rl/resource_profile.py` owns dependency-light candidate, storage, MAC, cyclic-order, and promotion-gate contracts; `src/rl/profile_validation.py` independently recomputes the exact task/trainer/history/tensor/rate contract before a worker can count as valid. `src/rl/windows_api.py` isolates the pinned `ctypes` Toolhelp32/PSAPI ABI, while `src/rl/windows_resources.py` owns retained process identities, descendant discovery, full-tree current-working-set samples, system commit/physical metadata, cadence failures, and scoped cleanup. `src/rl/profile_supervisor.py` owns pre/post clean-source attestation, bounded handshake and log draining, launcher/worker supervision, raw sample hashing, and bounded summary metadata. The stdlib-only top of `scripts/profile_rl_history_worker.py` blocks at a pre-import handshake; after release it constructs the real temporal wrapper and RecurrentPPO, drives two explicit production-horizon collect/train iterations, and measures actual padded recurrent batches. `scripts/profile_rl_history.py` counterbalances fresh workers and applies the preregistered engineering-safety gates. Raw profile evidence is ignored under `output/`; compact committed evidence records its digests when GM-02d2 runs.
 - `src/rl/artifacts.py` atomically writes versioned artifact indexes, hashes and parses one exact authenticated index snapshot, and captures one exact model byte sequence for SB3 rather than reopening the verified path. Training writes a zero-step recovery model/manifest before learning, refreshes provenance after periodic checkpoints, and uses unique index files so interruption cannot invalidate the previous recovery pair.

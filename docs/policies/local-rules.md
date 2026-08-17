@@ -20,6 +20,12 @@ A rule earns a place here when it would change how the next unrelated task is ap
 
 - **Shaping, curricula and other training aids stay outside the task contract.** They belong in wrappers applied to training environments. The task is "deliver passengers before the system is overwhelmed"; anything that changes `RewardMode`, the action space, the observation, or the render profile changes what the agent is being measured on and invalidates every artifact fingerprinted against it.
 
+- **One silently-ignored knob means the class is unaudited.** `--eval-episodes` was found by accident; auditing the rest of the surface the same way found thirteen more, one of them invalidating the recorded learning rate of every warm start in the project's history. The audit is cheap and mechanical: for each flag, constructor keyword and module constant, trace the value from its parse site into its consumer **with the callee's signature open**, then have an independent lane try to refute each suspect. Positional-argument mismatches and post-`load()` attribute assignments are invisible to any reading that stops at the caller.
+
+- **Measure the shape of the decision problem before tuning the learner.** How many decisions per episode, how many of them are forced, how much of the observation is live. Each is one probe, and each bounds what any amount of learning could have achieved -- this lane spent five sessions on architectures while 99.8% of every rollout was a forced WAIT and 560 of 654 observation floats were permanently zero.
+
+- **Semantic-lane RL runs through `EventGatedSemanticEnv`.** It is proved free for the scripted policy on 200 seeds (identical deliveries, decision counts, and full action sequence) and cuts the horizon a learner sees by 135x. A run that queries the policy every six ticks is spending 99.8% of its gradient on WAIT; if there is a reason to do that, state it.
+
 - **Evaluation is never assisted.** No shaping wrapper, no privileged channel, no teacher actions. A held-out evaluation that quietly includes exploration credit corrupts not just its own number but every comparison built on it.
 
 ## Game changes in service of the agent
