@@ -1718,10 +1718,33 @@ travel back across thousands of no-ops.
 | observation floats ALWAYS ZERO | 560.8 of 654 |
 
 That last row also settles the "most suspicious open fact" the previous session
-left. The 590 constant floats are not mysterious: **560 of them are permanently
-zero**, because the observation is fixed-slot for 20 stations and 4 lines while
-a real episode reaches 7-10 stations and 1-3 lines. It is padding, not signal
-loss.
+left. The 590 constant floats are not mysterious: **560 of them are zero for the
+whole of that episode**, because the observation is fixed-slot for 20 stations
+and 4 lines while an episode reaches 9 stations and, as E44 later established,
+exactly one line. It is padding, not signal loss.
+
+**Per-episode is not global, and the difference decides whether the padding can
+be deleted.** The always-zero SET differs per episode -- an 8-station board
+zeroes slots 8-19, a 9-station board zeroes 9-19 -- so the union of live floats
+across episodes is larger than any one episode's. Measured over 48 episodes
+spanning both the scripted policy and the rebuild policy of E48: **512 of 654
+are never non-zero in any of them**, against a per-episode mean of 564.
+
+Deleting those 512 would be a mistake on three counts, and the first is a lesson
+this repo has already paid for. `config.num_stations` is 20 and
+`path_unlock_milestones` has four entries, so the DOMAIN reaches both; episodes
+stop at 9 stations because the policy dies, not because the game does, and
+"unreachable from here" is a property of today's caller. Truncating the path
+slots would also make the multi-line question unaskable, which is the one E48
+most wants re-measured. Second, it would buy nothing: an input that is always
+exactly zero contributes nothing to a linear layer's output AND receives zero
+gradient, so those weights never leave their initialisation -- the padding is
+inert, not diluting, and the dilution that actually mattered was the 500:1 one
+in the TIME dimension that this experiment removes. Third, the real
+representational defect is not the zeros but the permutation: slot i holds a
+different station on every board, so a LIVE slot carries inconsistent signal,
+which is worse than a dead one carrying none. A set-structured encoder removes
+both at once; deleting columns removes neither.
 
 ### The gate, and the two wrong versions before it
 

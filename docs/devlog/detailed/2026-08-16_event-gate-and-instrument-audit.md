@@ -17,8 +17,17 @@ Metro; it is a property of asking for an action every six ticks.
 
 The same probe answered the "most suspicious open fact" the previous session
 flagged — 590 of 654 observation floats constant within an episode. **560 are
-permanently zero.** The observation is fixed-slot for 20 stations and 4 lines
-while a real episode reaches 7-10 stations and 1-3 lines. It is padding.
+zero for the whole of that episode.** The observation is fixed-slot for 20
+stations and 4 lines while an episode reaches 9 stations and exactly one line.
+It is padding.
+
+**Corrected later, and the correction matters:** that count is per-episode, and
+the always-zero set differs between episodes, so it is not the number that could
+be deleted. Across 48 episodes of two different policies, **512** are never
+non-zero in any of them. They still should not be deleted — the domain reaches
+20 stations and 4 lines even though today's policy does not, an always-zero
+input receives zero gradient and so is inert rather than diluting, and the real
+defect is that slot i holds a different station on every board. See E42.
 
 ## What a reviewer would have caught that the author missed — and did
 
