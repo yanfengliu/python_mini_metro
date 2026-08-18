@@ -117,7 +117,12 @@ def play(arm: str, seed: int, spec: dict) -> dict:
         from heuristic_variants import VARIANTS
 
         name = arm[len("variant:") :]
-        if name.startswith("learned"):
+        if name.startswith("trigger"):
+            from heuristic_variants import load_learned_trigger
+
+            _, _, where = name.partition(":")
+            variant = load_learned_trigger(where or "output/trigger/best.json")
+        elif name.startswith("learned"):
             # `variant:learned` or `variant:learned:<path>` -- the weights
             # `learn_end_rule.py` settled on, played through the same
             # harness as every other arm.

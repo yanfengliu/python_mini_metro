@@ -405,6 +405,107 @@ def _rebuild_step(env, mediator, legal, route, target):
     return None
 
 
+# Feature scales for the learned rebuild trigger, chosen so each is order 1 and
+# the weights are directly comparable. Station capacity is 12.
+_CAPACITY = 12.0
+_UNSERVED_SCALE = 4.0
+_WAITING_SCALE = 30.0
+
+# The weights that reproduce `make_rebuilder(threshold=0.20)` EXACTLY: score is
+# `saving - 0.20`, so the trigger fires on exactly the same states. The search
+# is anchored here, and `learn_trigger.py` refuses to start unless the anchor
+# reproduces v16 byte for byte -- the lesson E45 paid for.
+TRIGGER_FEATURES = (
+    "saving",
+    "unserved",
+    "max_queue",
+    "total_waiting",
+    "route_stations",
+    "bias",
+)
+TRIGGER_ANCHOR = (1.0, 0.0, 0.0, 0.0, 0.0, -0.20)
+
+
+def _pressure(mediator):
+    """Queue state, which is exactly what the action mask does not encode."""
+    queues = [len(getattr(s, "passengers", ())) for s in mediator.stations]
+    return (max(queues) if queues else 0), sum(queues)
+
+
+def make_learned_rebuilder(weights):
+    """`make_rebuilder`, with the fixed threshold replaced by a learned score.
+
+    The fixed trigger is one constant on a very steep curve -- measured at n=200
+    per arm, a 5% trigger is worth -19.95 against the scripted policy, 20% is
+    worth +31.82, and 40% is worth +2.73. A constant sitting on a curve that
+    sharp is leaving value behind, because whether a rebuild pays plainly
+    depends on the state: tearing the line down while queues are already full is
+    a different proposition from doing it while the board is quiet.
+
+    So the trigger becomes `weights . features > 0` over the saving itself plus
+    four things the constant cannot see -- how many stations are unserved, the
+    worst queue, the total waiting, and how long the line is. `TRIGGER_ANCHOR`
+    reproduces the fixed 20% rule exactly, so the search starts at the current
+    bar rather than near it.
+    """
+
+    weights = np.asarray(weights, dtype=float)
+
+    def choose(env) -> int:
+        mediator = env._mediator
+        positions = _station_positions(mediator)
+        served = _served(mediator)
+        unserved = [i for i in range(len(positions)) if i not in served]
+        legal = _legal_by_kind(env)
+
+        if ActionKind.PURCHASE_LINE in legal:
+            return legal[ActionKind.PURCHASE_LINE][0][0]
+
+        if len(mediator.paths) == 1 and len(positions) >= 5:
+            route = _path_indices(mediator, mediator.paths[0])
+            if len(route) >= 5:
+                current = _route_length(positions, route)
+                target, improved = _two_opt(positions, route)
+                if current > 0:
+                    worst, waiting = _pressure(mediator)
+                    features = np.array(
+                        [
+                            (current - improved) / current,
+                            len(unserved) / _UNSERVED_SCALE,
+                            worst / _CAPACITY,
+                            waiting / _WAITING_SCALE,
+                            len(route) / 10.0,
+                            1.0,
+                        ]
+                    )
+                    if float(weights @ features) > 0.0:
+                        step = _rebuild_step(env, mediator, legal, route, target)
+                        if step is not None:
+                            return step
+
+        grafted = _graft(env, mediator, legal, positions, unserved, lambda path: 0.0)
+        if grafted is not None:
+            return grafted
+
+        connected = _connect(mediator, legal, positions, unserved)
+        if connected is not None:
+            return connected
+
+        for kind in (ActionKind.ASSIGN_LOCOMOTIVE, ActionKind.ATTACH_CARRIAGE):
+            if kind in legal:
+                return legal[kind][0][0]
+        return 0
+
+    return choose
+
+
+def load_learned_trigger(path="output/trigger/best.json"):
+    import json
+
+    with open(path, encoding="utf-8") as handle:
+        return make_learned_rebuilder(json.load(handle)["mean_weights"])
+
+
 # Each entry changes exactly one rule. The scale on a graft penalty is in
 # canonical pixels, so it is comparable with the distances it is added to: a
 # station is 30 px and a typical inter-station gap is a few hundred.

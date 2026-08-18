@@ -16,13 +16,21 @@ re-queried on the very next decision.
 **Why that is free.** The heuristic's choice is a pure function of station
 positions, the served set, and the mask. None of the three can move while the
 mask stands still: a new station index makes fresh CONNECT/EXTEND/PREPEND
-entries legal, and only an agent action changes line membership. Measured on 8
+entries legal, and only an agent action changes line membership. Measured over
 200 independent seeds, deliveries, decision counts and the whole (decision,
-action) sequence are identical with the gate and without it, at 50.9 policy
-queries per episode against 6,860 -- a 135x reduction at the shipped
-`wait_backstop`. With the backstop disabled the purely event-driven count is
-about 19 queries, or 332x; those are the numbers for a different setting and
-are not what this ships with.
+action) sequence are identical with the gate and without it.
+
+**What wakes it, and what that costs.** The action mask, plus a backstop set to
+the game's own 40-second over-crowding deadline so the policy is never blind for
+longer than the window it must react within. That leaves 33.8 queries per
+episode of which the scripted policy acts on 41.4% -- against 0.20% before the
+gate.
+
+Waking on queue depth as well is available (`pressure_step`) and is off by
+default, because measuring it refuted the reason for adding it: queues cross a
+bucket boundary far more often than the backstop fires, so it triples the query
+count and cuts the useful share to 20.2%. The residual dilution is a real cost
+of letting a policy react to pressure at all, not an oversight.
 
 **The asymmetry is load-bearing.** An earlier version fast-forwarded after every
 action, not just after WAIT. It scored 0 deliveries against 525, because the
@@ -67,18 +75,49 @@ from rl.semantic_env import (
     SemanticMetroEnv,
 )
 
-# 20 game-seconds. It exists so WAIT is never absorbing and a learned policy
-# can still act on passenger pressure, which does not move the mask.
+# 400 decisions = 40 game-seconds = `config.passenger_max_wait_time_ms`, the
+# over-crowding deadline. Chosen from that constant rather than from a dilution
+# number: the policy is then never blind for longer than the window the game
+# gives it to react.
 #
-# It is NOT rarely reached: measured over 16 seeds, 457 of 545 WAIT decisions
-# (83.9%) end at the backstop rather than at a mask change. So most of the
-# query reduction at this default is fixed frame-skip, not event structure --
-# the purely event-driven count is 19 queries per episode (332x) against 51
-# here (135x). What IS established is that the value cannot move the anchor:
-# sweeping it over 1, 2, 5, 50, 200, 5000 and 100000 across 16 seeds leaves
-# the heuristic's deliveries, decision counts and action sequence identical in
-# all 112 episodes, so it is not a knob that quietly tunes the baseline.
-DEFAULT_WAIT_BACKSTOP = 200
+# The number it replaced was 200, and the sweep behind the change (12 seeds,
+# scripted policy, queries per episode and the share of them it acted on):
+#
+#     backstop  200 -> 50.6 queries, 27.7% useful     <- the old default
+#     backstop  400 -> 33.8 queries, 41.4% useful     <- this
+#     backstop 1000 -> 23.6 queries, 59.4% useful
+#     backstop 2000 -> 20.1 queries, 69.7% useful
+#
+# Before the gate it was 14 actions in 6,860 queries, or 0.20%. Longer backstops
+# keep improving that ratio and are deliberately not taken: at 2000 the policy
+# is blind for 200 seconds against a 40-second clock, which trades away the
+# reason the backstop exists.
+#
+# The knob cannot move the anchor -- sweeping it over 1, 2, 5, 50, 200, 5000 and
+# 100000 across 16 seeds left the heuristic's deliveries, decision counts and
+# action sequence identical in all 112 episodes. The heuristic reads only
+# positions, the served set and the mask, so waking it more or less often costs
+# it nothing, which is exactly why the equivalence tests cannot catch a bad wake
+# rule and why every number here is measured instead of argued.
+DEFAULT_WAIT_BACKSTOP = 400
+
+# OFF by default, and the measurement is why.
+#
+# The idea was that queue depth is what the mask cannot see, so waking on it
+# should replace the blind timer with an informative event and cut the dilution.
+# Measured, it does the opposite -- queues cross a bucket boundary far more
+# often than the timer fires:
+#
+#     pressure_step 0 (off) ->  20.1 queries, 69.7% useful
+#     pressure_step 6       ->  20.1 queries, 69.7% useful   (never crosses)
+#     pressure_step 3       ->  69.2 queries, 20.2% useful
+#     pressure_step 2       -> 167.6 queries,  8.4% useful
+#
+# So it is kept as an opt-in for a policy that genuinely needs to react to
+# queues, with its cost stated: at step 3 it triples the queries and cuts the
+# useful share by 3.5x. It never changes what the scripted policy plays -- 12 of
+# 12 seeds identical at every setting -- because that policy ignores passengers.
+DEFAULT_PRESSURE_STEP = 0
 
 # One-hot over ActionKind, plus the two table arguments normalised by
 # MAX_STATIONS. Small on purpose: it says what DEFER would do, nothing more.
@@ -119,6 +158,7 @@ class EventGatedSemanticEnv(gym.Env):
         self,
         *,
         wait_backstop: int = DEFAULT_WAIT_BACKSTOP,
+        pressure_step: int = DEFAULT_PRESSURE_STEP,
         defer: bool = False,
         proposal_features: bool = False,
         deviation_scope: str = "all",
@@ -148,6 +188,7 @@ class EventGatedSemanticEnv(gym.Env):
                 f"wait_backstop must be at least 1 decision, got {wait_backstop}; "
                 "it bounds how long a WAIT may fast-forward"
             )
+        self.pressure_step = int(pressure_step)
         self._defer = bool(defer)
         self._proposal = bool(proposal_features)
         self._scope = deviation_scope
@@ -205,6 +246,19 @@ class EventGatedSemanticEnv(gym.Env):
         self.decisions = 0
         return self.observe(), {}
 
+    def _pressure(self) -> tuple:
+        """Bucketed queue depth per station -- what the mask cannot see.
+
+        Returns `()` when the feature is off, which compares equal to itself and
+        so reduces the wake condition to the mask alone.
+        """
+        if self.pressure_step <= 0:
+            return ()
+        return tuple(
+            len(getattr(station, "passengers", ())) // self.pressure_step
+            for station in self.inner._mediator.stations
+        )
+
     def fast_forward(self, held: np.ndarray | None = None):
         """Advance on WAIT until the option set changes or the backstop expires.
 
@@ -226,10 +280,13 @@ class EventGatedSemanticEnv(gym.Env):
         """
         if held is None:
             held = self.inner.action_masks()
+        pressure = self._pressure()
         total = 0.0
         terminated = truncated = False
         for _ in range(self.wait_backstop):
             if not np.array_equal(self.inner.action_masks(), held):
+                break
+            if self._pressure() != pressure:
                 break
             _, reward, terminated, truncated, info = self.inner.step(0)
             total += float(reward)

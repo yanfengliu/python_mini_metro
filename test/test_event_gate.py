@@ -184,7 +184,17 @@ class GatingOnMaskChangeAloneIsWrong(unittest.TestCase):
     """
 
     def test_fast_forwarding_after_a_real_action_loses_deliveries(self):
-        env = EventGatedSemanticEnv(wait_backstop=200, max_decisions=BUDGET)
+        # `pressure_step=0` puts the gate back in the mask-only regime this
+        # defect belongs to. With the shipped pressure wake the same defect
+        # scores 68 against 67 -- queue depth moves within a few decisions, so
+        # the gate can no longer idle through the overcrowding deadline and the
+        # bug is largely masked. That is a real robustness gain and exactly why
+        # this test names the regime instead of relying on the default: a future
+        # change that drops the pressure wake would re-expose the defect, and
+        # this must still be the test that catches it.
+        env = EventGatedSemanticEnv(
+            wait_backstop=200, pressure_step=0, max_decisions=BUDGET
+        )
         env.reset(seed=0)
         total = 0.0
         try:
