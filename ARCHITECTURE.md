@@ -12,7 +12,9 @@ python_mini_metro/
 |  |  |- detailed/
 |  |- learning/
 |  |  |- lessons.md
-|  |  \- lessons-evidence.md
+|  |  |- lessons-evidence.md
+|  |  |- gate-proofs.md
+|  |  \- canon-candidates.md
 |  |- policies/
 |  |  \- local-rules.md
 |  |- rl-experiments.md

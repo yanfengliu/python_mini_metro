@@ -85,7 +85,9 @@ def evaluate(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("model", type=Path)
-    parser.add_argument("--episodes", type=_positive_int, default=10)
+    # 20, the pre-registered minimum in docs/rl-model-selection.md; see the
+    # note in evaluate_rl.py. A smaller n is still reachable explicitly.
+    parser.add_argument("--episodes", type=_positive_int, default=20)
     parser.add_argument("--seed", type=int, default=9000)
     parser.add_argument("--render-profile", default="fast")
     parser.add_argument("--device", default="auto")

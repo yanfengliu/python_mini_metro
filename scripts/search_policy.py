@@ -21,11 +21,20 @@ each action's immediate cost and none of its delayed payoff, so WAIT won by
 default and search systematically under-acted. Rollouts therefore run to episode
 end -- no horizon, no truncation bias.
 
-**Rollouts are reproducible.** Three rollouts from one snapshot returned 13.0
-deliveries every time, so the RNG state survives serialisation. One rollout per
-candidate gives the exact future under the default policy and no averaging is
-needed. This is exact rollout policy improvement, which is at least as good as
-its default policy whenever the comparison is exact -- and here it is.
+**Rollouts are reproducible, and that is not the same as the game being
+deterministic.** Three rollouts from one snapshot return the same number, so the
+RNG state survives serialisation -- which is why this file once concluded that
+one rollout per candidate gives "the exact future" and no averaging is needed.
+That was the reasoning error. Spawns here are random; a reproducible simulator
+lets you replay a future, it does not make that future the only one. The
+serialised state carries the RNG, so a single rollout scores a candidate against
+exactly the future that will happen, and taking the max over such one-sample
+estimates selects the luckiest sample rather than the best action. Measured on
+seed 9000, candidates differ by 17-54 deliveries within one future while one
+FIXED candidate varies by up to 62 across futures -- the noise is the size of the
+signal, and roughly 95% of a published +128.5 margin was luck. So every candidate
+is averaged over several sampled futures, using common random numbers so the
+comparison isolates the action.
 """
 
 from __future__ import annotations
@@ -267,7 +276,9 @@ def _one(job):
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--episodes", type=int, default=8)
+    # 20, the pre-registered minimum. The published "+128.50 +/-117.96,
+    # winning 8/8" was measured at n=8 on a near-bimodal outcome.
+    parser.add_argument("--episodes", type=int, default=20)
     parser.add_argument("--seed", type=int, default=9000)
     parser.add_argument("--candidates", type=int, default=6)
     parser.add_argument("--cap", type=int, default=20_000)

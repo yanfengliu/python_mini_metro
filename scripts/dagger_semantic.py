@@ -124,7 +124,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--start", type=Path, default=Path("output/semantic/bc3"))
     parser.add_argument("--rounds", type=int, default=8)
-    parser.add_argument("--episodes", type=int, default=10)
+    # 20, the pre-registered minimum in docs/rl-model-selection.md.
+    parser.add_argument("--episodes", type=int, default=20)
     parser.add_argument("--epochs", type=int, default=15)
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--learning-rate", type=float, default=2e-4)

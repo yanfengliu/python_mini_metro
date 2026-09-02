@@ -144,7 +144,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--checkpoint-every", type=_positive_int, default=100_000)
     parser.add_argument("--eval-every", type=_positive_int, default=100_000)
-    parser.add_argument("--eval-episodes", type=_positive_int, default=5)
+    # 20, the minimum docs/rl-model-selection.md pre-registers, gated by
+    # test_evaluation_protocol.py. At 5, against a score distribution
+    # spanning 110 to 800 and an MDE near +/-190, every "new best, saved"
+    # was a five-sample lottery -- and the checkpoints picked that way are
+    # what later comparisons were run against. CI passes --eval-episodes 1
+    # explicitly; a smoke run is not a comparison.
+    parser.add_argument("--eval-episodes", type=_positive_int, default=20)
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--resume", type=Path, help="model zip to continue training")
     parser.add_argument(

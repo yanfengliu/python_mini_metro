@@ -39,14 +39,21 @@ EXPECTED_FAST_TASK = "719362078a7d98f1e3c944a6a797f7147b29383495f37f417aa9d61e34
 EXPECTED_FIDELITY_TASK = (
     "cd713a6891d8e74dab1aac2ded2edc88a727cb2b5b420948c65731d3a0eb3418"
 )
-# Rotated when `scripts/train_rl.py` gained a `--device cuda:N` guard and a
-# refusal to combine `--spatial-pointer` with `--resume`. This pin is a
-# provenance contract, not a checksum of a file that should never change: it
-# exists so a change to the training sources is a DELIBERATE rotation recorded
-# in a commit, rather than a silent drift between what a manifest claims a model
-# was trained by and what it was actually trained by.
+# Rotated when `scripts/evaluate_rl.py` raised its `--episodes` default from 10
+# and `scripts/train_rl.py` its `--eval-episodes` default from 5, both to the 20
+# `docs/rl-model-selection.md` pre-registers and now gated by
+# `test_evaluation_protocol.py`. The 5 is the one that mattered: against a score
+# distribution spanning 110 to 800 it made every "new best, saved" a five-sample
+# lottery, and the checkpoints picked that way are what later comparisons ran
+# against. This pin is a provenance contract, not a
+# checksum of a file that should never change: it exists so a change to the
+# training sources is a DELIBERATE rotation recorded in a commit, rather than a
+# silent drift between what a manifest claims a model was trained by and what it
+# was actually trained by. The task and content fingerprints are untouched --
+# `test_content_fingerprint_excludes_training_tooling_and_dependencies` pins
+# that separation -- so no saved artifact's task identity moves.
 EXPECTED_LF_TRAINING = (
-    "d757d610daae1e1c66b4dea174f2996792c147b22701b12ae766703c3f15c919"
+    "8bf1aec26dda3d09a592725cacc9168fd3e24b84b308748b2862d48ae50b37b9"
 )
 
 

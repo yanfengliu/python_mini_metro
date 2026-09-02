@@ -113,7 +113,8 @@ def _one(job):
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", type=Path, default=Path("output/semantic/distilled"))
-    parser.add_argument("--episodes", type=int, default=16)
+    # 20, the pre-registered minimum in docs/rl-model-selection.md.
+    parser.add_argument("--episodes", type=int, default=20)
     parser.add_argument("--seed", type=int, default=50_000)
     parser.add_argument("--workers", type=int, default=12)
     args = parser.parse_args(argv)

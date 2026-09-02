@@ -33,6 +33,13 @@ from rl.semantic_env import ACTION_TABLE, ActionKind, SemanticMetroEnv  # noqa: 
 
 # A step offering one action is not a decision. Below this the environment is
 # narrating rather than being played, and a score says nothing about the policy.
+#
+# The number that makes this concrete, because it is counterintuitive: with the
+# mask leaving a median of ONE legal action per step, a RANDOM policy scored
+# 171.5 and the environment looked solved. Restoring route editing took the
+# median to 4 and random play to 0 -- a far worse number and a far better
+# environment, because there were finally decisions to get wrong. A rising score
+# is not evidence that an environment improved.
 MIN_MEDIAN_LEGAL_ACTIONS = 3
 
 

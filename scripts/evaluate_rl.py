@@ -58,7 +58,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("model", type=Path)
     parser.add_argument("--manifest", type=Path)
-    parser.add_argument("--episodes", type=_positive_int, default=10)
+    # 20, the pre-registered minimum in docs/rl-model-selection.md. Six
+    # episodes once produced a published 6.17 mean that twelve held-out
+    # episodes put at 1.50; outcomes here are near-bimodal, so a mean over a
+    # handful is mostly a count of lucky seeds. Smaller runs stay available
+    # for smoke tests, which is what CI passes --episodes 1 for.
+    parser.add_argument("--episodes", type=_positive_int, default=20)
     parser.add_argument("--seed", type=_non_negative_int)
     parser.add_argument("--device", default="auto")
     parser.add_argument("--output", type=Path)

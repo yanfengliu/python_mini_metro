@@ -21,6 +21,13 @@ import sys
 import unittest
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
+# The restore-behind-the-cache gate below imports `search_policy`, which lives
+# in scripts/. Without this line that import resolved only because some OTHER
+# test module had already appended the same path during discovery, so running
+# this file on its own raised ModuleNotFoundError and the gate reported an error
+# instead of guarding the cache -- and a gate whose reach depends on discovery
+# order is not a gate.
+sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../scripts")
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 
@@ -197,6 +204,72 @@ class MaskEquivalenceTest(unittest.TestCase):
             f"disagrees on {len(differing)} actions "
             f"{[(int(i), ActionKind(ACTION_TABLE[i][0]).name, ACTION_TABLE[i][1:]) for i in differing[:4]]}; "
             "the cache is keyed on route length rather than membership",
+        )
+
+    def test_it_matches_after_an_unassignment_is_queued_through_the_public_api(self):
+        """The third fingerprint term, and the one the rule is actually about.
+
+        `is_unassignment_queued` is in the fingerprint for a reason nothing in
+        this environment's action table can produce: no action here queues an
+        unassignment, so "unreachable from the current caller" was the exact
+        argument that let route membership and `is_game_over` be omitted. The
+        mediator's public API has `queue_locomotive_unassignment`, and a
+        restored save can arrive already queued, so the domain can change it
+        even though today's caller cannot.
+
+        `carriage_management._attach_candidate` filters on the flag while the
+        plain metro count does not move when one is queued -- so dropping the
+        term leaves ATTACH_CARRIAGE advertised on a line that can no longer take
+        one, silently, as a policy that will not learn.
+
+        EXACTLY ONE locomotive is assigned first, and that is a pinned input.
+        With the line's full four metros assigned, queuing one leaves three
+        still attachable and the mask does not move at all, so the comparison
+        passes with the term deleted. The flag only reaches the mask when the
+        queued metro is the only candidate. The first assertion measures that
+        rather than assuming it.
+        """
+        env = SemanticMetroEnv()
+        env.reset(seed=9000)
+        for _ in range(400):
+            env.step(0)
+        mediator = env._mediator
+        mediator.create_path_from_station_indices([0, 1])
+        self.assertTrue(mediator.can_assign_locomotive(mediator.paths[0]))
+        self.assertTrue(mediator.assign_locomotive(mediator.paths[0]))
+        before = _reference_mask(env)
+        # Warm the cache on the un-queued state, so a stale answer exists to be
+        # served.
+        env.action_masks()
+
+        self.assertTrue(
+            mediator.can_queue_locomotive_unassignment(mediator.paths[0]),
+            "the public API cannot queue an unassignment from this state, so "
+            "this test never exercises the fingerprint term it exists for",
+        )
+        self.assertTrue(mediator.queue_locomotive_unassignment(mediator.paths[0]))
+
+        produced = env.action_masks()
+        expected = _reference_mask(env)
+        env.close()
+
+        moved = np.flatnonzero(before != expected)
+        self.assertGreater(
+            len(moved),
+            0,
+            "queuing an unassignment left the true mask unchanged, so this "
+            "state cannot tell a fingerprint that carries the flag from one "
+            "that drops it and the assertion below is vacuous",
+        )
+        differing = np.flatnonzero(produced != expected)
+        self.assertEqual(
+            len(differing),
+            0,
+            f"after queuing an unassignment through the mediator's public API "
+            f"the mask disagrees on {len(differing)} actions "
+            f"{[(int(i), ActionKind(ACTION_TABLE[i][0]).name, ACTION_TABLE[i][1:]) for i in differing[:4]]}; "
+            "the cache is keyed on what this environment's action table can do "
+            "rather than on what the game can do",
         )
 
     def test_it_matches_after_a_different_game_is_restored_behind_it(self):

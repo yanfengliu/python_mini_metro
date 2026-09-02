@@ -139,15 +139,59 @@ class ASpawnInsideTheWaitStepMustNotBeSleptThrough(unittest.TestCase):
     Seed 90048 and its 700-decision window are pinned because a nearby seed
     passes with the bug live: the spawn has to land in the one step that opens a
     fast-forward, which is why it is rare.
+
+    THE BACKSTOP IS A PINNED INPUT TOO, and it was the one left at its default.
+    This test drove `_play_gated` at the shipped `wait_backstop` of 400 and was
+    green with the defect reintroduced in `step`. Re-measured on seed 90048 with
+    the baseline read after the step rather than before it:
+
+        backstop 100   identical
+        backstop 200   411 -> 611   REPRODUCES     <- the only one that does
+        backstop 300   identical
+        backstop 400   identical                   <- what this test used
+        backstop 600   identical
+
+    A spawn only causes a delay when it lands inside the one step that opens a
+    fast-forward, so which backstop reproduces is as arbitrary as which seed
+    does. Pinning the seed and then leaving a second input at its default leaves
+    exactly the hole the seed was pinned to close, so the equivalence is
+    asserted across a sweep and 200 is in it.
     """
 
     SEED = 90048
     WINDOW = 700
+    # 200 reproduces; the others are here so a later change cannot quietly move
+    # the reproducing value out from under a single pinned number.
+    #
+    # WHAT THIS SWEEP DOES NOT COVER: four values, not a range. A defect that
+    # reproduced only at, say, backstop 250 would still escape, exactly as one
+    # reproducing only on an unpinned seed would. The reason this is four
+    # samples rather than a sweep is cost -- each is a full 700-decision paired
+    # run -- and the reason it is not one is that one was measured to be green
+    # with the defect live. `test_reading_the_baseline_after_the_step_reproduces_the_delay`
+    # below is the guard on that: it re-implements the defect at 200 and
+    # requires it to diverge, so if 200 ever stops reproducing, this class goes
+    # red rather than quietly becoming vacuous.
+    BACKSTOPS = (100, 200, 300, 400)
 
     def test_the_delayed_action_arrives_on_time(self):
         plain = _play_plain(self.SEED, self.WINDOW)
-        gated = _play_gated(self.SEED, self.WINDOW)
-        self.assertEqual(gated["actions"], plain["actions"])
+        self.assertGreater(
+            len(plain["actions"]),
+            3,
+            "the window holds too few actions for a delay to be visible in it",
+        )
+        for backstop in self.BACKSTOPS:
+            with self.subTest(wait_backstop=backstop):
+                gated = _play_gated(self.SEED, self.WINDOW, wait_backstop=backstop)
+                self.assertEqual(
+                    gated["actions"],
+                    plain["actions"],
+                    f"at wait_backstop={backstop} the gated run played a "
+                    "different (decision, action) sequence from the ungated one; "
+                    "the gate is not free for the scripted policy, and since the "
+                    "totals agree nothing but the per-item sequence can see it",
+                )
 
     def test_reading_the_baseline_after_the_step_reproduces_the_delay(self):
         """Mutation-prove the fix: the old baseline still fails this seed."""

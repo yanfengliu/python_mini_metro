@@ -96,7 +96,28 @@ class SnapshotFidelityTest(unittest.TestCase):
         The simulating environment is reset on a *different* seed first, so a
         rollout that secretly depended on its own episode seed rather than on the
         restored state would diverge here.
+
+        WHAT BOUNDS THIS GATE: the window. It ran 800 decisions and was green
+        with the defect live. A changed spawn sequence takes thousands of
+        decisions to reach the delivery count, so the two runs stay equal long
+        after they have stopped being the same game. Measured against a
+        `_restore` that rewinds the RNG to a fixed seed:
+
+            400 decisions   live   8.0   snapshot   8.0   same
+            800 decisions   live  19.0   snapshot  19.0   same   <- the old window
+           1500 decisions   live  37.0   snapshot  37.0   same
+           3000 decisions   live  80.0   snapshot  82.0   DIFFERS
+           4000 decisions   live 118.0   snapshot 117.0   DIFFERS
+
+        So the window runs past 3,000. A gate that stops before the defect
+        becomes visible is green for the same reason a gate driven by play that
+        cannot play is green.
         """
+        window = 4000
+        # Both loops break on game over, so an episode that ends early would
+        # silently shrink the window back below the divergence point and return
+        # this gate to the false green it was widened out of.
+        floor = 3000
         live = SemanticMetroEnv()
         live.reset(seed=9000)
         _advance(live, 500)
@@ -104,18 +125,28 @@ class SnapshotFidelityTest(unittest.TestCase):
         at = live._decision
 
         real = 0.0
-        for _ in range(800):
+        played = 0
+        for _ in range(window):
             _, reward, terminated, truncated, _ = live.step(choose(live))
             real += float(reward)
+            played += 1
             if terminated or truncated:
                 break
         live.close()
+
+        self.assertGreaterEqual(
+            played,
+            floor,
+            f"the live run ended after {played} decisions; futures on this game "
+            f"do not separate until about {floor}, so a comparison over this "
+            "window cannot tell a faithful snapshot from a rewound one",
+        )
 
         simulated = SemanticMetroEnv()
         simulated.reset(seed=1)
         _restore(simulated, document, at)
         predicted = 0.0
-        for _ in range(800):
+        for _ in range(window):
             _, reward, terminated, truncated, _ = simulated.step(choose(simulated))
             predicted += float(reward)
             if terminated or truncated:
@@ -237,7 +268,32 @@ class SampledFutureTest(unittest.TestCase):
     the best action -- measured on seed 9000, candidates differ by 17-54
     deliveries within a future while one fixed candidate varies by up to 62
     across futures.
+
+    The rollouts are shared across the tests below rather than recomputed:
+    every one of them needs the same state, the same keys and the same cap, and
+    a rollout here costs about 4.5 seconds.
     """
+
+    CAP = 3500
+    KEYS = (0, 1, 2)
+
+    @classmethod
+    def setUpClass(cls):
+        env = SemanticMetroEnv()
+        env.reset(seed=9000)
+        _advance(env, 400)
+        cls.document = serialize_game(env._mediator)
+        cls.at = env._decision
+        cls.singles = [
+            _rollout(env, reseeded(cls.document, key), cls.at, 0, cls.CAP)
+            for key in cls.KEYS
+        ]
+        # The real future, the one the serialised RNG hands over. This is what a
+        # one-sample search returns, so it is what the average has to be
+        # distinguishable FROM.
+        cls.plain = _rollout(env, cls.document, cls.at, 0, cls.CAP)
+        cls.mean = sum(cls.singles) / len(cls.singles)
+        env.close()
 
     def test_reseeding_changes_the_future(self):
         """If the RNG swap did nothing, averaging would be theatre.
@@ -247,21 +303,10 @@ class SampledFutureTest(unittest.TestCase):
         decisions, diverging from 3,000. A shorter check would have read as a
         broken RNG swap when the swap was fine.
         """
-        env = SemanticMetroEnv()
-        env.reset(seed=9000)
-        _advance(env, 400)
-        document = serialize_game(env._mediator)
-        at = env._decision
-
-        values = {
-            key: _rollout(env, reseeded(document, key), at, 0, 3500) for key in range(3)
-        }
-        env.close()
-
         self.assertGreater(
-            len(set(values.values())),
+            len(set(self.singles)),
             1,
-            f"three reseeded futures all returned {set(values.values())}; the RNG "
+            f"three reseeded futures all returned {set(self.singles)}; the RNG "
             "swap is not taking effect, so averaging over futures would return "
             "the same one-sample estimate it is meant to replace",
         )
@@ -293,24 +338,48 @@ class SampledFutureTest(unittest.TestCase):
         )
 
     def test_it_averages_rather_than_taking_one_sample(self):
+        """WHAT BOUNDS THIS GATE: the rollout cap, and it used to be too short.
+
+        At a cap of 600 this test passed with `expected_value` gutted to a
+        single un-reseeded rollout, because at 600 decisions every future still
+        returns the same number -- so the mean of three identical samples equals
+        the one sample it was supposed to replace. The sibling test above
+        measures where futures start to differ (about 3,000), and this cap has
+        to sit past that point.
+
+        A longer cap is necessary and not sufficient, so the control below is
+        the exact condition rather than a proxy for it. Deliveries are integers,
+        so three DIFFERENT futures can still average to the one-sample value --
+        [94, 95, 96] against a real future of 95 would pass a "the futures
+        differ" check and leave the assertion underneath comparing 95 to 95.
+        What has to hold is that the mean and the single sample are
+        distinguishable at all.
+        """
         env = SemanticMetroEnv()
         env.reset(seed=9000)
-        _advance(env, 400)
-        document = serialize_game(env._mediator)
-        at = env._decision
-        keys = [1, 2, 3]
-
-        singles = [_rollout(env, reseeded(document, k), at, 0, 600) for k in keys]
-        averaged = expected_value(env, document, at, 0, 600, keys)
+        averaged = expected_value(
+            env, self.document, self.at, 0, self.CAP, list(self.KEYS)
+        )
         env.close()
 
+        self.assertNotAlmostEqual(
+            self.plain,
+            self.mean,
+            places=5,
+            msg=f"the mean over futures {self.singles} is {self.mean}, which is "
+            f"the same number a single un-reseeded rollout returns ({self.plain}) "
+            f"over {self.CAP} decisions; on this state the two are "
+            "indistinguishable, so the assertion below would pass with the "
+            "averaging removed entirely -- move the cap or the keys until they "
+            "separate",
+        )
         self.assertAlmostEqual(
             averaged,
-            sum(singles) / len(singles),
+            self.mean,
             places=5,
             msg=f"expected_value returned {averaged} where the mean of "
-            f"{singles} is {sum(singles) / len(singles)}; it is not averaging "
-            "over the futures it was given",
+            f"{self.singles} is {self.mean}; it is not averaging over the "
+            "futures it was given",
         )
 
     def test_no_futures_reproduces_the_one_sample_search(self):

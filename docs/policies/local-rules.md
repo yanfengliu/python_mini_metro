@@ -30,6 +30,8 @@ A rule earns a place here when it would change how the next unrelated task is ap
 
 - **Evaluation is never assisted.** No shaping wrapper, no privileged channel, no teacher actions. A held-out evaluation that quietly includes exploration credit corrupts not just its own number but every comparison built on it.
 
+- **Do not restart the throughput work until a policy earns reward.** It was measured and abandoned: the environment pipeline delivers ~1300 env-FPS against training's 133-235, and `SubprocVecEnv` is 3.8x *faster* than in-process, so the IPC hypothesis was wrong. All of it was moot at a reward of exactly 0.00 at every logged step, because a fix on a path carrying no signal cannot be validated by the thing you care about. Numbers in `docs/devlog/detailed/2026-08-13_2026-08-14.md`.
+
 ## Game changes in service of the agent
 
 - **The observation is a design surface, not a given.** Render scale, entity sizes and contrast are as legitimate to change as the network, and are sometimes the cheaper fix — a passenger 0.5 px wide is destroyed before any architecture sees it. Weigh the two together rather than treating the game as fixed.

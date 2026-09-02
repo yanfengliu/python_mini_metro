@@ -54,6 +54,86 @@ def _draw_opening_route(env):
     return total
 
 
+class TheSignalMustBeReachableByThePolicyThatNeedsIt(unittest.TestCase):
+    """Reachable by EXPLORATION, which is not the same as reachable at all.
+
+    Every other test in this file drives the expert's opening drag, so it asks
+    whether shaping pays a policy that can already do the thing. The policy that
+    needs shaping cannot. The first version of this wrapper paid credit only for
+    stations joined onto a usable route, and across 24 random episodes and 8,721
+    decisions it paid out ZERO times -- it rewarded precisely the event an
+    exploring policy never reaches, and so reproduced the exact zero gradient it
+    was built to remove. Reintroduced, that defect passes every expert-driven
+    test in this file, because the expert reaches the milestone on its first
+    drag.
+
+    So the population matters: the credit has to arrive under the play that is
+    actually generating the batch. The two assertions below say that in the two
+    ways that can each be true without the other -- credit arrives in every
+    episode, and credit arrives BEFORE any line exists.
+    """
+
+    EPISODES = 12
+    STEPS = 600
+
+    @classmethod
+    def setUpClass(cls):
+        cls.runs = {seed: cls._explore(seed) for seed in range(cls.EPISODES)}
+
+    @classmethod
+    def _explore(cls, seed: int) -> dict:
+        from rl.shaping import count_connected_stations
+
+        env = _env(shaped=True)
+        try:
+            env.reset(seed=seed)
+            env.action_space.seed(seed)
+            mediator = env.unwrapped._require_mediator()
+            payouts = 0
+            payouts_before_any_line = 0
+            for _ in range(cls.STEPS):
+                _, _, terminated, truncated, info = env.step(env.action_space.sample())
+                if info.get("shaping_credit"):
+                    payouts += 1
+                    if count_connected_stations(mediator) == 0:
+                        payouts_before_any_line += 1
+                if terminated or truncated:
+                    break
+        finally:
+            env.close()
+        return {"payouts": payouts, "before_any_line": payouts_before_any_line}
+
+    def test_random_play_earns_shaping_credit_in_every_episode(self):
+        runs = self.runs
+        silent = sorted(seed for seed, run in runs.items() if not run["payouts"])
+
+        self.assertEqual(
+            silent,
+            [],
+            f"shaping paid out nothing across {self.STEPS} random decisions on "
+            f"seed(s) {silent} of {self.EPISODES}; a signal an exploring policy "
+            "never reaches leaves every reward in the batch at zero, so the "
+            "advantage is zero and the policy gradient is the zero vector -- "
+            "which is the failure shaping exists to remove",
+        )
+
+    def test_credit_arrives_before_the_milestone_it_is_scaffolding_for(self):
+        """Paying only at the finish line is the defect, restated as a test."""
+        blind = sorted(
+            seed for seed, run in self.runs.items() if not run["before_any_line"]
+        )
+
+        self.assertEqual(
+            blind,
+            [],
+            f"on seed(s) {blind} every payout arrived only after a line already "
+            "existed, so the ladder has no rung below the milestone; an "
+            "exploring policy has to cross the whole conjunction -- pointer-down "
+            "on a ~10 px station, motion, pointer-up on a different one -- "
+            "before it is paid anything at all",
+        )
+
+
 class ShapedRewardTest(unittest.TestCase):
     def test_deliveries_mode_pays_nothing_for_drawing_a_line(self):
         """The baseline this exists to fix: the gesture itself earns zero."""
