@@ -28,6 +28,7 @@ became a monotone selector for doing nothing. Where a run is supposed to start
 is a measurement, not a property of the code that was written.
 """
 
+import importlib.util
 import os
 import sys
 import tempfile
@@ -39,6 +40,24 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../scripts")
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+
+# Every class here drives a real training script, so it needs the RL stack.
+# CI's `build` job installs only `requirements-locked.txt`, so this SKIPS there
+# rather than erroring -- visibly, and named, so nobody reads a green build as
+# these gates having run. They run wherever the RL extras are installed, which
+# is the local gate `AGENTS.md` calls intentionally stricter.
+#
+# The distinction that matters: a skip says "not measured here", and an
+# unconditional pass would say "measured and fine". Only the first is true.
+RL_DEPS_AVAILABLE = all(
+    importlib.util.find_spec(name) is not None
+    for name in ("gymnasium", "sb3_contrib", "stable_baselines3", "torch")
+)
+NEEDS_RL = unittest.skipUnless(
+    RL_DEPS_AVAILABLE,
+    "needs the RL extras (requirements-rl-locked.txt): torch, "
+    "stable_baselines3, sb3_contrib",
+)
 
 # The measured collapse, replayed as a score sequence: a run climbs, peaks, and
 # then loses two thirds of what it had while still training.
@@ -70,6 +89,7 @@ class _Trainer:
         return [step for step, path in self.saved if path.endswith(suffix)]
 
 
+@NEEDS_RL
 class TheBestPolicyMustSurviveTheRunThatProducedIt(unittest.TestCase):
     EVERY = 1_000
     N_ENVS = 10
@@ -172,6 +192,7 @@ class _Recorder:
         pass
 
 
+@NEEDS_RL
 class AnInitialisationIsAClaimSoItIsMeasured(unittest.TestCase):
     """`scripts/train_residual.py` must read out its starting policy first.
 
@@ -291,6 +312,7 @@ class AnInitialisationIsAClaimSoItIsMeasured(unittest.TestCase):
         )
 
 
+@NEEDS_RL
 class TheBestKeeperMustActuallyBeWiredIntoTheRun(unittest.TestCase):
     """A keeper nothing hands to `learn` saves nothing, and its own tests pass.
 
