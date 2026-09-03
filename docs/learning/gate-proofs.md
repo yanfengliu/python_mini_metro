@@ -2,6 +2,18 @@
 
 Every gate that retired a lesson, with the product-code edit that was applied to make it go red.
 
+
+## If a gate here is wrong
+
+A gate and the claim in its header can be wrong together, and when they are they look exactly like a gate that is right: retiring 356 lessons across this fleet found 43 that named a defect their own named test did not catch. Auditing one means reaching what was actually believed, measured, and abandoned — never the sentence the gate carries about itself, which is the same self-agreement these gates exist to catch.
+
+That evidence was deleted in the retirement commits, not lost. This repo's evidence file as it stood immediately before, all 23 entries with their anchors:
+
+    git show 26c31bd:docs/learning/lessons-evidence.md
+
+`git log -- docs/learning/lessons-evidence.md` lists every earlier revision, and `git log -S'<phrase from the gate header>' -- docs/learning/` finds the entry a particular gate came from.
+
+
 A gate nobody has made fail is a claim, not a gate. This file is the standing answer to "did the gates actually do their job", so it records the exact mutation, the failure line it produced, and that the gate returned green when the mutation was reverted. Where an existing gate turned out NOT to catch the defect it was named for, that is recorded too — those are the most useful entries here.
 
 All runs are `python -m unittest` in the `py313` conda environment (`environment.yml`). Baseline before this work: 1,709 tests, OK, 251s; `npm test` 249 pass / 0 fail.
