@@ -9,12 +9,19 @@ is trained. These tests pin that capability rather than any particular layer.
 import os
 import sys
 import unittest
+from importlib.util import find_spec
 
-import gymnasium as gym
 import numpy as np
-import torch
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
+
+if any(find_spec(name) is None for name in ("stable_baselines3", "torch")):
+    raise unittest.SkipTest(
+        "PyTorch and Stable-Baselines3 are optional; rl.model imports both"
+    )
+
+import gymnasium as gym  # noqa: E402
+import torch  # noqa: E402
 
 from rl.model import MiniMetroCNN
 

@@ -14,10 +14,16 @@ comparison reports a mismatch even when the wiring is correct.
 import os
 import sys
 import unittest
+from importlib.util import find_spec
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+
+if any(
+    find_spec(name) is None for name in ("sb3_contrib", "stable_baselines3", "torch")
+):
+    raise unittest.SkipTest("PyTorch, Stable-Baselines3 and sb3-contrib are optional")
 
 import torch  # noqa: E402
 

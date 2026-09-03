@@ -22,6 +22,7 @@ import argparse
 import os
 import sys
 import unittest
+from importlib.util import find_spec
 from pathlib import Path
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
@@ -187,6 +188,16 @@ class FlagsThatTheCheckpointOverridesAreRefused(unittest.TestCase):
     def test_train_semantic_refuses_arch_with_resume(self):
         import train_semantic
 
+        # train_semantic.main imports sb3_contrib at scripts/train_semantic.py:162,
+        # before the parser.error this test drives -- KeepBest is not on this path.
+        missing = [
+            name
+            for name in ("sb3_contrib", "stable_baselines3")
+            if find_spec(name) is None
+        ]
+        if missing:  # pragma: no cover - RL extras absent
+            self.skipTest(f"RL dependencies unavailable: {', '.join(missing)}")
+
         with self.assertRaises(SystemExit):
             train_semantic.main(
                 ["--resume", "nonexistent.zip", "--arch", "pointer", "--output", "x"]
@@ -245,14 +256,20 @@ class TheRecorderUsesResampledFutures(unittest.TestCase):
     def test_play_requires_futures_with_no_default(self):
         import inspect
 
-        import record_semantic
+        try:
+            import record_semantic
+        except ImportError as error:  # pragma: no cover - RL extras absent
+            self.skipTest(f"RL dependencies unavailable: {error}")
 
         parameters = inspect.signature(record_semantic.play).parameters
         self.assertIn("futures", parameters)
         self.assertIs(parameters["futures"].default, inspect.Parameter.empty)
 
     def test_the_recorder_does_not_import_the_bare_rollout(self):
-        import record_semantic
+        try:
+            import record_semantic
+        except ImportError as error:  # pragma: no cover - RL extras absent
+            self.skipTest(f"RL dependencies unavailable: {error}")
 
         self.assertTrue(hasattr(record_semantic, "expected_value"))
         self.assertFalse(hasattr(record_semantic, "_rollout"))

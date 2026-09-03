@@ -16,11 +16,15 @@ sparse log -- which reads like slow training rather than a broken trigger.
 import os
 import sys
 import unittest
+from importlib.util import find_spec
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../scripts")
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+
+if find_spec("stable_baselines3") is None:
+    raise unittest.SkipTest("Stable-Baselines3 is optional; KeepBest imports it")
 
 from train_semantic import KeepBest  # noqa: E402
 

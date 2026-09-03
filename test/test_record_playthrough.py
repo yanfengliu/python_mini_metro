@@ -10,12 +10,16 @@ import os
 import sys
 import tempfile
 import unittest
+from importlib.util import find_spec
 from pathlib import Path
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../scripts")
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+
+if find_spec("PIL") is None:
+    raise unittest.SkipTest("Pillow arrives with the RL extras and is optional")
 
 import record_playthrough  # noqa: E402
 from PIL import Image  # noqa: E402

@@ -419,10 +419,13 @@ class TestMacContract(unittest.TestCase):
         3x5 pooling head while the live encoder had started flattening its full
         convolutional grid, and every assertion above still passed.
         """
-        import gymnasium as gym
-        import torch
+        try:
+            import gymnasium as gym
+            import torch
 
-        from rl.model import MiniMetroCNN
+            from rl.model import MiniMetroCNN
+        except ImportError as error:  # pragma: no cover - RL extras absent
+            self.skipTest(f"RL dependencies unavailable: {error}")
 
         frames = 8
         for profile in RENDER_PROFILES:

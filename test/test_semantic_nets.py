@@ -14,12 +14,19 @@ losses would still fall.
 import os
 import sys
 import unittest
+from importlib.util import find_spec
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 
 import numpy as np  # noqa: E402
+
+if any(
+    find_spec(name) is None for name in ("sb3_contrib", "stable_baselines3", "torch")
+):
+    raise unittest.SkipTest("PyTorch, Stable-Baselines3 and sb3-contrib are optional")
+
 import torch  # noqa: E402
 
 from rl.semantic_env import (  # noqa: E402
