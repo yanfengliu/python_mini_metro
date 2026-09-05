@@ -6,7 +6,7 @@ A Python 3.13 `pygame-ce` implementation of Mini Metro: optimize how many passen
 
 The recursive playtest loop runs on Node ≥ 20.6 against the built ignored `/.civ-engine-pin/` checkout described by `scripts/civ-engine-pin.json`; it never relies on or mutates `../civ-engine`. Keep workflow guidance rooted in the repo's existing Python commands and root-level documentation.
 
-<!-- FLEET-CANON:BEGIN sha=e2cb4ac06499 generated from ../fleet/FLEET.md by `npm run sync-canon` — do not edit inside this block; this repo's own rules go in docs/policies/local-rules.md -->
+<!-- FLEET-CANON:BEGIN sha=181e6b6bfe78 generated from ../fleet/FLEET.md by `npm run sync-canon` — do not edit inside this block; this repo's own rules go in docs/policies/local-rules.md -->
 ## Fleet constitution
 
 ### Fleet Orchestration Policy
@@ -56,6 +56,18 @@ Workers hand off outcomes, changes/revisions, checks and results, risks, blocker
 After two failures for the same reason, reassess rather than repeat. Unless another budget is specified, cap automatic repair at five substantive attempts, then report evidence, blockers, and next steps.
 
 Keep updates brief and decision-relevant. Clearly distinguish implemented, verified, reviewed, integrated, and blocked work. Stop when acceptance criteria and material findings are resolved; do not invent follow-up work. Report partial completion and unavailable verification honestly.
+
+#### Final acceptance gate
+
+The integration owner is accountable for final acceptance. Before reporting completion:
+
+- Check every acceptance criterion against the final integrated revision, using actual changes and verification evidence—not worker summaries alone.
+- Run relevant automated checks and exercise affected end-to-end behavior. Check cross-task interactions, not just each task in isolation.
+- For substantial or high-risk work, obtain an independent read-only review of the integrated changes, including integration fixes. If unavailable, explicitly report the missing review rather than implying it occurred.
+- Resolve material findings, rerun affected checks, and obtain focused re-review where fixes invalidate earlier review.
+- Report the verified revision, checks and results, review status, and any failed, skipped, or unavailable checks. Mark unmet criteria as incomplete.
+
+Do not declare the result fully verified while material findings or required checks remain unresolved. Respect the repair budget and report blockers.
 
 ### Fleet conventions
 
