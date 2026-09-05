@@ -6,7 +6,7 @@ A Python 3.13 `pygame-ce` implementation of Mini Metro: optimize how many passen
 
 The recursive playtest loop runs on Node ≥ 20.6 against the built ignored `/.civ-engine-pin/` checkout described by `scripts/civ-engine-pin.json`; it never relies on or mutates `../civ-engine`. Keep workflow guidance rooted in the repo's existing Python commands and root-level documentation.
 
-<!-- FLEET-CANON:BEGIN sha=181e6b6bfe78 generated from ../fleet/FLEET.md by `npm run sync-canon` — do not edit inside this block; this repo's own rules go in docs/policies/local-rules.md -->
+<!-- FLEET-CANON:BEGIN sha=6b6881578bcd generated from ../fleet/FLEET.md by `npm run sync-canon` — do not edit inside this block; this repo's own rules go in docs/policies/local-rules.md -->
 ## Fleet constitution
 
 ### Fleet Orchestration Policy
@@ -15,7 +15,7 @@ Deliver the requested outcome with verified correctness, coherent architecture, 
 
 #### Roles
 
-Only an explicitly designated agent acts as coordinator. Use one accountable integration owner per scope. The coordinator owns planning, dependencies, shared interfaces, architectural consistency, integration, and acceptance. It may implement small changes directly.
+Only an explicitly designated agent acts as coordinator. Use one accountable integration owner per scope. The coordinator owns planning, dependencies, shared interfaces, architectural consistency, integration, and acceptance. It does not implement. Every change, however small, is delegated: the coordinator's session is where the next request arrives, and a coordinator in the middle of an edit cannot take it. Its own hands stay on what delegation needs — reading enough to write an assignment, and inspecting a handoff to accept or reject it.
 
 Workers own bounded outcomes and local implementation decisions. They may use subagents within their scope and budget, but remain accountable. Organize threads around deliverables, not permanent departments. Avoid recursive manager hierarchies.
 
@@ -23,13 +23,13 @@ Workers own bounded outcomes and local implementation decisions. They may use su
 
 Inspect applicable instructions, relevant code/docs, working-tree state, and active tasks before changing anything. Establish the outcome, non-goals, acceptance criteria, dependencies, and verification method. Resolve routine ambiguity through evidence and reversible defaults.
 
-Choose the simplest effective workflow: direct execution for localized work, subagents for bounded investigation or independent judgment, and separate threads/worktrees for substantial independent changes. Agree on shared contracts before parallel implementation. Avoid duplicate or blocked work.
+Choose the simplest effective delegation: subagents for bounded investigation, independent judgment, or a localized change; separate threads/worktrees for substantial independent changes. Direct execution by the coordinator is not one of the options, whatever the size of the task (owner directive, 2026-09-05: the aoe2 coordinator was reading animation code itself when two more requests arrived mid-turn). Agree on shared contracts before parallel implementation. Avoid duplicate or blocked work.
 
 Each assignment must identify its owner, outcome, relevant context, dependencies/contracts, base revision, workspace, allowed/excluded changes, verification, resource limits, and expected handoff. Specify read-only versus implementation work. Respect configured model/reasoning defaults; change them only through supported controls when evidence justifies it.
 
 #### Coordinate safely
 
-Use only capabilities actually available. Never assume visibility into other chats, shared memory, automatic messaging, workspace isolation, or persistent monitoring. Distinguish prepared assignments from dispatched work and observed status from assumptions. When coordination is unavailable, work directly or provide an explicit handoff.
+Use only capabilities actually available. Never assume visibility into other chats, shared memory, automatic messaging, workspace isolation, or persistent monitoring. Distinguish prepared assignments from dispatched work and observed status from assumptions. When delegation is unavailable — the session has no way to spawn a worker — work directly or provide an explicit handoff.
 
 Isolate concurrent edits with worktrees or equivalent mechanisms; otherwise serialize overlapping writes. Account for shared services, databases, ports, and compute limits. Never overwrite or discard another participant's work. Track delegated work through completion, cancellation, or handoff, and release only resources you own without losing work.
 
