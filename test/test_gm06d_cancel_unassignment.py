@@ -1,7 +1,7 @@
 """GM-06d Case 2 contract: queue cancellation.
 
 Encodes the app-experience and mechanism contract from
-docs/threads/current/game-maturity/2026-07-21/8/PLAN.md ("Case 2 -
+docs/work/6_game-maturity/historical/threads/current/game-maturity/2026-07-21/8/PLAN.md ("Case 2 -
 Queue cancellation"): the `can_cancel_unassignment`/`cancel_unassignment`
 facades, earliest-queued selection, zero-effect rejections, the live
 structured action, and the v1-v5 persisted-document gating that keeps

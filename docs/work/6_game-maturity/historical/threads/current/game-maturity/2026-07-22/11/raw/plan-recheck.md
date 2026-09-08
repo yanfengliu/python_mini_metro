@@ -1,0 +1,9 @@
+# GM-07c plan narrow recheck — disposition
+
+The independent narrow-recheck subagent was terminated mid-run by a model-quota limit and did not return a verdict. Rather than spend further subagent budget on a narrow fold-consistency check, the parent session self-verified the seven folded findings against the live code:
+
+- F1 confirmed sound against `src/app_controller.py:75-87`: `handle_event` promotes PLAYING→GAME_OVER at lines 78-79 before routing the same event at 84-87, so a delete hooked at the promotion fires before any game-over exit routing — the interactive game-over exit sites are delete-safe. The window-X race (QUIT handled at `main.py:58-59` before any promoting event) is closed by main's QUIT branch independently checking `is_game_over` and deleting.
+- F2-F7 verified present and internally consistent in the revised D-027 policy and design sections: trigger list is menu entry + exit_to_title (save-before-release) + gated QUIT with controller SystemExit sites saving nothing; `(ValueError, OSError)` swallowed on every trigger; Continue renders on file existence with loadability proven at click; optional inert-default seams preserving pinned call sites; a patchable main-level path seam for tests.
+- One fold-introduced staleness fixed: the Acceptance section still claimed game-over-screen and window quits "preserve" the save, contradicting the delete-on-over policy; rewritten to state that closing the window preserves the save only mid-run and deletes it when over, and that Continue shows on file existence.
+
+No unresolved gap. The plan may proceed to red tests. (Honesty note: this recheck lane was self-verified by the implementing session under a resource constraint rather than by a fully independent agent; the substantive adversarial plan review at `raw/plan-review-combined.md` was independent and is the primary gate.)

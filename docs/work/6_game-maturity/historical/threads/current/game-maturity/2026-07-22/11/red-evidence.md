@@ -1,0 +1,14 @@
+# GM-07c red evidence
+
+Captured at the finalized GM-07b baseline, before any production change.
+
+- `test/test_gm07c_autosave_controller.py` (412 lines): 12 tests, 11 red + 1 guard — the save-fires-exactly matrix (menu entry; exit_to_title before the menu release with order asserted; never from controller SystemExit sites, GAME_OVER promotion, or TITLE); the delete-fires matrix (game-over promotion, game-over exit sites); Continue visibility via `peek`; successful Continue releasing only `menu` and preserving `user` and swapping the triple via `build_from`; failed Continue (ValueError corrupt / OSError missing) setting a notice and staying on TITLE; and the optional-seams regression guard (a controller built without the new seams behaves exactly as today).
+- `test/test_gm07c_run_game_loop.py` (206 lines): 5 tests, 4 red + 1 guard — main's QUIT branch saves in PAUSE_MENU and un-over PLAYING, deletes when `is_game_over`, and the title-quit guard neither saves nor deletes; all driven through patchable main-module autosave seams so no real save file is touched.
+- `test/test_gm07c_continue_roundtrip.py` (261 lines): 3 tests — end-to-end play → menu autosave (real `save_game` to a temp file) → fresh-controller Continue → checkpoint byte-equality against the saved boundary and lockstep continuation vs a never-exited control; plus game-over deletion making Continue unavailable.
+- `test/test_gm07c_menu_screens.py` (186 lines): 5 tests, 4 red + 1 guard — three-button title layout determinism/disjointness/on-screen, Continue drawn only when available and byte-stable, a new public `draw_notice` primitive byte-stable, and the pause-menu layout guard.
+
+Combined: full suite `Ran 1173 tests, failures=23, errors=0, skipped=12` — baseline 1148 + 25 new; every FAIL is `test_gm07c_*`; zero collateral (independently verified by the parent session). All failures are clean `AssertionError`s via the require_attribute/signature idiom; no import or collection errors.
+
+Minted product API surface (the implementer builds exactly this): `AppController(build_game, start_state=..., *, build_from=None, autosave=None)` with an `autosave` object exposing `save/delete/peek/load` (save/delete swallow internally; load raises `(ValueError, OSError)`), a public `notice: str | None` cleared on state change, Escape/exit_to_title save wiring, game-over delete wiring, and Continue via `peek`→`load`→`release_pause_reason("menu")`→`build_from`. `src/main.py` gains module-level `AUTOSAVE_PATH`, `write_autosave/delete_autosave/peek_autosave/load_autosave` (patchable), a `build_from` closure, and the state-gated QUIT branch. `src/ui/menu_screens.py` gains a `continue` key in `title_layout` (between new_game and exit), `draw_title_screen(..., continue_available=False)`, and public `draw_notice`.
+
+Ruff check/format and per-file pre-commit clean on all four modules; line counts 412/206/261/186.

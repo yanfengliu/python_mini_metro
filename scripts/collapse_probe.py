@@ -2,7 +2,7 @@
 
 One command, one verdict, unchanged for the rest of the search, so competing
 approaches are scored against the same thing rather than against each other's
-reports. See `docs/threads/current/training-collapse/DIAGNOSIS.md` for the
+reports. See `docs/work/9_training-collapse/historical/threads/current/training-collapse/DIAGNOSIS.md` for the
 done-condition and the disqualifier list.
 
 Scoring deliberately uses `ep_rew_mean` over training episodes rather than the

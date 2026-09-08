@@ -1,7 +1,7 @@
 """GM-06d Case 1 contract: occupied-locomotive queued return.
 
 Encodes the app-experience and mechanism contract from
-docs/threads/current/game-maturity/2026-07-21/8/PLAN.md ("Case 1 -
+docs/work/6_game-maturity/historical/threads/current/game-maturity/2026-07-21/8/PLAN.md ("Case 1 -
 Occupied-locomotive queued return") under the D-024 soft-cap rule:
 widened occupied selection, service-state preservation, the guaranteed
 force-alight drain, oracle-first ordinary unloads, and bounded-travel
