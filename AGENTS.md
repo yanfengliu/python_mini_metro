@@ -6,6 +6,8 @@ A Python 3.13 `pygame-ce` implementation of Mini Metro: optimize how many passen
 
 The recursive playtest loop runs on Node ≥ 20.6 against the built ignored `/.civ-engine-pin/` checkout described by `scripts/civ-engine-pin.json`; it never relies on or mutates `../civ-engine`. Keep workflow guidance rooted in the repo's existing Python commands and root-level documentation.
 
+This repo's own rules live in [docs/policies/local-rules.md](docs/policies/local-rules.md). They add repository constraints consistent with the Fleet Orchestration Policy below.
+
 <!-- FLEET-CANON:BEGIN sha=bafdd66f8299 generated from ../fleet/FLEET.md by `npm run sync-canon` — do not edit inside this block; this repo's own rules go in docs/policies/local-rules.md -->
 ## Fleet constitution
 
