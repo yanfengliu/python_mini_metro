@@ -8,7 +8,7 @@ The recursive playtest loop runs on Node ≥ 20.6 against the built ignored `/.c
 
 This repo's own rules live in [docs/policies/local-rules.md](docs/policies/local-rules.md). They add repository constraints consistent with the Fleet Orchestration Policy below.
 
-<!-- FLEET-CANON:BEGIN sha=bb31c741ed27 generated from ../fleet/FLEET.md by `npm run sync-canon` — do not edit inside this block; this repo's own rules go in docs/policies/local-rules.md -->
+<!-- FLEET-CANON:BEGIN sha=95bcbcb491dd generated from ../fleet/FLEET.md by `npm run sync-canon` — do not edit inside this block; this repo's own rules go in docs/policies/local-rules.md -->
 ## Fleet constitution
 
 ### Fleet Orchestration Policy
@@ -33,7 +33,7 @@ Each assignment must identify its owner, outcome, relevant context, dependencies
 
 Use only capabilities actually available. Never assume visibility into other chats, shared memory, automatic messaging, workspace isolation, or persistent monitoring. Distinguish prepared assignments from dispatched work and observed status from assumptions. When delegation is unavailable — the session has no way to spawn a worker — work directly or provide an explicit handoff.
 
-Isolate concurrent edits with worktrees or equivalent mechanisms; otherwise serialize overlapping writes. Account for shared services, databases, ports, and compute limits. Never overwrite or discard another participant's work. Track delegated work through completion, cancellation, or handoff, and release only resources you own without losing work.
+Isolate concurrent edits in a worktree: a session or agent doing anything beyond a trivial read works in its own worktree by default, because two sessions in one tree invalidate each other's comparisons, gates, and commits. Serialize overlapping writes only when a worktree is genuinely unavailable, and say why. Finishing a worktree means merging its branch to main and pushing, in the same session — a worktree is never where work is left to sit. Remove it with `git worktree remove` once its branch is merged; a worktree still on disk after its work has landed is a defect to report, not housekeeping to defer, and a session that ends with one says so and where it is. Account for shared services, databases, ports, and compute limits. Never overwrite or discard another participant's work. Track delegated work through completion, cancellation, or handoff, and release only resources you own without losing work.
 
 #### Preserve state and decision boundaries
 
