@@ -4,7 +4,7 @@ The war story and the anchor behind every rule currently queued in [lessons.md](
 
 An entry with no anchor is folklore. Entries are corrected in place as understanding improves, with the correction dated; deletion is reserved for a lesson that has become a gate, and it is deleted in the same commit as the gate that replaced it.
 
-Where an entry's knowledge outlived its prose, it did not evaporate: the gate carries the claim in its own header, [gate-proofs.md](gate-proofs.md) records the mutation that proved the gate, and anything with no mechanical trigger is in [canon-candidates.md](canon-candidates.md) or [../policies/local-rules.md](../policies/local-rules.md).
+Where an entry's knowledge outlived its prose, it did not evaporate: the gate carries the claim in its own header, [gate-proofs.md](gate-proofs.md) records the mutation that proved the gate, and anything with no mechanical trigger is in the fleet constitution, proposed in fleet's [canon-candidates.md](../../../fleet/canon-candidates.md), or in [../policies/local-rules.md](../policies/local-rules.md).
 
 ---
 
