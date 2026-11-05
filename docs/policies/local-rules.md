@@ -1,8 +1,8 @@
 # Local rules
 
-Steering specific to this repo that outlives the task that produced it. Fleet-wide direction lives in `../fleet/FLEET.md`; this file holds only what is true here and nowhere else.
+Rules specific to this repo that the owner asked for. Fleet-wide direction lives in `../fleet/FLEET.md`; this file holds only what is true here and nowhere else.
 
-A rule earns a place here when it would change how the next unrelated task is approached. Anything already enforced by a test, lint rule or fixed command belongs to the machine instead — do not restate a gate here.
+The owner adds a rule here when it would change how the next unrelated task is approached. Anything already enforced by a test, lint rule or fixed command belongs to the machine instead — do not restate a gate here.
 
 ## RL work
 
